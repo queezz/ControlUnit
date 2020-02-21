@@ -1,16 +1,35 @@
-# Data Logger and controller for Raspberry Pi
+# Control unit for plasma experiment.
+
+# 0. Why bother?
+
+There are commercially available data loggers and temperature control units, however sometimes it is nice to have all things you need in one place, and with a tailored UI. A common practice in many experimental physics labs is to use a Windows machine and [Labview](https://en.wikipedia.org/wiki/LabVIEW) from [National Instruments](https://en.wikipedia.org/wiki/National_Instruments), which work fine and is quite easy to implement for simple set-ups. NI sells all sorts of scientific equipment which is easy to connect to the LabView program.
+
+
+
+However, the cheaper and more importantly, open source alternative would be to use  a [SPC](https://en.wikipedia.org/wiki/Single-board_computer). 
+
+
 
 # 1. Introduction
 
-There are commercially available data loggers and temperature control units, however sometimes it is nice to have all things you need in one place, and with a tailored UI. Also, the price for commercial data loggers could be several times higher then a simple SPC alternative.
+This control unit is based on the Raspberry Pi with AD converter and relays. Main purpose of the unit is to control parameters and log signals.
 
 
 
-In our project, we have an experimental device where we want to measure several signals, plus to implement a feed-back control of a sensor temperature. 
+Experimental parameters: 
+
+- temperature
+- current
+- pressure
+- others
 
 
 
-Control unit in a box:
+In our project, we have an experimental device where we want to measure several signals, plus to implement a feed-back control. 
+
+
+
+Control unit box:
 
 | Front view                       | Back view                        |
 | -------------------------------- | -------------------------------- |
