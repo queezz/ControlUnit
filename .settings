@@ -1,0 +1,3 @@
+datafolder, ../data
+pathislocal, True
+sampling_rate, 0.1
