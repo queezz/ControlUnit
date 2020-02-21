@@ -14,7 +14,7 @@ class Graph(pg.GraphicsLayoutWidget):
 
         self.plaPl = self.addPlot(row=0, col=0)
         # TODO: 単位
-        self.plaPl.setLabel('left', "Ip", units='mA',**labelStyle)
+        self.plaPl.setLabel('left', "Ip", units='A',**labelStyle)
         self.plaPl.getAxis('left').setWidth(100)
         self.plaPl.getAxis('left').tickFont = font
 
