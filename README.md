@@ -14,7 +14,7 @@ Control unit in a box:
 
 | Front view                       | Back view                        |
 | -------------------------------- | -------------------------------- |
-| ![UI](images\ControlBlock_2.png) | ![UI](images\ControlBlock_1.png) |
+| ![UI](images/ControlBlock_2.png) | ![UI](images/ControlBlock_1.png) |
 
 
 
