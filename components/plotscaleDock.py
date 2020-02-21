@@ -49,13 +49,13 @@ class PlotScaleDock(Dock):
     def __setLayout(self):
         self.addWidget(self.widget)
 
-        self.widget.addWidget(self.autoscale, 0, 0)
+        self.widget.addWidget(self.Imax, 0, 1)
+        self.widget.addWidget(self.Imin, 0, 0)
         self.widget.addWidget(self.Tmax, 1, 0)
         self.widget.addWidget(self.Pmax, 2, 1)
         self.widget.addWidget(self.Pmin, 2, 0)
-        self.widget.addWidget(self.Imax, 3, 1)
-        self.widget.addWidget(self.Imin, 3, 0)
-        self.widget.addWidget(self.togIp, 4, 0)
+        self.widget.addWidget(self.togIp, 3, 0)
+        self.widget.addWidget(self.autoscale, 3, 1)
 
         self.verticalSpacer = QtGui.QSpacerItem(
             0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding
