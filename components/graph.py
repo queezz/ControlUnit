@@ -9,12 +9,16 @@ class Graph(pg.GraphicsLayoutWidget):
         super().__init__()
         self.setObjectName("graph")
 
+        labelStyle = {'color': '#FFF', 'font-size': '14pt'}
+        font = QtGui.QFont('serif',14)
+
         self.plaPl = self.addPlot(row=0, col=0)
         # TODO: 単位
-        self.plaPl.setLabel('left', "Ip", units='mA')
+        self.plaPl.setLabel('left', "Ip", units='mA',**labelStyle)
+        self.plaPl.getAxis('left').setWidth(100)
+        self.plaPl.getAxis('left').tickFont = font
 
         self.tempPl = self.addPlot(row=1, col=0)
-        labelStyle = {'color': '#FFF', 'font-size': '14pt'}
         self.tempPl.setLabel('left', "T", units=DEGREE_SMB+'C',**labelStyle)
         # Adjust the label offset
         self.tempPl.getAxis('left').setWidth(100)
@@ -27,9 +31,7 @@ class Graph(pg.GraphicsLayoutWidget):
         self.setBackground(background='#25272b')
                
         self.tempPl.getAxis('left').setPen('#fcfcc7')
-        font = QtGui.QFont('serif',15)
         self.tempPl.getAxis('left').tickFont = font
-        self.presPl.getAxis('left').tickFont = font
         self.presPl.getAxis('bottom').tickFont = font
         self.presPl.getAxis('bottom').setStyle(tickTextOffset = 10)
 

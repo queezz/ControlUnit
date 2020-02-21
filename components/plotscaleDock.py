@@ -3,6 +3,7 @@ import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui
 from pyqtgraph import QtCore
 from pyqtgraph.dockarea import Dock
+from  components.onoffswitch import ToggleCurrentPlot
 
 class PlotScaleDock(Dock):
 
@@ -11,6 +12,8 @@ class PlotScaleDock(Dock):
         self.widget = pg.LayoutWidget()
 
         self.autoscale = QtGui.QPushButton("auto")
+        self.togIp = ToggleCurrentPlot()
+        self.togIp.setChecked(True)
         self.Tmax = QtGui.QSpinBox()
         self.Tmax.setMinimum(50)
         self.Tmax.setMaximum(1000)
@@ -26,11 +29,20 @@ class PlotScaleDock(Dock):
         self.Pmax.setValue(1)
         self.Pmin.setValue(-8)
 
+        self.Imax = QtGui.QSpinBox()
+        self.Imin = QtGui.QSpinBox()
+        self.Imax.setMinimum(-29)
+        self.Imax.setMaximum(30)
+        self.Imin.setMinimum(-30)
+        self.Imin.setMaximum(29)
+        self.Imax.setValue(6)
+        self.Imin.setValue(-1)
+
         [i.setStyleSheet(
                 "QSpinBox::up-button   { width: 50px; }\n"
                 "QSpinBox::down-button { width: 50px;}\n"
                 "QSpinBox {font: 26pt;}"
-        ) for i in [self.Tmax,self.Pmax,self.Pmin]]
+        ) for i in [self.Tmax,self.Pmax,self.Pmin,self.Imax,self.Imin]]
 
         self.__setLayout()
 
@@ -41,6 +53,9 @@ class PlotScaleDock(Dock):
         self.widget.addWidget(self.Tmax, 1, 0)
         self.widget.addWidget(self.Pmax, 2, 1)
         self.widget.addWidget(self.Pmin, 2, 0)
+        self.widget.addWidget(self.Imax, 3, 1)
+        self.widget.addWidget(self.Imin, 3, 0)
+        self.widget.addWidget(self.togIp, 4, 0)
 
         self.verticalSpacer = QtGui.QSpacerItem(
             0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding

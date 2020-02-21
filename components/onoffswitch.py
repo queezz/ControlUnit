@@ -51,6 +51,13 @@ class OnOffSwitch(MySwitch):
     labels = ['ON','OFF']
     colors = [QtGui.QColor('#8df01d'), QtGui.QColor('#b89c76')]
 
+class ToggleCurrentPlot(MySwitch):    
+    radius = 15
+    width = 40
+    # 0 - On, 1 - Off
+    labels = ['Ip','no Ip']
+    colors = [QtGui.QColor('#8df01d'), QtGui.QColor('#b89c76')]
+
 class QmsSwitch(MySwitch):
     radius = 14
     width = 40

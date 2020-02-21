@@ -47,7 +47,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.p1Data = None
         self.p2Data = None
 
-        self.graph.removeItem(self.graph.plaPl) # remove Plasma current plot
+        #self.graph.removeItem(self.graph.plaPl) # remove Plasma current plot
         
         # Plot line colors
         self.valuePlaPlot = self.graph.plaPl.plot(pen='#6ac600')
@@ -55,6 +55,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.valueP1Plot = self.graph.presPl.plot(pen='#6ac600')
         self.valueP2Plot = self.graph.presPl.plot(pen='#c9004d')
         self.graph.tempPl.setXLink(self.graph.presPl)
+        self.graph.plaPl.setXLink(self.graph.presPl)
         
         self.graph.presPl.setLogMode(y=True)
         self.graph.presPl.setYRange(-8,3,0)
@@ -81,12 +82,15 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.controlDock.IGrange.valueChanged.connect(self.updateIGrange)
         
         self.controlDock.FullNormSW.clicked.connect(self.fulltonormal)
+        self.scaleDock.togIp.clicked.connect(self.toggleIpPlot)
         self.controlDock.OnOffSW.clicked.connect(self.__onoff)
         self.controlDock.quitBtn.clicked.connect(self.__quit)
         self.controlDock.qmsSigSw.clicked.connect(self.__qmsSignal)
 
         self.scaleDock.Pmin.valueChanged.connect(self.__updatePScale)
         self.scaleDock.Pmax.valueChanged.connect(self.__updatePScale)
+        self.scaleDock.Imin.valueChanged.connect(self.__updateIScale)
+        self.scaleDock.Imax.valueChanged.connect(self.__updateIScale)
         self.scaleDock.Tmax.valueChanged.connect(self.__updateTScale)
         self.scaleDock.autoscale.clicked.connect(self.__autoscale)
         
@@ -122,6 +126,11 @@ class MainWidget(QtCore.QObject, UIWindow):
         if pmin < pmax:
             self.graph.presPl.setYRange(pmin,pmax,0)
 
+    def __updateIScale(self):
+        """ Updated plot limits for the plasma current viewgraph """
+        imin,imax = [self.scaleDock.Imin.value(),self.scaleDock.Imax.value()]
+        self.graph.plaPl.setYRange(imin,imax,0)
+
     def __updateTScale(self):
         """ Updated plot limits for the Temperature viewgraph """
         tmax = self.scaleDock.Tmax.value()
@@ -129,8 +138,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
     def __autoscale(self):
         """ Set all plots to autoscale """
-        self.graph.tempPl.enableAutoRange()
-        self.graph.presPl.enableAutoRange()
+        [i.enableAutoRange() for i in [self.graph.tempPl,self.graph.presPl,self.graph.plaPl]]
 
     def fulltonormal(self):
        """ Change from full screen to normal view on click"""
@@ -141,8 +149,24 @@ class MainWidget(QtCore.QObject, UIWindow):
            self.MainWindow.showNormal()
            self.controlDock.setStretch(*(10,300)) # minimize control dock width
 
+    def toggleIpPlot(self):
+       """ Toggle Plasma current plot"""
+       if self.scaleDock.togIp.isChecked():
+           try:
+               self.graph.addItem(self.graph.plaPl,row=0,col=0)
+           except:
+               pass
+       else:
+           try: 
+               self.graph.removeItem(self.graph.plaPl) # remove Plasma current plot
+           except:
+               pass
+
     def __qmsSignal(self):
         """ qms signal """
+        if not self.controlDock.OnOffSW.isChecked():
+            return
+
         try:
             pi = pigpio.pi()
         except:

@@ -3,7 +3,7 @@ import numpy as np
 from pyqtgraph.Qt import QtCore, QtGui
 from typing import Callable
 from customTypes import ThreadType
-from electricCurrent import ElectricCurrent
+from electricCurrent import ElectricCurrent,hall_to_current
 from readsettings import get_datafolderpth
 
 TEST = False
@@ -151,17 +151,13 @@ class Worker(QtCore.QObject):
             arg = [aio.DataRate.DR_860SPS]
             p1_v,p2_v,ip_v = [aio.analog_read_volt(CH,*arg,**kws) for CH in CHNLS]
 
-           # p1_v = aio.analog_read_volt(CHP1, aio.DataRate.DR_860SPS, pga=aio.PGA.PGA_10_0352V)
-           # p2_v = aio.analog_read_volt(CHP2, aio.DataRate.DR_860SPS, pga=aio.PGA.PGA_10_0352V)
-           # ip_v = aio.analog_read_volt(CHIP, aio.DataRate.DR_860SPS, pga=aio.PGA.PGA_10_0352V)
-
             deltaSeconds = (datetime.datetime.now() - self.__startTime).total_seconds()
             self.__rawData[step] = [deltaSeconds, p1_v, p2_v, ip_v, self.__IGmode, self.__IGrange, self.__qmsSignal]
 
             # calculate DATA
             p1_d = ThreadType.getCalcValue(ThreadType.PRESSURE1, p1_v, IGmode=self.__IGmode, IGrange=self.__IGrange)
             p2_d = ThreadType.getCalcValue(ThreadType.PRESSURE2, p2_v)
-            ip_d = ip_v # TODO: calc
+            ip_d = hall_to_current(ip_v) # 
 
             self.__calcData[step] = [deltaSeconds, p1_d, p2_d, ip_d]
 
