@@ -335,16 +335,16 @@ class Worker(QtCore.QObject):
             time.sleep(TIMESLEEP)
             STEPtest = STEP
 
-            p1_v = (np.random.normal()+1)*5
-            p2_v = (np.random.normal()+1)*5
-            ip_v = np.random.normal()+2.5
+            p1_v = np.random.normal(4,0.8)
+            p2_v = np.random.normal(5,0.1)
+            ip_v = np.random.normal(2.5,.02)
 
             deltaSeconds = (datetime.datetime.now() - self.__startTime).total_seconds()
             self.__rawData[step] = [deltaSeconds, p1_v, p2_v, ip_v, self.__IGmode, self.__IGrange, self.__qmsSignal]
 
             p1_d = ThreadType.getCalcValue(ThreadType.PRESSURE1, p1_v, IGmode=self.__IGmode, IGrange=self.__IGrange)
             p2_d = ThreadType.getCalcValue(ThreadType.PRESSURE2, p2_v)
-            ip_d = ip_v # TODO: calc
+            ip_d = hall_to_current(ip_v) 
             self.__calcData[step] = [deltaSeconds, p1_d, p2_d, ip_d]
 
             if step%(STEPtest-1) == 0 and step != 0:
@@ -396,7 +396,7 @@ class Worker(QtCore.QObject):
         while not (self.__abort):
             time.sleep(0.25)
             STEPtest = STEP
-            temperature = (np.random.normal()+1)/10000
+            temperature = np.random.normal(20,1.5)
 
             deltaSeconds = (datetime.datetime.now() - self.__startTime).total_seconds()
             self.__rawData[step] = [deltaSeconds, temperature, self.__presetTemp]

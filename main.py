@@ -138,7 +138,13 @@ class MainWidget(QtCore.QObject, UIWindow):
 
     def __autoscale(self):
         """ Set all plots to autoscale """
-        [i.enableAutoRange() for i in [self.graph.tempPl,self.graph.presPl,self.graph.plaPl]]
+        [
+            i.enableAutoRange() for i in [
+                self.graph.plaPl,
+                self.graph.tempPl,
+                self.graph.presPl,
+            ]
+        ]
 
     def fulltonormal(self):
        """ Change from full screen to normal view on click"""
