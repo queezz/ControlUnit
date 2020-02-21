@@ -12,9 +12,9 @@ In our project, we have an experimental device where we want to measure several 
 
 Control unit in a box:
 
-| Front view                                                   | Back view                                                    |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| ![UI](C:\Users\queez\Dropbox\workspace\ControlUnit\images\ControlBlock_2.png) | ![UI](C:\Users\queez\Dropbox\workspace\ControlUnit\images\ControlBlock_1.png) |
+| Front view                       | Back view                        |
+| -------------------------------- | -------------------------------- |
+| ![UI](images\ControlBlock_2.png) | ![UI](images\ControlBlock_1.png) |
 
 
 
