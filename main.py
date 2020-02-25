@@ -50,10 +50,16 @@ class MainWidget(QtCore.QObject, UIWindow):
         #self.graph.removeItem(self.graph.plaPl) # remove Plasma current plot
         
         # Plot line colors
-        self.valuePlaPlot = self.graph.plaPl.plot(pen='#6ac600')
-        self.valueTPlot = self.graph.tempPl.plot(pen='#5999ff')
-        self.valueP1Plot = self.graph.presPl.plot(pen='#6ac600')
-        self.valueP2Plot = self.graph.presPl.plot(pen='#c9004d')
+        self.colors = {
+            'Ip':"#8d3de3",
+            'P1':"#6ac600",
+            'P2':"#c9004d",
+            'T':"#5999ff",
+        }
+        self.valuePlaPlot = self.graph.plaPl.plot(pen=self.colors['Ip'])
+        self.valueTPlot = self.graph.tempPl.plot(pen=self.colors['T'])
+        self.valueP1Plot = self.graph.presPl.plot(pen=self.colors['P1'])
+        self.valueP2Plot = self.graph.presPl.plot(pen=self.colors['P2'])
         self.graph.tempPl.setXLink(self.graph.presPl)
         self.graph.plaPl.setXLink(self.graph.presPl)
         
@@ -82,17 +88,22 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.controlDock.IGrange.valueChanged.connect(self.updateIGrange)
         
         self.controlDock.FullNormSW.clicked.connect(self.fulltonormal)
-        self.scaleDock.togIp.clicked.connect(self.toggleIpPlot)
         self.controlDock.OnOffSW.clicked.connect(self.__onoff)
         self.controlDock.quitBtn.clicked.connect(self.__quit)
         self.controlDock.qmsSigSw.clicked.connect(self.__qmsSignal)
+        
+        # Toggle plots for Current, Temperature, and Pressure
+        self.scaleDock.togIp.clicked.connect(self.togglePlots)
+        self.scaleDock.togT.clicked.connect(self.togglePlots)
+        self.scaleDock.togP.clicked.connect(self.togglePlots)
 
         self.scaleDock.Pmin.valueChanged.connect(self.__updatePScale)
         self.scaleDock.Pmax.valueChanged.connect(self.__updatePScale)
         self.scaleDock.Imin.valueChanged.connect(self.__updateIScale)
         self.scaleDock.Imax.valueChanged.connect(self.__updateIScale)
         self.scaleDock.Tmax.valueChanged.connect(self.__updateTScale)
-        self.scaleDock.autoscale.clicked.connect(self.__autoscale)
+        
+        self.scaleDock.autoscale.clicked.connect(self.__changeScale)
         
     def __quit(self):
         """ terminate app """
@@ -123,9 +134,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         pmin,pmax = [self.scaleDock.Pmin.value(),self.scaleDock.Pmax.value()]
 
         #self.graph.presPl.setLogMode(y=True)
-        if pmin < pmax:
-            self.graph.presPl.setYRange(pmin,pmax,0)
-
+        self.graph.presPl.setYRange(pmin,pmax,0)
+        
     def __updateIScale(self):
         """ Updated plot limits for the plasma current viewgraph """
         imin,imax = [self.scaleDock.Imin.value(),self.scaleDock.Imax.value()]
@@ -134,7 +144,13 @@ class MainWidget(QtCore.QObject, UIWindow):
     def __updateTScale(self):
         """ Updated plot limits for the Temperature viewgraph """
         tmax = self.scaleDock.Tmax.value()
-        self.graph.tempPl.setYRange(0,tmax,0)
+        self.graph.tempPl.setYRange(0,tmax,0)        
+        
+    def __updateScales(self):
+        """ Update all scales according to spinboxes """
+        self.__updateIScale()       
+        self.__updateTScale()
+        self.__updatePScale()        
 
     def __autoscale(self):
         """ Set all plots to autoscale """
@@ -146,6 +162,13 @@ class MainWidget(QtCore.QObject, UIWindow):
             ]
         ]
 
+    def __changeScale(self):
+        """ """
+        if self.scaleDock.autoscale.isChecked():
+            self.__autoscale()
+        else:
+            self.__updateScales()
+
     def fulltonormal(self):
        """ Change from full screen to normal view on click"""
        if self.controlDock.FullNormSW.isChecked():
@@ -155,18 +178,30 @@ class MainWidget(QtCore.QObject, UIWindow):
            self.MainWindow.showNormal()
            self.controlDock.setStretch(*(10,300)) # minimize control dock width
 
-    def toggleIpPlot(self):
-       """ Toggle Plasma current plot"""
-       if self.scaleDock.togIp.isChecked():
-           try:
-               self.graph.addItem(self.graph.plaPl,row=0,col=0)
-           except:
-               pass
-       else:
-           try: 
-               self.graph.removeItem(self.graph.plaPl) # remove Plasma current plot
-           except:
-               pass
+    def togglePlots(self):
+        """ Toggle plots 
+        self.scaleDock.togIp
+        self.graph.plaPl
+        """
+        def toggleplot(i,pl,row=0,col=0):
+           if i.isChecked():
+               try:
+                   self.graph.addItem(pl,row=row,col=col)
+               except:
+                   pass
+           else:
+               try: 
+                   self.graph.removeItem(pl) # remove plot
+               except:
+                   pass
+
+        items = {
+            'Ip':[self.scaleDock.togIp,self.graph.plaPl,0,0],
+            'T':[self.scaleDock.togT,self.graph.tempPl,1,0],
+            'P':[self.scaleDock.togP,self.graph.presPl,2,0],
+        }
+
+        [toggleplot(*items[jj]) for jj in ['Ip','T','P'] ]
 
     def __qmsSignal(self):
         """ qms signal """
@@ -185,7 +220,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.qmsSigThread.start()
             self.presCurWorker.setQmsSignal(1)
         else:
-            quit_msg = "Are you sure you want to stop QMS?"
+            quit_msg = "Turn Off experiment marker?"
             reply = QtGui.QMessageBox.warning(
                 self.MainWindow,
                 'Message',
@@ -290,24 +325,24 @@ class MainWidget(QtCore.QObject, UIWindow):
         """ set Bw text """
         temp_now = f"{self.currentvals[ThreadType.TEMPERATURE]:.0f}"
         self.registerDock.setTempText(self.__temp,temp_now)
-#dd1451b
+        #dd1451b
         txt = f"""
               <table>
                  <tr>
                   <td>
-                  <font size=5 color="#6ac600">
+                  <font size=5 color={self.colors['P1']}>
                     Pd = {self.currentvals[ThreadType.PRESSURE1]:.1e}
                   </font>
                   </td>
                   <td>
-                   <font size=5 color="#c9004d"> 
+                   <font size=5 color={self.colors['P2']}> 
                     Pu = {self.currentvals[ThreadType.PRESSURE2]:.1e}
                    </font>
                   </td>
                  </tr>
                  <tr>
                   <td>
-                   <font size=5 color="#6b32a8"> 
+                   <font size=5 color={self.colors['Ip']}>
                     I = {self.currentvals[ThreadType.PLASMA]:.2f}
                    </font>
                   </td>

@@ -152,10 +152,23 @@ class Worker(QtCore.QObject):
             p1_v,p2_v,ip_v = [aio.analog_read_volt(CH,*arg,**kws) for CH in CHNLS]
 
             deltaSeconds = (datetime.datetime.now() - self.__startTime).total_seconds()
-            self.__rawData[step] = [deltaSeconds, p1_v, p2_v, ip_v, self.__IGmode, self.__IGrange, self.__qmsSignal]
+            self.__rawData[step] = [
+                deltaSeconds,
+                p1_v,
+                p2_v,
+                ip_v,
+                self.__IGmode,
+                self.__IGrange,
+                self.__qmsSignal
+            ]
 
             # calculate DATA
-            p1_d = ThreadType.getCalcValue(ThreadType.PRESSURE1, p1_v, IGmode=self.__IGmode, IGrange=self.__IGrange)
+            p1_d = ThreadType.getCalcValue(
+                ThreadType.PRESSURE1,
+                p1_v,
+                IGmode=self.__IGmode,
+                IGrange=self.__IGrange
+            )
             p2_d = ThreadType.getCalcValue(ThreadType.PRESSURE2, p2_v)
             ip_d = hall_to_current(ip_v) # 
 
@@ -172,7 +185,13 @@ class Worker(QtCore.QObject):
                     [ThreadType.PRESSURE2, ave_p2]
                 ])
 
-                self.sigStep.emit(self.__rawData, self.__calcData, average, self.__ttype, self.__startTime)
+                self.sigStep.emit(
+                    self.__rawData,
+                    self.__calcData,
+                    average,
+                    self.__ttype,
+                    self.__startTime
+                )
                 self.__rawData = np.zeros(shape=(STEP, 7))
                 self.__calcData = np.zeros(shape=(STEP, 4))
                 step = 0
@@ -193,10 +212,14 @@ class Worker(QtCore.QObject):
                     [ThreadType.PRESSURE1, ave_p1],
                     [ThreadType.PRESSURE2, ave_p2]
                 ])
-                self.sigStep.emit(self.__rawData[:step+1, :], self.__calcData, average, self.__ttype, self.__startTime)
-            self.sigMsg.emit(
-                "Worker #{} aborting work at step {}".format(self.__id, totalStep)
-            )
+                self.sigStep.emit(
+                    self.__rawData[:step+1, :],
+                    self.__calcData,
+                    average,
+                    self.__ttype,
+                    self.__startTime
+                )
+            self.sigMsg.emit(f"Worker #{self.__id} aborting work at step {totalStep}")
 
         self.sigDone.emit(self.__id, self.__ttype)
         return
@@ -250,7 +273,13 @@ class Worker(QtCore.QObject):
                 else:
                     controlStep = self.__controlTemp1(average, controlStep)
                 
-                self.sigStep.emit(self.__rawData, self.__rawData, average, self.__ttype, self.__startTime)
+                self.sigStep.emit(
+                    self.__rawData,
+                    self.__rawData,
+                    average,
+                    self.__ttype,
+                    self.__startTime
+                )
                 self.__rawData = np.zeros(shape=(STEP, 3))
                 step = 0
             else:
@@ -269,9 +298,15 @@ class Worker(QtCore.QObject):
                 average = np.array([
                     [ThreadType.TEMPERATURE, ave]
                 ])
-                self.sigStep.emit(self.__rawData[:step+1, :], self.__rawData[:step+1, :], average, self.__ttype, self.__startTime)
+                self.sigStep.emit(
+                    self.__rawData[:step+1, :],
+                    self.__rawData[:step+1, :],
+                    average,
+                    self.__ttype,
+                    self.__startTime
+                )
             self.sigMsg.emit(
-                "Worker #{} aborting work at step {}".format(self.__id, totalStep)
+                f"Worker #{self.__id} aborting work at step {totalStep}"
             )
             if TT:
                 self.sigAbortHeater.emit()
@@ -358,7 +393,13 @@ class Worker(QtCore.QObject):
                     [ThreadType.PRESSURE2, ave_p2]
                 ])
 
-                self.sigStep.emit(self.__rawData, self.__calcData, average, self.__ttype, self.__startTime)
+                self.sigStep.emit(
+                    self.__rawData,
+                    self.__calcData,
+                    average,
+                    self.__ttype,
+                    self.__startTime
+                )
                 self.__rawData = np.zeros(shape=(STEPtest, 7))
                 self.__calcData = np.zeros(shape=(STEPtest, 4))
                 step = 0
@@ -382,10 +423,16 @@ class Worker(QtCore.QObject):
                     [ThreadType.PRESSURE2, ave_p2]
                 ])
 
-                self.sigStep.emit(self.__rawData[:step+1, :], self.__calcData[:step+1, :], average, self.__ttype, self.__startTime)
+                self.sigStep.emit(
+                    self.__rawData[:step+1, :],
+                    self.__calcData[:step+1, :],
+                    average,
+                    self.__ttype,
+                    self.__startTime
+                )
 
             self.sigMsg.emit(
-                "Worker #{} aborting work at step {}".format(self.__id, totalStep)
+                f"Worker #{self.__id} aborting work at step {totalStep}"
             )
         self.sigDone.emit(self.__id, self.__ttype)
         return
@@ -408,7 +455,13 @@ class Worker(QtCore.QObject):
                     [ThreadType.TEMPERATURE, ave],
                 ])
 
-                self.sigStep.emit(self.__rawData, self.__rawData, average, self.__ttype, self.__startTime)
+                self.sigStep.emit(
+                    self.__rawData,
+                    self.__rawData,
+                    average,
+                    self.__ttype,
+                    self.__startTime
+                )
                 self.__rawData = np.zeros(shape=(STEPtest, 3), dtype=object)
                 step = 0
             else:
@@ -427,10 +480,16 @@ class Worker(QtCore.QObject):
                     [ThreadType.TEMPERATURE, ave]
                 ])
 
-                self.sigStep.emit(self.__rawData[:step+1, :], self.__rawData[:step+1, :], average, self.__ttype, self.__startTime)
+                self.sigStep.emit(
+                    self.__rawData[:step+1, :],
+                    self.__rawData[:step+1, :],
+                    average,
+                    self.__ttype,
+                    self.__startTime
+                )
 
             self.sigMsg.emit(
-                "Worker #{} aborting work at step {}".format(self.__id, totalStep)
+                f"Worker #{self.__id} aborting work at step {totalStep}"
             )
         self.sigDone.emit(self.__id, self.__ttype)
         return
