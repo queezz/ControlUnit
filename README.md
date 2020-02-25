@@ -53,8 +53,6 @@ The analog signals from vacuum gauges, 0 - 10 V, and the K-type thermocouple, 0 
 
 
 
-![UI](images/app_screenshot_1.png
-
 ![UI](images/ui.gif)
 
 
