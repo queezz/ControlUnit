@@ -3,7 +3,7 @@ import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui
 from pyqtgraph import QtCore
 from pyqtgraph.dockarea import Dock
-from  components.onoffswitch import ToggleCurrentPlot
+from  components.onoffswitch import *
 
 class PlotScaleDock(Dock):
 
@@ -11,9 +11,11 @@ class PlotScaleDock(Dock):
         super().__init__("Scales")
         self.widget = pg.LayoutWidget()
 
-        self.autoscale = QtGui.QPushButton("auto")
+        self.autoscale = changeScale()
         self.togIp = ToggleCurrentPlot()
-        self.togIp.setChecked(True)
+        self.togT = ToggleTemperaturePlot()
+        self.togP = TogglePressurePlot()       
+        [i.setChecked(True) for i in [self.togIp, self.togT, self.togP]]
         self.Tmax = QtGui.QSpinBox()
         self.Tmax.setMinimum(50)
         self.Tmax.setMaximum(1000)
@@ -55,7 +57,9 @@ class PlotScaleDock(Dock):
         self.widget.addWidget(self.Pmax, 2, 1)
         self.widget.addWidget(self.Pmin, 2, 0)
         self.widget.addWidget(self.togIp, 3, 0)
-        self.widget.addWidget(self.autoscale, 3, 1)
+        self.widget.addWidget(self.togT, 3, 1)
+        self.widget.addWidget(self.togP, 4, 0)
+        self.widget.addWidget(self.autoscale, 5, 1)
 
         self.verticalSpacer = QtGui.QSpacerItem(
             0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding

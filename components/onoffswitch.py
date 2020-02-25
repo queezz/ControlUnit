@@ -14,7 +14,7 @@ class MySwitch(QtWidgets.QPushButton):
         super().__init__(parent)
         self.setCheckable(True)
         self.setMinimumWidth(66)
-        self.setMinimumHeight(22)
+        self.setMinimumHeight(35)
 
     def paintEvent(self, event):
         radius = self.radius
@@ -57,12 +57,33 @@ class ToggleCurrentPlot(MySwitch):
     # 0 - On, 1 - Off
     labels = ['Ip','no Ip']
     colors = [QtGui.QColor('#8df01d'), QtGui.QColor('#b89c76')]
-
+    
+class ToggleTemperaturePlot(MySwitch):
+    radius = 15
+    width = 40
+    # 0 - On, 1 - Off
+    labels = ['T','no T']
+    colors = [QtGui.QColor('#8df01d'), QtGui.QColor('#b89c76')]
+    
+class TogglePressurePlot(MySwitch):
+    radius = 15
+    width = 40
+    # 0 - On, 1 - Off
+    labels = ['P','no P']
+    colors = [QtGui.QColor('#8df01d'), QtGui.QColor('#b89c76')]
+    
+class changeScale(MySwitch):
+    radius = 15
+    width = 40
+    # 0 - On, 1 - Off
+    labels = ['auto','levels']
+    colors = [QtGui.QColor('#8df01d'), QtGui.QColor('#b89c76')]    
+    
 class QmsSwitch(MySwitch):
     radius = 14
     width = 40
 
-    labels = ['qRun', 'qStop']
+    labels = ['Exp ON', 'Exp OFF']
     colors = [QtGui.QColor('#33CCFF'), QtGui.QColor('#b89c76')]
 
 if __name__ == "__main__":
