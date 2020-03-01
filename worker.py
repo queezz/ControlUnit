@@ -147,9 +147,14 @@ class Worker(QtCore.QObject):
             
             # READ DATA
             CHNLS = [CHP1,CHP2,CHIP]
-            kws = {'pga':aio.PGA.PGA_10_0352V}
+            scale10 = [CHP1,CHP2]
+            scale5 = [CHIP]
+            kws = {CH:{'pga':aio.PGA.PGA_10_0352V} for CH in scale10}
+            for CH in scale5:
+                kws[CH] = {'pga':aio.PGA.PGA_5_0176V}
+
             arg = [aio.DataRate.DR_860SPS]
-            p1_v,p2_v,ip_v = [aio.analog_read_volt(CH,*arg,**kws) for CH in CHNLS]
+            p1_v,p2_v,ip_v = [aio.analog_read_volt(CH,*arg,**kws[CH]) for CH in CHNLS]
 
             deltaSeconds = (datetime.datetime.now() - self.__startTime).total_seconds()
             self.__rawData[step] = [
@@ -328,7 +333,11 @@ class Worker(QtCore.QObject):
         Kp = 3.5
         Ki = 0.06
         Kd = 0
-
+        
+        # TODO: 調整
+        if integral < -0.5:
+            integral = 0
+             
         if e >= 0:
             output = Kp * e + Ki * integral + Kd * derivative
             output = output * 0.0002 

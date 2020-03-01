@@ -16,6 +16,8 @@ except:
     print("no pigpio or AIO")
     TEST = True
 
+MAX_SIZE = 20000 # Maximum displayed points in pyqgraph plot
+
 # debug 
 # def trap_exc_during_debug(*args):
 #     print(args)
@@ -31,7 +33,7 @@ class MainWidget(QtCore.QObject, UIWindow):
     def __init__(self, app: QtGui.QApplication):
         super(self.__class__, self).__init__()
         self.__app = app
-        self.__setConnects()
+        self.connections()
         self.registerDock.setTemp(self.DEFAULT_TEMPERATURE,'---')
 
         QtCore.QThread.currentThread().setObjectName("main")
@@ -46,6 +48,12 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.tData = None
         self.p1Data = None
         self.p2Data = None
+        
+        self.ADCtypes = [
+            ThreadType.PLASMA,
+            ThreadType.PRESSURE1,
+            ThreadType.PRESSURE2
+        ]
 
         #self.graph.removeItem(self.graph.plaPl) # remove Plasma current plot
         
@@ -80,7 +88,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         index = self.controlDock.scaleBtn.selectBtn.currentIndex()
         self.__scale = ScaleSize.getEnum(index)
 
-    def __setConnects(self):
+    def connections(self):
         self.controlDock.scaleBtn.selectBtn.currentIndexChanged.connect(self.__changeScale)
         
         self.registerDock.registerBtn.clicked.connect(self.registerTemp)
@@ -285,6 +293,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.sigAbortWorkers.connect(worker.abort)
 
         # temperature
+        columns = ["time", "P1", 'P2', 'Ip', 'IGmode', 'IGscale', 'QMS_signal']
         if index == 0:
             df = pd.DataFrame(dtype=float, columns=["time", "T", "PresetT"])
             df.to_csv(
@@ -296,7 +305,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             )
         # pressures and current
         elif index == 1:
-            df = pd.DataFrame(dtype=object, columns=["time", "P1", 'P2', 'Ip', 'IGmode', 'IGscale', 'QMS_signal'])
+            df = pd.DataFrame(dtype=object, columns=columns)
             df.to_csv(
                 os.path.join(
                     self.datapth,
@@ -314,10 +323,15 @@ class MainWidget(QtCore.QObject, UIWindow):
         thread.started.connect(worker.work)
         thread.start()
 
-    currentvals = {ThreadType.PLASMA:0,ThreadType.TEMPERATURE:0,ThreadType.PRESSURE1:0,ThreadType.PRESSURE2:0}
+    currentvals = {
+        ThreadType.PLASMA:0,
+        ThreadType.TEMPERATURE:0,
+        ThreadType.PRESSURE1:0,
+        ThreadType.PRESSURE2:0
+    }
+    
     @QtCore.pyqtSlot(np.ndarray, np.ndarray, np.ndarray, ThreadType, datetime.datetime)
-    def onWorkerStep(self, rawResult: np.ndarray, calcResult: np.ndarray,
-                    ave: np.ndarray, ttype: ThreadType, startTime: datetime.datetime):
+    def onWorkerStep(self, rawResult, calcResult,ave,ttype,startTime):
         """ collect data on worker step """
         # MEMO: ave [[theadtype, average], [], []]
         for l in ave:
@@ -349,13 +363,14 @@ class MainWidget(QtCore.QObject, UIWindow):
                  </tr>
                 </table>
         """
+        # Update current values
         self.controlDock.valueBw.setText(txt) 
         self.controlDock.gaugeT.update_value(
             self.currentvals[ThreadType.TEMPERATURE]
         )
 
-        scale = self.__scale.value
-        MAX_SIZE = 20000
+        scale = self.__scale.value        
+        
         if ttype == ThreadType.TEMPERATURE:
             # get data
             t_data = self.tData
@@ -364,7 +379,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             # plot data
             skip = int((self.tData.shape[0]+MAX_SIZE-1)/MAX_SIZE)
             self.valueTPlot.setData(self.tData[scale::skip, 0], self.tData[scale::skip, 1])
-        elif ttype == ThreadType.PLASMA or ttype==ThreadType.PRESSURE1 or ttype==ThreadType.PRESSURE2:
+        elif ttype in self.ADCtypes:
             # get data
             pl_data = self.plaData
             p1_data = self.p1Data
@@ -381,9 +396,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         else:
             return
 
-    def __setStepData(self, data: np.ndarray, rawResult: np.ndarray,
-                      calcResult: np.ndarray, ttype: ThreadType,
-                      startTime: datetime.datetime):
+    def __setStepData(self, data, rawResult, calcResult, ttype, startTime):
         """ Append new data from Worker to main data arrays """
         # TODO: save interval
         self.__save(rawResult, ttype, startTime)
@@ -398,9 +411,9 @@ class MainWidget(QtCore.QObject, UIWindow):
             calcData[:, 1] = calcResult[:, ttype.getIndex()]
             data = np.concatenate((data, np.array(calcData)))
         return data
-
-    """ write csv """
-    def __save(self, data: np.ndarray, ttype: ThreadType, startTime: datetime.datetime):
+    
+    def __save(self, data, ttype, startTime):
+        """ write csv """
         if ttype == ThreadType.TEMPERATURE:
             df = pd.DataFrame(data)
             df.to_csv(
@@ -412,7 +425,7 @@ class MainWidget(QtCore.QObject, UIWindow):
                 header=False,
                 index=False
             )
-        elif ttype==ThreadType.PLASMA or ttype==ThreadType.PRESSURE1 or ttype==ThreadType.PRESSURE2:
+        elif ttype in self.ADCtypes:
             df = pd.DataFrame(data)
             df.to_csv(
                 os.path.join(
@@ -425,14 +438,14 @@ class MainWidget(QtCore.QObject, UIWindow):
             )
 
     @QtCore.pyqtSlot(int, ThreadType)
-    def onWorkerDone(self, workerId: int, ttype: ThreadType):
+    def onWorkerDone(self, workerId, ttype):
         self.logDock.log.append("Worker #{} done".format(workerId))
         self.logDock.progress.append("-- Signal {} STOPPED".format(workerId))
         self.__workers_done += 1
         # reset Data
         if ttype == ThreadType.TEMPERATURE:
             self.tData = None
-        elif ttype==ThreadType.PLASMA or ttype==ThreadType.PRESSURE1 or ttype==ThreadType.PRESSURE2:
+        elif ttype in self.ADCtypes:
             self.plaData = None
             self.p1Data = None
             self.p2Data = None
