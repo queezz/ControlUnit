@@ -36,6 +36,7 @@ class ThreadType(Enum):
         elif self == self.TEMPERATURE:
             return maskTemp(data)
         elif self == self.PRESSURE1:
+            m = kws.get('IGrange',1e-3)
             return maskIonPres(data,IGrange=m)
         elif self == self.PRESSURE2:
             return maskPfePres(data)
