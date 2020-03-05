@@ -1,3 +1,5 @@
+![Python application](https://github.com/queezz/ControlUnit/workflows/Python%20application/badge.svg)
+
 # Control unit for plasma experiment.
 
 # 0. Why bother?
