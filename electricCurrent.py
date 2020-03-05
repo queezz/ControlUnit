@@ -5,7 +5,7 @@ except:
 	print('no pigpio module, continue for a test')
 
 from pyqtgraph.Qt import QtCore
-from customTypes import ThreadType
+from customTypes import Signals
 
 # must inherit QtCore.QObject in order to use 'connect'
 class ElectricCurrent(QtCore.QObject):
@@ -25,7 +25,7 @@ class ElectricCurrent(QtCore.QObject):
     @QtCore.pyqtSlot()
     def work(self):
         self.__setThread()
-        pinNum = ThreadType.getGPIO(ThreadType.TEMPERATURE)
+        pinNum = Signals.getGPIO(Signals.TEMPERATURE)
         self.pi.set_mode(pinNum, pigpio.OUTPUT)
         while not self.abort:
             if self.__onLight == 0:

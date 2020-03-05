@@ -6,8 +6,10 @@ from pfeiffer import maskPfePres, calcPfePres
 
 threadnames = ["Plasma", "Temperature","Pressure1","Pressure2"]
 
-class ThreadType(Enum):
-    PLASMA,TEMPERATURE,PRESSURE1,PRESSURE2 = threadnames 
+class Signals(Enum):
+    """ Define different signal types
+    """
+    PLASMA,TEMPERATURE,PRESSURE1,PRESSURE2 = threadnames
 
     def getGPIO(self):
         if self == self.PLASMA:

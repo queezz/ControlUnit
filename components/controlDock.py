@@ -3,7 +3,6 @@ import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui
 from pyqtgraph import QtCore
 from pyqtgraph.dockarea import Dock
-from customTypes import ThreadType
 from components.scaleButtons import ScaleButtons
 from components.onoffswitch import MySwitch, OnOffSwitch, QmsSwitch
 from components.analoggaugewidget import AnalogGaugeWidget

@@ -2,7 +2,7 @@ import time, datetime
 import numpy as np
 from pyqtgraph.Qt import QtCore, QtGui
 from typing import Callable
-from customTypes import ThreadType
+from customTypes import Signals
 from electricCurrent import ElectricCurrent,hall_to_current
 from readsettings import read_settings
 
@@ -14,9 +14,7 @@ CHP2 = 1 # 16, Pfeiffer single gauge
 CHIP = 2 # 5, Plasma current, Hall effect sensor
 CHT  = 0 # 0 -> CS0, 1 -> CS1
 
-# Raspi outputs
 
-TIMESLEEP = read_settings()['samplingtime']
 # Number of data points for collection, steps%STEP == 0
 STEP = 5
 
@@ -26,12 +24,13 @@ try:
 except:
     print("no pigpio or AIO")
     TEST = True
-TT = True
+TT = True # What is this? Used in Temperature Feedback Control
+
 # must inherit QtCore.QObject in order to use 'connect'
 class Worker(QtCore.QObject):
 
-    sigStep = QtCore.pyqtSignal(np.ndarray, np.ndarray, np.ndarray, ThreadType, datetime.datetime)
-    sigDone = QtCore.pyqtSignal(int, ThreadType)
+    sigStep = QtCore.pyqtSignal(np.ndarray, np.ndarray, np.ndarray, Signals, datetime.datetime)
+    sigDone = QtCore.pyqtSignal(int, Signals)
     sigMsg = QtCore.pyqtSignal(str)
 
     sigAbortHeater = QtCore.pyqtSignal()
@@ -40,7 +39,7 @@ class Worker(QtCore.QObject):
         super().__init__()
 
     def setWorker(self, id: int, app: QtGui.QApplication,
-                  ttype:ThreadType, startTime: datetime.datetime):
+                  ttype:Signals, startTime: datetime.datetime):
         self.__id = id
         self.__app = app
         self.__abort = False
@@ -51,6 +50,7 @@ class Worker(QtCore.QObject):
     def setTempWorker(self, presetTemp: int):
             self.__rawData = np.zeros(shape=(STEP, 3))
             self.__presetTemp = presetTemp
+            self.sampling = read_settings()['samplingtime']
 
             # PID control
             if not TEST:
@@ -66,6 +66,7 @@ class Worker(QtCore.QObject):
         self.__IGmode = IGmode
         self.__IGrange = IGrange
         self.__qmsSignal = 0
+        self.sampling = read_settings()['samplingtime']
 
     # MARK: - Getters
     def getStartTime(self):
@@ -75,7 +76,12 @@ class Worker(QtCore.QObject):
     def setPresetTemp(self, newTemp: int):
         self.__presetTemp = newTemp
         return
-
+        
+    def setSampling(self,sampling):
+        """ Set sampling time for ADC """
+        self.sampling = sampling
+        print(f'Updated sampling to {sampling}')
+        
     def setIGmode(self, IGmode: int):
         """
             0: Torr
@@ -101,25 +107,30 @@ class Worker(QtCore.QObject):
 
     # MARK: - Methods
     @QtCore.pyqtSlot()
-    def work(self):
+    def start(self):
+        """ Set Thread ID and name, then run corresponding "plot" function.
+        "plot" functions are main data acquisition loops.
+        """
         self.__setThread()
+        adcSignals = [Signals.PLASMA,Signals.PRESSURE1,Signals.PRESSURE2]
         if TEST:
-            if self.__ttype == ThreadType.TEMPERATURE:
-                self.__testTemp()
+            if self.__ttype == Signals.TEMPERATURE:
+                self.__testReadTemp()
             else:
-                self.__testPres()
+                self.__testReadADC()
         else:
-            if self.__ttype == ThreadType.TEMPERATURE:
-                self.__plotT()
-            elif self.__ttype==ThreadType.PLASMA or self.__ttype==ThreadType.PRESSURE1 or self.__ttype==ThreadType.PRESSURE2:
-                self.__plotPresCur()
+            if self.__ttype == Signals.TEMPERATURE:
+                self.readT()
+            elif self.__ttype in adcSignals:
+                self.readADC()
             else:
                 return
 
     def __setThread(self):
+        """ Set Thread name and ID, signal them to the log browser"""
         threadName = QtCore.QThread.currentThread().objectName()
         threadId = int(QtCore.QThread.currentThreadId())
-
+        
         self.sigMsg.emit(
             "Running worker #{} from thread '{}' (#{})".format(self.__id, threadName, threadId)
         )
@@ -130,10 +141,9 @@ class Worker(QtCore.QObject):
         self.__abort = True
 
     # MARK: - Plot
-    def __plotPresCur(self):
-        """
-            plasma current will be controled but now it is not controled.
-            because of this, function name is '__plotPresCur'.
+    def readADC(self):
+        """ Reads ADC raw signals, converts it, sends it back to main loop 
+        to plot ad save data.
         """
         
         aio = adc(0x49, 0x3e) # instance of AIO_32_0RA_IRC from AIO.py
@@ -143,7 +153,7 @@ class Worker(QtCore.QObject):
         step = 0
         
         while not (self.__abort):
-            time.sleep(TIMESLEEP)
+            time.sleep(self.sampling)
             
             # READ DATA
             CHNLS = [CHP1,CHP2,CHIP]
@@ -153,8 +163,12 @@ class Worker(QtCore.QObject):
             for CH in scale5:
                 kws[CH] = {'pga':aio.PGA.PGA_5_0176V}
 
+            # Communitcate with ADC
+
             arg = [aio.DataRate.DR_860SPS]
             p1_v,p2_v,ip_v = [aio.analog_read_volt(CH,*arg,**kws[CH]) for CH in CHNLS]
+
+            # Process values
 
             deltaSeconds = (datetime.datetime.now() - self.__startTime).total_seconds()
             self.__rawData[step] = [
@@ -168,13 +182,13 @@ class Worker(QtCore.QObject):
             ]
 
             # calculate DATA
-            p1_d = ThreadType.getCalcValue(
-                ThreadType.PRESSURE1,
+            p1_d = Signals.getCalcValue(
+                Signals.PRESSURE1,
                 p1_v,
                 IGmode=self.__IGmode,
                 IGrange=self.__IGrange
             )
-            p2_d = ThreadType.getCalcValue(ThreadType.PRESSURE2, p2_v)
+            p2_d = Signals.getCalcValue(Signals.PRESSURE2, p2_v)
             ip_d = hall_to_current(ip_v) # 
 
             self.__calcData[step] = [deltaSeconds, p1_d, p2_d, ip_d]
@@ -185,10 +199,12 @@ class Worker(QtCore.QObject):
                 ave_p2 = np.mean(self.__calcData[:, 2], dtype=float)
                 ave_ip = np.mean(self.__calcData[:, 3], dtype=float)
                 average = np.array([
-                    [ThreadType.PLASMA, ave_ip],
-                    [ThreadType.PRESSURE1, ave_p1],
-                    [ThreadType.PRESSURE2, ave_p2]
+                    [Signals.PLASMA, ave_ip],
+                    [Signals.PRESSURE1, ave_p1],
+                    [Signals.PRESSURE2, ave_p2]
                 ])
+                
+                # SEND ADC data back to main loop
 
                 self.sigStep.emit(
                     self.__rawData,
@@ -197,6 +213,8 @@ class Worker(QtCore.QObject):
                     self.__ttype,
                     self.__startTime
                 )
+                
+                # Reset temporary data arrays
                 self.__rawData = np.zeros(shape=(STEP, 7))
                 self.__calcData = np.zeros(shape=(STEP, 4))
                 step = 0
@@ -205,6 +223,7 @@ class Worker(QtCore.QObject):
             totalStep += 1                
             self.__app.processEvents()
         else:
+            # On ABORT
             if self.__calcData[step][0] == 0.0:
                 step -= 1
             if step > -1:
@@ -213,9 +232,9 @@ class Worker(QtCore.QObject):
                 ave_p2 = np.mean(self.__calcData[:, 2], dtype=float)
                 ave_ip = np.mean(self.__calcData[:, 3], dtype=float)
                 average = np.array([
-                    [ThreadType.PLASMA, ave_ip],
-                    [ThreadType.PRESSURE1, ave_p1],
-                    [ThreadType.PRESSURE2, ave_p2]
+                    [Signals.PLASMA, ave_ip],
+                    [Signals.PRESSURE1, ave_p1],
+                    [Signals.PRESSURE2, ave_p2]
                 ])
                 self.sigStep.emit(
                     self.__rawData[:step+1, :],
@@ -231,7 +250,10 @@ class Worker(QtCore.QObject):
 
     # temperature plot
     @QtCore.pyqtSlot()
-    def __plotT(self):
+    def readT(self):
+        """ Temperature acquisition and Feedback Control function
+        """
+        # Select MAX6675 sensor on the SPI
         sensor = self.pi.spi_open(CHT, 1000000, 0)
         if TT:
             eCurrent = ElectricCurrent(self.pi, self.__app)
@@ -242,7 +264,7 @@ class Worker(QtCore.QObject):
             self.sigAbortHeater.connect(eCurrent.setAbort)
             thread.start()
         else:
-            pinNum = ThreadType.getGPIO(ThreadType.TEMPERATURE)
+            pinNum = Signals.getGPIO(Signals.TEMPERATURE)
             self.pi.set_mode(pinNum, pigpio.OUTPUT)
             controlStep = -1
 
@@ -250,8 +272,9 @@ class Worker(QtCore.QObject):
         step = 0
 
         while not (self.__abort):
+            # Temperature sampling time. For MAX6675 min read time = 0.25s
             time.sleep(0.25)
-            temp = -1000
+            temp = -1000 # Temperature.
 
             # READ DATA
             c, d = self.pi.spi_read(sensor, 2) # if c==2: ok else: ng
@@ -262,6 +285,7 @@ class Worker(QtCore.QObject):
                 else:
                     print("bad reading {:b}".format(word))
 
+            # Pass data on its way
             deltaSeconds = (datetime.datetime.now() - self.__startTime).total_seconds()
             self.__rawData[step] = [deltaSeconds, temp, self.__presetTemp]
 
@@ -269,7 +293,7 @@ class Worker(QtCore.QObject):
                 # average 10 points of data
                 ave = np.mean(self.__rawData[:, 1], dtype=float)
                 average = np.array([
-                    [ThreadType.TEMPERATURE, ave],
+                    [Signals.TEMPERATURE, ave],
                 ])
 
                 # CONTROL
@@ -278,9 +302,11 @@ class Worker(QtCore.QObject):
                 else:
                     controlStep = self.__controlTemp1(average, controlStep)
                 
+                # Send Temperature back to main loop
+                # MAX6675 returns temperature in degree C, no need for formula
                 self.sigStep.emit(
-                    self.__rawData,
-                    self.__rawData,
+                    self.__rawData, # raw dat
+                    self.__rawData, # calculated
                     average,
                     self.__ttype,
                     self.__startTime
@@ -296,12 +322,13 @@ class Worker(QtCore.QObject):
             self.__app.processEvents()
 
         else:
+            # On ABORT. Now renders some strange behavior and numpy errors.
             if self.__rawData[step][0] == 0.0:
                 step -= 1
             if step > -1:
                 ave = np.mean(self.__rawData[:, 1], dtype=float)
                 average = np.array([
-                    [ThreadType.TEMPERATURE, ave]
+                    [Signals.TEMPERATURE, ave]
                 ])
                 self.sigStep.emit(
                     self.__rawData[:step+1, :],
@@ -325,16 +352,18 @@ class Worker(QtCore.QObject):
 
     # MARK: - Control
     def __controlTemp(self, aveTemp: np.ndarray, eCurrent: ElectricCurrent):
+        """ Shouldn't the self.sampling here be 0.25, not the one for ADC?
+        """
         e = self.__presetTemp - aveTemp[0, 1]
-        integral = self.__sumE + e * TIMESLEEP
-        derivative = (e - self.__exE) / TIMESLEEP
+        integral = self.__sumE + e * self.sampling
+        derivative = (e - self.__exE) / self.sampling
 
-        # TODO: 調整
+        # TODO: 調整 (Adjustment)
         Kp = 3.5
         Ki = 0.06
         Kd = 0
         
-        # TODO: 調整
+        # TODO: 調整 (Adjustment)
         if integral < -0.5:
             integral = 0
              
@@ -363,20 +392,21 @@ class Worker(QtCore.QObject):
         pass
 
     # MARK: - Test
-    def __testPres(self):
+    def __testReadADC(self):
+        """ When runing not on Raspi, to test data flow and plotting """
         totalStep = 0
         step = 0
         while not (self.__abort):
             #print(self.__ttype)
-            if self.__ttype == ThreadType.PLASMA:
+            if self.__ttype == Signals.PLASMA:
                 pass
-            elif self.__ttype == ThreadType.TEMPERATURE:
+            elif self.__ttype == Signals.TEMPERATURE:
                 val = (np.random.normal()+1)/10000
                 time.sleep(0.25)
                 STEPtest = 2 
                 return
 
-            time.sleep(TIMESLEEP)
+            time.sleep(self.sampling)
             STEPtest = STEP
 
             p1_v = np.random.normal(4,0.8)
@@ -386,8 +416,8 @@ class Worker(QtCore.QObject):
             deltaSeconds = (datetime.datetime.now() - self.__startTime).total_seconds()
             self.__rawData[step] = [deltaSeconds, p1_v, p2_v, ip_v, self.__IGmode, self.__IGrange, self.__qmsSignal]
 
-            p1_d = ThreadType.getCalcValue(ThreadType.PRESSURE1, p1_v, IGmode=self.__IGmode, IGrange=self.__IGrange)
-            p2_d = ThreadType.getCalcValue(ThreadType.PRESSURE2, p2_v)
+            p1_d = Signals.getCalcValue(Signals.PRESSURE1, p1_v, IGmode=self.__IGmode, IGrange=self.__IGrange)
+            p2_d = Signals.getCalcValue(Signals.PRESSURE2, p2_v)
             ip_d = hall_to_current(ip_v) 
             self.__calcData[step] = [deltaSeconds, p1_d, p2_d, ip_d]
 
@@ -397,9 +427,9 @@ class Worker(QtCore.QObject):
                 ave_p2 = np.mean(self.__calcData[:, 2], dtype=float)
                 ave_ip = np.mean(self.__calcData[:, 3], dtype=float)
                 average = np.array([
-                    [ThreadType.PLASMA, ave_ip],
-                    [ThreadType.PRESSURE1, ave_p1],
-                    [ThreadType.PRESSURE2, ave_p2]
+                    [Signals.PLASMA, ave_ip],
+                    [Signals.PRESSURE1, ave_p1],
+                    [Signals.PRESSURE2, ave_p2]
                 ])
 
                 self.sigStep.emit(
@@ -427,9 +457,9 @@ class Worker(QtCore.QObject):
                 ave_p2 = np.mean(self.__calcData[:, 2], dtype=float)
                 ave_ip = np.mean(self.__calcData[:, 3], dtype=float)
                 average = np.array([
-                    [ThreadType.PLASMA, ave_ip],
-                    [ThreadType.PRESSURE1, ave_p1],
-                    [ThreadType.PRESSURE2, ave_p2]
+                    [Signals.PLASMA, ave_ip],
+                    [Signals.PRESSURE1, ave_p1],
+                    [Signals.PRESSURE2, ave_p2]
                 ])
 
                 self.sigStep.emit(
@@ -446,7 +476,8 @@ class Worker(QtCore.QObject):
         self.sigDone.emit(self.__id, self.__ttype)
         return
 
-    def __testTemp(self):
+    def __testReadTemp(self):
+        """ When runing not on Raspi, to test data flow and plotting """
         totalStep = 0
         step = 0
         while not (self.__abort):
@@ -461,7 +492,7 @@ class Worker(QtCore.QObject):
                 # get average
                 ave = np.mean(self.__rawData[:, 1], dtype=float)
                 average = np.array([
-                    [ThreadType.TEMPERATURE, ave],
+                    [Signals.TEMPERATURE, ave],
                 ])
 
                 self.sigStep.emit(
@@ -486,7 +517,7 @@ class Worker(QtCore.QObject):
                 # get average
                 ave = np.mean(self.__rawData[:, 1], dtype=float)
                 average = np.array([
-                    [ThreadType.TEMPERATURE, ave]
+                    [Signals.TEMPERATURE, ave]
                 ])
 
                 self.sigStep.emit(
