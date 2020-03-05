@@ -7,6 +7,7 @@ from components.logDock import LogDock
 from components.registerDock import RegisterDock
 from components.graph import Graph
 from components.plotscaleDock import PlotScaleDock 
+from components.settingsDock import SettingsDock 
 
 class UIWindow(object):
 
@@ -26,6 +27,11 @@ class UIWindow(object):
         self.graph = Graph()
         self.scaleDock = PlotScaleDock()
         
+        self.settings_area = DockArea()
+        self.SettingsDock = SettingsDock()
+        self.logDock.setStretch(*(200,100))
+        self.SettingsDock.setStretch(*(80,100))
+
         self.MainWindow.setGeometry(20, 50, 1000, 600)
         #self.MainWindow.showFullScreen()
         self.MainWindow.setObjectName("Monitor")
@@ -42,10 +48,13 @@ class UIWindow(object):
         self.area.addDock(self.plotDock, "top")
         self.area.addDock(self.scaleDock, "left")
         self.area.addDock(self.controlDock, "above",self.scaleDock)
-        self.area.addDock(self.logDock, "bottom", self.controlDock)
-        self.area.addDock(self.registerDock, "above", self.logDock)
+        self.area.addDock(self.registerDock,'bottom',self.controlDock)
 
         self.plotDock.addWidget(self.graph)
+
+        self.tabwidg.addTab(self.settings_area,"Settings")
+        self.settings_area.addDock(self.SettingsDock)
+        self.settings_area.addDock(self.logDock, "right")
 
     def showMain(self):
         self.MainWindow.show()

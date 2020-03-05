@@ -6,7 +6,7 @@ from pyqtgraph.Qt import QtCore, QtGui
 from mainView import UIWindow
 from worker import Worker
 from customTypes import ThreadType, ScaleSize
-from readsettings import make_datafolders, get_datafolderpth
+from readsettings import make_datafolders, read_settings
 import qmsSignal
 
 try:
@@ -58,16 +58,16 @@ class MainWidget(QtCore.QObject, UIWindow):
         #self.graph.removeItem(self.graph.plaPl) # remove Plasma current plot
         
         # Plot line colors
-        self.colors = {
-            'Ip':"#8d3de3",
-            'P1':"#6ac600",
-            'P2':"#c9004d",
-            'T':"#5999ff",
+        self.pens = {
+            'Ip':{'color':"#8d3de3",'width':2},
+            'P1':{'color':"#6ac600",'width':2},
+            'P2':{'color':"#c9004d",'width':2},
+            'T':{'color':"#5999ff",'width':2},
         }
-        self.valuePlaPlot = self.graph.plaPl.plot(pen=self.colors['Ip'])
-        self.valueTPlot = self.graph.tempPl.plot(pen=self.colors['T'])
-        self.valueP1Plot = self.graph.presPl.plot(pen=self.colors['P1'])
-        self.valueP2Plot = self.graph.presPl.plot(pen=self.colors['P2'])
+        self.valuePlaPlot = self.graph.plaPl.plot(pen=self.pens['Ip'])
+        self.valueTPlot = self.graph.tempPl.plot(pen=self.pens['T'])
+        self.valueP1Plot = self.graph.presPl.plot(pen=self.pens['P1'])
+        self.valueP2Plot = self.graph.presPl.plot(pen=self.pens['P2'])
         self.graph.tempPl.setXLink(self.graph.presPl)
         self.graph.plaPl.setXLink(self.graph.presPl)
         
@@ -79,7 +79,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.presCurWorker = None
 
         make_datafolders()
-        self.datapth = get_datafolderpth()[0]
+        self.datapth = read_settings()['datafolder']
        
         self.showMain()
 
@@ -162,13 +162,11 @@ class MainWidget(QtCore.QObject, UIWindow):
 
     def __autoscale(self):
         """ Set all plots to autoscale """
-        [
-            i.enableAutoRange() for i in [
-                self.graph.plaPl,
-                self.graph.tempPl,
-                self.graph.presPl,
-            ]
-        ]
+        #enableAutoRange
+        plots = [ self.graph.plaPl, self.graph.tempPl, self.graph.presPl, ]
+        
+        #[i.autoRange() for i in plots]
+        [i.enableAutoRange() for i in plots]
 
     def __changeScale(self):
         """ """
@@ -344,19 +342,19 @@ class MainWidget(QtCore.QObject, UIWindow):
               <table>
                  <tr>
                   <td>
-                  <font size=5 color={self.colors['P1']}>
+                  <font size=5 color={self.pens['P1']['color']}>
                     Pd = {self.currentvals[ThreadType.PRESSURE1]:.1e}
                   </font>
                   </td>
                   <td>
-                   <font size=5 color={self.colors['P2']}> 
+                   <font size=5 color={self.pens['P2']['color']}> 
                     Pu = {self.currentvals[ThreadType.PRESSURE2]:.1e}
                    </font>
                   </td>
                  </tr>
                  <tr>
                   <td>
-                   <font size=5 color={self.colors['Ip']}>
+                   <font size=5 color={self.pens['Ip']['color']}>
                     I = {self.currentvals[ThreadType.PLASMA]:.2f}
                    </font>
                   </td>

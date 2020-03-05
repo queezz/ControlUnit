@@ -1,33 +1,19 @@
 import csv
-import customTypes
 import os
 from os.path import join
 
 def make_datafolders():
-    names = customTypes.threadnames 
-    foldername, local, sampling_rate = get_datafolderpth()
-    bpth = os.path.abspath(__file__)
+    """ Create folder for saving data, if not existing """ 
+    settings = read_settings()
+    foldername = settings['datafolder']
 
-    if local:
-        datapth = foldername
-    else:
-        datapth = join(bpth,foldername)
-    
-    dirs = [join(datapth,name) for name in names]
     try:
-        os.mkdir(datapth)
-        print(f'created {datapth}')
+        os.mkdir(foldername)
+        print(f'created {foldername}')
     except FileExistsError:
         pass 
 
-    for d in dirs:
-        try:
-            os.mkdir(d)
-            print(f'created {d}')
-        except FileExistsError:
-            pass
-
-def get_datafolderpth():
+def read_settings():
     """ Read .settings and get datafoldr path"""
     pth = None
     sampling_rate = 0.01
@@ -42,9 +28,14 @@ def get_datafolderpth():
                 sampling_rate = r[1].strip() 
     if local == 'True': local = True
     sampling_rate = float(sampling_rate)
+    settings = {
+        'datafolder':pth,
+        'pathislocal':local,
+        'samplingtime':sampling_rate,
+    }
 
-    return pth, local, sampling_rate
+    return settings
 
 if __name__ == '__main__':
-    #print(get_datafolderpth())
+    #print(read_settings())
     make_datafolders()

@@ -4,7 +4,7 @@ from pyqtgraph.Qt import QtCore, QtGui
 from typing import Callable
 from customTypes import ThreadType
 from electricCurrent import ElectricCurrent,hall_to_current
-from readsettings import get_datafolderpth
+from readsettings import read_settings
 
 TEST = False
 
@@ -16,7 +16,7 @@ CHT  = 0 # 0 -> CS0, 1 -> CS1
 
 # Raspi outputs
 
-TIMESLEEP = get_datafolderpth()[2]
+TIMESLEEP = read_settings()['samplingtime']
 # Number of data points for collection, steps%STEP == 0
 STEP = 5
 
