@@ -1,5 +1,6 @@
 ![Python application](https://github.com/queezz/ControlUnit/workflows/Python%20application/badge.svg)
 [![Codeship Status for queezz/ControlUnit](https://app.codeship.com/projects/2b6ac6e0-40f2-0138-61ac-7eda10ab4f20/status?branch=master)](https://app.codeship.com/projects/387898)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 # Control unit for plasma experiment.
 
