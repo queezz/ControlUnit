@@ -10,7 +10,7 @@ There are commercially available data loggers and temperature control units, how
 
 
 
-However, the cheaper and more importantly, open source alternative would be to use  a [SPC](https://en.wikipedia.org/wiki/Single-board_computer). 
+However, the cheaper and more importantly, open source alternative would be to use  a [SPC](https://en.wikipedia.org/wiki/Single-board_computer).
 
 
 
@@ -20,7 +20,7 @@ This control unit is based on the Raspberry Pi with AD converter and relays. Mai
 
 
 
-Experimental parameters: 
+Experimental parameters:
 
 - temperature
 - current
@@ -29,7 +29,7 @@ Experimental parameters:
 
 
 
-In our project, we have an experimental device where we want to measure several signals, plus to implement a feed-back control. 
+In our project, we have an experimental device where we want to measure several signals, plus to implement a feed-back control.
 
 
 
@@ -53,11 +53,11 @@ Control unit box:
 
 ## 1.2 Program summary
 
-The analog signals from vacuum gauges, 0 - 10 V, and the K-type thermocouple, 0 - 15 mV, are red by the DAC in the worker thread. The Raspi GPIO are used to control the solid state relay and turn on the halogen lamp. A Variac is used to power the lamp.  
+The analog signals from vacuum gauges, 0 - 10 V, and the K-type thermocouple, 0 - 15 mV, are red by the DAC in the worker thread. The Raspi GPIO are used to control the solid state relay and turn on the halogen lamp. A Variac is used to power the lamp.
 
 
 
-![UI](images/ui.gif)
+![UI](images/app_screenshot_1.png)
 
 
 
