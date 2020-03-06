@@ -16,7 +16,7 @@ except:
     print("no pigpio or AIO")
     TEST = True
 
-MAX_SIZE = 20000  # Maximum displayed points in pyqgraph plot
+MAX_SIZE = 10000  # Maximum displayed points in pyqgraph plot
 
 # debug
 # def trap_exc_during_debug(*args):
@@ -27,6 +27,7 @@ MAX_SIZE = 20000  # Maximum displayed points in pyqgraph plot
 # must inherit QtCore.QObject in order to use 'connect'
 class MainWidget(QtCore.QObject, UIWindow):
     DEFAULT_TEMPERATURE = 0
+    STEP = 3
 
     sigAbortWorkers = QtCore.pyqtSignal()
 
@@ -41,8 +42,6 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.__workers_done = 0
         self.__threads = []
         self.__temp = self.DEFAULT_TEMPERATURE
-
-        self.__scale = ScaleSize.SMALL
 
         self.plaData = None
         self.tData = None
@@ -79,17 +78,38 @@ class MainWidget(QtCore.QObject, UIWindow):
         make_datafolders()
         self.datapth = read_settings()["datafolder"]
 
+        self.sampling = read_settings()["samplingtime"]
+        # self.__scale = ScaleSize.SMALL
+        self.__changeScale()
+
         self.showMain()
 
     def __changeScale(self):
-        """ select how much data to display """
-        index = self.controlDock.scaleBtn.selectBtn.currentIndex()
-        self.__scale = ScaleSize.getEnum(index)
+        """ Set data window size for plotting
+        STEP = 2 from worker
+        """
+        index = self.controlDock.scaleBtn.currentIndex()
+        txt = self.controlDock.scaleBtn.currentText()
+        val = self.controlDock.sampling_windows[txt]
+        if val > 0:
+            adcind = -int(val / self.sampling / (self.STEP - 1))
+            tind = -int(val / 0.25)
+        else:
+            adcind = 0
+            tind = 0
+        self.adcind = adcind
+        self.tind = tind
+
+        return
+        print(f"{txt}\t{adcind}\t{tind}")
+        try:
+            print(self.p1Data.shape)
+        except:
+            pass
+        # self.__scale = ScaleSize.getEnum(index)
 
     def connections(self):
-        self.controlDock.scaleBtn.selectBtn.currentIndexChanged.connect(
-            self.__changeScale
-        )
+        self.controlDock.scaleBtn.currentIndexChanged.connect(self.__changeScale)
 
         self.registerDock.registerBtn.clicked.connect(self.registerTemp)
         self.controlDock.IGmode.currentIndexChanged.connect(self.updateIGmode)
@@ -111,7 +131,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.scaleDock.Imax.valueChanged.connect(self.__updateIScale)
         self.scaleDock.Tmax.valueChanged.connect(self.__updateTScale)
 
-        self.scaleDock.autoscale.clicked.connect(self.__changeScale)
+        self.scaleDock.autoscale.clicked.connect(self.__auto_or_levels)
         self.SettingsDock.setSamplingBtn.clicked.connect(self.__set_sampling)
 
     def __quit(self):
@@ -169,8 +189,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         # [i.autoRange() for i in plots]
         [i.enableAutoRange() for i in plots]
 
-    def __changeScale(self):
-        """ """
+    def __auto_or_levels(self):
+        """ Change plot scales from full auto to Y axis from settings """
         if self.scaleDock.autoscale.isChecked():
             self.__autoscale()
         else:
@@ -372,7 +392,9 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.controlDock.valueBw.setText(txt)
         self.controlDock.gaugeT.update_value(self.currentvals[Signals.TEMPERATURE])
 
-        scale = self.__scale.value
+        # scale = self.__scale.value
+        tind = self.tind  # For MAX6675 Temperature sensor
+        scale = self.adcind  # For ADC signals
 
         if ttype == Signals.TEMPERATURE:
             # get data
@@ -384,7 +406,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             # plot data
             skip = int((self.tData.shape[0] + MAX_SIZE - 1) / MAX_SIZE)
             self.valueTPlot.setData(
-                self.tData[scale::skip, 0], self.tData[scale::skip, 1]
+                self.tData[tind::skip, 0], self.tData[tind::skip, 1]
             )
         elif ttype in self.ADCtypes:
             # get data
@@ -393,7 +415,8 @@ class MainWidget(QtCore.QObject, UIWindow):
             p2_data = self.p2Data
             # Append new data and save
             # Each call saves same data. Clean this up.
-            # Make one dataframe pere one sensor. plaData, p1Data, and p2Data must be merged.
+            # Make one dataframe pere one sensor.
+            # plaData, p1Data, and p2Data must be merged.
             self.plaData = self.__setStepData(
                 pl_data, rawResult, calcResult, Signals.PLASMA, startTime
             )
@@ -424,7 +447,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.__save(rawResult, ttype, startTime)
         # concatenate
         if data is None:
-            data = np.zeros([5, 2])
+            data = np.zeros([self.STEP, 2])
             data[:, 0] = calcResult[:, 0]
             data[:, 1] = calcResult[:, ttype.getIndex()]
         else:
@@ -445,7 +468,10 @@ class MainWidget(QtCore.QObject, UIWindow):
                 header=False,
                 index=False,
             )
-        elif ttype in self.ADCtypes:
+        # TODO: change structure
+        # For now to save data only once, a workaround:
+        # Save only for one Signal type from ADC signals.
+        elif ttype == self.ADCtypes[0]:
             df = pd.DataFrame(data)
             df.to_csv(
                 os.path.join(self.datapth, f"out_{startTime:%Y%m%d_%H%M%S}.csv"),
@@ -507,6 +533,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         """
         txt = self.SettingsDock.samplingCb.currentText()
         value = float(txt.split(" ")[0])
+        self.sampling = value
+        self.__changeScale()
         if self.adcWorker is not None:
             self.adcWorker.setSampling(value)
 

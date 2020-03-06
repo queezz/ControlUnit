@@ -16,7 +16,7 @@ CHT = 0  # 0 -> CS0, 1 -> CS1
 
 
 # Number of data points for collection, steps%STEP == 0
-STEP = 5
+STEP = 3
 
 try:
     from AIO import AIO_32_0RA_IRC as adc
