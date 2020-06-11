@@ -21,11 +21,11 @@ class QMSSignal(QtCore.QThread):
         pinNum = 27
         self.pi.set_mode(pinNum, pigpio.OUTPUT)
         # self.blink_led()
-        self.led_on_off()
+        self.led_on_off(pinNum)
         self.app.processEvents()
         self.finished.emit()
 
-    def led_on_off(self):
+    def led_on_off(self, pinNum):
         """ switch led:
         ON:  self.count > 0
         OFF: self.count == 0
