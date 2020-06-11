@@ -248,7 +248,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.qmsSigThread.start()
             self.adcWorker.setQmsSignal(1)
         else:
-            quit_msg = "Turn Off experiment marker?"
+            quit_msg = "Stop Experiment Marker?"
             reply = QtGui.QMessageBox.warning(
                 self.MainWindow,
                 "Message",
@@ -257,7 +257,9 @@ class MainWidget(QtCore.QObject, UIWindow):
                 QtGui.QMessageBox.No,
             )
             if reply == QtGui.QMessageBox.Yes:
-                self.qmsSigThread = qmsSignal.QMSSignal(pi, self.__app, 2)
+                # old function: QMSSignal.blink_led
+                # self.qmsSigThread = qmsSignal.QMSSignal(pi, self.__app, 2)
+                self.qmsSigThread = qmsSignal.QMSSignal(pi, self.__app, 0)
                 self.qmsSigThread.finished.connect(self.qmsSigThFin)
                 self.qmsSigThread.start()
                 self.adcWorker.setQmsSignal(0)
