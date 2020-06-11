@@ -46,6 +46,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.__temp = self.DEFAULT_TEMPERATURE
 
         self.plaData = None
+        self.trigData = None
         self.tData = None
         self.p1Data = None
         self.p2Data = None
@@ -62,8 +63,10 @@ class MainWidget(QtCore.QObject, UIWindow):
             "P1": {"color": "#6ac600", "width": 2},
             "P2": {"color": "#c9004d", "width": 2},
             "T": {"color": "#5999ff", "width": 2},
+            "trigger": {"color": "#edbc34", "width": 2},
         }
         self.valuePlaPlot = self.graph.plaPl.plot(pen=self.pens["Ip"])
+        self.triggerPlot = self.graph.plaPl.plot(pen=self.pens["trigger"])
         self.valueTPlot = self.graph.tempPl.plot(pen=self.pens["T"])
         self.valueP1Plot = self.graph.presPl.plot(pen=self.pens["P1"])
         self.valueP2Plot = self.graph.presPl.plot(pen=self.pens["P2"])
@@ -253,7 +256,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.qmsSigThread.start()
             self.adcWorker.setQmsSignal(1)
         else:
-            quit_msg = "Turn Off experiment marker?"
+            quit_msg = "Stop Experiment Marker?"
             reply = QtGui.QMessageBox.warning(
                 self.MainWindow,
                 "Message",
@@ -262,7 +265,9 @@ class MainWidget(QtCore.QObject, UIWindow):
                 QtGui.QMessageBox.No,
             )
             if reply == QtGui.QMessageBox.Yes:
-                self.qmsSigThread = qmsSignal.QMSSignal(pi, self.__app, 2)
+                # old function: QMSSignal.blink_led
+                # self.qmsSigThread = qmsSignal.QMSSignal(pi, self.__app, 2)
+                self.qmsSigThread = qmsSignal.QMSSignal(pi, self.__app, 0)
                 self.qmsSigThread.finished.connect(self.qmsSigThFin)
                 self.qmsSigThread.start()
                 self.adcWorker.setQmsSignal(0)
@@ -452,6 +457,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.valuePlaPlot.setData(
                 self.plaData[scale::skip, 0], self.plaData[scale::skip, 1]
             )
+            # self.triggerPlot.setData()
             self.valueP1Plot.setData(
                 self.p1Data[scale::skip, 0], self.p1Data[scale::skip, 1]
             )
