@@ -1,3 +1,3 @@
-datafolder, ../data
+datafolder, ../data/test
 pathislocal, True
 sampling_rate, 0.1

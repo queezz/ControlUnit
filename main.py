@@ -9,6 +9,8 @@ from customTypes import Signals, ScaleSize
 from readsettings import make_datafolders, read_settings
 import qmsSignal
 
+testmark = "test-"
+
 try:
     from AIO import AIO_32_0RA_IRC as adc
     import pigpio
@@ -232,7 +234,10 @@ class MainWidget(QtCore.QObject, UIWindow):
         [toggleplot(*items[jj]) for jj in ["Ip", "T", "P"]]
 
     def __qmsSignal(self):
-        """ qms signal """
+        """ Experiment indicator, analog output is sent to QMS to sync
+        expermint time between recording devices.
+        This signal is helpfull to separate experiments (same as shot numbers in fusion)
+        """
         if not self.controlDock.OnOffSW.isChecked():
             return
 
@@ -309,7 +314,14 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.setThread(worker, thread, index)
 
     def setThread(self, worker: Worker, thread: QtCore.QThread, index: int):
-        """ Setup workers """
+        """ Setup workers [Dataframe creation]
+        - Creates instances of worker
+        - Creates connections
+        - Creates Pandas Dataframes for data logging
+        - Saves empty dataframes to local csv. File name based on date and time
+        - starts threads
+        - sets initial values for all parameters (zeros)
+        """
 
         self.__threads.append((thread, worker))
         worker.moveToThread(thread)
@@ -320,21 +332,25 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.sigAbortWorkers.connect(worker.abort)
 
         # temperature
-        columns = ["time", "P1", "P2", "Ip", "IGmode", "IGscale", "QMS_signal"]
+        # [MAX6675 device]
+        columns = ["date", "time", "P1", "P2", "Ip", "IGmode", "IGscale", "QMS_signal"]
         if index == 0:
             df = pd.DataFrame(dtype=float, columns=["time", "T", "PresetT"])
             df.to_csv(
                 os.path.join(
-                    self.datapth, f"out_{worker.getStartTime():%Y%m%d_%H%M%S}_temp.csv"
+                    self.datapth,
+                    f"{testmark}out_{worker.getStartTime():%Y%m%d_%H%M%S}_temp.csv",
                 ),
                 index=False,
             )
         # pressures and current
+        # [ADC device]
         elif index == 1:
             df = pd.DataFrame(dtype=object, columns=columns)
             df.to_csv(
                 os.path.join(
-                    self.datapth, f"out_{worker.getStartTime():%Y%m%d_%H%M%S}.csv"
+                    self.datapth,
+                    f"{testmark}out_{worker.getStartTime():%Y%m%d_%H%M%S}.csv",
                 ),
                 index=False,
             )
@@ -357,7 +373,12 @@ class MainWidget(QtCore.QObject, UIWindow):
 
     @QtCore.pyqtSlot(np.ndarray, np.ndarray, np.ndarray, Signals, datetime.datetime)
     def onWorkerStep(self, rawResult, calcResult, ave, ttype, startTime):
-        """ collect data on worker step """
+        """ collect data on worker step
+        - Recives data from worker(s)
+        - Updates text indicators in GUI
+        - Appends recived data to dataframes (call to self.__setStepData)
+        - Updates data in plots (skips points if data is too big)
+        """
         # MEMO: ave [[theadtype, average], [], []]
         for l in ave:
             self.currentvals[l[0]] = l[1]
@@ -441,11 +462,13 @@ class MainWidget(QtCore.QObject, UIWindow):
             return
 
     def __setStepData(self, data, rawResult, calcResult, ttype, startTime):
-        """ Append new data from Worker to main data arrays """
+        """
+        - Save raw data
+        - Append new data from Worker to the main data arrays
+        """
         # TODO: save interval
         # Save raw data
         self.__save(rawResult, ttype, startTime)
-        # concatenate
         if data is None:
             data = np.zeros([self.STEP, 2])
             data[:, 0] = calcResult[:, 0]
@@ -459,11 +482,15 @@ class MainWidget(QtCore.QObject, UIWindow):
         return data
 
     def __save(self, data, ttype, startTime):
-        """ write csv """
+        """ Save sensor data
+        - For [both] sensors dumps dataframe into a *.csv via pandas to_csv
+        """
         if ttype == Signals.TEMPERATURE:
             df = pd.DataFrame(data)
             df.to_csv(
-                os.path.join(self.datapth, f"out_{startTime:%Y%m%d_%H%M%S}_temp.csv"),
+                os.path.join(
+                    self.datapth, f"{testmark}out_{startTime:%Y%m%d_%H%M%S}_temp.csv"
+                ),
                 mode="a",
                 header=False,
                 index=False,
@@ -474,7 +501,9 @@ class MainWidget(QtCore.QObject, UIWindow):
         elif ttype == self.ADCtypes[0]:
             df = pd.DataFrame(data)
             df.to_csv(
-                os.path.join(self.datapth, f"out_{startTime:%Y%m%d_%H%M%S}.csv"),
+                os.path.join(
+                    self.datapth, f"{testmark}out_{startTime:%Y%m%d_%H%M%S}.csv"
+                ),
                 mode="a",
                 header=False,
                 index=False,

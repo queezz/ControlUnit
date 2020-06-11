@@ -68,7 +68,9 @@ class Worker(QtCore.QObject):
 
     # set pressure worker
     def setPresWorker(self, IGmode: int, IGrange: int):
-        self.__rawData = np.zeros(shape=(STEP, 7))
+
+        columns = ["date", "time", "P1", "P2", "Ip", "IGmode", "IGscale", "QMS_signal"]
+        self.__rawData = np.zeros(shape=(STEP, 8))
         self.__calcData = np.zeros(shape=(STEP, 4))
         self.__IGmode = IGmode
         self.__IGrange = IGrange
@@ -180,10 +182,11 @@ class Worker(QtCore.QObject):
             ]
 
             # Process values
-
-            deltaSeconds = (datetime.datetime.now() - self.__startTime).total_seconds()
+            now = datetime.datetime.now()
+            dSec = (now - self.__startTime).total_seconds()
             self.__rawData[step] = [
-                deltaSeconds,
+                now,
+                dSec,
                 p1_v,
                 p2_v,
                 ip_v,
@@ -199,7 +202,7 @@ class Worker(QtCore.QObject):
             p2_d = Signals.getCalcValue(Signals.PRESSURE2, p2_v)
             ip_d = hall_to_current(ip_v)  #
 
-            self.__calcData[step] = [deltaSeconds, p1_d, p2_d, ip_d]
+            self.__calcData[step] = [dSec, p1_d, p2_d, ip_d]
 
             if step % (STEP - 1) == 0 and step != 0:
                 # get average
@@ -225,7 +228,7 @@ class Worker(QtCore.QObject):
                 )
 
                 # Reset temporary data arrays
-                self.__rawData = np.zeros(shape=(STEP, 7))
+                self.__rawData = np.zeros(shape=(STEP, 8))
                 self.__calcData = np.zeros(shape=(STEP, 4))
                 step = 0
             else:
@@ -298,8 +301,9 @@ class Worker(QtCore.QObject):
                     print("bad reading {:b}".format(word))
 
             # Pass data on its way
-            deltaSeconds = (datetime.datetime.now() - self.__startTime).total_seconds()
-            self.__rawData[step] = [deltaSeconds, temp, self.__presetTemp]
+            noe = datetime.datetime.now()
+            dSec = (now - self.__startTime).total_seconds()
+            self.__rawData[step] = [now, dSec, temp, self.__presetTemp]
 
             if step % (STEP - 1) == 0 and step != 0:
                 # average 10 points of data
@@ -321,7 +325,7 @@ class Worker(QtCore.QObject):
                     self.__ttype,
                     self.__startTime,
                 )
-                self.__rawData = np.zeros(shape=(STEP, 3))
+                self.__rawData = np.zeros(shape=(STEP, 4))
                 step = 0
             else:
                 step += 1
@@ -419,9 +423,12 @@ class Worker(QtCore.QObject):
             p2_v = np.random.normal(5, 0.1)
             ip_v = np.random.normal(2.5, 0.02)
 
-            deltaSeconds = (datetime.datetime.now() - self.__startTime).total_seconds()
+            now = datetime.datetime.now()
+            dSec = (now - self.__startTime).total_seconds()
+            print(np.shape(self.__rawData))
             self.__rawData[step] = [
-                deltaSeconds,
+                now,
+                dSec,
                 p1_v,
                 p2_v,
                 ip_v,
@@ -435,7 +442,7 @@ class Worker(QtCore.QObject):
             )
             p2_d = Signals.getCalcValue(Signals.PRESSURE2, p2_v)
             ip_d = hall_to_current(ip_v)
-            self.__calcData[step] = [deltaSeconds, p1_d, p2_d, ip_d]
+            self.__calcData[step] = [dSec, p1_d, p2_d, ip_d]
 
             if step % (STEPtest - 1) == 0 and step != 0:
                 # get average
@@ -457,7 +464,7 @@ class Worker(QtCore.QObject):
                     self.__ttype,
                     self.__startTime,
                 )
-                self.__rawData = np.zeros(shape=(STEPtest, 7))
+                self.__rawData = np.zeros(shape=(STEPtest, 8))
                 self.__calcData = np.zeros(shape=(STEPtest, 4))
                 step = 0
             else:
@@ -503,8 +510,8 @@ class Worker(QtCore.QObject):
             STEPtest = STEP
             temperature = np.random.normal(20, 1.5)
 
-            deltaSeconds = (datetime.datetime.now() - self.__startTime).total_seconds()
-            self.__rawData[step] = [deltaSeconds, temperature, self.__presetTemp]
+            dSec = (datetime.datetime.now() - self.__startTime).total_seconds()
+            self.__rawData[step] = [dSec, temperature, self.__presetTemp]
 
             if step % (STEPtest - 1) == 0 and step != 0:
                 # get average
