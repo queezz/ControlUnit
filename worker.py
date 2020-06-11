@@ -1,5 +1,6 @@
 import time, datetime
 import numpy as np
+import pandas as pd
 from pyqtgraph.Qt import QtCore, QtGui
 from typing import Callable
 from customTypes import Signals
@@ -69,8 +70,9 @@ class Worker(QtCore.QObject):
     # set pressure worker
     def setPresWorker(self, IGmode: int, IGrange: int):
 
-        columns = ["date", "time", "P1", "P2", "Ip", "IGmode", "IGscale", "QMS_signal"]
-        self.__rawData = np.zeros(shape=(STEP, 8))
+        self.adc_columns = ["date", "time", "P1", "P2", "Ip", "IGmode", "IGscale", "QMS_signal"]
+        #self.__rawData = np.zeros(shape=(STEP, len(columns)))
+        self.__rawData = pd.DataFrame(columns=self.adc_columns) 
         self.__calcData = np.zeros(shape=(STEP, 4))
         self.__IGmode = IGmode
         self.__IGrange = IGrange
@@ -184,16 +186,19 @@ class Worker(QtCore.QObject):
             # Process values
             now = datetime.datetime.now()
             dSec = (now - self.__startTime).total_seconds()
-            self.__rawData[step] = [
-                now,
-                dSec,
-                p1_v,
-                p2_v,
-                ip_v,
-                self.__IGmode,
-                self.__IGrange,
-                self.__qmsSignal,
-            ]
+            self.__rawData = self.__rawData.append(
+		[
+                    now,
+                    dSec,
+                    p1_v,
+                    p2_v,
+                    ip_v,
+                    self.__IGmode,
+                    self.__IGrange,
+                    self.__qmsSignal,
+                ],
+                columns = self.adc_columns
+            )
 
             # calculate DATA
             p1_d = Signals.getCalcValue(
@@ -425,7 +430,6 @@ class Worker(QtCore.QObject):
 
             now = datetime.datetime.now()
             dSec = (now - self.__startTime).total_seconds()
-            print(np.shape(self.__rawData))
             self.__rawData[step] = [
                 now,
                 dSec,
