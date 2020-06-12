@@ -197,7 +197,6 @@ class Worker(QtCore.QObject):
                     self.__IGrange,
                     self.__qmsSignal,
                 ],
-                columns = self.adc_columns
             )
 
             # calculate DATA
@@ -306,7 +305,7 @@ class Worker(QtCore.QObject):
                     print("bad reading {:b}".format(word))
 
             # Pass data on its way
-            noe = datetime.datetime.now()
+            now = datetime.datetime.now()
             dSec = (now - self.__startTime).total_seconds()
             self.__rawData[step] = [now, dSec, temp, self.__presetTemp]
 
