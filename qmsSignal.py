@@ -26,7 +26,7 @@ class QMSSignal(QtCore.QThread):
         self.finished.emit()
 
     def led_on_off(self, pinNum):
-        """ switch led:
+        """switch led:
         ON:  self.count > 0
         OFF: self.count == 0
         """
@@ -36,8 +36,7 @@ class QMSSignal(QtCore.QThread):
             self.pi.write(pinNum, 0)
 
     def blink_led(self, pinNum):
-        """ turn led on and off, "count" times
-        """
+        """turn led on and off, "count" times"""
         for _ in range(self.count):
             self.pi.write(pinNum, 1)
             time.sleep(6)

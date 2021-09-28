@@ -4,12 +4,13 @@ from thermocouple import calcTemp, maskTemp
 from ionizationGauge import maskIonPres, calcIGPres
 from pfeiffer import maskPfePres, calcPfePres
 
-threadnames = ["Plasma", "Temperature","Pressure1","Pressure2"]
+threadnames = ["Plasma", "Temperature", "Pressure1", "Pressure2"]
+
 
 class Signals(Enum):
-    """ Define different signal types
-    """
-    PLASMA,TEMPERATURE,PRESSURE1,PRESSURE2 = threadnames
+    """Define different signal types"""
+
+    PLASMA, TEMPERATURE, PRESSURE1, PRESSURE2 = threadnames
 
     def getGPIO(self):
         if self == self.PLASMA:
@@ -29,36 +30,37 @@ class Signals(Enum):
         elif self == self.TEMPERATURE:
             return 1
         else:
-            return 
+            return
 
-    def getCalcArray(self, data: np.ndarray,**kws):
+    def getCalcArray(self, data: np.ndarray, **kws):
         if self == self.PLASMA:
             # TODO: calc
             return data
         elif self == self.TEMPERATURE:
             return maskTemp(data)
         elif self == self.PRESSURE1:
-            m = kws.get('IGrange',1e-3)
-            return maskIonPres(data,IGrange=m)
+            m = kws.get("IGrange", 1e-3)
+            return maskIonPres(data, IGrange=m)
         elif self == self.PRESSURE2:
             return maskPfePres(data)
         else:
             return data
 
-    def getCalcValue(self, data: float,**kws):
+    def getCalcValue(self, data: float, **kws):
         if self == self.PLASMA:
             # TODO: calc
             return data
         elif self == self.TEMPERATURE:
             return calcTemp(data)
         elif self == self.PRESSURE1:
-            mode = kws.get('IGmode', 0)
-            scale = kws.get('IGrange',-3)
+            mode = kws.get("IGmode", 0)
+            scale = kws.get("IGrange", -3)
             return calcIGPres(data, mode, scale)
         elif self == self.PRESSURE2:
             return calcPfePres(data)
         else:
             return data
+
 
 class ScaleSize(Enum):
     SMALL = -400
@@ -79,5 +81,6 @@ class ScaleSize(Enum):
         else:
             return
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     pass

@@ -2,8 +2,8 @@ import time, datetime
 import numpy as np
 import pandas as pd
 from pyqtgraph.Qt import QtCore, QtGui
-from typing import Callable
-from customTypes import Signals
+
+# from customTypes import Signals
 from electricCurrent import ElectricCurrent, hall_to_current
 from readsettings import read_settings
 
@@ -15,6 +15,8 @@ CHP2 = 1  # 16, Pfeiffer single gauge
 CHIP = 2  # 5, Plasma current, Hall effect sensor
 CHT = 0  # 0 -> CS0, 1 -> CS1
 
+# Make Worker superclass
+# Make separate class for each sensor, keep it clean!
 
 # Number of data points for collection, steps%STEP == 0
 STEP = 3
@@ -30,29 +32,60 @@ TT = True  # What is this? Used in Temperature Feedback Control
 # must inherit QtCore.QObject in order to use 'connect'
 class Worker(QtCore.QObject):
 
+    # Change to a dictionary. Trancparency!
     sigStep = QtCore.pyqtSignal(
-        np.ndarray, np.ndarray, np.ndarray, Signals, datetime.datetime
+        np.ndarray, np.ndarray, np.ndarray, dict, datetime.datetime
     )
-    sigDone = QtCore.pyqtSignal(int, Signals)
+    sigDone = QtCore.pyqtSignal(int, dict)
     sigMsg = QtCore.pyqtSignal(str)
 
     sigAbortHeater = QtCore.pyqtSignal()
 
-    def __init__(self):
+    def __init__(self, id, app, ttype, startTime):
         super().__init__()
 
-    def setWorker(
-        self,
-        id: int,
-        app: QtGui.QApplication,
-        ttype: Signals,
-        startTime: datetime.datetime,
-    ):
         self.__id = id
         self.__app = app
-        self.__abort = False
-        self.__startTime = startTime
         self.__ttype = ttype
+        self.__startTime = startTime
+        self.__abort = False
+
+    def setThread(self):
+        """ Set Thread name and ID, signal them to the log browser"""
+        threadName = QtCore.QThread.currentThread().objectName()
+        print(threadName)
+        return
+
+        self.sigMsg.emit(
+            "Running worker #{} from thread '{}' (#{})".format(self.__id, threadName)
+        )
+
+    # MARK: - Getters
+    def getStartTime(self):
+        return self.__startTime
+
+    def setSampling(self, sampling):
+        """ Set sampling time for ADC """
+        self.sampling = sampling
+        print(f"Updated sampling to {sampling}")
+
+    @QtCore.pyqtSlot()
+    def abort(self):
+        self.sigMsg.emit("Worker #{} aborting acquisition".format(self.__id))
+        self.__abort = True
+
+
+class MAX6675(Worker):
+    def __init__(self, id, app, ttype, startTime):
+        super().__init__(id, app, ttype, startTime)
+        self.__id = id
+        self.__app = app
+        self.__ttype = ttype
+        self.__startTime = startTime
+        self.__abort = False
+        attrs = vars(self)
+        print(", ".join(f"{i}" for i in attrs.items()))
+        print("ID:", self.__id)
 
     # set temperature worker
     def setTempWorker(self, presetTemp: int):
@@ -66,212 +99,33 @@ class Worker(QtCore.QObject):
             self.__onLight = 0.1
             self.__sumE = 0
             self.__exE = 0
+        else:
+            print("needs pigpio to access SPI")
 
-    # set pressure worker
-    def setPresWorker(self, IGmode: int, IGrange: int):
-
-        self.adc_columns = ["date", "time", "P1", "P2", "Ip", "IGmode", "IGscale", "QMS_signal"]
-        #self.__rawData = np.zeros(shape=(STEP, len(columns)))
-        self.__rawData = pd.DataFrame(columns=self.adc_columns) 
-        self.__calcData = np.zeros(shape=(STEP, 4))
-        self.__IGmode = IGmode
-        self.__IGrange = IGrange
-        self.__qmsSignal = 0
-        self.sampling = read_settings()["samplingtime"]
-
-    # MARK: - Getters
-    def getStartTime(self):
-        return self.__startTime
+        print("CHECK\n")
+        print("abort:", self.abort)
+        print("__abort:", self.__abort)
+        print(self.__id)
 
     # MARK: - Setters
     def setPresetTemp(self, newTemp: int):
         self.__presetTemp = newTemp
         return
 
-    def setSampling(self, sampling):
-        """ Set sampling time for ADC """
-        self.sampling = sampling
-        print(f"Updated sampling to {sampling}")
+        # MARK: - Methods
 
-    def setIGmode(self, IGmode: int):
-        """
-            0: Torr
-            1: Pa
-        """
-        self.__IGmode = IGmode
-        return
-
-    def setIGrange(self, IGrange: int):
-        """
-            range: -8 ~ -3
-        """
-        self.__IGrange = IGrange
-        return
-
-    def setQmsSignal(self, signal: int):
-        """
-            waiting: 0
-            running: 1
-        """
-        self.__qmsSignal = signal
-        return
-
-    # MARK: - Methods
     @QtCore.pyqtSlot()
     def start(self):
-        """ Set Thread ID and name, then run corresponding "plot" function.
+        """Set Thread ID and name, then run corresponding "plot" function.
         "plot" functions are main data acquisition loops.
         """
-        self.__setThread()
-        adcSignals = [Signals.PLASMA, Signals.PRESSURE1, Signals.PRESSURE2]
-        if TEST:
-            if self.__ttype == Signals.TEMPERATURE:
-                self.__testReadTemp()
-            else:
-                self.__testReadADC()
-        else:
-            if self.__ttype == Signals.TEMPERATURE:
-                self.readT()
-            elif self.__ttype in adcSignals:
-                self.readADC()
-            else:
-                return
-
-    def __setThread(self):
-        """ Set Thread name and ID, signal them to the log browser"""
-        threadName = QtCore.QThread.currentThread().objectName()
-        threadId = int(QtCore.QThread.currentThreadId())
-
-        self.sigMsg.emit(
-            "Running worker #{} from thread '{}' (#{})".format(
-                self.__id, threadName, threadId
-            )
-        )
-
-    @QtCore.pyqtSlot()
-    def abort(self):
-        self.sigMsg.emit("Worker #{} aborting acquisition".format(self.__id))
-        self.__abort = True
-
-    # MARK: - Plot
-    def readADC(self):
-        """ Reads ADC raw signals, converts it, sends it back to main loop
-        to plot ad save data.
-        """
-
-        aio = adc(0x49, 0x3E)  # instance of AIO_32_0RA_IRC from AIO.py
-        # Why this addresses?
-
-        totalStep = 0
-        step = 0
-
-        while not (self.__abort):
-            time.sleep(self.sampling)
-
-            # READ DATA
-            CHNLS = [CHP1, CHP2, CHIP]
-            scale10 = [CHP1, CHP2]
-            scale5 = [CHIP]
-            kws = {CH: {"pga": aio.PGA.PGA_10_0352V} for CH in scale10}
-            for CH in scale5:
-                kws[CH] = {"pga": aio.PGA.PGA_5_0176V}
-
-            # Communitcate with ADC
-
-            arg = [aio.DataRate.DR_860SPS]
-            p1_v, p2_v, ip_v = [
-                aio.analog_read_volt(CH, *arg, **kws[CH]) for CH in CHNLS
-            ]
-
-            # Process values
-            now = datetime.datetime.now()
-            dSec = (now - self.__startTime).total_seconds()
-            self.__rawData = self.__rawData.append(
-		[
-                    now,
-                    dSec,
-                    p1_v,
-                    p2_v,
-                    ip_v,
-                    self.__IGmode,
-                    self.__IGrange,
-                    self.__qmsSignal,
-                ],
-            )
-
-            # calculate DATA
-            p1_d = Signals.getCalcValue(
-                Signals.PRESSURE1, p1_v, IGmode=self.__IGmode, IGrange=self.__IGrange
-            )
-            p2_d = Signals.getCalcValue(Signals.PRESSURE2, p2_v)
-            ip_d = hall_to_current(ip_v)  #
-
-            self.__calcData[step] = [dSec, p1_d, p2_d, ip_d]
-
-            if step % (STEP - 1) == 0 and step != 0:
-                # get average
-                ave_p1 = np.mean(self.__calcData[:, 1], dtype=float)
-                ave_p2 = np.mean(self.__calcData[:, 2], dtype=float)
-                ave_ip = np.mean(self.__calcData[:, 3], dtype=float)
-                average = np.array(
-                    [
-                        [Signals.PLASMA, ave_ip],
-                        [Signals.PRESSURE1, ave_p1],
-                        [Signals.PRESSURE2, ave_p2],
-                    ]
-                )
-
-                # SEND ADC data back to main loop
-
-                self.sigStep.emit(
-                    self.__rawData,
-                    self.__calcData,
-                    average,
-                    self.__ttype,
-                    self.__startTime,
-                )
-
-                # Reset temporary data arrays
-                self.__rawData = np.zeros(shape=(STEP, 8))
-                self.__calcData = np.zeros(shape=(STEP, 4))
-                step = 0
-            else:
-                step += 1
-            totalStep += 1
-            self.__app.processEvents()
-        else:
-            # On ABORT
-            if self.__calcData[step][0] == 0.0:
-                step -= 1
-            if step > -1:
-                # get average
-                ave_p1 = np.mean(self.__calcData[:, 1], dtype=float)
-                ave_p2 = np.mean(self.__calcData[:, 2], dtype=float)
-                ave_ip = np.mean(self.__calcData[:, 3], dtype=float)
-                average = np.array(
-                    [
-                        [Signals.PLASMA, ave_ip],
-                        [Signals.PRESSURE1, ave_p1],
-                        [Signals.PRESSURE2, ave_p2],
-                    ]
-                )
-                self.sigStep.emit(
-                    self.__rawData[: step + 1, :],
-                    self.__calcData,
-                    average,
-                    self.__ttype,
-                    self.__startTime,
-                )
-            self.sigMsg.emit(f"Worker #{self.__id} aborting work at step {totalStep}")
-
-        self.sigDone.emit(self.__id, self.__ttype)
-        return
+        # self.__setThread()
+        self.readT()
 
     # temperature plot
     @QtCore.pyqtSlot()
     def readT(self):
-        """ Temperature acquisition and Feedback Control function
-        """
+        """Temperature acquisition and Feedback Control function"""
         # Select MAX6675 sensor on the SPI
         sensor = self.pi.spi_open(CHT, 1000000, 0)
         if TT:
@@ -366,8 +220,7 @@ class Worker(QtCore.QObject):
 
     # MARK: - Control
     def __controlTemp(self, aveTemp: np.ndarray, eCurrent: ElectricCurrent):
-        """ Shouldn't the self.sampling here be 0.25, not the one for ADC?
-        """
+        """Shouldn't the self.sampling here be 0.25, not the one for ADC?"""
         e = self.__presetTemp - aveTemp[0, 1]
         integral = self.__sumE + e * self.sampling
         derivative = (e - self.__exE) / self.sampling
@@ -402,52 +255,130 @@ class Worker(QtCore.QObject):
         else:
             return steps
 
-    def __controlCur(self, aveCur: float, steps: int):
-        pass
 
-    # MARK: - Test
-    def __testReadADC(self):
-        """ When runing not on Raspi, to test data flow and plotting """
+class ADC(Worker):
+    def __init__(self, id, app, ttype, startTime):
+        super().__init__(id, app, ttype, startTime)
+        self.__id = id
+        self.__app = app
+        self.__ttype = ttype
+        self.__startTime = startTime
+        self.__abort = False
+        attrs = vars(self)
+        print(", ".join(f"{i}" for i in attrs.items()))
+        print("ID:", self.__id)
+
+    def setPresWorker(self, IGmode: int, IGrange: int):
+
+        self.adc_columns = [
+            "date",
+            "time",
+            "P1",
+            "P2",
+            "Ip",
+            "IGmode",
+            "IGscale",
+            "QMS_signal",
+        ]
+        # self.__rawData = np.zeros(shape=(STEP, len(columns)))
+        self.__rawData = pd.DataFrame(columns=self.adc_columns)
+        self.__calcData = np.zeros(shape=(STEP, 4))
+        self.__IGmode = IGmode
+        self.__IGrange = IGrange
+        self.__qmsSignal = 0
+        self.sampling = read_settings()["samplingtime"]
+
+    def setIGmode(self, IGmode: int):
+        """
+        0: Torr
+        1: Pa
+        """
+        self.__IGmode = IGmode
+        return
+
+    def setIGrange(self, IGrange: int):
+        """
+        range: -8 ~ -3
+        """
+        self.__IGrange = IGrange
+        return
+
+    def setQmsSignal(self, signal: int):
+        """
+        waiting: 0
+        running: 1
+        """
+        self.__qmsSignal = signal
+        return
+
+    # MARK: - Methods
+    @QtCore.pyqtSlot()
+    def start(self):
+        """Set Thread ID and name, then run corresponding "plot" function.
+        "plot" functions are main data acquisition loops.
+        """
+        self.setThread()
+        self.readADC()
+
+    # MARK: - Plot
+    def readADC(self):
+        """Reads ADC raw signals, converts it, sends it back to main loop
+        to plot ad save data.
+        """
+
+        aio = adc(0x49, 0x3E)  # instance of AIO_32_0RA_IRC from AIO.py
+        # Why this addresses?
+
         totalStep = 0
         step = 0
+
         while not (self.__abort):
-            # print(self.__ttype)
-            if self.__ttype == Signals.PLASMA:
-                pass
-            elif self.__ttype == Signals.TEMPERATURE:
-                val = (np.random.normal() + 1) / 10000
-                time.sleep(0.25)
-                STEPtest = 2
-                return
-
             time.sleep(self.sampling)
-            STEPtest = STEP
 
-            p1_v = np.random.normal(4, 0.8)
-            p2_v = np.random.normal(5, 0.1)
-            ip_v = np.random.normal(2.5, 0.02)
+            # READ DATA
+            CHNLS = [CHP1, CHP2, CHIP]
+            scale10 = [CHP1, CHP2]
+            scale5 = [CHIP]
+            kws = {CH: {"pga": aio.PGA.PGA_10_0352V} for CH in scale10}
+            for CH in scale5:
+                kws[CH] = {"pga": aio.PGA.PGA_5_0176V}
 
-            now = datetime.datetime.now()
-            dSec = (now - self.__startTime).total_seconds()
-            self.__rawData[step] = [
-                now,
-                dSec,
-                p1_v,
-                p2_v,
-                ip_v,
-                self.__IGmode,
-                self.__IGrange,
-                self.__qmsSignal,
+            # Communitcate with ADC
+
+            arg = [aio.DataRate.DR_860SPS]
+            p1_v, p2_v, ip_v = [
+                aio.analog_read_volt(CH, *arg, **kws[CH]) for CH in CHNLS
             ]
 
+            # Process values
+            now = datetime.datetime.now()
+            dSec = (now - self.__startTime).total_seconds()
+            self.__rawData = self.__rawData.append(
+                [
+                    now,
+                    dSec,
+                    p1_v,
+                    p2_v,
+                    ip_v,
+                    self.__IGmode,
+                    self.__IGrange,
+                    self.__qmsSignal,
+                ]
+            )
+
+            # TODO: get rid of the enumerator class Signals.
+            # Define calculations inside individual subclass right here.
+            # Why Ito-kun hid this somewhere? Not helpful.
+            #  calculate DATA
             p1_d = Signals.getCalcValue(
                 Signals.PRESSURE1, p1_v, IGmode=self.__IGmode, IGrange=self.__IGrange
             )
             p2_d = Signals.getCalcValue(Signals.PRESSURE2, p2_v)
-            ip_d = hall_to_current(ip_v)
+            ip_d = hall_to_current(ip_v)  #
+
             self.__calcData[step] = [dSec, p1_d, p2_d, ip_d]
 
-            if step % (STEPtest - 1) == 0 and step != 0:
+            if step % (STEP - 1) == 0 and step != 0:
                 # get average
                 ave_p1 = np.mean(self.__calcData[:, 1], dtype=float)
                 ave_p2 = np.mean(self.__calcData[:, 2], dtype=float)
@@ -460,6 +391,8 @@ class Worker(QtCore.QObject):
                     ]
                 )
 
+                # SEND ADC data back to main loop
+
                 self.sigStep.emit(
                     self.__rawData,
                     self.__calcData,
@@ -467,16 +400,17 @@ class Worker(QtCore.QObject):
                     self.__ttype,
                     self.__startTime,
                 )
-                self.__rawData = np.zeros(shape=(STEPtest, 8))
-                self.__calcData = np.zeros(shape=(STEPtest, 4))
+
+                # Reset temporary data arrays
+                self.__rawData = np.zeros(shape=(STEP, 8))
+                self.__calcData = np.zeros(shape=(STEP, 4))
                 step = 0
             else:
                 step += 1
             totalStep += 1
-
             self.__app.processEvents()
-
         else:
+            # On ABORT
             if self.__calcData[step][0] == 0.0:
                 step -= 1
             if step > -1:
@@ -491,68 +425,15 @@ class Worker(QtCore.QObject):
                         [Signals.PRESSURE2, ave_p2],
                     ]
                 )
-
                 self.sigStep.emit(
                     self.__rawData[: step + 1, :],
-                    self.__calcData[: step + 1, :],
+                    self.__calcData,
                     average,
                     self.__ttype,
                     self.__startTime,
                 )
-
             self.sigMsg.emit(f"Worker #{self.__id} aborting work at step {totalStep}")
-        self.sigDone.emit(self.__id, self.__ttype)
-        return
 
-    def __testReadTemp(self):
-        """ When runing not on Raspi, to test data flow and plotting """
-        totalStep = 0
-        step = 0
-        while not (self.__abort):
-            time.sleep(0.25)
-            STEPtest = STEP
-            temperature = np.random.normal(20, 1.5)
-
-            dSec = (datetime.datetime.now() - self.__startTime).total_seconds()
-            self.__rawData[step] = [dSec, temperature, self.__presetTemp]
-
-            if step % (STEPtest - 1) == 0 and step != 0:
-                # get average
-                ave = np.mean(self.__rawData[:, 1], dtype=float)
-                average = np.array([[Signals.TEMPERATURE, ave]])
-
-                self.sigStep.emit(
-                    self.__rawData,
-                    self.__rawData,
-                    average,
-                    self.__ttype,
-                    self.__startTime,
-                )
-                self.__rawData = np.zeros(shape=(STEPtest, 3), dtype=object)
-                step = 0
-            else:
-                step += 1
-            totalStep += 1
-
-            self.__app.processEvents()
-
-        else:
-            if self.__rawData[step][0] == 0.0:
-                step -= 1
-            if step > -1:
-                # get average
-                ave = np.mean(self.__rawData[:, 1], dtype=float)
-                average = np.array([[Signals.TEMPERATURE, ave]])
-
-                self.sigStep.emit(
-                    self.__rawData[: step + 1, :],
-                    self.__rawData[: step + 1, :],
-                    average,
-                    self.__ttype,
-                    self.__startTime,
-                )
-
-            self.sigMsg.emit(f"Worker #{self.__id} aborting work at step {totalStep}")
         self.sigDone.emit(self.__id, self.__ttype)
         return
 
