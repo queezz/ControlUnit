@@ -25,7 +25,7 @@ def generatedocs():
         try:
             shutil.move(i, j)
         except Exception as e:
-            print(f"{e}")
+            print(f"MOVE Err: {e}")
 
     time.sleep(0.2)
     clear(bpth)
