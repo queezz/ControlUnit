@@ -50,4 +50,3 @@ setup(
         "Topic :: Scientific/Engineering :: Physics",
     ],
 )
-
