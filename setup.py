@@ -27,8 +27,11 @@ setup(
     license="BSD 3-clause",
     keywords="control",
     url="https://github.com/queezz/ControlUnit",
-    packages=["controlunit"],
-    package_dir={"controlunit": "controlunit"},
+    packages=["controlunit", "controlunit.components"],
+    package_dir={
+        "controlunit": "controlunit",
+        "controlunit.components": "controlunit/components",
+    },
     py_modules=["controlunit.__init__"],
     # test_suite="testings",
     install_requires="""
