@@ -598,6 +598,15 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.adcWorker.setIGrange(value)
 
 
+def main():
+    """
+    for command line script using entrypoint
+    """
+    app = QtGui.QApplication([])
+    widget = MainWidget(app)
+    sys.exit(app.exec_())
+
+
 if __name__ == "__main__":
     app = QtGui.QApplication([])
     widget = MainWidget(app)

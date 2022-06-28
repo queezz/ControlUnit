@@ -39,7 +39,8 @@ setup(
       """,
     package_data={"": [".settings"]},
     include_package_data=True,
-    scripts=["bin/plasmacontrol"],
+    # scripts=["bin/plasmacontrol"],
+    entry_points={"console_scripts": ["plasmacontrol=controlunit.main:main"],},
     classifiers=[
         "License :: OSI Approved :: BSD License",
         "Natural Language :: English",
