@@ -2,6 +2,8 @@ import csv
 import os
 from os.path import join
 
+bpth = os.path.dirname(__file__)
+
 
 def make_datafolders():
     """ Create folder for saving data, if not existing """
@@ -13,6 +15,16 @@ def make_datafolders():
         print(f"created {foldername}")
     except FileExistsError:
         pass
+    except FileNotFoundError:
+        # Put data folder on the Desktop of current user
+        foldername = os.path.join(
+            os.path.expanduser("~"), "Desktop", "data_controlunit"
+        )
+
+        if not os.path.exists(foldername):
+            os.mkdir(foldername)
+        settings["datafolder"] = foldername
+        write_settings(settings)
 
 
 def read_settings():
@@ -21,8 +33,6 @@ def read_settings():
 
     pth = None
     sampling_rate = 0.01
-
-    bpth = os.path.dirname(__file__)
 
     with open(os.path.join(bpth, ".settings"), "r") as f:
         s = csv.reader(f, delimiter=",")
@@ -43,6 +53,13 @@ def read_settings():
     }
 
     return settings
+
+
+def write_settings(settings):
+    """ Write settings """
+    with open(os.path.join(bpth, ".settings"), "w") as f:
+        for i in settings:
+            f.write(f"{i},{settings[i]}\n")
 
 
 if __name__ == "__main__":
