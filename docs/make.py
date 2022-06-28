@@ -21,7 +21,12 @@ def generatedocs():
     ls = os.listdir(bpth)
     ols = [os.path.join(bpth, i) for i in ls]
     nls = [os.path.join(npth, i) for i in ls]
-    _ = [shutil.move(i, j) for i, j in zip(ols, nls)]
+    for i, j in zip(ols, nls):
+        try:
+            shutil.move(i, j)
+        except Exception as e:
+            print(f"{e}")
+
     time.sleep(0.2)
     clear(bpth)
 
