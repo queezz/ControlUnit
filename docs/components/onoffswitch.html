@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.9.2" />
+<title>controlunit.components.onoffswitch API documentation</title>
+<meta name="description" content="" />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>controlunit.components.onoffswitch</code></h1>
+</header>
+<section id="section-intro">
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">from PyQt5 import QtGui, QtWidgets
+from PyQt5.QtCore import Qt, QRect
+
+
+class MySwitch(QtWidgets.QPushButton):
+    radius = 10
+    width = 38
+    # 0 - On, 1 - Off
+    labels = [&#34;FULL&#34;, &#34;NORM&#34;]
+    # colors = [Qt.green, Qt.red]
+    colors = [QtGui.QColor(&#34;#e9fac5&#34;), QtGui.QColor(&#34;#8f94c2&#34;)]
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setCheckable(True)
+        self.setMinimumWidth(66)
+        self.setMinimumHeight(35)
+
+    def paintEvent(self, event):
+        radius = self.radius
+        width = self.width
+
+        label = self.labels[0] if self.isChecked() else self.labels[1]
+        bg_color = self.colors[0] if self.isChecked() else self.colors[1]
+
+        center = self.rect().center()
+
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+        painter.translate(center)
+        painter.setBrush(QtGui.QColor(0, 0, 0))
+
+        pen = QtGui.QPen(Qt.black)
+        pen.setWidth(2)
+        painter.setPen(pen)
+
+        painter.drawRoundedRect(
+            QRect(-width, -radius, 2 * width, 2 * radius), radius, radius
+        )
+        painter.setBrush(QtGui.QBrush(bg_color))
+        sw_rect = QRect(-radius, -radius, width + radius, 2 * radius)
+
+        if not self.isChecked():
+            sw_rect.moveLeft(-width)
+
+        painter.drawRoundedRect(sw_rect, radius, radius)
+        painter.drawText(sw_rect, Qt.AlignCenter, label)
+
+
+class OnOffSwitch(MySwitch):
+    radius = 15
+    width = 40
+    # 0 - On, 1 - Off
+    labels = [&#34;ON&#34;, &#34;OFF&#34;]
+    colors = [QtGui.QColor(&#34;#8df01d&#34;), QtGui.QColor(&#34;#b89c76&#34;)]
+
+
+class ToggleCurrentPlot(MySwitch):
+    radius = 15
+    width = 40
+    # 0 - On, 1 - Off
+    labels = [&#34;Ip&#34;, &#34;no Ip&#34;]
+    colors = [QtGui.QColor(&#34;#8df01d&#34;), QtGui.QColor(&#34;#b89c76&#34;)]
+
+
+class ToggleTemperaturePlot(MySwitch):
+    radius = 15
+    width = 40
+    # 0 - On, 1 - Off
+    labels = [&#34;T&#34;, &#34;no T&#34;]
+    colors = [QtGui.QColor(&#34;#8df01d&#34;), QtGui.QColor(&#34;#b89c76&#34;)]
+
+
+class TogglePressurePlot(MySwitch):
+    radius = 15
+    width = 40
+    # 0 - On, 1 - Off
+    labels = [&#34;P&#34;, &#34;no P&#34;]
+    colors = [QtGui.QColor(&#34;#8df01d&#34;), QtGui.QColor(&#34;#b89c76&#34;)]
+
+
+class changeScale(MySwitch):
+    radius = 15
+    width = 40
+    # 0 - On, 1 - Off
+    labels = [&#34;auto&#34;, &#34;levels&#34;]
+    colors = [QtGui.QColor(&#34;#8df01d&#34;), QtGui.QColor(&#34;#b89c76&#34;)]
+
+
+class QmsSwitch(MySwitch):
+    radius = 14
+    width = 40
+
+    labels = [&#34;Exp ON&#34;, &#34;Exp OFF&#34;]
+    colors = [QtGui.QColor(&#34;#33CCFF&#34;), QtGui.QColor(&#34;#b89c76&#34;)]
+
+
+if __name__ == &#34;__main__&#34;:
+    pass</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="controlunit.components.onoffswitch.MySwitch"><code class="flex name class">
+<span>class <span class="ident">MySwitch</span></span>
+<span>(</span><span>parent=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>QPushButton(parent: QWidget = None)
+QPushButton(str, parent: QWidget = None)
+QPushButton(QIcon, str, parent: QWidget = None)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class MySwitch(QtWidgets.QPushButton):
+    radius = 10
+    width = 38
+    # 0 - On, 1 - Off
+    labels = [&#34;FULL&#34;, &#34;NORM&#34;]
+    # colors = [Qt.green, Qt.red]
+    colors = [QtGui.QColor(&#34;#e9fac5&#34;), QtGui.QColor(&#34;#8f94c2&#34;)]
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setCheckable(True)
+        self.setMinimumWidth(66)
+        self.setMinimumHeight(35)
+
+    def paintEvent(self, event):
+        radius = self.radius
+        width = self.width
+
+        label = self.labels[0] if self.isChecked() else self.labels[1]
+        bg_color = self.colors[0] if self.isChecked() else self.colors[1]
+
+        center = self.rect().center()
+
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+        painter.translate(center)
+        painter.setBrush(QtGui.QColor(0, 0, 0))
+
+        pen = QtGui.QPen(Qt.black)
+        pen.setWidth(2)
+        painter.setPen(pen)
+
+        painter.drawRoundedRect(
+            QRect(-width, -radius, 2 * width, 2 * radius), radius, radius
+        )
+        painter.setBrush(QtGui.QBrush(bg_color))
+        sw_rect = QRect(-radius, -radius, width + radius, 2 * radius)
+
+        if not self.isChecked():
+            sw_rect.moveLeft(-width)
+
+        painter.drawRoundedRect(sw_rect, radius, radius)
+        painter.drawText(sw_rect, Qt.AlignCenter, label)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>PyQt5.QtWidgets.QPushButton</li>
+<li>PyQt5.QtWidgets.QAbstractButton</li>
+<li>PyQt5.QtWidgets.QWidget</li>
+<li>PyQt5.QtCore.QObject</li>
+<li>sip.wrapper</li>
+<li>PyQt5.QtGui.QPaintDevice</li>
+<li>sip.simplewrapper</li>
+</ul>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="controlunit.components.onoffswitch.OnOffSwitch" href="#controlunit.components.onoffswitch.OnOffSwitch">OnOffSwitch</a></li>
+<li><a title="controlunit.components.onoffswitch.QmsSwitch" href="#controlunit.components.onoffswitch.QmsSwitch">QmsSwitch</a></li>
+<li><a title="controlunit.components.onoffswitch.ToggleCurrentPlot" href="#controlunit.components.onoffswitch.ToggleCurrentPlot">ToggleCurrentPlot</a></li>
+<li><a title="controlunit.components.onoffswitch.TogglePressurePlot" href="#controlunit.components.onoffswitch.TogglePressurePlot">TogglePressurePlot</a></li>
+<li><a title="controlunit.components.onoffswitch.ToggleTemperaturePlot" href="#controlunit.components.onoffswitch.ToggleTemperaturePlot">ToggleTemperaturePlot</a></li>
+<li><a title="controlunit.components.onoffswitch.changeScale" href="#controlunit.components.onoffswitch.changeScale">changeScale</a></li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="controlunit.components.onoffswitch.MySwitch.colors"><code class="name">var <span class="ident">colors</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="controlunit.components.onoffswitch.MySwitch.labels"><code class="name">var <span class="ident">labels</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="controlunit.components.onoffswitch.MySwitch.radius"><code class="name">var <span class="ident">radius</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="controlunit.components.onoffswitch.MySwitch.width"><code class="name">var <span class="ident">width</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="controlunit.components.onoffswitch.MySwitch.paintEvent"><code class="name flex">
+<span>def <span class="ident">paintEvent</span></span>(<span>self, event)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>paintEvent(self, QPaintEvent)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def paintEvent(self, event):
+    radius = self.radius
+    width = self.width
+
+    label = self.labels[0] if self.isChecked() else self.labels[1]
+    bg_color = self.colors[0] if self.isChecked() else self.colors[1]
+
+    center = self.rect().center()
+
+    painter = QtGui.QPainter(self)
+    painter.setRenderHint(QtGui.QPainter.Antialiasing)
+    painter.translate(center)
+    painter.setBrush(QtGui.QColor(0, 0, 0))
+
+    pen = QtGui.QPen(Qt.black)
+    pen.setWidth(2)
+    painter.setPen(pen)
+
+    painter.drawRoundedRect(
+        QRect(-width, -radius, 2 * width, 2 * radius), radius, radius
+    )
+    painter.setBrush(QtGui.QBrush(bg_color))
+    sw_rect = QRect(-radius, -radius, width + radius, 2 * radius)
+
+    if not self.isChecked():
+        sw_rect.moveLeft(-width)
+
+    painter.drawRoundedRect(sw_rect, radius, radius)
+    painter.drawText(sw_rect, Qt.AlignCenter, label)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="controlunit.components.onoffswitch.OnOffSwitch"><code class="flex name class">
+<span>class <span class="ident">OnOffSwitch</span></span>
+<span>(</span><span>parent=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>QPushButton(parent: QWidget = None)
+QPushButton(str, parent: QWidget = None)
+QPushButton(QIcon, str, parent: QWidget = None)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class OnOffSwitch(MySwitch):
+    radius = 15
+    width = 40
+    # 0 - On, 1 - Off
+    labels = [&#34;ON&#34;, &#34;OFF&#34;]
+    colors = [QtGui.QColor(&#34;#8df01d&#34;), QtGui.QColor(&#34;#b89c76&#34;)]</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="controlunit.components.onoffswitch.MySwitch" href="#controlunit.components.onoffswitch.MySwitch">MySwitch</a></li>
+<li>PyQt5.QtWidgets.QPushButton</li>
+<li>PyQt5.QtWidgets.QAbstractButton</li>
+<li>PyQt5.QtWidgets.QWidget</li>
+<li>PyQt5.QtCore.QObject</li>
+<li>sip.wrapper</li>
+<li>PyQt5.QtGui.QPaintDevice</li>
+<li>sip.simplewrapper</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="controlunit.components.onoffswitch.OnOffSwitch.colors"><code class="name">var <span class="ident">colors</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="controlunit.components.onoffswitch.OnOffSwitch.labels"><code class="name">var <span class="ident">labels</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="controlunit.components.onoffswitch.OnOffSwitch.radius"><code class="name">var <span class="ident">radius</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="controlunit.components.onoffswitch.OnOffSwitch.width"><code class="name">var <span class="ident">width</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="controlunit.components.onoffswitch.MySwitch" href="#controlunit.components.onoffswitch.MySwitch">MySwitch</a></b></code>:
+<ul class="hlist">
+<li><code><a title="controlunit.components.onoffswitch.MySwitch.paintEvent" href="#controlunit.components.onoffswitch.MySwitch.paintEvent">paintEvent</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+<dt id="controlunit.components.onoffswitch.QmsSwitch"><code class="flex name class">
+<span>class <span class="ident">QmsSwitch</span></span>
+<span>(</span><span>parent=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>QPushButton(parent: QWidget = None)
+QPushButton(str, parent: QWidget = None)
+QPushButton(QIcon, str, parent: QWidget = None)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class QmsSwitch(MySwitch):
+    radius = 14
+    width = 40
+
+    labels = [&#34;Exp ON&#34;, &#34;Exp OFF&#34;]
+    colors = [QtGui.QColor(&#34;#33CCFF&#34;), QtGui.QColor(&#34;#b89c76&#34;)]</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="controlunit.components.onoffswitch.MySwitch" href="#controlunit.components.onoffswitch.MySwitch">MySwitch</a></li>
+<li>PyQt5.QtWidgets.QPushButton</li>
+<li>PyQt5.QtWidgets.QAbstractButton</li>
+<li>PyQt5.QtWidgets.QWidget</li>
+<li>PyQt5.QtCore.QObject</li>
+<li>sip.wrapper</li>
+<li>PyQt5.QtGui.QPaintDevice</li>
+<li>sip.simplewrapper</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="controlunit.components.onoffswitch.QmsSwitch.colors"><code class="name">var <span class="ident">colors</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="controlunit.components.onoffswitch.QmsSwitch.labels"><code class="name">var <span class="ident">labels</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="controlunit.components.onoffswitch.QmsSwitch.radius"><code class="name">var <span class="ident">radius</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="controlunit.components.onoffswitch.QmsSwitch.width"><code class="name">var <span class="ident">width</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="controlunit.components.onoffswitch.MySwitch" href="#controlunit.components.onoffswitch.MySwitch">MySwitch</a></b></code>:
+<ul class="hlist">
+<li><code><a title="controlunit.components.onoffswitch.MySwitch.paintEvent" href="#controlunit.components.onoffswitch.MySwitch.paintEvent">paintEvent</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+<dt id="controlunit.components.onoffswitch.ToggleCurrentPlot"><code class="flex name class">
+<span>class <span class="ident">ToggleCurrentPlot</span></span>
+<span>(</span><span>parent=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>QPushButton(parent: QWidget = None)
+QPushButton(str, parent: QWidget = None)
+QPushButton(QIcon, str, parent: QWidget = None)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class ToggleCurrentPlot(MySwitch):
+    radius = 15
+    width = 40
+    # 0 - On, 1 - Off
+    labels = [&#34;Ip&#34;, &#34;no Ip&#34;]
+    colors = [QtGui.QColor(&#34;#8df01d&#34;), QtGui.QColor(&#34;#b89c76&#34;)]</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="controlunit.components.onoffswitch.MySwitch" href="#controlunit.components.onoffswitch.MySwitch">MySwitch</a></li>
+<li>PyQt5.QtWidgets.QPushButton</li>
+<li>PyQt5.QtWidgets.QAbstractButton</li>
+<li>PyQt5.QtWidgets.QWidget</li>
+<li>PyQt5.QtCore.QObject</li>
+<li>sip.wrapper</li>
+<li>PyQt5.QtGui.QPaintDevice</li>
+<li>sip.simplewrapper</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="controlunit.components.onoffswitch.ToggleCurrentPlot.colors"><code class="name">var <span class="ident">colors</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="controlunit.components.onoffswitch.ToggleCurrentPlot.labels"><code class="name">var <span class="ident">labels</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="controlunit.components.onoffswitch.ToggleCurrentPlot.radius"><code class="name">var <span class="ident">radius</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="controlunit.components.onoffswitch.ToggleCurrentPlot.width"><code class="name">var <span class="ident">width</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="controlunit.components.onoffswitch.MySwitch" href="#controlunit.components.onoffswitch.MySwitch">MySwitch</a></b></code>:
+<ul class="hlist">
+<li><code><a title="controlunit.components.onoffswitch.MySwitch.paintEvent" href="#controlunit.components.onoffswitch.MySwitch.paintEvent">paintEvent</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+<dt id="controlunit.components.onoffswitch.TogglePressurePlot"><code class="flex name class">
+<span>class <span class="ident">TogglePressurePlot</span></span>
+<span>(</span><span>parent=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>QPushButton(parent: QWidget = None)
+QPushButton(str, parent: QWidget = None)
+QPushButton(QIcon, str, parent: QWidget = None)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class TogglePressurePlot(MySwitch):
+    radius = 15
+    width = 40
+    # 0 - On, 1 - Off
+    labels = [&#34;P&#34;, &#34;no P&#34;]
+    colors = [QtGui.QColor(&#34;#8df01d&#34;), QtGui.QColor(&#34;#b89c76&#34;)]</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="controlunit.components.onoffswitch.MySwitch" href="#controlunit.components.onoffswitch.MySwitch">MySwitch</a></li>
+<li>PyQt5.QtWidgets.QPushButton</li>
+<li>PyQt5.QtWidgets.QAbstractButton</li>
+<li>PyQt5.QtWidgets.QWidget</li>
+<li>PyQt5.QtCore.QObject</li>
+<li>sip.wrapper</li>
+<li>PyQt5.QtGui.QPaintDevice</li>
+<li>sip.simplewrapper</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="controlunit.components.onoffswitch.TogglePressurePlot.colors"><code class="name">var <span class="ident">colors</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="controlunit.components.onoffswitch.TogglePressurePlot.labels"><code class="name">var <span class="ident">labels</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="controlunit.components.onoffswitch.TogglePressurePlot.radius"><code class="name">var <span class="ident">radius</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="controlunit.components.onoffswitch.TogglePressurePlot.width"><code class="name">var <span class="ident">width</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="controlunit.components.onoffswitch.MySwitch" href="#controlunit.components.onoffswitch.MySwitch">MySwitch</a></b></code>:
+<ul class="hlist">
+<li><code><a title="controlunit.components.onoffswitch.MySwitch.paintEvent" href="#controlunit.components.onoffswitch.MySwitch.paintEvent">paintEvent</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+<dt id="controlunit.components.onoffswitch.ToggleTemperaturePlot"><code class="flex name class">
+<span>class <span class="ident">ToggleTemperaturePlot</span></span>
+<span>(</span><span>parent=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>QPushButton(parent: QWidget = None)
+QPushButton(str, parent: QWidget = None)
+QPushButton(QIcon, str, parent: QWidget = None)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class ToggleTemperaturePlot(MySwitch):
+    radius = 15
+    width = 40
+    # 0 - On, 1 - Off
+    labels = [&#34;T&#34;, &#34;no T&#34;]
+    colors = [QtGui.QColor(&#34;#8df01d&#34;), QtGui.QColor(&#34;#b89c76&#34;)]</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="controlunit.components.onoffswitch.MySwitch" href="#controlunit.components.onoffswitch.MySwitch">MySwitch</a></li>
+<li>PyQt5.QtWidgets.QPushButton</li>
+<li>PyQt5.QtWidgets.QAbstractButton</li>
+<li>PyQt5.QtWidgets.QWidget</li>
+<li>PyQt5.QtCore.QObject</li>
+<li>sip.wrapper</li>
+<li>PyQt5.QtGui.QPaintDevice</li>
+<li>sip.simplewrapper</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="controlunit.components.onoffswitch.ToggleTemperaturePlot.colors"><code class="name">var <span class="ident">colors</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="controlunit.components.onoffswitch.ToggleTemperaturePlot.labels"><code class="name">var <span class="ident">labels</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="controlunit.components.onoffswitch.ToggleTemperaturePlot.radius"><code class="name">var <span class="ident">radius</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="controlunit.components.onoffswitch.ToggleTemperaturePlot.width"><code class="name">var <span class="ident">width</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="controlunit.components.onoffswitch.MySwitch" href="#controlunit.components.onoffswitch.MySwitch">MySwitch</a></b></code>:
+<ul class="hlist">
+<li><code><a title="controlunit.components.onoffswitch.MySwitch.paintEvent" href="#controlunit.components.onoffswitch.MySwitch.paintEvent">paintEvent</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+<dt id="controlunit.components.onoffswitch.changeScale"><code class="flex name class">
+<span>class <span class="ident">changeScale</span></span>
+<span>(</span><span>parent=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>QPushButton(parent: QWidget = None)
+QPushButton(str, parent: QWidget = None)
+QPushButton(QIcon, str, parent: QWidget = None)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class changeScale(MySwitch):
+    radius = 15
+    width = 40
+    # 0 - On, 1 - Off
+    labels = [&#34;auto&#34;, &#34;levels&#34;]
+    colors = [QtGui.QColor(&#34;#8df01d&#34;), QtGui.QColor(&#34;#b89c76&#34;)]</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="controlunit.components.onoffswitch.MySwitch" href="#controlunit.components.onoffswitch.MySwitch">MySwitch</a></li>
+<li>PyQt5.QtWidgets.QPushButton</li>
+<li>PyQt5.QtWidgets.QAbstractButton</li>
+<li>PyQt5.QtWidgets.QWidget</li>
+<li>PyQt5.QtCore.QObject</li>
+<li>sip.wrapper</li>
+<li>PyQt5.QtGui.QPaintDevice</li>
+<li>sip.simplewrapper</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="controlunit.components.onoffswitch.changeScale.colors"><code class="name">var <span class="ident">colors</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="controlunit.components.onoffswitch.changeScale.labels"><code class="name">var <span class="ident">labels</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="controlunit.components.onoffswitch.changeScale.radius"><code class="name">var <span class="ident">radius</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="controlunit.components.onoffswitch.changeScale.width"><code class="name">var <span class="ident">width</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="controlunit.components.onoffswitch.MySwitch" href="#controlunit.components.onoffswitch.MySwitch">MySwitch</a></b></code>:
+<ul class="hlist">
+<li><code><a title="controlunit.components.onoffswitch.MySwitch.paintEvent" href="#controlunit.components.onoffswitch.MySwitch.paintEvent">paintEvent</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="controlunit.components" href="index.html">controlunit.components</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="controlunit.components.onoffswitch.MySwitch" href="#controlunit.components.onoffswitch.MySwitch">MySwitch</a></code></h4>
+<ul class="">
+<li><code><a title="controlunit.components.onoffswitch.MySwitch.colors" href="#controlunit.components.onoffswitch.MySwitch.colors">colors</a></code></li>
+<li><code><a title="controlunit.components.onoffswitch.MySwitch.labels" href="#controlunit.components.onoffswitch.MySwitch.labels">labels</a></code></li>
+<li><code><a title="controlunit.components.onoffswitch.MySwitch.paintEvent" href="#controlunit.components.onoffswitch.MySwitch.paintEvent">paintEvent</a></code></li>
+<li><code><a title="controlunit.components.onoffswitch.MySwitch.radius" href="#controlunit.components.onoffswitch.MySwitch.radius">radius</a></code></li>
+<li><code><a title="controlunit.components.onoffswitch.MySwitch.width" href="#controlunit.components.onoffswitch.MySwitch.width">width</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="controlunit.components.onoffswitch.OnOffSwitch" href="#controlunit.components.onoffswitch.OnOffSwitch">OnOffSwitch</a></code></h4>
+<ul class="">
+<li><code><a title="controlunit.components.onoffswitch.OnOffSwitch.colors" href="#controlunit.components.onoffswitch.OnOffSwitch.colors">colors</a></code></li>
+<li><code><a title="controlunit.components.onoffswitch.OnOffSwitch.labels" href="#controlunit.components.onoffswitch.OnOffSwitch.labels">labels</a></code></li>
+<li><code><a title="controlunit.components.onoffswitch.OnOffSwitch.radius" href="#controlunit.components.onoffswitch.OnOffSwitch.radius">radius</a></code></li>
+<li><code><a title="controlunit.components.onoffswitch.OnOffSwitch.width" href="#controlunit.components.onoffswitch.OnOffSwitch.width">width</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="controlunit.components.onoffswitch.QmsSwitch" href="#controlunit.components.onoffswitch.QmsSwitch">QmsSwitch</a></code></h4>
+<ul class="">
+<li><code><a title="controlunit.components.onoffswitch.QmsSwitch.colors" href="#controlunit.components.onoffswitch.QmsSwitch.colors">colors</a></code></li>
+<li><code><a title="controlunit.components.onoffswitch.QmsSwitch.labels" href="#controlunit.components.onoffswitch.QmsSwitch.labels">labels</a></code></li>
+<li><code><a title="controlunit.components.onoffswitch.QmsSwitch.radius" href="#controlunit.components.onoffswitch.QmsSwitch.radius">radius</a></code></li>
+<li><code><a title="controlunit.components.onoffswitch.QmsSwitch.width" href="#controlunit.components.onoffswitch.QmsSwitch.width">width</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="controlunit.components.onoffswitch.ToggleCurrentPlot" href="#controlunit.components.onoffswitch.ToggleCurrentPlot">ToggleCurrentPlot</a></code></h4>
+<ul class="">
+<li><code><a title="controlunit.components.onoffswitch.ToggleCurrentPlot.colors" href="#controlunit.components.onoffswitch.ToggleCurrentPlot.colors">colors</a></code></li>
+<li><code><a title="controlunit.components.onoffswitch.ToggleCurrentPlot.labels" href="#controlunit.components.onoffswitch.ToggleCurrentPlot.labels">labels</a></code></li>
+<li><code><a title="controlunit.components.onoffswitch.ToggleCurrentPlot.radius" href="#controlunit.components.onoffswitch.ToggleCurrentPlot.radius">radius</a></code></li>
+<li><code><a title="controlunit.components.onoffswitch.ToggleCurrentPlot.width" href="#controlunit.components.onoffswitch.ToggleCurrentPlot.width">width</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="controlunit.components.onoffswitch.TogglePressurePlot" href="#controlunit.components.onoffswitch.TogglePressurePlot">TogglePressurePlot</a></code></h4>
+<ul class="">
+<li><code><a title="controlunit.components.onoffswitch.TogglePressurePlot.colors" href="#controlunit.components.onoffswitch.TogglePressurePlot.colors">colors</a></code></li>
+<li><code><a title="controlunit.components.onoffswitch.TogglePressurePlot.labels" href="#controlunit.components.onoffswitch.TogglePressurePlot.labels">labels</a></code></li>
+<li><code><a title="controlunit.components.onoffswitch.TogglePressurePlot.radius" href="#controlunit.components.onoffswitch.TogglePressurePlot.radius">radius</a></code></li>
+<li><code><a title="controlunit.components.onoffswitch.TogglePressurePlot.width" href="#controlunit.components.onoffswitch.TogglePressurePlot.width">width</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="controlunit.components.onoffswitch.ToggleTemperaturePlot" href="#controlunit.components.onoffswitch.ToggleTemperaturePlot">ToggleTemperaturePlot</a></code></h4>
+<ul class="">
+<li><code><a title="controlunit.components.onoffswitch.ToggleTemperaturePlot.colors" href="#controlunit.components.onoffswitch.ToggleTemperaturePlot.colors">colors</a></code></li>
+<li><code><a title="controlunit.components.onoffswitch.ToggleTemperaturePlot.labels" href="#controlunit.components.onoffswitch.ToggleTemperaturePlot.labels">labels</a></code></li>
+<li><code><a title="controlunit.components.onoffswitch.ToggleTemperaturePlot.radius" href="#controlunit.components.onoffswitch.ToggleTemperaturePlot.radius">radius</a></code></li>
+<li><code><a title="controlunit.components.onoffswitch.ToggleTemperaturePlot.width" href="#controlunit.components.onoffswitch.ToggleTemperaturePlot.width">width</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="controlunit.components.onoffswitch.changeScale" href="#controlunit.components.onoffswitch.changeScale">changeScale</a></code></h4>
+<ul class="">
+<li><code><a title="controlunit.components.onoffswitch.changeScale.colors" href="#controlunit.components.onoffswitch.changeScale.colors">colors</a></code></li>
+<li><code><a title="controlunit.components.onoffswitch.changeScale.labels" href="#controlunit.components.onoffswitch.changeScale.labels">labels</a></code></li>
+<li><code><a title="controlunit.components.onoffswitch.changeScale.radius" href="#controlunit.components.onoffswitch.changeScale.radius">radius</a></code></li>
+<li><code><a title="controlunit.components.onoffswitch.changeScale.width" href="#controlunit.components.onoffswitch.changeScale.width">width</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.9.2</a>.</p>
+</footer>
+</body>
+</html>

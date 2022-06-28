@@ -1,0 +1,1519 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.9.2" />
+<title>controlunit.worker API documentation</title>
+<meta name="description" content="" />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>controlunit.worker</code></h1>
+</header>
+<section id="section-intro">
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">import time, datetime
+import numpy as np
+import pandas as pd
+from pyqtgraph.Qt import QtCore, QtGui
+
+# from customTypes import Signals
+from controlunit.electricCurrent import ElectricCurrent, hall_to_current
+from controlunit.readsettings import read_settings
+
+TEST = False
+
+# Specify cable connections to ADC
+CHP1 = 0  # 15, Ionization Gauge
+CHP2 = 1  # 16, Pfeiffer single gauge
+CHIP = 2  # 5, Plasma current, Hall effect sensor
+CHT = 0  # 0 -&gt; CS0, 1 -&gt; CS1
+
+# Make Worker superclass
+# Make separate class for each sensor, keep it clean!
+
+# Number of data points for collection, steps%STEP == 0
+STEP = 3
+
+try:
+    from AIO import AIO_32_0RA_IRC as adc
+    import pigpio
+except:
+    print(&#34;no pigpio or AIO&#34;)
+    TEST = True
+    import controlunit.pigpioplug as pigpio
+
+TT = True  # What is this? Used in Temperature Feedback Control
+
+# must inherit QtCore.QObject in order to use &#39;connect&#39;
+class Worker(QtCore.QObject):
+
+    # Change to a dictionary. Trancparency!
+    sigStep = QtCore.pyqtSignal(
+        np.ndarray, np.ndarray, np.ndarray, dict, datetime.datetime
+    )
+    sigDone = QtCore.pyqtSignal(int, dict)
+    sigMsg = QtCore.pyqtSignal(str)
+
+    sigAbortHeater = QtCore.pyqtSignal()
+
+    def __init__(self, id, app, ttype, startTime):
+        super().__init__()
+
+        self.__id = id
+        self.__app = app
+        self.__ttype = ttype
+        self.__startTime = startTime
+        self.__abort = False
+
+    def setThread(self):
+        &#34;&#34;&#34; Set Thread name and ID, signal them to the log browser&#34;&#34;&#34;
+        threadName = QtCore.QThread.currentThread().objectName()
+        print(threadName)
+        return
+
+        self.sigMsg.emit(
+            &#34;Running worker #{} from thread &#39;{}&#39; (#{})&#34;.format(self.__id, threadName)
+        )
+
+    # MARK: - Getters
+    def getStartTime(self):
+        return self.__startTime
+
+    def setSampling(self, sampling):
+        &#34;&#34;&#34; Set sampling time for ADC &#34;&#34;&#34;
+        self.sampling = sampling
+        print(f&#34;Updated sampling to {sampling}&#34;)
+
+    @QtCore.pyqtSlot()
+    def abort(self):
+        self.sigMsg.emit(&#34;Worker #{} aborting acquisition&#34;.format(self.__id))
+        self.__abort = True
+
+
+class MAX6675(Worker):
+    def __init__(self, id, app, ttype, startTime):
+        super().__init__(id, app, ttype, startTime)
+        self.__id = id
+        self.__app = app
+        self.__ttype = ttype
+        self.__startTime = startTime
+        self.__abort = False
+        attrs = vars(self)
+        print(&#34;, &#34;.join(f&#34;{i}&#34; for i in attrs.items()))
+        print(&#34;ID:&#34;, self.__id)
+
+    # set temperature worker
+    def setTempWorker(self, presetTemp: int):
+        self.__rawData = np.zeros(shape=(STEP, 3))
+        self.__presetTemp = presetTemp
+        self.sampling = read_settings()[&#34;samplingtime&#34;]
+
+        # PID control
+        if not TEST:
+            self.pi = pigpio.pi()
+            self.__onLight = 0.1
+            self.__sumE = 0
+            self.__exE = 0
+        else:
+            print(&#34;needs pigpio to access SPI&#34;)
+
+        print(&#34;CHECK\n&#34;)
+        print(&#34;abort:&#34;, self.abort)
+        print(&#34;__abort:&#34;, self.__abort)
+        print(self.__id)
+
+    # MARK: - Setters
+    def setPresetTemp(self, newTemp: int):
+        self.__presetTemp = newTemp
+        return
+
+        # MARK: - Methods
+
+    @QtCore.pyqtSlot()
+    def start(self):
+        &#34;&#34;&#34;Set Thread ID and name, then run corresponding &#34;plot&#34; function.
+        &#34;plot&#34; functions are main data acquisition loops.
+        &#34;&#34;&#34;
+        # self.__setThread()
+        self.readT()
+
+    # temperature plot
+    @QtCore.pyqtSlot()
+    def readT(self):
+        &#34;&#34;&#34;Temperature acquisition and Feedback Control function&#34;&#34;&#34;
+        # Select MAX6675 sensor on the SPI
+        sensor = self.pi.spi_open(CHT, 1000000, 0)
+        if TT:
+            eCurrent = ElectricCurrent(self.pi, self.__app)
+            thread = QtCore.QThread()
+            thread.setObjectName(&#34;heater current&#34;)
+            eCurrent.moveToThread(thread)
+            thread.started.connect(eCurrent.work)
+            self.sigAbortHeater.connect(eCurrent.setAbort)
+            thread.start()
+        else:
+            pinNum = Signals.getGPIO(Signals.TEMPERATURE)
+            self.pi.set_mode(pinNum, pigpio.OUTPUT)
+            controlStep = -1
+
+        totalStep = 0
+        step = 0
+
+        while not (self.__abort):
+            # Temperature sampling time. For MAX6675 min read time = 0.25s
+            time.sleep(0.25)
+            temp = -1000  # Temperature.
+
+            # READ DATA
+            c, d = self.pi.spi_read(sensor, 2)  # if c==2: ok else: ng
+            if c == 2:
+                word = (d[0] &lt;&lt; 8) | d[1]
+                if (word &amp; 0x8006) == 0:  # Bits 15, 2, and 1 should be zero.
+                    temp = (word &gt;&gt; 3) / 4.0
+                else:
+                    print(&#34;bad reading {:b}&#34;.format(word))
+
+            # Pass data on its way
+            now = datetime.datetime.now()
+            dSec = (now - self.__startTime).total_seconds()
+            self.__rawData[step] = [now, dSec, temp, self.__presetTemp]
+
+            if step % (STEP - 1) == 0 and step != 0:
+                # average 10 points of data
+                ave = np.mean(self.__rawData[:, 1], dtype=float)
+                average = np.array([[Signals.TEMPERATURE, ave]])
+
+                # CONTROL
+                if TT:
+                    self.__controlTemp(average, eCurrent)
+                else:
+                    controlStep = self.__controlTemp1(average, controlStep)
+
+                # Send Temperature back to main loop
+                # MAX6675 returns temperature in degree C, no need for formula
+                self.sigStep.emit(
+                    self.__rawData,  # raw dat
+                    self.__rawData,  # calculated
+                    average,
+                    self.__ttype,
+                    self.__startTime,
+                )
+                self.__rawData = np.zeros(shape=(STEP, 4))
+                step = 0
+            else:
+                step += 1
+            totalStep += 1
+            if not TT:
+                self.pi.write(pinNum, controlStep &gt; 0)
+                controlStep -= 1
+            self.__app.processEvents()
+
+        else:
+            # On ABORT. Now renders some strange behavior and numpy errors.
+            if self.__rawData[step][0] == 0.0:
+                step -= 1
+            if step &gt; -1:
+                ave = np.mean(self.__rawData[:, 1], dtype=float)
+                average = np.array([[Signals.TEMPERATURE, ave]])
+                self.sigStep.emit(
+                    self.__rawData[: step + 1, :],
+                    self.__rawData[: step + 1, :],
+                    average,
+                    self.__ttype,
+                    self.__startTime,
+                )
+            self.sigMsg.emit(f&#34;Worker #{self.__id} aborting work at step {totalStep}&#34;)
+            if TT:
+                self.sigAbortHeater.emit()
+                self.__sumE = 0
+                thread.quit()
+                thread.wait()
+            self.pi.spi_close(sensor)
+            self.pi.stop()
+
+        self.sigDone.emit(self.__id, self.__ttype)
+
+    # MARK: - Control
+    def __controlTemp(self, aveTemp: np.ndarray, eCurrent: ElectricCurrent):
+        &#34;&#34;&#34;Shouldn&#39;t the self.sampling here be 0.25, not the one for ADC?&#34;&#34;&#34;
+        e = self.__presetTemp - aveTemp[0, 1]
+        integral = self.__sumE + e * self.sampling
+        derivative = (e - self.__exE) / self.sampling
+
+        # TODO: 調整 (Adjustment)
+        Kp = 3.5
+        Ki = 0.06
+        Kd = 0
+
+        # TODO: 調整 (Adjustment)
+        if integral &lt; -0.5:
+            integral = 0
+
+        if e &gt;= 0:
+            output = Kp * e + Ki * integral + Kd * derivative
+            output = output * 0.0002
+            eCurrent.setOnLight(max(output, 0))
+        else:
+            eCurrent.setOnLight(0)
+        self.__exE = e
+        self.__sumE = integral
+
+    def __controlTemp1(self, aveTemp: float, steps: int):
+        if steps &lt;= 0:
+            d = self.__presetTemp - aveTemp[0, 1]
+            if d &lt;= 1.5:
+                return -1
+            elif d &gt;= 15:
+                return int(d * 10)
+            else:
+                return int(d + 1)
+        else:
+            return steps
+
+
+class ADC(Worker):
+    def __init__(self, id, app, ttype, startTime):
+        super().__init__(id, app, ttype, startTime)
+        self.__id = id
+        self.__app = app
+        self.__ttype = ttype
+        self.__startTime = startTime
+        self.__abort = False
+        attrs = vars(self)
+        print(&#34;, &#34;.join(f&#34;{i}&#34; for i in attrs.items()))
+        print(&#34;ID:&#34;, self.__id)
+
+    def setPresWorker(self, IGmode: int, IGrange: int):
+
+        self.adc_columns = [
+            &#34;date&#34;,
+            &#34;time&#34;,
+            &#34;P1&#34;,
+            &#34;P2&#34;,
+            &#34;Ip&#34;,
+            &#34;IGmode&#34;,
+            &#34;IGscale&#34;,
+            &#34;QMS_signal&#34;,
+        ]
+        # self.__rawData = np.zeros(shape=(STEP, len(columns)))
+        self.__rawData = pd.DataFrame(columns=self.adc_columns)
+        self.__calcData = np.zeros(shape=(STEP, 4))
+        self.__IGmode = IGmode
+        self.__IGrange = IGrange
+        self.__qmsSignal = 0
+        self.sampling = read_settings()[&#34;samplingtime&#34;]
+
+    def setIGmode(self, IGmode: int):
+        &#34;&#34;&#34;
+        0: Torr
+        1: Pa
+        &#34;&#34;&#34;
+        self.__IGmode = IGmode
+        return
+
+    def setIGrange(self, IGrange: int):
+        &#34;&#34;&#34;
+        range: -8 ~ -3
+        &#34;&#34;&#34;
+        self.__IGrange = IGrange
+        return
+
+    def setQmsSignal(self, signal: int):
+        &#34;&#34;&#34;
+        waiting: 0
+        running: 1
+        &#34;&#34;&#34;
+        self.__qmsSignal = signal
+        return
+
+    # MARK: - Methods
+    @QtCore.pyqtSlot()
+    def start(self):
+        &#34;&#34;&#34;Set Thread ID and name, then run corresponding &#34;plot&#34; function.
+        &#34;plot&#34; functions are main data acquisition loops.
+        &#34;&#34;&#34;
+        self.setThread()
+        self.readADC()
+
+    # MARK: - Plot
+    def readADC(self):
+        &#34;&#34;&#34;Reads ADC raw signals, converts it, sends it back to main loop
+        to plot ad save data.
+        &#34;&#34;&#34;
+
+        aio = adc(0x49, 0x3E)  # instance of AIO_32_0RA_IRC from AIO.py
+        # Why this addresses?
+
+        totalStep = 0
+        step = 0
+
+        while not (self.__abort):
+            time.sleep(self.sampling)
+
+            # READ DATA
+            CHNLS = [CHP1, CHP2, CHIP]
+            scale10 = [CHP1, CHP2]
+            scale5 = [CHIP]
+            kws = {CH: {&#34;pga&#34;: aio.PGA.PGA_10_0352V} for CH in scale10}
+            for CH in scale5:
+                kws[CH] = {&#34;pga&#34;: aio.PGA.PGA_5_0176V}
+
+            # Communitcate with ADC
+
+            arg = [aio.DataRate.DR_860SPS]
+            p1_v, p2_v, ip_v = [
+                aio.analog_read_volt(CH, *arg, **kws[CH]) for CH in CHNLS
+            ]
+
+            # Process values
+            now = datetime.datetime.now()
+            dSec = (now - self.__startTime).total_seconds()
+            self.__rawData = self.__rawData.append(
+                [
+                    now,
+                    dSec,
+                    p1_v,
+                    p2_v,
+                    ip_v,
+                    self.__IGmode,
+                    self.__IGrange,
+                    self.__qmsSignal,
+                ]
+            )
+
+            # TODO: get rid of the enumerator class Signals.
+            # Define calculations inside individual subclass right here.
+            # Why Ito-kun hid this somewhere? Not helpful.
+            #  calculate DATA
+            p1_d = Signals.getCalcValue(
+                Signals.PRESSURE1, p1_v, IGmode=self.__IGmode, IGrange=self.__IGrange
+            )
+            p2_d = Signals.getCalcValue(Signals.PRESSURE2, p2_v)
+            ip_d = hall_to_current(ip_v)  #
+
+            self.__calcData[step] = [dSec, p1_d, p2_d, ip_d]
+
+            if step % (STEP - 1) == 0 and step != 0:
+                # get average
+                ave_p1 = np.mean(self.__calcData[:, 1], dtype=float)
+                ave_p2 = np.mean(self.__calcData[:, 2], dtype=float)
+                ave_ip = np.mean(self.__calcData[:, 3], dtype=float)
+                average = np.array(
+                    [
+                        [Signals.PLASMA, ave_ip],
+                        [Signals.PRESSURE1, ave_p1],
+                        [Signals.PRESSURE2, ave_p2],
+                    ]
+                )
+
+                # SEND ADC data back to main loop
+
+                self.sigStep.emit(
+                    self.__rawData,
+                    self.__calcData,
+                    average,
+                    self.__ttype,
+                    self.__startTime,
+                )
+
+                # Reset temporary data arrays
+                self.__rawData = np.zeros(shape=(STEP, 8))
+                self.__calcData = np.zeros(shape=(STEP, 4))
+                step = 0
+            else:
+                step += 1
+            totalStep += 1
+            self.__app.processEvents()
+        else:
+            # On ABORT
+            if self.__calcData[step][0] == 0.0:
+                step -= 1
+            if step &gt; -1:
+                # get average
+                ave_p1 = np.mean(self.__calcData[:, 1], dtype=float)
+                ave_p2 = np.mean(self.__calcData[:, 2], dtype=float)
+                ave_ip = np.mean(self.__calcData[:, 3], dtype=float)
+                average = np.array(
+                    [
+                        [Signals.PLASMA, ave_ip],
+                        [Signals.PRESSURE1, ave_p1],
+                        [Signals.PRESSURE2, ave_p2],
+                    ]
+                )
+                self.sigStep.emit(
+                    self.__rawData[: step + 1, :],
+                    self.__calcData,
+                    average,
+                    self.__ttype,
+                    self.__startTime,
+                )
+            self.sigMsg.emit(f&#34;Worker #{self.__id} aborting work at step {totalStep}&#34;)
+
+        self.sigDone.emit(self.__id, self.__ttype)
+        return
+
+
+if __name__ == &#34;__main__&#34;:
+    pass</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="controlunit.worker.ADC"><code class="flex name class">
+<span>class <span class="ident">ADC</span></span>
+<span>(</span><span>id, app, ttype, startTime)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>QObject(parent: QObject = None)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class ADC(Worker):
+    def __init__(self, id, app, ttype, startTime):
+        super().__init__(id, app, ttype, startTime)
+        self.__id = id
+        self.__app = app
+        self.__ttype = ttype
+        self.__startTime = startTime
+        self.__abort = False
+        attrs = vars(self)
+        print(&#34;, &#34;.join(f&#34;{i}&#34; for i in attrs.items()))
+        print(&#34;ID:&#34;, self.__id)
+
+    def setPresWorker(self, IGmode: int, IGrange: int):
+
+        self.adc_columns = [
+            &#34;date&#34;,
+            &#34;time&#34;,
+            &#34;P1&#34;,
+            &#34;P2&#34;,
+            &#34;Ip&#34;,
+            &#34;IGmode&#34;,
+            &#34;IGscale&#34;,
+            &#34;QMS_signal&#34;,
+        ]
+        # self.__rawData = np.zeros(shape=(STEP, len(columns)))
+        self.__rawData = pd.DataFrame(columns=self.adc_columns)
+        self.__calcData = np.zeros(shape=(STEP, 4))
+        self.__IGmode = IGmode
+        self.__IGrange = IGrange
+        self.__qmsSignal = 0
+        self.sampling = read_settings()[&#34;samplingtime&#34;]
+
+    def setIGmode(self, IGmode: int):
+        &#34;&#34;&#34;
+        0: Torr
+        1: Pa
+        &#34;&#34;&#34;
+        self.__IGmode = IGmode
+        return
+
+    def setIGrange(self, IGrange: int):
+        &#34;&#34;&#34;
+        range: -8 ~ -3
+        &#34;&#34;&#34;
+        self.__IGrange = IGrange
+        return
+
+    def setQmsSignal(self, signal: int):
+        &#34;&#34;&#34;
+        waiting: 0
+        running: 1
+        &#34;&#34;&#34;
+        self.__qmsSignal = signal
+        return
+
+    # MARK: - Methods
+    @QtCore.pyqtSlot()
+    def start(self):
+        &#34;&#34;&#34;Set Thread ID and name, then run corresponding &#34;plot&#34; function.
+        &#34;plot&#34; functions are main data acquisition loops.
+        &#34;&#34;&#34;
+        self.setThread()
+        self.readADC()
+
+    # MARK: - Plot
+    def readADC(self):
+        &#34;&#34;&#34;Reads ADC raw signals, converts it, sends it back to main loop
+        to plot ad save data.
+        &#34;&#34;&#34;
+
+        aio = adc(0x49, 0x3E)  # instance of AIO_32_0RA_IRC from AIO.py
+        # Why this addresses?
+
+        totalStep = 0
+        step = 0
+
+        while not (self.__abort):
+            time.sleep(self.sampling)
+
+            # READ DATA
+            CHNLS = [CHP1, CHP2, CHIP]
+            scale10 = [CHP1, CHP2]
+            scale5 = [CHIP]
+            kws = {CH: {&#34;pga&#34;: aio.PGA.PGA_10_0352V} for CH in scale10}
+            for CH in scale5:
+                kws[CH] = {&#34;pga&#34;: aio.PGA.PGA_5_0176V}
+
+            # Communitcate with ADC
+
+            arg = [aio.DataRate.DR_860SPS]
+            p1_v, p2_v, ip_v = [
+                aio.analog_read_volt(CH, *arg, **kws[CH]) for CH in CHNLS
+            ]
+
+            # Process values
+            now = datetime.datetime.now()
+            dSec = (now - self.__startTime).total_seconds()
+            self.__rawData = self.__rawData.append(
+                [
+                    now,
+                    dSec,
+                    p1_v,
+                    p2_v,
+                    ip_v,
+                    self.__IGmode,
+                    self.__IGrange,
+                    self.__qmsSignal,
+                ]
+            )
+
+            # TODO: get rid of the enumerator class Signals.
+            # Define calculations inside individual subclass right here.
+            # Why Ito-kun hid this somewhere? Not helpful.
+            #  calculate DATA
+            p1_d = Signals.getCalcValue(
+                Signals.PRESSURE1, p1_v, IGmode=self.__IGmode, IGrange=self.__IGrange
+            )
+            p2_d = Signals.getCalcValue(Signals.PRESSURE2, p2_v)
+            ip_d = hall_to_current(ip_v)  #
+
+            self.__calcData[step] = [dSec, p1_d, p2_d, ip_d]
+
+            if step % (STEP - 1) == 0 and step != 0:
+                # get average
+                ave_p1 = np.mean(self.__calcData[:, 1], dtype=float)
+                ave_p2 = np.mean(self.__calcData[:, 2], dtype=float)
+                ave_ip = np.mean(self.__calcData[:, 3], dtype=float)
+                average = np.array(
+                    [
+                        [Signals.PLASMA, ave_ip],
+                        [Signals.PRESSURE1, ave_p1],
+                        [Signals.PRESSURE2, ave_p2],
+                    ]
+                )
+
+                # SEND ADC data back to main loop
+
+                self.sigStep.emit(
+                    self.__rawData,
+                    self.__calcData,
+                    average,
+                    self.__ttype,
+                    self.__startTime,
+                )
+
+                # Reset temporary data arrays
+                self.__rawData = np.zeros(shape=(STEP, 8))
+                self.__calcData = np.zeros(shape=(STEP, 4))
+                step = 0
+            else:
+                step += 1
+            totalStep += 1
+            self.__app.processEvents()
+        else:
+            # On ABORT
+            if self.__calcData[step][0] == 0.0:
+                step -= 1
+            if step &gt; -1:
+                # get average
+                ave_p1 = np.mean(self.__calcData[:, 1], dtype=float)
+                ave_p2 = np.mean(self.__calcData[:, 2], dtype=float)
+                ave_ip = np.mean(self.__calcData[:, 3], dtype=float)
+                average = np.array(
+                    [
+                        [Signals.PLASMA, ave_ip],
+                        [Signals.PRESSURE1, ave_p1],
+                        [Signals.PRESSURE2, ave_p2],
+                    ]
+                )
+                self.sigStep.emit(
+                    self.__rawData[: step + 1, :],
+                    self.__calcData,
+                    average,
+                    self.__ttype,
+                    self.__startTime,
+                )
+            self.sigMsg.emit(f&#34;Worker #{self.__id} aborting work at step {totalStep}&#34;)
+
+        self.sigDone.emit(self.__id, self.__ttype)
+        return</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="controlunit.worker.Worker" href="#controlunit.worker.Worker">Worker</a></li>
+<li>PyQt5.QtCore.QObject</li>
+<li>sip.wrapper</li>
+<li>sip.simplewrapper</li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="controlunit.worker.ADC.readADC"><code class="name flex">
+<span>def <span class="ident">readADC</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Reads ADC raw signals, converts it, sends it back to main loop
+to plot ad save data.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def readADC(self):
+    &#34;&#34;&#34;Reads ADC raw signals, converts it, sends it back to main loop
+    to plot ad save data.
+    &#34;&#34;&#34;
+
+    aio = adc(0x49, 0x3E)  # instance of AIO_32_0RA_IRC from AIO.py
+    # Why this addresses?
+
+    totalStep = 0
+    step = 0
+
+    while not (self.__abort):
+        time.sleep(self.sampling)
+
+        # READ DATA
+        CHNLS = [CHP1, CHP2, CHIP]
+        scale10 = [CHP1, CHP2]
+        scale5 = [CHIP]
+        kws = {CH: {&#34;pga&#34;: aio.PGA.PGA_10_0352V} for CH in scale10}
+        for CH in scale5:
+            kws[CH] = {&#34;pga&#34;: aio.PGA.PGA_5_0176V}
+
+        # Communitcate with ADC
+
+        arg = [aio.DataRate.DR_860SPS]
+        p1_v, p2_v, ip_v = [
+            aio.analog_read_volt(CH, *arg, **kws[CH]) for CH in CHNLS
+        ]
+
+        # Process values
+        now = datetime.datetime.now()
+        dSec = (now - self.__startTime).total_seconds()
+        self.__rawData = self.__rawData.append(
+            [
+                now,
+                dSec,
+                p1_v,
+                p2_v,
+                ip_v,
+                self.__IGmode,
+                self.__IGrange,
+                self.__qmsSignal,
+            ]
+        )
+
+        # TODO: get rid of the enumerator class Signals.
+        # Define calculations inside individual subclass right here.
+        # Why Ito-kun hid this somewhere? Not helpful.
+        #  calculate DATA
+        p1_d = Signals.getCalcValue(
+            Signals.PRESSURE1, p1_v, IGmode=self.__IGmode, IGrange=self.__IGrange
+        )
+        p2_d = Signals.getCalcValue(Signals.PRESSURE2, p2_v)
+        ip_d = hall_to_current(ip_v)  #
+
+        self.__calcData[step] = [dSec, p1_d, p2_d, ip_d]
+
+        if step % (STEP - 1) == 0 and step != 0:
+            # get average
+            ave_p1 = np.mean(self.__calcData[:, 1], dtype=float)
+            ave_p2 = np.mean(self.__calcData[:, 2], dtype=float)
+            ave_ip = np.mean(self.__calcData[:, 3], dtype=float)
+            average = np.array(
+                [
+                    [Signals.PLASMA, ave_ip],
+                    [Signals.PRESSURE1, ave_p1],
+                    [Signals.PRESSURE2, ave_p2],
+                ]
+            )
+
+            # SEND ADC data back to main loop
+
+            self.sigStep.emit(
+                self.__rawData,
+                self.__calcData,
+                average,
+                self.__ttype,
+                self.__startTime,
+            )
+
+            # Reset temporary data arrays
+            self.__rawData = np.zeros(shape=(STEP, 8))
+            self.__calcData = np.zeros(shape=(STEP, 4))
+            step = 0
+        else:
+            step += 1
+        totalStep += 1
+        self.__app.processEvents()
+    else:
+        # On ABORT
+        if self.__calcData[step][0] == 0.0:
+            step -= 1
+        if step &gt; -1:
+            # get average
+            ave_p1 = np.mean(self.__calcData[:, 1], dtype=float)
+            ave_p2 = np.mean(self.__calcData[:, 2], dtype=float)
+            ave_ip = np.mean(self.__calcData[:, 3], dtype=float)
+            average = np.array(
+                [
+                    [Signals.PLASMA, ave_ip],
+                    [Signals.PRESSURE1, ave_p1],
+                    [Signals.PRESSURE2, ave_p2],
+                ]
+            )
+            self.sigStep.emit(
+                self.__rawData[: step + 1, :],
+                self.__calcData,
+                average,
+                self.__ttype,
+                self.__startTime,
+            )
+        self.sigMsg.emit(f&#34;Worker #{self.__id} aborting work at step {totalStep}&#34;)
+
+    self.sigDone.emit(self.__id, self.__ttype)
+    return</code></pre>
+</details>
+</dd>
+<dt id="controlunit.worker.ADC.setIGmode"><code class="name flex">
+<span>def <span class="ident">setIGmode</span></span>(<span>self, IGmode: int)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>0: Torr
+1: Pa</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def setIGmode(self, IGmode: int):
+    &#34;&#34;&#34;
+    0: Torr
+    1: Pa
+    &#34;&#34;&#34;
+    self.__IGmode = IGmode
+    return</code></pre>
+</details>
+</dd>
+<dt id="controlunit.worker.ADC.setIGrange"><code class="name flex">
+<span>def <span class="ident">setIGrange</span></span>(<span>self, IGrange: int)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>range: -8 ~ -3</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def setIGrange(self, IGrange: int):
+    &#34;&#34;&#34;
+    range: -8 ~ -3
+    &#34;&#34;&#34;
+    self.__IGrange = IGrange
+    return</code></pre>
+</details>
+</dd>
+<dt id="controlunit.worker.ADC.setPresWorker"><code class="name flex">
+<span>def <span class="ident">setPresWorker</span></span>(<span>self, IGmode: int, IGrange: int)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def setPresWorker(self, IGmode: int, IGrange: int):
+
+    self.adc_columns = [
+        &#34;date&#34;,
+        &#34;time&#34;,
+        &#34;P1&#34;,
+        &#34;P2&#34;,
+        &#34;Ip&#34;,
+        &#34;IGmode&#34;,
+        &#34;IGscale&#34;,
+        &#34;QMS_signal&#34;,
+    ]
+    # self.__rawData = np.zeros(shape=(STEP, len(columns)))
+    self.__rawData = pd.DataFrame(columns=self.adc_columns)
+    self.__calcData = np.zeros(shape=(STEP, 4))
+    self.__IGmode = IGmode
+    self.__IGrange = IGrange
+    self.__qmsSignal = 0
+    self.sampling = read_settings()[&#34;samplingtime&#34;]</code></pre>
+</details>
+</dd>
+<dt id="controlunit.worker.ADC.setQmsSignal"><code class="name flex">
+<span>def <span class="ident">setQmsSignal</span></span>(<span>self, signal: int)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>waiting: 0
+running: 1</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def setQmsSignal(self, signal: int):
+    &#34;&#34;&#34;
+    waiting: 0
+    running: 1
+    &#34;&#34;&#34;
+    self.__qmsSignal = signal
+    return</code></pre>
+</details>
+</dd>
+<dt id="controlunit.worker.ADC.start"><code class="name flex">
+<span>def <span class="ident">start</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Set Thread ID and name, then run corresponding "plot" function.
+"plot" functions are main data acquisition loops.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@QtCore.pyqtSlot()
+def start(self):
+    &#34;&#34;&#34;Set Thread ID and name, then run corresponding &#34;plot&#34; function.
+    &#34;plot&#34; functions are main data acquisition loops.
+    &#34;&#34;&#34;
+    self.setThread()
+    self.readADC()</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="controlunit.worker.Worker" href="#controlunit.worker.Worker">Worker</a></b></code>:
+<ul class="hlist">
+<li><code><a title="controlunit.worker.Worker.setSampling" href="#controlunit.worker.Worker.setSampling">setSampling</a></code></li>
+<li><code><a title="controlunit.worker.Worker.setThread" href="#controlunit.worker.Worker.setThread">setThread</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+<dt id="controlunit.worker.MAX6675"><code class="flex name class">
+<span>class <span class="ident">MAX6675</span></span>
+<span>(</span><span>id, app, ttype, startTime)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>QObject(parent: QObject = None)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class MAX6675(Worker):
+    def __init__(self, id, app, ttype, startTime):
+        super().__init__(id, app, ttype, startTime)
+        self.__id = id
+        self.__app = app
+        self.__ttype = ttype
+        self.__startTime = startTime
+        self.__abort = False
+        attrs = vars(self)
+        print(&#34;, &#34;.join(f&#34;{i}&#34; for i in attrs.items()))
+        print(&#34;ID:&#34;, self.__id)
+
+    # set temperature worker
+    def setTempWorker(self, presetTemp: int):
+        self.__rawData = np.zeros(shape=(STEP, 3))
+        self.__presetTemp = presetTemp
+        self.sampling = read_settings()[&#34;samplingtime&#34;]
+
+        # PID control
+        if not TEST:
+            self.pi = pigpio.pi()
+            self.__onLight = 0.1
+            self.__sumE = 0
+            self.__exE = 0
+        else:
+            print(&#34;needs pigpio to access SPI&#34;)
+
+        print(&#34;CHECK\n&#34;)
+        print(&#34;abort:&#34;, self.abort)
+        print(&#34;__abort:&#34;, self.__abort)
+        print(self.__id)
+
+    # MARK: - Setters
+    def setPresetTemp(self, newTemp: int):
+        self.__presetTemp = newTemp
+        return
+
+        # MARK: - Methods
+
+    @QtCore.pyqtSlot()
+    def start(self):
+        &#34;&#34;&#34;Set Thread ID and name, then run corresponding &#34;plot&#34; function.
+        &#34;plot&#34; functions are main data acquisition loops.
+        &#34;&#34;&#34;
+        # self.__setThread()
+        self.readT()
+
+    # temperature plot
+    @QtCore.pyqtSlot()
+    def readT(self):
+        &#34;&#34;&#34;Temperature acquisition and Feedback Control function&#34;&#34;&#34;
+        # Select MAX6675 sensor on the SPI
+        sensor = self.pi.spi_open(CHT, 1000000, 0)
+        if TT:
+            eCurrent = ElectricCurrent(self.pi, self.__app)
+            thread = QtCore.QThread()
+            thread.setObjectName(&#34;heater current&#34;)
+            eCurrent.moveToThread(thread)
+            thread.started.connect(eCurrent.work)
+            self.sigAbortHeater.connect(eCurrent.setAbort)
+            thread.start()
+        else:
+            pinNum = Signals.getGPIO(Signals.TEMPERATURE)
+            self.pi.set_mode(pinNum, pigpio.OUTPUT)
+            controlStep = -1
+
+        totalStep = 0
+        step = 0
+
+        while not (self.__abort):
+            # Temperature sampling time. For MAX6675 min read time = 0.25s
+            time.sleep(0.25)
+            temp = -1000  # Temperature.
+
+            # READ DATA
+            c, d = self.pi.spi_read(sensor, 2)  # if c==2: ok else: ng
+            if c == 2:
+                word = (d[0] &lt;&lt; 8) | d[1]
+                if (word &amp; 0x8006) == 0:  # Bits 15, 2, and 1 should be zero.
+                    temp = (word &gt;&gt; 3) / 4.0
+                else:
+                    print(&#34;bad reading {:b}&#34;.format(word))
+
+            # Pass data on its way
+            now = datetime.datetime.now()
+            dSec = (now - self.__startTime).total_seconds()
+            self.__rawData[step] = [now, dSec, temp, self.__presetTemp]
+
+            if step % (STEP - 1) == 0 and step != 0:
+                # average 10 points of data
+                ave = np.mean(self.__rawData[:, 1], dtype=float)
+                average = np.array([[Signals.TEMPERATURE, ave]])
+
+                # CONTROL
+                if TT:
+                    self.__controlTemp(average, eCurrent)
+                else:
+                    controlStep = self.__controlTemp1(average, controlStep)
+
+                # Send Temperature back to main loop
+                # MAX6675 returns temperature in degree C, no need for formula
+                self.sigStep.emit(
+                    self.__rawData,  # raw dat
+                    self.__rawData,  # calculated
+                    average,
+                    self.__ttype,
+                    self.__startTime,
+                )
+                self.__rawData = np.zeros(shape=(STEP, 4))
+                step = 0
+            else:
+                step += 1
+            totalStep += 1
+            if not TT:
+                self.pi.write(pinNum, controlStep &gt; 0)
+                controlStep -= 1
+            self.__app.processEvents()
+
+        else:
+            # On ABORT. Now renders some strange behavior and numpy errors.
+            if self.__rawData[step][0] == 0.0:
+                step -= 1
+            if step &gt; -1:
+                ave = np.mean(self.__rawData[:, 1], dtype=float)
+                average = np.array([[Signals.TEMPERATURE, ave]])
+                self.sigStep.emit(
+                    self.__rawData[: step + 1, :],
+                    self.__rawData[: step + 1, :],
+                    average,
+                    self.__ttype,
+                    self.__startTime,
+                )
+            self.sigMsg.emit(f&#34;Worker #{self.__id} aborting work at step {totalStep}&#34;)
+            if TT:
+                self.sigAbortHeater.emit()
+                self.__sumE = 0
+                thread.quit()
+                thread.wait()
+            self.pi.spi_close(sensor)
+            self.pi.stop()
+
+        self.sigDone.emit(self.__id, self.__ttype)
+
+    # MARK: - Control
+    def __controlTemp(self, aveTemp: np.ndarray, eCurrent: ElectricCurrent):
+        &#34;&#34;&#34;Shouldn&#39;t the self.sampling here be 0.25, not the one for ADC?&#34;&#34;&#34;
+        e = self.__presetTemp - aveTemp[0, 1]
+        integral = self.__sumE + e * self.sampling
+        derivative = (e - self.__exE) / self.sampling
+
+        # TODO: 調整 (Adjustment)
+        Kp = 3.5
+        Ki = 0.06
+        Kd = 0
+
+        # TODO: 調整 (Adjustment)
+        if integral &lt; -0.5:
+            integral = 0
+
+        if e &gt;= 0:
+            output = Kp * e + Ki * integral + Kd * derivative
+            output = output * 0.0002
+            eCurrent.setOnLight(max(output, 0))
+        else:
+            eCurrent.setOnLight(0)
+        self.__exE = e
+        self.__sumE = integral
+
+    def __controlTemp1(self, aveTemp: float, steps: int):
+        if steps &lt;= 0:
+            d = self.__presetTemp - aveTemp[0, 1]
+            if d &lt;= 1.5:
+                return -1
+            elif d &gt;= 15:
+                return int(d * 10)
+            else:
+                return int(d + 1)
+        else:
+            return steps</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="controlunit.worker.Worker" href="#controlunit.worker.Worker">Worker</a></li>
+<li>PyQt5.QtCore.QObject</li>
+<li>sip.wrapper</li>
+<li>sip.simplewrapper</li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="controlunit.worker.MAX6675.readT"><code class="name flex">
+<span>def <span class="ident">readT</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Temperature acquisition and Feedback Control function</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@QtCore.pyqtSlot()
+def readT(self):
+    &#34;&#34;&#34;Temperature acquisition and Feedback Control function&#34;&#34;&#34;
+    # Select MAX6675 sensor on the SPI
+    sensor = self.pi.spi_open(CHT, 1000000, 0)
+    if TT:
+        eCurrent = ElectricCurrent(self.pi, self.__app)
+        thread = QtCore.QThread()
+        thread.setObjectName(&#34;heater current&#34;)
+        eCurrent.moveToThread(thread)
+        thread.started.connect(eCurrent.work)
+        self.sigAbortHeater.connect(eCurrent.setAbort)
+        thread.start()
+    else:
+        pinNum = Signals.getGPIO(Signals.TEMPERATURE)
+        self.pi.set_mode(pinNum, pigpio.OUTPUT)
+        controlStep = -1
+
+    totalStep = 0
+    step = 0
+
+    while not (self.__abort):
+        # Temperature sampling time. For MAX6675 min read time = 0.25s
+        time.sleep(0.25)
+        temp = -1000  # Temperature.
+
+        # READ DATA
+        c, d = self.pi.spi_read(sensor, 2)  # if c==2: ok else: ng
+        if c == 2:
+            word = (d[0] &lt;&lt; 8) | d[1]
+            if (word &amp; 0x8006) == 0:  # Bits 15, 2, and 1 should be zero.
+                temp = (word &gt;&gt; 3) / 4.0
+            else:
+                print(&#34;bad reading {:b}&#34;.format(word))
+
+        # Pass data on its way
+        now = datetime.datetime.now()
+        dSec = (now - self.__startTime).total_seconds()
+        self.__rawData[step] = [now, dSec, temp, self.__presetTemp]
+
+        if step % (STEP - 1) == 0 and step != 0:
+            # average 10 points of data
+            ave = np.mean(self.__rawData[:, 1], dtype=float)
+            average = np.array([[Signals.TEMPERATURE, ave]])
+
+            # CONTROL
+            if TT:
+                self.__controlTemp(average, eCurrent)
+            else:
+                controlStep = self.__controlTemp1(average, controlStep)
+
+            # Send Temperature back to main loop
+            # MAX6675 returns temperature in degree C, no need for formula
+            self.sigStep.emit(
+                self.__rawData,  # raw dat
+                self.__rawData,  # calculated
+                average,
+                self.__ttype,
+                self.__startTime,
+            )
+            self.__rawData = np.zeros(shape=(STEP, 4))
+            step = 0
+        else:
+            step += 1
+        totalStep += 1
+        if not TT:
+            self.pi.write(pinNum, controlStep &gt; 0)
+            controlStep -= 1
+        self.__app.processEvents()
+
+    else:
+        # On ABORT. Now renders some strange behavior and numpy errors.
+        if self.__rawData[step][0] == 0.0:
+            step -= 1
+        if step &gt; -1:
+            ave = np.mean(self.__rawData[:, 1], dtype=float)
+            average = np.array([[Signals.TEMPERATURE, ave]])
+            self.sigStep.emit(
+                self.__rawData[: step + 1, :],
+                self.__rawData[: step + 1, :],
+                average,
+                self.__ttype,
+                self.__startTime,
+            )
+        self.sigMsg.emit(f&#34;Worker #{self.__id} aborting work at step {totalStep}&#34;)
+        if TT:
+            self.sigAbortHeater.emit()
+            self.__sumE = 0
+            thread.quit()
+            thread.wait()
+        self.pi.spi_close(sensor)
+        self.pi.stop()
+
+    self.sigDone.emit(self.__id, self.__ttype)</code></pre>
+</details>
+</dd>
+<dt id="controlunit.worker.MAX6675.setPresetTemp"><code class="name flex">
+<span>def <span class="ident">setPresetTemp</span></span>(<span>self, newTemp: int)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def setPresetTemp(self, newTemp: int):
+    self.__presetTemp = newTemp
+    return
+
+    # MARK: - Methods</code></pre>
+</details>
+</dd>
+<dt id="controlunit.worker.MAX6675.setTempWorker"><code class="name flex">
+<span>def <span class="ident">setTempWorker</span></span>(<span>self, presetTemp: int)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def setTempWorker(self, presetTemp: int):
+    self.__rawData = np.zeros(shape=(STEP, 3))
+    self.__presetTemp = presetTemp
+    self.sampling = read_settings()[&#34;samplingtime&#34;]
+
+    # PID control
+    if not TEST:
+        self.pi = pigpio.pi()
+        self.__onLight = 0.1
+        self.__sumE = 0
+        self.__exE = 0
+    else:
+        print(&#34;needs pigpio to access SPI&#34;)
+
+    print(&#34;CHECK\n&#34;)
+    print(&#34;abort:&#34;, self.abort)
+    print(&#34;__abort:&#34;, self.__abort)
+    print(self.__id)</code></pre>
+</details>
+</dd>
+<dt id="controlunit.worker.MAX6675.start"><code class="name flex">
+<span>def <span class="ident">start</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Set Thread ID and name, then run corresponding "plot" function.
+"plot" functions are main data acquisition loops.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@QtCore.pyqtSlot()
+def start(self):
+    &#34;&#34;&#34;Set Thread ID and name, then run corresponding &#34;plot&#34; function.
+    &#34;plot&#34; functions are main data acquisition loops.
+    &#34;&#34;&#34;
+    # self.__setThread()
+    self.readT()</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="controlunit.worker.Worker" href="#controlunit.worker.Worker">Worker</a></b></code>:
+<ul class="hlist">
+<li><code><a title="controlunit.worker.Worker.setSampling" href="#controlunit.worker.Worker.setSampling">setSampling</a></code></li>
+<li><code><a title="controlunit.worker.Worker.setThread" href="#controlunit.worker.Worker.setThread">setThread</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+<dt id="controlunit.worker.Worker"><code class="flex name class">
+<span>class <span class="ident">Worker</span></span>
+<span>(</span><span>id, app, ttype, startTime)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>QObject(parent: QObject = None)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Worker(QtCore.QObject):
+
+    # Change to a dictionary. Trancparency!
+    sigStep = QtCore.pyqtSignal(
+        np.ndarray, np.ndarray, np.ndarray, dict, datetime.datetime
+    )
+    sigDone = QtCore.pyqtSignal(int, dict)
+    sigMsg = QtCore.pyqtSignal(str)
+
+    sigAbortHeater = QtCore.pyqtSignal()
+
+    def __init__(self, id, app, ttype, startTime):
+        super().__init__()
+
+        self.__id = id
+        self.__app = app
+        self.__ttype = ttype
+        self.__startTime = startTime
+        self.__abort = False
+
+    def setThread(self):
+        &#34;&#34;&#34; Set Thread name and ID, signal them to the log browser&#34;&#34;&#34;
+        threadName = QtCore.QThread.currentThread().objectName()
+        print(threadName)
+        return
+
+        self.sigMsg.emit(
+            &#34;Running worker #{} from thread &#39;{}&#39; (#{})&#34;.format(self.__id, threadName)
+        )
+
+    # MARK: - Getters
+    def getStartTime(self):
+        return self.__startTime
+
+    def setSampling(self, sampling):
+        &#34;&#34;&#34; Set sampling time for ADC &#34;&#34;&#34;
+        self.sampling = sampling
+        print(f&#34;Updated sampling to {sampling}&#34;)
+
+    @QtCore.pyqtSlot()
+    def abort(self):
+        self.sigMsg.emit(&#34;Worker #{} aborting acquisition&#34;.format(self.__id))
+        self.__abort = True</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>PyQt5.QtCore.QObject</li>
+<li>sip.wrapper</li>
+<li>sip.simplewrapper</li>
+</ul>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="controlunit.worker.ADC" href="#controlunit.worker.ADC">ADC</a></li>
+<li><a title="controlunit.worker.MAX6675" href="#controlunit.worker.MAX6675">MAX6675</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="controlunit.worker.Worker.abort"><code class="name flex">
+<span>def <span class="ident">abort</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@QtCore.pyqtSlot()
+def abort(self):
+    self.sigMsg.emit(&#34;Worker #{} aborting acquisition&#34;.format(self.__id))
+    self.__abort = True</code></pre>
+</details>
+</dd>
+<dt id="controlunit.worker.Worker.getStartTime"><code class="name flex">
+<span>def <span class="ident">getStartTime</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def getStartTime(self):
+    return self.__startTime</code></pre>
+</details>
+</dd>
+<dt id="controlunit.worker.Worker.setSampling"><code class="name flex">
+<span>def <span class="ident">setSampling</span></span>(<span>self, sampling)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Set sampling time for ADC</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def setSampling(self, sampling):
+    &#34;&#34;&#34; Set sampling time for ADC &#34;&#34;&#34;
+    self.sampling = sampling
+    print(f&#34;Updated sampling to {sampling}&#34;)</code></pre>
+</details>
+</dd>
+<dt id="controlunit.worker.Worker.setThread"><code class="name flex">
+<span>def <span class="ident">setThread</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Set Thread name and ID, signal them to the log browser</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def setThread(self):
+    &#34;&#34;&#34; Set Thread name and ID, signal them to the log browser&#34;&#34;&#34;
+    threadName = QtCore.QThread.currentThread().objectName()
+    print(threadName)
+    return
+
+    self.sigMsg.emit(
+        &#34;Running worker #{} from thread &#39;{}&#39; (#{})&#34;.format(self.__id, threadName)
+    )</code></pre>
+</details>
+</dd>
+<dt id="controlunit.worker.Worker.sigAbortHeater"><code class="name flex">
+<span>def <span class="ident">sigAbortHeater</span></span>(<span>...)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="controlunit.worker.Worker.sigDone"><code class="name flex">
+<span>def <span class="ident">sigDone</span></span>(<span>...)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="controlunit.worker.Worker.sigMsg"><code class="name flex">
+<span>def <span class="ident">sigMsg</span></span>(<span>...)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="controlunit.worker.Worker.sigStep"><code class="name flex">
+<span>def <span class="ident">sigStep</span></span>(<span>...)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="controlunit" href="index.html">controlunit</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="controlunit.worker.ADC" href="#controlunit.worker.ADC">ADC</a></code></h4>
+<ul class="two-column">
+<li><code><a title="controlunit.worker.ADC.readADC" href="#controlunit.worker.ADC.readADC">readADC</a></code></li>
+<li><code><a title="controlunit.worker.ADC.setIGmode" href="#controlunit.worker.ADC.setIGmode">setIGmode</a></code></li>
+<li><code><a title="controlunit.worker.ADC.setIGrange" href="#controlunit.worker.ADC.setIGrange">setIGrange</a></code></li>
+<li><code><a title="controlunit.worker.ADC.setPresWorker" href="#controlunit.worker.ADC.setPresWorker">setPresWorker</a></code></li>
+<li><code><a title="controlunit.worker.ADC.setQmsSignal" href="#controlunit.worker.ADC.setQmsSignal">setQmsSignal</a></code></li>
+<li><code><a title="controlunit.worker.ADC.start" href="#controlunit.worker.ADC.start">start</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="controlunit.worker.MAX6675" href="#controlunit.worker.MAX6675">MAX6675</a></code></h4>
+<ul class="">
+<li><code><a title="controlunit.worker.MAX6675.readT" href="#controlunit.worker.MAX6675.readT">readT</a></code></li>
+<li><code><a title="controlunit.worker.MAX6675.setPresetTemp" href="#controlunit.worker.MAX6675.setPresetTemp">setPresetTemp</a></code></li>
+<li><code><a title="controlunit.worker.MAX6675.setTempWorker" href="#controlunit.worker.MAX6675.setTempWorker">setTempWorker</a></code></li>
+<li><code><a title="controlunit.worker.MAX6675.start" href="#controlunit.worker.MAX6675.start">start</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="controlunit.worker.Worker" href="#controlunit.worker.Worker">Worker</a></code></h4>
+<ul class="two-column">
+<li><code><a title="controlunit.worker.Worker.abort" href="#controlunit.worker.Worker.abort">abort</a></code></li>
+<li><code><a title="controlunit.worker.Worker.getStartTime" href="#controlunit.worker.Worker.getStartTime">getStartTime</a></code></li>
+<li><code><a title="controlunit.worker.Worker.setSampling" href="#controlunit.worker.Worker.setSampling">setSampling</a></code></li>
+<li><code><a title="controlunit.worker.Worker.setThread" href="#controlunit.worker.Worker.setThread">setThread</a></code></li>
+<li><code><a title="controlunit.worker.Worker.sigAbortHeater" href="#controlunit.worker.Worker.sigAbortHeater">sigAbortHeater</a></code></li>
+<li><code><a title="controlunit.worker.Worker.sigDone" href="#controlunit.worker.Worker.sigDone">sigDone</a></code></li>
+<li><code><a title="controlunit.worker.Worker.sigMsg" href="#controlunit.worker.Worker.sigMsg">sigMsg</a></code></li>
+<li><code><a title="controlunit.worker.Worker.sigStep" href="#controlunit.worker.Worker.sigStep">sigStep</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.9.2</a>.</p>
+</footer>
+</body>
+</html>
