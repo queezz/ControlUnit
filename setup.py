@@ -35,7 +35,7 @@ setup(
         numpy>=1.10
         matplotlib>=3.0
         pandas>=1.3
-        pqtgraph>0.1
+        pyqtgraph
       """,
     package_data={"": [".settings"]},
     include_package_data=True,
