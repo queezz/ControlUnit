@@ -1,5 +1,5 @@
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtGui
+from PyQt5 import QtGui,QtWidgets
 from pyqtgraph.dockarea import DockArea, Dock
 
 from components.controlDock import ControlDock
@@ -15,8 +15,8 @@ class UIWindow(object):
         super().__init__()
         pg.setConfigOptions(imageAxisOrder="row-major")
 
-        self.MainWindow = QtGui.QMainWindow()
-        self.tabwidg = QtGui.QTabWidget()
+        self.MainWindow = QtWidgets.QMainWindow()
+        self.tabwidg = QtWidgets.QTabWidget()
         self.area = DockArea()
         self.plotDock = Dock("Plots", size=(300, 400))
         self.controlDock = ControlDock()
@@ -66,7 +66,7 @@ class UIWindow(object):
 if __name__ == "__main__":
     import sys
 
-    app = QtGui.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
     ui = UIWindow()
     ui.showMain()
     sys.exit(app.exec_())
