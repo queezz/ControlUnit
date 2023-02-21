@@ -591,7 +591,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
 
 if __name__ == "__main__":
-    app = QtGui.QApplication([])
+    app = QtWidgets.QApplication([])
     widget = MainWidget(app)
 
     sys.exit(app.exec_())
