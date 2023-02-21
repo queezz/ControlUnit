@@ -1,7 +1,7 @@
 import sys, datetime, os
 import numpy as np
 import pandas as pd
-from pyqtgraph.Qt import QtCore, QtGui
+from PyQt5 import QtCore, QtGui
 
 from mainView import UIWindow
 from worker import MAX6675, ADC, Worker
