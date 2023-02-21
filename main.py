@@ -1,7 +1,7 @@
 import sys, datetime, os
 import numpy as np
 import pandas as pd
-from PyQt5 import QtCore, QtGui
+from PyQt5 import QtCore, QtGui, QtWidgets
 
 from mainView import UIWindow
 from worker import MAX6675, ADC, Worker
@@ -33,7 +33,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
     sigAbortWorkers = QtCore.pyqtSignal()
 
-    def __init__(self, app: QtGui.QApplication):
+    def __init__(self, app: QtWidgets.QApplication):
         super(self.__class__, self).__init__()
         self.__app = app
         self.connections()
