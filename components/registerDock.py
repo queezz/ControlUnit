@@ -1,6 +1,5 @@
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtGui
-from pyqtgraph import QtCore
+from PyQt5 import QtGui, QtCore, QtWidgets
 from pyqtgraph.dockarea import Dock
 
 DEGREE_SMB = "\N{DEGREE SIGN}"
@@ -10,10 +9,10 @@ class RegisterDock(Dock):
     def __init__(self):
         super().__init__("Membreane Heater")
         self.widget = pg.LayoutWidget()
-        self.tempBw = QtGui.QTextBrowser()
+        self.tempBw = QtWidgets.QTextBrowser()
         self.tempBw.setMinimumSize(QtCore.QSize(80, 60))
         self.tempBw.setMaximumHeight(60)
-        self.temperatureSB = QtGui.QSpinBox()
+        self.temperatureSB = QtWidgets.QSpinBox()
         self.temperatureSB.setMinimum(0)
         self.temperatureSB.setMaximum(600)
         self.temperatureSB.setSuffix(f"{DEGREE_SMB} C")
@@ -24,7 +23,7 @@ class RegisterDock(Dock):
             "QSpinBox::down-button { width: 60px;}\n"
             "QSpinBox {font: 26pt;}"
         )
-        self.registerBtn = QtGui.QPushButton("set")
+        self.registerBtn = QtWidgets.QPushButton("set")
         self.registerBtn.setMinimumSize(QtCore.QSize(80, 80))
         self.registerBtn.setStyleSheet("font: 26pt")
         self.__setLayout()
@@ -36,8 +35,8 @@ class RegisterDock(Dock):
         self.widget.addWidget(self.temperatureSB, 1, 0)
         self.widget.addWidget(self.registerBtn, 1, 1)
 
-        self.verticalSpacer = QtGui.QSpacerItem(
-            0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding
+        self.verticalSpacer = QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
         )
         # self.widget.layout.setVerticalSpacing(0)
         self.widget.layout.addItem(self.verticalSpacer)

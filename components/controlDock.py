@@ -1,7 +1,6 @@
 import sys
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtGui
-from pyqtgraph import QtCore
+from PyQt5 import QtGui, QtWidgets,QtCore
 from pyqtgraph.dockarea import Dock
 
 # from components.scaleButtons import ScaleButtons
@@ -14,33 +13,33 @@ class ControlDock(Dock):
         super().__init__("Control")
         self.widget = pg.LayoutWidget()
 
-        self.quitBtn = QtGui.QPushButton("quit")
+        self.quitBtn = QtWidgets.QPushButton("quit")
         self.quitBtn.setStyleSheet(
             "QPushButton {color:#f9ffd9; background:#ed2a0c;}"
             "QPushButton:disabled {color:#8f8f8f; background:#bfbfbf;}"
         )
         self.quitBtn.setFont(QtGui.QFont("serif", 16))
 
-        self.valueBw = QtGui.QTextBrowser()
+        self.valueBw = QtWidgets.QTextBrowser()
         self.valueBw.setMaximumHeight(90)
         self.valueBw.setMinimumWidth(300)
         self.valueBw.setCurrentFont(QtGui.QFont("Courier New"))
 
         # self.scaleBtn = ScaleButtons()
 
-        self.scaleBtn = QtGui.QComboBox()
+        self.scaleBtn = QtWidgets.QComboBox()
         self.scaleBtn.setFont(QtGui.QFont("serif", 18))
         items = ["20 s", "60 sec", "5 min", "15 min", "30 min", "1 hr", "Full"]
         sizes = [20, 60, 5 * 60, 15 * 60, 30 * 60, 60 * 60, -1]
         [self.scaleBtn.addItem(i) for i in items]
         self.sampling_windows = {i: j for i, j in zip(items, sizes)}
 
-        self.IGmode = QtGui.QComboBox()
+        self.IGmode = QtWidgets.QComboBox()
         items = ["Torr", "Pa"]
         [self.IGmode.addItem(i) for i in items]
         self.IGmode.setFont(QtGui.QFont("serif", 18))
 
-        self.IGrange = QtGui.QSpinBox()
+        self.IGrange = QtWidgets.QSpinBox()
         self.IGrange.setMinimum(-8)
         self.IGrange.setMaximum(-3)
         self.IGrange.setMinimumSize(QtCore.QSize(60, 60))
@@ -83,8 +82,8 @@ class ControlDock(Dock):
 
         self.widget.addWidget(self.qmsSigSw, 10, 1, 1, 1)
 
-        self.verticalSpacer = QtGui.QSpacerItem(
-            0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding
+        self.verticalSpacer = QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
         )
         self.widget.layout.setVerticalSpacing(5)
         self.widget.layout.addItem(self.verticalSpacer)

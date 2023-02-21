@@ -1,12 +1,12 @@
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtGui
+from PyQt5 import QtGui, QtWidgets
 
 
 class ScaleButtons(pg.LayoutWidget):
     def __init__(self):
         super().__init__()
-        self.scaleLabel = QtGui.QLabel(self.__setLabelFont("Scale:", "#000001"))
-        self.selectBtn = QtGui.QComboBox()
+        self.scaleLabel = QtWidgets.QLabel(self.__setLabelFont("Scale:", "#000001"))
+        self.selectBtn = QtWidgets.QComboBox()
         self.selectBtn.setFont(QtGui.QFont("serif", 18))
         self.__setSelect()
         self.__setLayout()

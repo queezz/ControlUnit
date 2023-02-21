@@ -1,6 +1,5 @@
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtGui
-from pyqtgraph import QtCore
+from PyQt5 import QtGui,QtCore,QtWidgets
 from pyqtgraph.dockarea import Dock
 from components.onoffswitch import *
 
@@ -15,14 +14,14 @@ class PlotScaleDock(Dock):
         self.togT = ToggleTemperaturePlot()
         self.togP = TogglePressurePlot()
         [i.setChecked(True) for i in [self.togIp, self.togT, self.togP]]
-        self.Tmax = QtGui.QSpinBox()
+        self.Tmax = QtWidgets.QSpinBox()
         self.Tmax.setMinimum(50)
         self.Tmax.setMaximum(1000)
         self.Tmax.setMinimumSize(QtCore.QSize(60, 60))
         self.Tmax.setSingleStep(50)
 
-        self.Pmax = QtGui.QSpinBox()
-        self.Pmin = QtGui.QSpinBox()
+        self.Pmax = QtWidgets.QSpinBox()
+        self.Pmin = QtWidgets.QSpinBox()
         self.Pmax.setMinimum(-7)
         self.Pmax.setMaximum(2)
         self.Pmin.setMinimum(-8)
@@ -30,8 +29,8 @@ class PlotScaleDock(Dock):
         self.Pmax.setValue(1)
         self.Pmin.setValue(-8)
 
-        self.Imax = QtGui.QSpinBox()
-        self.Imin = QtGui.QSpinBox()
+        self.Imax = QtWidgets.QSpinBox()
+        self.Imin = QtWidgets.QSpinBox()
         self.Imax.setMinimum(-29)
         self.Imax.setMaximum(30)
         self.Imin.setMinimum(-30)
@@ -63,8 +62,8 @@ class PlotScaleDock(Dock):
         self.widget.addWidget(self.togP, 4, 0)
         self.widget.addWidget(self.autoscale, 5, 1)
 
-        self.verticalSpacer = QtGui.QSpacerItem(
-            0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding
+        self.verticalSpacer = QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
         )
         self.widget.layout.setVerticalSpacing(5)
         self.widget.layout.addItem(self.verticalSpacer)
