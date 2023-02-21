@@ -50,12 +50,12 @@ except:
         # print("Try5: analoggaugewidget.py")
         from PyQt5.QtWidgets import QMainWindow
 
-        from PyQt5.QtWidgets import QWidget
+        from PyQt5.QtWidgets import QWidget, QSizePolicy
         from PyQt5.QtWidgets import QApplication
         # QtWidgets -> QWidget
         # QtWidgets -> QApplication
 
-        from PyQt5.QtGui import QPolygon, QPolygonF, QColor, QPen, QFont, QSizePolicy
+        from PyQt5.QtGui import QPolygon, QPolygonF, QColor, QPen, QFont
         from PyQt5.QtGui import QPainter, QFontMetrics, QConicalGradient
         # QtGui -> QPolygon, QPolygonF, QColor, QPen, QFont, QPainter, QFontMetrics, QConicalGradient
 
