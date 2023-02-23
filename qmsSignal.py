@@ -5,7 +5,7 @@ try:
 except:
     print("no pigpio module, continue for a test")
 
-from pyqtgraph.Qt import QtCore
+from PyQt5 import QtCore
 
 # must inherit QtCore.QObject in order to use 'connect'
 class QMSSignal(QtCore.QThread):

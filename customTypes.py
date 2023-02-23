@@ -46,7 +46,7 @@ class Signals(Enum):
         else:
             return data
 
-    def getCalcValue(self, data: float, **kws):
+    def getCalcValue(self, data: float, **kws): # この関数処理を除いて生データで保存し，その後処理をかけたほうが負荷減る
         if self == self.PLASMA:
             # TODO: calc
             return data

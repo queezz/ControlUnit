@@ -1,5 +1,5 @@
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtGui
+from PyQt5 import QtGui
 
 DEGREE_SMB = u"\N{DEGREE SIGN}"
 
