@@ -321,6 +321,7 @@ class ADC(Worker):
         self.readADC()
 
     # MARK: - Plot
+    @QtCore.pyqtSlot()
     def readADC(self):
         """Reads ADC raw signals, converts it, sends it back to main loop
         to plot ad save data.
