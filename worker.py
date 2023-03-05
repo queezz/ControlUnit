@@ -354,7 +354,7 @@ class ADC(Worker):
             # Process values
             now = datetime.datetime.now()
             dSec = (now - self.__startTime).total_seconds()
-            self.__rawData = pd.concat([self.__rawData,
+            self.__rawData = self.__rawData.append(
                 [
                     now,
                     dSec,
@@ -365,7 +365,19 @@ class ADC(Worker):
                     self.__IGrange,
                     self.__qmsSignal,
                 ]
-            ])
+            )
+            # self.__rawData = pd.concat([self.__rawData,
+            #     [
+            #         now,
+            #         dSec,
+            #         p1_v,
+            #         p2_v,
+            #         ip_v,
+            #         self.__IGmode,
+            #         self.__IGrange,
+            #         self.__qmsSignal,
+            #     ]
+            # ])
 
             # TODO: get rid of the enumerator class Signals.
             # Define calculations inside individual subclass right here.
