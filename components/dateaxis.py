@@ -2,10 +2,10 @@
 
 #############################################################################
 #
-# This file was adapted from Taurus TEP17, but all taurus dependencies were
+# This file was adapted from Taurus TEP17, but all taurus dependencies were 
 # removed so that it works with just pyqtgraph
 #
-# Just run it and play with the zoom to see how the labels and tick positions
+# Just run it and play with the zoom to see how the labels and tick positions 
 # automatically adapt to the shown range
 #
 #############################################################################
@@ -50,7 +50,7 @@ class DateAxisItem(AxisItem):
     It provides a  :meth:`attachToPlotItem` method to add it to a given
     PlotItem
     """
-
+    
     # Max width in pixels reserved for each label in axis
     _pxLabelWidth = 80
 
@@ -65,7 +65,7 @@ class DateAxisItem(AxisItem):
         rounding in a decimal base
         """
 
-        maxMajSteps = int(size / self._pxLabelWidth)
+        maxMajSteps = int(size/self._pxLabelWidth)
 
         dt1 = datetime.fromtimestamp(minVal)
         dt2 = datetime.fromtimestamp(maxVal)
@@ -81,7 +81,8 @@ class DateAxisItem(AxisItem):
 
         elif dx > 5270400:  # 3600s*24*61 = 61 days
             d = timedelta(days=31)
-            dt = dt1.replace(day=1, hour=0, minute=0, second=0, microsecond=0) + d
+            dt = dt1.replace(day=1, hour=0, minute=0,
+                             second=0, microsecond=0) + d
             while dt < dt2:
                 # make sure that we are on day 1 (even if always sum 31 days)
                 dt = dt.replace(day=1)
@@ -104,9 +105,8 @@ class DateAxisItem(AxisItem):
 
         elif dx > 1200:  # 60s*20 = 20 minutes
             d = timedelta(minutes=10)
-            dt = (
-                dt1.replace(minute=(dt1.minute // 10) * 10, second=0, microsecond=0) + d
-            )
+            dt = dt1.replace(minute=(dt1.minute // 10) * 10,
+                             second=0, microsecond=0) + d
             while dt < dt2:
                 majticks.append(mktime(dt.timetuple()))
                 dt += d
@@ -134,7 +134,7 @@ class DateAxisItem(AxisItem):
 
         L = len(majticks)
         if L > maxMajSteps:
-            majticks = majticks[:: int(numpy.ceil(float(L) / maxMajSteps))]
+            majticks = majticks[::int(numpy.ceil(float(L) / maxMajSteps))]
 
         return [(d.total_seconds(), majticks)]
 
@@ -165,14 +165,14 @@ class DateAxisItem(AxisItem):
         else:
             # less than 2s (show microseconds)
             # fmt = '%S.%f"'
-            fmt = "[+%fms]"  # explicitly relative to last second
+            fmt = '[+%fms]'  # explicitly relative to last second
 
         for x in values:
             try:
                 t = datetime.fromtimestamp(x)
                 ret.append(t.strftime(fmt))
             except ValueError:  # Windows can't handle dates before 1970
-                ret.append("")
+                ret.append('')
 
         return ret
 
@@ -183,10 +183,10 @@ class DateAxisItem(AxisItem):
         self.setParentItem(plotItem)
         viewBox = plotItem.getViewBox()
         self.linkToView(viewBox)
-        self._oldAxis = plotItem.axes[self.orientation]["item"]
+        self._oldAxis = plotItem.axes[self.orientation]['item']
         self._oldAxis.hide()
-        plotItem.axes[self.orientation]["item"] = self
-        pos = plotItem.axes[self.orientation]["pos"]
+        plotItem.axes[self.orientation]['item'] = self
+        pos = plotItem.axes[self.orientation]['pos']
         plotItem.layout.addItem(self, *pos)
         self.setZValue(-1000)
 
@@ -197,26 +197,26 @@ class DateAxisItem(AxisItem):
         raise NotImplementedError()  # TODO
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
 
     import time
     import sys
     import pyqtgraph as pg
-    from PyQt5 import QtGui,QtWidgets
+    from PyQt5 import QtGui
 
-    app = QtWidgets.QApplication([])
+    app = QtGui.QApplication([])
 
     w = pg.PlotWidget()
 
     # Add the Date-time axis
-    axis = DateAxisItem(orientation="bottom")
+    axis = DateAxisItem(orientation='bottom')
     axis.attachToPlotItem(w.getPlotItem())
 
     # plot some random data with timestamps in the last hour
     now = time.time()
     timestamps = numpy.linspace(now - 3600, now, 100)
-    w.plot(x=timestamps, y=numpy.random.rand(100), symbol="o")
-
+    w.plot(x=timestamps, y=numpy.random.rand(100), symbol='o')
+    
     w.show()
 
     sys.exit(app.exec_())

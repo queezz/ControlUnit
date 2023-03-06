@@ -47,6 +47,24 @@ try:
 
 except:
     try:
+        # # print("Try5: analoggaugewidget.py")
+        # from PyQt5.QtWidgets import QMainWindow
+
+        # from PyQt5.QtWidgets import QWidget
+        # from PyQt5.QtWidgets import QApplication
+        # # QtWidgets -> QWidget
+        # # QtWidgets -> QApplication
+
+        # from PyQt5.QtGui import QPolygon, QPolygonF, QColor, QPen, QFont, QSizePolicy
+        # from PyQt5.QtGui import QPainter, QFontMetrics, QConicalGradient
+        # # QtGui -> QPolygon, QPolygonF, QColor, QPen, QFont, QPainter, QFontMetrics, QConicalGradient
+
+        # from PyQt5.QtCore import Qt ,QTime, QTimer, QPoint, QPointF, QRect, QSize
+        # from PyQt5.QtCore import QObject, pyqtSignal
+        # # QtCore -> Qt.NoPen ,QTime, QTimer, QPoint, QPointF, QRect, QSize
+
+        # used_Qt_Version = 5
+        # print("end trying to import Qt5 @ analoggaugewidget.py")
         # print("Try5: analoggaugewidget.py")
         from PyQt5.QtWidgets import QMainWindow
 

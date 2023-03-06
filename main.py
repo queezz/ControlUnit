@@ -1,15 +1,13 @@
 import sys, datetime, os
 import numpy as np
 import pandas as pd
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5 import QtCore, QtGui,QtWidgets
 
 from mainView import UIWindow
-from worker import MAX6675, ADC, Worker
-from customTypes import Signals
+from worker import Worker
+from customTypes import Signals, ScaleSize
 from readsettings import make_datafolders, read_settings
 import qmsSignal
-
-testmark = "test-"
 
 try:
     from AIO import AIO_32_0RA_IRC as adc
@@ -52,8 +50,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.p2Data = None
 
         # Define which signals comming from ADC
-        # REMOVE
-        # self.ADCtypes = [Signals.PLASMA, Signals.PRESSURE1, Signals.PRESSURE2]
+        self.ADCtypes = [Signals.PLASMA, Signals.PRESSURE1, Signals.PRESSURE2]
         # print('main __init__:', Signals.adcSignals)
 
         # self.graph.removeItem(self.graph.plaPl) # remove Plasma current plot
@@ -85,12 +82,13 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.datapth = read_settings()["datafolder"]
 
         self.sampling = read_settings()["samplingtime"]
+        # self.__scale = ScaleSize.SMALL
         self.__changeScale()
 
         self.showMain()
 
     def __changeScale(self):
-        """Set data window size for plotting
+        """ Set data window size for plotting
         STEP = 2 from worker
         """
         index = self.controlDock.scaleBtn.currentIndex()
@@ -144,7 +142,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.__app.quit()
 
     def __onoff(self):
-        """ Start and stop worker threads """
+        """ prototype method to start and stop worker threads """
         if self.controlDock.OnOffSW.isChecked():
             self.startThreads()
             self.controlDock.quitBtn.setEnabled(False)
@@ -211,7 +209,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.controlDock.setStretch(*(10, 300))  # minimize control dock width
 
     def togglePlots(self):
-        """Toggle plots
+        """ Toggle plots
         self.scaleDock.togIp
         self.graph.plaPl
         """
@@ -237,10 +235,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         [toggleplot(*items[jj]) for jj in ["Ip", "T", "P"]]
 
     def __qmsSignal(self):
-        """Experiment indicator, analog output is sent to QMS to sync
-        expermint time between recording devices.
-        This signal is helpfull to separate experiments (same as shot numbers in fusion)
-        """
+        """ qms signal """
         if not self.controlDock.OnOffSW.isChecked():
             return
 
@@ -252,7 +247,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         if self.controlDock.qmsSigSw.isChecked():
             self.qmsSigThread = qmsSignal.QMSSignal(pi, self.__app, 1)
-            self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
+            self.qmsSigThread.finished.connect(self.qmsSigThFin)
             self.qmsSigThread.start()
             self.adcWorker.setQmsSignal(1)
         else:
@@ -268,24 +263,22 @@ class MainWidget(QtCore.QObject, UIWindow):
                 # old function: QMSSignal.blink_led
                 # self.qmsSigThread = qmsSignal.QMSSignal(pi, self.__app, 2)
                 self.qmsSigThread = qmsSignal.QMSSignal(pi, self.__app, 0)
-                self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
+                self.qmsSigThread.finished.connect(self.qmsSigThFin)
                 self.qmsSigThread.start()
                 self.adcWorker.setQmsSignal(0)
             else:
                 self.controlDock.qmsSigSw.setChecked(True)
 
-    def qmsSignalTerminate(self):
+    def qmsSigThFin(self):
         self.qmsSigThread.quit()
         self.qmsSigThread.wait()
 
     # MARK: - Threads
     def startThreads(self):
-        """Define Workers to run in separate threads.
+        """ Define Workers to run in separate threads.
         2020/03/05: two sensors: ADC and temperatures, hence
         2 threds to read a) temperature, and b) analog signals (P1,P2, Ip)
         """
-        sensors = ["MAX6675", "ADC"]
-        self.datadict = {i: {} for i in sensors}
 
         self.logDock.log.append("starting 2 threads")
 
@@ -296,44 +289,32 @@ class MainWidget(QtCore.QObject, UIWindow):
             thread.wait()
 
         self.__threads = []
+        self.tWorker = Worker()
+        self.adcWorker = Worker()
 
         now = datetime.datetime.now()
-        # make threads from sensor worker classes
-        threads = {}
 
-        # MAX6675 therm;ocouple sensor for Membrane temperature with PID
-        sensor = "MAX6675"
-        threads[sensor] = QtCore.QThread()
-        threads[sensor].setObjectName(f"{sensor}")
-        self.tWorker = MAX6675(sensor, self.__app, self.datadict[sensor], now)
-        self.tWorker.setTempWorker(self.__temp)
+        print("start threads: {}".format(now))
+        self.logDock.progress.append("start threads: {}".format(now))
 
-        # Multichannel ADC
-        sensor = "ADC"
-        threads[sensor] = QtCore.QThread()
-        threads[sensor].setObjectName(f"{sensor}")
-        self.adcWorker = ADC(sensor, self.__app, self.datadict[sensor], now)
-        mode = self.controlDock.IGmode.currentIndex()
-        scale = self.controlDock.IGrange.value()
-        self.adcWorker.setPresWorker(mode, scale)
+        for index, worker in enumerate([self.tWorker, self.adcWorker]):
+            thread = QtCore.QThread()
+            thread.setObjectName("thread_{}".format(index))
 
-        workers = {i: j for i, j in zip(sensors, [self.tWorker, self.adcWorker])}
+            if index == 0:
+                worker.setWorker(index, self.__app, Signals.TEMPERATURE, now)
+                worker.setTempWorker(self.__temp)
+            elif index == 1:
+                worker.setWorker(index, self.__app, Signals.PRESSURE1, now)
 
-        print("threads started: {}".format(now))
-        self.logDock.progress.append("threads started: {}".format(now))
+                mode = self.controlDock.IGmode.currentIndex()
+                scale = self.controlDock.IGrange.value()
+                worker.setPresWorker(mode, scale)
 
-        # start threads
-        [self.setThread(workers[s], threads[s], s) for s in sensors]
+            self.setThread(worker, thread, index)
 
-    def setThread(self, worker: Worker, thread: QtCore.QThread, name: str):
-        """Setup workers [Dataframe creation]
-        - Creates instances of worker
-        - Creates connections
-        - Creates Pandas Dataframes for data logging
-        - Saves empty dataframes to local csv. File name based on date and time
-        - starts threads
-        - sets initial values for all parameters (zeros)
-        """
+    def setThread(self, worker: Worker, thread: QtCore.QThread, index: int):
+        """ Setup workers """
 
         self.__threads.append((thread, worker))
         worker.moveToThread(thread)
@@ -344,25 +325,21 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.sigAbortWorkers.connect(worker.abort)
 
         # temperature
-        # [MAX6675 device]
-        columns = ["date", "time", "P1", "P2", "Ip", "IGmode", "IGscale", "QMS_signal"]
-        if name == "MAX6675":
+        columns = ["time", "P1", "P2", "Ip", "IGmode", "IGscale", "QMS_signal"]
+        if index == 0:
             df = pd.DataFrame(dtype=float, columns=["time", "T", "PresetT"])
             df.to_csv(
                 os.path.join(
-                    self.datapth,
-                    f"{testmark}out_{worker.getStartTime():%Y%m%d_%H%M%S}_temp.csv",
+                    self.datapth, f"out_{worker.getStartTime():%Y%m%d_%H%M%S}_temp.csv"
                 ),
                 index=False,
             )
         # pressures and current
-        # [ADC device]
-        elif name == "ADC":
+        elif index == 1:
             df = pd.DataFrame(dtype=object, columns=columns)
             df.to_csv(
                 os.path.join(
-                    self.datapth,
-                    f"{testmark}out_{worker.getStartTime():%Y%m%d_%H%M%S}.csv",
+                    self.datapth, f"out_{worker.getStartTime():%Y%m%d_%H%M%S}.csv"
                 ),
                 index=False,
             )
@@ -383,15 +360,9 @@ class MainWidget(QtCore.QObject, UIWindow):
         Signals.PRESSURE2: 0,
     }
 
-    # Mark: connecting slots with threads
     @QtCore.pyqtSlot(np.ndarray, np.ndarray, np.ndarray, Signals, datetime.datetime)
     def onWorkerStep(self, rawResult, calcResult, ave, ttype, startTime):
-        """collect data on worker step
-        - Recives data from worker(s)
-        - Updates text indicators in GUI
-        - Appends recived data to dataframes (call to self.__setStepData)
-        - Updates data in plots (skips points if data is too big)
-        """
+        """ collect data on worker step """
         # MEMO: ave [[theadtype, average], [], []]
         for l in ave:
             self.currentvals[l[0]] = l[1]
@@ -476,13 +447,11 @@ class MainWidget(QtCore.QObject, UIWindow):
             return
 
     def __setStepData(self, data, rawResult, calcResult, ttype, startTime):
-        """
-        - Save raw data
-        - Append new data from Worker to the main data arrays
-        """
+        """ Append new data from Worker to main data arrays """
         # TODO: save interval
         # Save raw data
         self.__save(rawResult, ttype, startTime)
+        # concatenate
         if data is None:
             data = np.zeros([self.STEP, 2])
             data[:, 0] = calcResult[:, 0]
@@ -496,15 +465,11 @@ class MainWidget(QtCore.QObject, UIWindow):
         return data
 
     def __save(self, data, ttype, startTime):
-        """Save sensor data
-        - For [both] sensors dumps dataframe into a *.csv via pandas to_csv
-        """
+        """ write csv """
         if ttype == Signals.TEMPERATURE:
             df = pd.DataFrame(data)
             df.to_csv(
-                os.path.join(
-                    self.datapth, f"{testmark}out_{startTime:%Y%m%d_%H%M%S}_temp.csv"
-                ),
+                os.path.join(self.datapth, f"out_{startTime:%Y%m%d_%H%M%S}_temp.csv"),
                 mode="a",
                 header=False,
                 index=False,
@@ -515,9 +480,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         elif ttype == self.ADCtypes[0]:
             df = pd.DataFrame(data)
             df.to_csv(
-                os.path.join(
-                    self.datapth, f"{testmark}out_{startTime:%Y%m%d_%H%M%S}.csv"
-                ),
+                os.path.join(self.datapth, f"out_{startTime:%Y%m%d_%H%M%S}.csv"),
                 mode="a",
                 header=False,
                 index=False,
@@ -561,7 +524,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
     @QtCore.pyqtSlot()
     def updateIGmode(self):
-        """Update mode of the IG controller:
+        """ Update mode of the IG controller:
         Torr and linear
         or
         Pa and log
@@ -572,7 +535,8 @@ class MainWidget(QtCore.QObject, UIWindow):
 
     @QtCore.pyqtSlot()
     def __set_sampling(self):
-        """Set sampling time for ADC"""
+        """ Set sampling time for ADC
+        """
         txt = self.SettingsDock.samplingCb.currentText()
         value = float(txt.split(" ")[0])
         self.sampling = value
@@ -582,21 +546,13 @@ class MainWidget(QtCore.QObject, UIWindow):
 
     @QtCore.pyqtSlot()
     def updateIGrange(self):
-        """Update range of the IG controller:
+        """ Update range of the IG controller:
         10^{-3} - 10^{-8} multiplier when in linear mode (Torr)
         """
         value = self.controlDock.IGrange.value()
         if self.tWorker is not None:
             self.adcWorker.setIGrange(value)
 
-
-def main():
-    """
-    for command line script using entrypoint
-    """
-    app = QtGui.QApplication([])
-    widget = MainWidget(app)
-    sys.exit(app.exec_())
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication([])

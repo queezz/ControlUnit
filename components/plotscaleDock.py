@@ -1,10 +1,11 @@
+import sys
 import pyqtgraph as pg
 from PyQt5 import QtGui,QtCore,QtWidgets
 from pyqtgraph.dockarea import Dock
-from components.onoffswitch import *
-
+from  components.onoffswitch import *
 
 class PlotScaleDock(Dock):
+
     def __init__(self):
         super().__init__("Scales")
         self.widget = pg.LayoutWidget()
@@ -12,7 +13,7 @@ class PlotScaleDock(Dock):
         self.autoscale = changeScale()
         self.togIp = ToggleCurrentPlot()
         self.togT = ToggleTemperaturePlot()
-        self.togP = TogglePressurePlot()
+        self.togP = TogglePressurePlot()       
         [i.setChecked(True) for i in [self.togIp, self.togT, self.togP]]
         self.Tmax = QtWidgets.QSpinBox()
         self.Tmax.setMinimum(50)
@@ -38,14 +39,11 @@ class PlotScaleDock(Dock):
         self.Imax.setValue(6)
         self.Imin.setValue(-1)
 
-        [
-            i.setStyleSheet(
+        [i.setStyleSheet(
                 "QSpinBox::up-button   { width: 50px; }\n"
                 "QSpinBox::down-button { width: 50px;}\n"
                 "QSpinBox {font: 26pt;}"
-            )
-            for i in [self.Tmax, self.Pmax, self.Pmin, self.Imax, self.Imin]
-        ]
+        ) for i in [self.Tmax,self.Pmax,self.Pmin,self.Imax,self.Imin]]
 
         self.__setLayout()
 
@@ -67,7 +65,6 @@ class PlotScaleDock(Dock):
         )
         self.widget.layout.setVerticalSpacing(5)
         self.widget.layout.addItem(self.verticalSpacer)
-
 
 if __name__ == "__main__":
     pass

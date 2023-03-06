@@ -2,8 +2,8 @@ import pyqtgraph as pg
 from PyQt5 import QtGui, QtWidgets
 from pyqtgraph.dockarea import Dock
 
-
 class LogDock(Dock):
+
     def __init__(self):
         super().__init__("Log")
         self.widget = pg.LayoutWidget()
@@ -18,7 +18,6 @@ class LogDock(Dock):
 
         self.widget.addWidget(self.log, 0, 0, 1, 2)
         self.widget.addWidget(self.progress, 0, 2, 1, 2)
-
 
 if __name__ == "__main__":
     pass

@@ -1,4 +1,4 @@
-import smbus2 as smbus
+import smbus
 
 class PCA9554:
 

@@ -1,9 +1,8 @@
 import time
-
 try:
-    import pigpio
+	import pigpio
 except:
-    print("no pigpio module, continue for a test")
+	print('no pigpio module, continue for a test')
 
 from pyqtgraph.Qt import QtCore
 from customTypes import Signals
@@ -35,24 +34,22 @@ class ElectricCurrent(QtCore.QObject):
                 self.pi.write(pinNum, 1)
                 time.sleep(min(self.__onLight, 0.01))
                 self.pi.write(pinNum, 0)
-                time.sleep(max(0.01 - self.__onLight, 0))
+                time.sleep(max(0.01-self.__onLight, 0))
             self.app.processEvents()
 
     def __setThread(self):
         threadName = QtCore.QThread.currentThread().objectName()
         threadId = int(QtCore.QThread.currentThreadId())
-
+    
     @QtCore.pyqtSlot()
     def setAbort(self):
         self.abort = True
 
-
-def hall_to_current(v, **kws):
-    """Convert voltage from the Hall effect current sensor into current
+def hall_to_current(v,**kws):
+    """ Convert voltage from the Hall effect current sensor into current
     There are several sensors, with range 5A, 10 A, and 30 A
     """
-    return 5 / 1 * (v - 2.52)
-
+    return 5/1*(v-2.52)
 
 if __name__ == "__main__":
     pass

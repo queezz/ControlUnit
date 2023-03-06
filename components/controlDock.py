@@ -1,6 +1,6 @@
 import sys
 import pyqtgraph as pg
-from PyQt5 import QtGui, QtWidgets,QtCore
+from PyQt5 import QtGui,QtCore,QtWidgets
 from pyqtgraph.dockarea import Dock
 
 # from components.scaleButtons import ScaleButtons
