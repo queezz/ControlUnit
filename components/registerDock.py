@@ -14,7 +14,7 @@ class RegisterDock(Dock):
         self.tempBw.setMaximumHeight(60)
         self.temperatureSB = QtWidgets.QSpinBox()
         self.temperatureSB.setMinimum(0)
-        self.temperatureSB.setMaximum(600)
+        self.temperatureSB.setMaximum(1000)
         self.temperatureSB.setSuffix(f'{DEGREE_SMB} C')
         self.temperatureSB.setMinimumSize(QtCore.QSize(180, 80))
         self.temperatureSB.setSingleStep(10)

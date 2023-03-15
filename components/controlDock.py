@@ -58,7 +58,7 @@ class ControlDock(Dock):
         # Analog Gauge to show Temperature
         self.gaugeT = AnalogGaugeWidget()
         self.gaugeT.set_MinValue(0)
-        self.gaugeT.set_MaxValue(400)
+        self.gaugeT.set_MaxValue(1000)
         self.gaugeT.set_total_scale_angle_size(180)
         self.gaugeT.set_start_scale_angle(180)
         self.gaugeT.set_enable_value_text(False)
