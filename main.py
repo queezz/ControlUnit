@@ -73,7 +73,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         self.graph.presPl.setLogMode(y=True)
         self.graph.presPl.setYRange(-8, 3, 0)
-        self.graph.tempPl.setYRange(0, 320, 0)
+        self.graph.tempPl.setYRange(0, 1000, 0)
 
         self.tWorker = None
         self.adcWorker = None
