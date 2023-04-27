@@ -4,9 +4,11 @@ try:
     import pigpio
 except:
     print("no pigpio module, continue for a test")
+    import controlunit.pigpioplug as pigpio
+
 
 from pyqtgraph.Qt import QtCore
-from customTypes import Signals
+from controlunit.customTypes import Signals
 
 # must inherit QtCore.QObject in order to use 'connect'
 class ElectricCurrent(QtCore.QObject):
