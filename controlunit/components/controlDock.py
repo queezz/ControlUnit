@@ -4,8 +4,8 @@ from pyqtgraph import QtCore
 from pyqtgraph.dockarea import Dock
 
 # from components.scaleButtons import ScaleButtons
-from controlunit.components.onoffswitch import MySwitch, OnOffSwitch, QmsSwitch
-from controlunit.components.analoggaugewidget import AnalogGaugeWidget
+from components.onoffswitch import MySwitch, OnOffSwitch, QmsSwitch
+from components.analoggaugewidget import AnalogGaugeWidget
 
 
 class ControlDock(Dock):
@@ -82,9 +82,7 @@ class ControlDock(Dock):
 
         self.widget.addWidget(self.qmsSigSw, 10, 1, 1, 1)
 
-        self.verticalSpacer = QtGui.QSpacerItem(
-            0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding
-        )
+        self.verticalSpacer = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
         self.widget.layout.setVerticalSpacing(5)
         self.widget.layout.addItem(self.verticalSpacer)
 

@@ -4,8 +4,8 @@ import pandas as pd
 from pyqtgraph.Qt import QtCore, QtGui
 
 # from customTypes import Signals
-from controlunit.electricCurrent import ElectricCurrent, hall_to_current
-from controlunit.readsettings import read_settings
+from electricCurrent import ElectricCurrent, hall_to_current
+from readsettings import read_settings
 
 TEST = False
 
@@ -27,17 +27,15 @@ try:
 except:
     print("no pigpio or AIO")
     TEST = True
-    import controlunit.pigpioplug as pigpio
+    import pigpioplug as pigpio
 
 TT = True  # What is this? Used in Temperature Feedback Control
 
+
 # must inherit QtCore.QObject in order to use 'connect'
 class Worker(QtCore.QObject):
-
     # Change to a dictionary. Trancparency!
-    sigStep = QtCore.pyqtSignal(
-        np.ndarray, np.ndarray, np.ndarray, dict, datetime.datetime
-    )
+    sigStep = QtCore.pyqtSignal(np.ndarray, np.ndarray, np.ndarray, dict, datetime.datetime)
     sigDone = QtCore.pyqtSignal(int, dict)
     sigMsg = QtCore.pyqtSignal(str)
 
@@ -53,21 +51,19 @@ class Worker(QtCore.QObject):
         self.__abort = False
 
     def setThread(self):
-        """ Set Thread name and ID, signal them to the log browser"""
+        """Set Thread name and ID, signal them to the log browser"""
         threadName = QtCore.QThread.currentThread().objectName()
         print(threadName)
         return
 
-        self.sigMsg.emit(
-            "Running worker #{} from thread '{}' (#{})".format(self.__id, threadName)
-        )
+        self.sigMsg.emit("Running worker #{} from thread '{}' (#{})".format(self.__id, threadName))
 
     # MARK: - Getters
     def getStartTime(self):
         return self.__startTime
 
     def setSampling(self, sampling):
-        """ Set sampling time for ADC """
+        """Set sampling time for ADC"""
         self.sampling = sampling
         print(f"Updated sampling to {sampling}")
 
@@ -271,7 +267,6 @@ class ADC(Worker):
         print("ID:", self.__id)
 
     def setPresWorker(self, IGmode: int, IGrange: int):
-
         self.adc_columns = [
             "date",
             "time",
@@ -348,9 +343,7 @@ class ADC(Worker):
             # Communitcate with ADC
 
             arg = [aio.DataRate.DR_860SPS]
-            p1_v, p2_v, ip_v = [
-                aio.analog_read_volt(CH, *arg, **kws[CH]) for CH in CHNLS
-            ]
+            p1_v, p2_v, ip_v = [aio.analog_read_volt(CH, *arg, **kws[CH]) for CH in CHNLS]
 
             # Process values
             now = datetime.datetime.now()
@@ -372,9 +365,7 @@ class ADC(Worker):
             # Define calculations inside individual subclass right here.
             # Why Ito-kun hid this somewhere? Not helpful.
             #  calculate DATA
-            p1_d = Signals.getCalcValue(
-                Signals.PRESSURE1, p1_v, IGmode=self.__IGmode, IGrange=self.__IGrange
-            )
+            p1_d = Signals.getCalcValue(Signals.PRESSURE1, p1_v, IGmode=self.__IGmode, IGrange=self.__IGrange)
             p2_d = Signals.getCalcValue(Signals.PRESSURE2, p2_v)
             ip_d = hall_to_current(ip_v)  #
 

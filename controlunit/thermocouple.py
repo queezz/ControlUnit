@@ -1,6 +1,6 @@
 import math
 import numpy as np
-import controlunit.tc
+import tc
 
 AMBIENT = 20.9
 
@@ -21,12 +21,12 @@ def calcTemp(voltage: float):
 
 
 def run():
-    """ to run from command line, use following:
+    """to run from command line, use following:
     python -c 'import thermocouple as tc; tc.run()'
     """
     print("input mv:")
     a = float(input())
-    a /= 10 ** 3
+    a /= 10**3
     print(calcTemp(a))
 
 

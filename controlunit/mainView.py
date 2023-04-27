@@ -2,12 +2,12 @@ import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui
 from pyqtgraph.dockarea import DockArea, Dock
 
-from controlunit.components.controlDock import ControlDock
-from controlunit.components.logDock import LogDock
-from controlunit.components.registerDock import RegisterDock
-from controlunit.components.graph import Graph
-from controlunit.components.plotscaleDock import PlotScaleDock
-from controlunit.components.settingsDock import SettingsDock
+from components.controlDock import ControlDock
+from components.logDock import LogDock
+from components.registerDock import RegisterDock
+from components.graph import Graph
+from components.plotscaleDock import PlotScaleDock
+from components.settingsDock import SettingsDock
 
 
 class UIWindow(object):
@@ -22,10 +22,7 @@ class UIWindow(object):
         self.controlDock = ControlDock()
         self.logDock = LogDock()
         self.registerDock = RegisterDock()
-        [
-            i.setStretch(*(10, 20))
-            for i in [self.controlDock, self.logDock, self.registerDock]
-        ]
+        [i.setStretch(*(10, 20)) for i in [self.controlDock, self.logDock, self.registerDock]]
         self.controlDock.setStretch(*(10, 300))
         self.graph = Graph()
         self.scaleDock = PlotScaleDock()

@@ -1,8 +1,8 @@
 from enum import Enum
 import numpy as np
-from controlunit.thermocouple import calcTemp, maskTemp
-from controlunit.ionizationGauge import maskIonPres, calcIGPres
-from controlunit.pfeiffer import maskPfePres, calcPfePres
+from thermocouple import calcTemp, maskTemp
+from ionizationGauge import maskIonPres, calcIGPres
+from pfeiffer import maskPfePres, calcPfePres
 
 threadnames = ["Plasma", "Temperature", "Pressure1", "Pressure2"]
 
