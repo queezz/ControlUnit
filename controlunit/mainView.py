@@ -1,5 +1,5 @@
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtGui
+from PyQt5 import QtGui, QtCore, QtWidgets
 from pyqtgraph.dockarea import DockArea, Dock
 
 from components.controlDock import ControlDock
@@ -15,8 +15,8 @@ class UIWindow(object):
         super().__init__()
         pg.setConfigOptions(imageAxisOrder="row-major")
 
-        self.MainWindow = QtGui.QMainWindow()
-        self.tabwidg = QtGui.QTabWidget()
+        self.MainWindow = QtWidgets.QMainWindow()
+        self.tabwidg = QtWidgets.QTabWidget()
         self.area = DockArea()
         self.plotDock = Dock("Plots", size=(300, 400))
         self.controlDock = ControlDock()
@@ -33,6 +33,11 @@ class UIWindow(object):
         self.SettingsDock.setStretch(*(80, 100))
 
         self.MainWindow.setGeometry(20, 50, 1000, 600)
+        self.MainWindow.showMaximized()
+
+        sizeObject = QtWidgets.QDesktopWidget().screenGeometry(-1)
+        print(" Screen size : " + str(sizeObject.height()) + "x" + str(sizeObject.width()))
+
         # self.MainWindow.showFullScreen()
         self.MainWindow.setObjectName("Monitor")
         self.MainWindow.setWindowTitle("Data Logger")
