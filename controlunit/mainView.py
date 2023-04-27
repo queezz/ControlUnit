@@ -33,10 +33,10 @@ class UIWindow(object):
         self.SettingsDock.setStretch(*(80, 100))
 
         self.MainWindow.setGeometry(20, 50, 1000, 600)
-        self.MainWindow.showMaximized()
-
         sizeObject = QtWidgets.QDesktopWidget().screenGeometry(-1)
-        print(" Screen size : " + str(sizeObject.height()) + "x" + str(sizeObject.width()))
+        # print(" Screen size : " + str(sizeObject.height()) + "x" + str(sizeObject.width()))
+        if sizeObject.hight() < 1000:
+            self.MainWindow.showMaximized()
 
         # self.MainWindow.showFullScreen()
         self.MainWindow.setObjectName("Monitor")
