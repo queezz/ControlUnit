@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from pyqtgraph.Qt import QtCore, QtGui
 
-# from customTypes import Signals
+from customTypes import Signals
 from electricCurrent import ElectricCurrent, hall_to_current
 from readsettings import read_settings
 
@@ -159,7 +159,7 @@ class MAX6675(Worker):
             # Pass data on its way
             now = datetime.datetime.now()
             dSec = (now - self.__startTime).total_seconds()
-            self.__rawData[step] = [now, dSec, temp, self.__presetTemp]
+            self.__rawData[step] = [dSec, temp, self.__presetTemp]
 
             if step % (STEP - 1) == 0 and step != 0:
                 # average 10 points of data
