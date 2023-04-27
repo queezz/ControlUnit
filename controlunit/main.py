@@ -159,14 +159,14 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.controlDock.quitBtn.setEnabled(False)
         else:
             quit_msg = "Are you sure you want to stop data acquisition?"
-            reply = QtGui.QMessageBox.warning(
+            reply = QtWidgets.QMessageBox.warning(
                 self.MainWindow,
                 "Message",
                 quit_msg,
-                QtGui.QMessageBox.Yes,
-                QtGui.QMessageBox.No,
+                QtWidgets.QMessageBox.Yes,
+                QtWidgets.QMessageBox.No,
             )
-            if reply == QtGui.QMessageBox.Yes:
+            if reply == QtWidgets.QMessageBox.Yes:
                 self.abortThreads()
                 self.controlDock.quitBtn.setEnabled(True)
             else:
@@ -266,14 +266,14 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.adcWorker.setQmsSignal(1)
         else:
             quit_msg = "Stop Experiment Marker?"
-            reply = QtGui.QMessageBox.warning(
+            reply = QtWidgets.QMessageBox.warning(
                 self.MainWindow,
                 "Message",
                 quit_msg,
-                QtGui.QMessageBox.Yes,
-                QtGui.QMessageBox.No,
+                QtWidgets.QMessageBox.Yes,
+                QtWidgets.QMessageBox.No,
             )
-            if reply == QtGui.QMessageBox.Yes:
+            if reply == QtWidgets.QMessageBox.Yes:
                 # old function: QMSSignal.blink_led
                 # self.qmsSigThread = qmsSignal.QMSSignal(pi, self.__app, 2)
                 self.qmsSigThread = qmsSignal.QMSSignal(pi, self.__app, 0)
