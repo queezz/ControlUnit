@@ -31,9 +31,9 @@ except:
 
 TT = True  # What is this? Used in Temperature Feedback Control
 
+
 # must inherit QtCore.QObject in order to use 'connect'
 class Worker(QtCore.QObject):
-
     # Change to a dictionary. Trancparency!
     sigStep = QtCore.pyqtSignal(
         np.ndarray, np.ndarray, np.ndarray, dict, datetime.datetime
@@ -53,7 +53,7 @@ class Worker(QtCore.QObject):
         self.__abort = False
 
     def setThread(self):
-        """ Set Thread name and ID, signal them to the log browser"""
+        """Set Thread name and ID, signal them to the log browser"""
         threadName = QtCore.QThread.currentThread().objectName()
         print(threadName)
         return
@@ -67,7 +67,7 @@ class Worker(QtCore.QObject):
         return self.__startTime
 
     def setSampling(self, sampling):
-        """ Set sampling time for ADC """
+        """Set sampling time for ADC"""
         self.sampling = sampling
         print(f"Updated sampling to {sampling}")
 
@@ -271,7 +271,6 @@ class ADC(Worker):
         print("ID:", self.__id)
 
     def setPresWorker(self, IGmode: int, IGrange: int):
-
         self.adc_columns = [
             "date",
             "time",

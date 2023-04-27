@@ -3,11 +3,11 @@ import numpy as np
 import pandas as pd
 from pyqtgraph.Qt import QtCore, QtGui
 
-from controlunit.mainView import UIWindow
-from controlunit.worker import MAX6675, ADC, Worker
-from controlunit.customTypes import Signals
-from controlunit.readsettings import make_datafolders, read_settings
-from controlunit import qmsSignal
+from mainView import UIWindow
+from worker import MAX6675, ADC, Worker
+from customTypes import Signals
+from readsettings import make_datafolders, read_settings
+import qmsSignal
 
 testmark = "test-"
 
@@ -18,14 +18,6 @@ except:
     print("no pigpio or AIO")
     TEST = True
 
-    class pigpio:
-        def __init__(self) -> None:
-            pass
-
-        def pi(self):
-            return 0
-
-
 MAX_SIZE = 10000  # Maximum displayed points in pyqgraph plot
 
 # debug
@@ -33,6 +25,7 @@ MAX_SIZE = 10000  # Maximum displayed points in pyqgraph plot
 #     print(args)
 
 # sys.excepthook = trap_exc_during_debug
+
 
 # must inherit QtCore.QObject in order to use 'connect'
 class MainWidget(QtCore.QObject, UIWindow):
@@ -148,11 +141,11 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.SettingsDock.setSamplingBtn.clicked.connect(self.__set_sampling)
 
     def __quit(self):
-        """ terminate app """
+        """terminate app"""
         self.__app.quit()
 
     def __onoff(self):
-        """ Start and stop worker threads """
+        """Start and stop worker threads"""
         if self.controlDock.OnOffSW.isChecked():
             self.startThreads()
             self.controlDock.quitBtn.setEnabled(False)
@@ -172,30 +165,30 @@ class MainWidget(QtCore.QObject, UIWindow):
                 self.controlDock.OnOffSW.setChecked(True)
 
     def __updatePScale(self):
-        """ Updated plot limits for the Pressure viewgraph """
+        """Updated plot limits for the Pressure viewgraph"""
         pmin, pmax = [self.scaleDock.Pmin.value(), self.scaleDock.Pmax.value()]
 
         # self.graph.presPl.setLogMode(y=True)
         self.graph.presPl.setYRange(pmin, pmax, 0)
 
     def __updateIScale(self):
-        """ Updated plot limits for the plasma current viewgraph """
+        """Updated plot limits for the plasma current viewgraph"""
         imin, imax = [self.scaleDock.Imin.value(), self.scaleDock.Imax.value()]
         self.graph.plaPl.setYRange(imin, imax, 0)
 
     def __updateTScale(self):
-        """ Updated plot limits for the Temperature viewgraph """
+        """Updated plot limits for the Temperature viewgraph"""
         tmax = self.scaleDock.Tmax.value()
         self.graph.tempPl.setYRange(0, tmax, 0)
 
     def __updateScales(self):
-        """ Update all scales according to spinboxes """
+        """Update all scales according to spinboxes"""
         self.__updateIScale()
         self.__updateTScale()
         self.__updatePScale()
 
     def __autoscale(self):
-        """ Set all plots to autoscale """
+        """Set all plots to autoscale"""
         # enableAutoRange
         plots = [self.graph.plaPl, self.graph.tempPl, self.graph.presPl]
 
@@ -203,14 +196,14 @@ class MainWidget(QtCore.QObject, UIWindow):
         [i.enableAutoRange() for i in plots]
 
     def __auto_or_levels(self):
-        """ Change plot scales from full auto to Y axis from settings """
+        """Change plot scales from full auto to Y axis from settings"""
         if self.scaleDock.autoscale.isChecked():
             self.__autoscale()
         else:
             self.__updateScales()
 
     def fulltonormal(self):
-        """ Change from full screen to normal view on click"""
+        """Change from full screen to normal view on click"""
         if self.controlDock.FullNormSW.isChecked():
             self.MainWindow.showFullScreen()
             self.controlDock.setStretch(*(10, 300))  # minimize control dock width
@@ -442,14 +435,10 @@ class MainWidget(QtCore.QObject, UIWindow):
             # get data
             t_data = self.tData
             # set and save data
-            self.tData = self.__setStepData(
-                t_data, rawResult, calcResult, ttype, startTime
-            )
+            self.tData = self.__setStepData(t_data, rawResult, calcResult, ttype, startTime)
             # plot data
             skip = int((self.tData.shape[0] + MAX_SIZE - 1) / MAX_SIZE)
-            self.valueTPlot.setData(
-                self.tData[tind::skip, 0], self.tData[tind::skip, 1]
-            )
+            self.valueTPlot.setData(self.tData[tind::skip, 0], self.tData[tind::skip, 1])
         elif ttype in self.ADCtypes:
             # get data
             pl_data = self.plaData
@@ -459,27 +448,15 @@ class MainWidget(QtCore.QObject, UIWindow):
             # Each call saves same data. Clean this up.
             # Make one dataframe pere one sensor.
             # plaData, p1Data, and p2Data must be merged.
-            self.plaData = self.__setStepData(
-                pl_data, rawResult, calcResult, Signals.PLASMA, startTime
-            )
-            self.p1Data = self.__setStepData(
-                p1_data, rawResult, calcResult, Signals.PRESSURE1, startTime
-            )
-            self.p2Data = self.__setStepData(
-                p2_data, rawResult, calcResult, Signals.PRESSURE2, startTime
-            )
+            self.plaData = self.__setStepData(pl_data, rawResult, calcResult, Signals.PLASMA, startTime)
+            self.p1Data = self.__setStepData(p1_data, rawResult, calcResult, Signals.PRESSURE1, startTime)
+            self.p2Data = self.__setStepData(p2_data, rawResult, calcResult, Signals.PRESSURE2, startTime)
             # plot data
             skip = int((self.plaData.shape[0] + MAX_SIZE - 1) / MAX_SIZE)
-            self.valuePlaPlot.setData(
-                self.plaData[scale::skip, 0], self.plaData[scale::skip, 1]
-            )
+            self.valuePlaPlot.setData(self.plaData[scale::skip, 0], self.plaData[scale::skip, 1])
             # self.triggerPlot.setData()
-            self.valueP1Plot.setData(
-                self.p1Data[scale::skip, 0], self.p1Data[scale::skip, 1]
-            )
-            self.valueP2Plot.setData(
-                self.p2Data[scale::skip, 0], self.p2Data[scale::skip, 1]
-            )
+            self.valueP1Plot.setData(self.p1Data[scale::skip, 0], self.p1Data[scale::skip, 1])
+            self.valueP2Plot.setData(self.p2Data[scale::skip, 0], self.p2Data[scale::skip, 1])
         else:
             return
 
@@ -510,9 +487,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         if ttype == Signals.TEMPERATURE:
             df = pd.DataFrame(data)
             df.to_csv(
-                os.path.join(
-                    self.datapth, f"{testmark}out_{startTime:%Y%m%d_%H%M%S}_temp.csv"
-                ),
+                os.path.join(self.datapth, f"{testmark}out_{startTime:%Y%m%d_%H%M%S}_temp.csv"),
                 mode="a",
                 header=False,
                 index=False,
@@ -523,9 +498,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         elif ttype == self.ADCtypes[0]:
             df = pd.DataFrame(data)
             df.to_csv(
-                os.path.join(
-                    self.datapth, f"{testmark}out_{startTime:%Y%m%d_%H%M%S}.csv"
-                ),
+                os.path.join(self.datapth, f"{testmark}out_{startTime:%Y%m%d_%H%M%S}.csv"),
                 mode="a",
                 header=False,
                 index=False,
@@ -596,15 +569,6 @@ class MainWidget(QtCore.QObject, UIWindow):
         value = self.controlDock.IGrange.value()
         if self.tWorker is not None:
             self.adcWorker.setIGrange(value)
-
-
-def main():
-    """
-    for command line script using entrypoint
-    """
-    app = QtGui.QApplication([])
-    widget = MainWidget(app)
-    sys.exit(app.exec_())
 
 
 if __name__ == "__main__":
