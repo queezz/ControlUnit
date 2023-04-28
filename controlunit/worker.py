@@ -37,9 +37,7 @@ TT = True  # What is this? Used in Temperature Feedback Control
 # must inherit QtCore.QObject in order to use 'connect'
 class Worker(QtCore.QObject):
     # Change to a dictionary. Trancparency!
-    sigStep = QtCore.pyqtSignal(
-        np.ndarray, np.ndarray, np.ndarray, dict, datetime.datetime
-    )
+    sigStep = QtCore.pyqtSignal(np.ndarray, np.ndarray, np.ndarray, dict, datetime.datetime)
     sigDone = QtCore.pyqtSignal(int, dict)
     sigMsg = QtCore.pyqtSignal(str)
 
@@ -53,6 +51,8 @@ class Worker(QtCore.QObject):
         self.__ttype = ttype
         self.__startTime = startTime
         self.__abort = False
+
+    def print_checks(self):
         attrs = vars(self)
 
         if PRINTTHREADINFO:
@@ -67,9 +67,7 @@ class Worker(QtCore.QObject):
         print(threadName)
         return
 
-        self.sigMsg.emit(
-            "Running worker #{} from thread '{}' (#{})".format(self.__id, threadName)
-        )
+        self.sigMsg.emit("Running worker #{} from thread '{}' (#{})".format(self.__id, threadName))
 
     # MARK: - Getters
     def getStartTime(self):
@@ -89,6 +87,11 @@ class Worker(QtCore.QObject):
 class MAX6675(Worker):
     def __init__(self, id, app, ttype, startTime):
         super().__init__(id, app, ttype, startTime)
+        self.__id = id
+        self.__app = app
+        self.__ttype = ttype
+        self.__startTime = startTime
+        self.__abort = False
 
     # set temperature worker
     def setTempWorker(self, presetTemp: int):
@@ -257,6 +260,11 @@ class MAX6675(Worker):
 class ADC(Worker):
     def __init__(self, id, app, ttype, startTime):
         super().__init__(id, app, ttype, startTime)
+        self.__id = id
+        self.__app = app
+        self.__ttype = ttype
+        self.__startTime = startTime
+        self.__abort = False
 
     def setPresWorker(self, IGmode: int, IGrange: int):
         self.adc_columns = [
@@ -356,9 +364,7 @@ class ADC(Worker):
             # Define calculations inside individual subclass right here.
             # Why Ito-kun hid this somewhere? Not helpful.
             #  calculate DATA
-            p1_d = Signals.getCalcValue(
-                Signals.PRESSURE1, p1_v, IGmode=self.__IGmode, IGrange=self.__IGrange
-            )
+            p1_d = Signals.getCalcValue(Signals.PRESSURE1, p1_v, IGmode=self.__IGmode, IGrange=self.__IGrange)
             p2_d = Signals.getCalcValue(Signals.PRESSURE2, p2_v)
             ip_d = hall_to_current(ip_v)  #
 
