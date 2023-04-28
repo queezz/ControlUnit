@@ -42,8 +42,8 @@ class ElectricCurrent(QtCore.QObject):
             self.app.processEvents()
 
     def __setThread(self):
-        threadName = QtCore.QThread.currentThread().objectName()
-        threadId = int(QtCore.QThread.currentThreadId())
+        self.threadName = QtCore.QThread.currentThread().objectName()
+        self.threadId = int(QtCore.QThread.currentThreadId())
 
     @QtCore.pyqtSlot()
     def setAbort(self):

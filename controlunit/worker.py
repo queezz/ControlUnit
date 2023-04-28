@@ -1,7 +1,7 @@
 import time, datetime
 import numpy as np
 import pandas as pd
-from pyqtgraph.Qt import QtCore, QtGui
+from PyQt5 import QtGui, QtCore, QtWidgets
 
 from customTypes import Signals  # import for now, then get rid of Signals
 from electricCurrent import ElectricCurrent, hall_to_current
@@ -27,15 +27,18 @@ try:
 except:
     print("no pigpio or AIO")
     TEST = True
-    import controlunit.pigpioplug as pigpio
+    import pigpioplug as pigpio
 
+# TT - if gets into setting up membrane heater current
 TT = True  # What is this? Used in Temperature Feedback Control
 
 
 # must inherit QtCore.QObject in order to use 'connect'
 class Worker(QtCore.QObject):
     # Change to a dictionary. Trancparency!
-    sigStep = QtCore.pyqtSignal(np.ndarray, np.ndarray, np.ndarray, dict, datetime.datetime)
+    sigStep = QtCore.pyqtSignal(
+        np.ndarray, np.ndarray, np.ndarray, dict, datetime.datetime
+    )
     sigDone = QtCore.pyqtSignal(int, dict)
     sigMsg = QtCore.pyqtSignal(str)
 
@@ -56,7 +59,9 @@ class Worker(QtCore.QObject):
         print(threadName)
         return
 
-        self.sigMsg.emit("Running worker #{} from thread '{}' (#{})".format(self.__id, threadName))
+        self.sigMsg.emit(
+            "Running worker #{} from thread '{}' (#{})".format(self.__id, threadName)
+        )
 
     # MARK: - Getters
     def getStartTime(self):
@@ -82,8 +87,9 @@ class MAX6675(Worker):
         self.__startTime = startTime
         self.__abort = False
         attrs = vars(self)
-        print(", ".join(f"{i}" for i in attrs.items()))
         print("ID:", self.__id)
+        print("ITEMS:")
+        print(", ".join(f"{i}" for i in attrs.items()))
 
     # set temperature worker
     def setTempWorker(self, presetTemp: int):
@@ -100,10 +106,10 @@ class MAX6675(Worker):
         else:
             print("needs pigpio to access SPI")
 
-        print("CHECK\n")
-        print("abort:", self.abort)
-        print("__abort:", self.__abort)
-        print(self.__id)
+        print("Thread CHECKS\n")
+        print("abort status:", self.abort)
+        print("__abort status:", self.__abort)
+        print("__id=", self.__id)
 
     # MARK: - Setters
     def setPresetTemp(self, newTemp: int):
@@ -364,7 +370,9 @@ class ADC(Worker):
             # Define calculations inside individual subclass right here.
             # Why Ito-kun hid this somewhere? Not helpful.
             #  calculate DATA
-            p1_d = Signals.getCalcValue(Signals.PRESSURE1, p1_v, IGmode=self.__IGmode, IGrange=self.__IGrange)
+            p1_d = Signals.getCalcValue(
+                Signals.PRESSURE1, p1_v, IGmode=self.__IGmode, IGrange=self.__IGrange
+            )
             p2_d = Signals.getCalcValue(Signals.PRESSURE2, p2_v)
             ip_d = hall_to_current(ip_v)  #
 
