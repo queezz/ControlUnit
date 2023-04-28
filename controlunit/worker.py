@@ -14,6 +14,7 @@ CHP1 = 0  # 15, Ionization Gauge
 CHP2 = 1  # 16, Pfeiffer single gauge
 CHIP = 2  # 5, Plasma current, Hall effect sensor
 CHT = 0  # 0 -> CS0, 1 -> CS1
+PRINTTHREADINFO = False
 
 # Make Worker superclass
 # Make separate class for each sensor, keep it clean!
@@ -52,6 +53,13 @@ class Worker(QtCore.QObject):
         self.__ttype = ttype
         self.__startTime = startTime
         self.__abort = False
+        attrs = vars(self)
+
+        if PRINTTHREADINFO:
+            print("Thread Checks:")
+            print(", ".join(f"{i}" for i in attrs.items()))
+            print("ID:", self.__id)
+            print("End Thread Checks")
 
     def setThread(self):
         """Set Thread name and ID, signal them to the log browser"""
@@ -81,15 +89,6 @@ class Worker(QtCore.QObject):
 class MAX6675(Worker):
     def __init__(self, id, app, ttype, startTime):
         super().__init__(id, app, ttype, startTime)
-        self.__id = id
-        self.__app = app
-        self.__ttype = ttype
-        self.__startTime = startTime
-        self.__abort = False
-        attrs = vars(self)
-        print("ID:", self.__id)
-        print("ITEMS:")
-        print(", ".join(f"{i}" for i in attrs.items()))
 
     # set temperature worker
     def setTempWorker(self, presetTemp: int):
@@ -105,11 +104,6 @@ class MAX6675(Worker):
             self.__exE = 0
         else:
             print("needs pigpio to access SPI")
-
-        print("Thread CHECKS\n")
-        print("abort status:", self.abort)
-        print("__abort status:", self.__abort)
-        print("__id=", self.__id)
 
     # MARK: - Setters
     def setPresetTemp(self, newTemp: int):
@@ -263,14 +257,6 @@ class MAX6675(Worker):
 class ADC(Worker):
     def __init__(self, id, app, ttype, startTime):
         super().__init__(id, app, ttype, startTime)
-        self.__id = id
-        self.__app = app
-        self.__ttype = ttype
-        self.__startTime = startTime
-        self.__abort = False
-        attrs = vars(self)
-        print(", ".join(f"{i}" for i in attrs.items()))
-        print("ID:", self.__id)
 
     def setPresWorker(self, IGmode: int, IGrange: int):
         self.adc_columns = [
