@@ -277,8 +277,9 @@ class ADC(Worker):
             "IGscale",
             "QMS_signal",
         ]
-        # self.__rawData = np.zeros(shape=(STEP, len(columns)))
-        self.__rawData = pd.DataFrame(columns=self.adc_columns)
+        self.__adc_data = np.zeros(shape=(STEP, len(self.adc_columns)))
+        # TODO: change append to concat for pandas (deprecation)
+        #self.__adc_data = pd.DataFrame(columns=self.adc_columns)
         self.__calcData = np.zeros(shape=(STEP, 4))
         self.__IGmode = IGmode
         self.__IGrange = IGrange
@@ -348,7 +349,7 @@ class ADC(Worker):
             # Process values
             now = datetime.datetime.now()
             dSec = (now - self.__startTime).total_seconds()
-            self.__rawData = self.__rawData.append(
+            self.__adc_data = self.__adc_data.append(
                 [
                     dSec,
                     p1_v,
@@ -386,7 +387,7 @@ class ADC(Worker):
                 # SEND ADC data back to main loop
 
                 self.sigStep.emit(
-                    self.__rawData,
+                    self.__adc_data,
                     self.__calcData,
                     average,
                     self.__ttype,
@@ -394,7 +395,7 @@ class ADC(Worker):
                 )
 
                 # Reset temporary data arrays
-                self.__rawData = np.zeros(shape=(STEP, 8))
+                self.__adc_data = np.zeros(shape=(STEP, 8))
                 self.__calcData = np.zeros(shape=(STEP, 4))
                 step = 0
             else:
