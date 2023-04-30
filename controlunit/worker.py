@@ -279,7 +279,7 @@ class ADC(Worker):
         ]
         self.__adc_data = np.zeros(shape=(STEP, len(self.adc_columns)))
         # TODO: change append to concat for pandas (deprecation)
-        #self.__adc_data = pd.DataFrame(columns=self.adc_columns)
+        # self.__adc_data = pd.DataFrame(columns=self.adc_columns)
         self.__calcData = np.zeros(shape=(STEP, 4))
         self.__IGmode = IGmode
         self.__IGrange = IGrange
@@ -349,6 +349,16 @@ class ADC(Worker):
             # Process values
             now = datetime.datetime.now()
             dSec = (now - self.__startTime).total_seconds()
+            self.__adc_data[step] = [
+                dSec,
+                p1_v,
+                p2_v,
+                ip_v,
+                self.__IGmode,
+                self.__IGrange,
+                self.__qmsSignal,
+            ]
+            """
             self.__adc_data = self.__adc_data.append(
                 [
                     dSec,
@@ -360,6 +370,7 @@ class ADC(Worker):
                     self.__qmsSignal,
                 ]
             )
+            """
 
             # TODO: get rid of the enumerator class Signals.
             # Define calculations inside individual subclass right here.
@@ -419,7 +430,7 @@ class ADC(Worker):
                     ]
                 )
                 self.sigStep.emit(
-                    self.__rawData[: step + 1, :],
+                    self.__adc_data[: step + 1, :],
                     self.__calcData,
                     average,
                     self.__ttype,

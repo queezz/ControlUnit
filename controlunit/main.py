@@ -310,7 +310,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         # make threads from sensor worker classes
         threads = {}
 
-        # MAX6675 therm;ocouple sensor for Membrane temperature with PID
+        # MAX6675 thermocouple sensor for Membrane temperature with PID
         sensor = "MAX6675"
         threads[sensor] = QtCore.QThread()
         threads[sensor].setObjectName(f"{sensor}")
@@ -447,7 +447,8 @@ class MainWidget(QtCore.QObject, UIWindow):
             # plot data
             skip = int((self.tData.shape[0] + MAX_SIZE - 1) / MAX_SIZE)
             self.valueTPlot.setData(self.tData[tind::skip, 0], self.tData[tind::skip, 1])
-        elif ttype in self.ADCtypes:
+        # elif ttype in self.ADCtypes: # old, relic from Signals
+        else:
             # get data
             pl_data = self.plaData
             p1_data = self.p1Data
@@ -465,8 +466,6 @@ class MainWidget(QtCore.QObject, UIWindow):
             # self.triggerPlot.setData()
             self.valueP1Plot.setData(self.p1Data[scale::skip, 0], self.p1Data[scale::skip, 1])
             self.valueP2Plot.setData(self.p2Data[scale::skip, 0], self.p2Data[scale::skip, 1])
-        else:
-            return
 
     def __setStepData(self, data, rawResult, calcResult, ttype, startTime):
         """
@@ -503,7 +502,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         # TODO: change structure
         # For now to save data only once, a workaround:
         # Save only for one Signal type from ADC signals.
-        elif ttype == self.ADCtypes[0]:
+        # elif ttype == self.ADCtypes[0]: # Old version, when using Signals for each ADC channel
+        else:
             df = pd.DataFrame(data)
             df.to_csv(
                 os.path.join(self.datapth, f"{testmark}out_{startTime:%Y%m%d_%H%M%S}.csv"),
@@ -520,7 +520,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         # reset Data
         if ttype == Signals.TEMPERATURE:
             self.tData = None
-        elif ttype in self.ADCtypes:
+        # elif ttype in self.ADCtypes: # old, relic from Signals
+        else:
             self.plaData = None
             self.p1Data = None
             self.p2Data = None
