@@ -65,7 +65,7 @@ class Worker(QtCore.QObject):
             print("ID:", self.__id)
             print("End Thread Checks")
 
-    def setThread(self):
+    def set_thread_name(self):
         """Set Thread name and ID, signal them to the log browser"""
         threadName = QtCore.QThread.currentThread().objectName()
         print(threadName)
@@ -320,11 +320,12 @@ class ADC(Worker):
     # MARK: - Methods
     @QtCore.pyqtSlot()
     def start(self):
-        """Set Thread ID and name, then run corresponding "plot" function.
-        "plot" functions are main data acquisition loops.
         """
-        self.setThread()
-        self.readADC()
+        Set Thread ID and name, then run corresponding "plot" function.
+        "plot" functions in the main.py are main data acquisition loops (threads).
+        """
+        self.set_thread_name()
+        self.acquisition_loop()
 
     # MARK: - Plot
 
@@ -340,7 +341,13 @@ class ADC(Worker):
             kws[CH] = {"pga": self.aio.PGA.PGA_5_0176V}
         return kws
 
-    def readADC(self):
+    def communicate_with_adc(self):
+        """
+        Communicate with ADC (read voltages)
+        """
+        self.adc_raw_data = [self.aio.DataRate.DR_860SPS]
+
+    def acquisition_loop(self):
         """
         Reads ADC raw signals in a loop.
         Convert voltage to units.
@@ -357,21 +364,14 @@ class ADC(Worker):
         while not (self.__abort):
             time.sleep(self.sampling)
 
-            # READ DATA
-            # TODO: remove, replaced by self.set_adc_channels()
-            """
-            CHNLS = [CHP1, CHP2, CHIP]
-            scale10 = [CHP1, CHP2]
-            scale5 = [CHIP]
-            kws = {CH: {"pga": aio.PGA.PGA_10_0352V} for CH in scale10}
-            for CH in scale5:
-                kws[CH] = {"pga": aio.PGA.PGA_5_0176V}
-            """
-
             # Communitcate with ADC
+            # arg = [self.aio.DataRate.DR_860SPS]
+            self.communicate_with_adc()
+            print(self.adc_raw_data)
 
-            arg = [self.aio.DataRate.DR_860SPS]
-            p1_v, p2_v, ip_v = [self.aio.analog_read_volt(CH, *arg, **kws[CH]) for CH in self.CHNLS]
+            p1_v, p2_v, ip_v = [
+                self.aio.analog_read_volt(CH, *self.adc_raw_data, **kws[CH]) for CH in self.CHNLS
+            ]
 
             # Process values
             now = datetime.datetime.now()
@@ -386,23 +386,7 @@ class ADC(Worker):
                 self.__IGrange,
                 self.__qmsSignal,
             ]
-            """
-            self.__adc_data = self.__adc_data.append(
-                [
-                    dSec,
-                    p1_v,
-                    p2_v,
-                    ip_v,
-                    self.__IGmode,
-                    self.__IGrange,
-                    self.__qmsSignal,
-                ]
-            )
-            """
 
-            # TODO: get rid of the enumerator class Signals.
-            # Define calculations inside individual subclass right here.
-            # Why Ito-kun hid this somewhere? Not helpful.
             #  calculate DATA
             # p1_d = Signals.getCalcValue(Signals.PRESSURE1, p1_v, IGmode=self.__IGmode, IGrange=self.__IGrange)
             p1_d = calcIGPres(p1_v, self.__IGmode, self.__IGrange)
