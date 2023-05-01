@@ -402,7 +402,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.controlDock.valueBw.setText(txt)
 
     # Mark: connecting slots with threads
-    @QtCore.pyqtSlot(pd.DataFrame)
+    @QtCore.pyqtSlot(list)
     def onWorkerStep(self, result):
         """collect data on worker step
         - Recives data from worker(s)
