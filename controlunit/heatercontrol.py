@@ -8,7 +8,7 @@ except:
 
 
 from pyqtgraph.Qt import QtCore
-from worker import CHHEATER
+from channels import CHHEATER
 
 
 # must inherit QtCore.QObject in order to use 'connect'
@@ -17,7 +17,7 @@ class HeaterContol(QtCore.QObject):
         super().__init__()
         self.pi = pi
         self.app = app
-        # range 0~0.01        
+        # range 0~0.01
         self.set_heater_on_duration = 0
         self.abort = False
 
@@ -47,6 +47,7 @@ class HeaterContol(QtCore.QObject):
     @QtCore.pyqtSlot()
     def setAbort(self):
         self.abort = True
+
 
 if __name__ == "__main__":
     pass

@@ -12,12 +12,8 @@ from conversions import ionization_gauge, hall_current_sensor, pfeiffer_single_g
 
 TEST = False
 
-# Specify cable connections to ADC
-CHP1 = 0  # 15, Ionization Gauge
-CHP2 = 1  # 16, Pfeiffer single gauge
-CHIP = 2  # 5, Plasma current, Hall effect sensor
-CHT = 0  # 0 -> CS0, 1 -> CS1
-CHHEATER = 17  # GPIO channel for turning on heater
+from channels import *
+
 PRINTTHREADINFO = False
 
 # TT - if gets into setting up membrane heater current
