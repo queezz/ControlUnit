@@ -338,6 +338,7 @@ class ADC(Worker):
         kws = {CH: {"pga": self.aio.PGA.PGA_10_0352V} for CH in scale10}
         for CH in scale5:
             kws[CH] = {"pga": self.aio.PGA.PGA_5_0176V}
+        return kws
 
     def readADC(self):
         """
@@ -348,7 +349,7 @@ class ADC(Worker):
 
         self.aio = adc(0x49, 0x3E)  # instance of AIO_32_0RA_IRC from AIO.py
         # Why this addresses?
-        self.set_adc_channels()  # Configure ADC channels and voltages
+        kws = self.set_adc_channels()  # Configure ADC channels and voltages
 
         totalStep = 0
         step = 0
