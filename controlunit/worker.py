@@ -168,7 +168,9 @@ class MAX6675(Worker):
         now = datetime.datetime.now()
         dSec = (now - self.__startTime).total_seconds()
         # ["date", "time", "T", "PresetT"]
-        new_row = pd.DataFrame(np.atleast_2d([now, dSec, self.temperature, self.temperature_setpoint]))
+        new_row = pd.DataFrame(
+            np.atleast_2d([now, dSec, self.temperature, self.temperature_setpoint]), clolumns=self.columns
+        )
         self.data = pd.concat([self.data, new_row], ignore_index=True)
 
     def calc_average(self):
