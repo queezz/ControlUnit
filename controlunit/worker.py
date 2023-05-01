@@ -162,7 +162,8 @@ class MAX6675(Worker):
             # Pass data on its way
             now = datetime.datetime.now()
             dSec = (now - self.__startTime).total_seconds()
-            self.__rawData[step] = [dSec, temp, self.__presetTemp]
+            # TODO: fix data shape
+            self.__rawData[step] = [dSec, dSec, temp, self.__presetTemp]
 
             if step % (STEP - 1) == 0 and step != 0:
                 # average 10 points of data
@@ -350,6 +351,7 @@ class ADC(Worker):
             now = datetime.datetime.now()
             dSec = (now - self.__startTime).total_seconds()
             self.__adc_data[step] = [
+                dSec,  # dummy
                 dSec,
                 p1_v,
                 p2_v,
