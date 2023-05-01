@@ -89,14 +89,9 @@ class MAX6675(Worker):
 
     # set temperature worker
     def setTempWorker(self, presetTemp: int):
-        self.columns = ["date", "time"]
-        # self.__adc_data = np.zeros(shape=(STEP, len(self.adc_columns)))
-        self.__adc_data = pd.DataFrame(columns=self.adc_columns)
-        # self.__calcData = np.zeros(shape=(STEP, 4))
-        self.__calcData = pd.DataFrame(columns=self.adc_processed_columns)
-
-        self.__rawData = np.zeros(shape=(STEP, 4))
-        self.__presetTemp = presetTemp
+        self.columns = ["date", "time", "T", "PresetT"]
+        self.data = pd.DataFrame(columns=self.columns)
+        self.temperature_setpoint = presetTemp
         self.sampling = read_settings()["samplingtime"]
 
         if TEST:
@@ -109,7 +104,7 @@ class MAX6675(Worker):
 
     # MARK: - Setters
     def setPresetTemp(self, newTemp: int):
-        self.__presetTemp = newTemp
+        self.temperature_setpoint = newTemp
         return
 
         # MARK: - Methods
@@ -121,13 +116,6 @@ class MAX6675(Worker):
         """
         # self.__setThread()
         self.readT()
-
-    # temperature plot
-
-    def send_processed_data_to_main(self):
-        """
-        Send processed data to main.py
-        """
 
     def init_heater_control(self):
         self.membrane_heater = HeaterContol(self.pi, self.__app)
@@ -161,20 +149,33 @@ class MAX6675(Worker):
 
     def send_processed_data_to_main_thread(self):
         """
+        Send processed data to main.py
         """
         self.sigStep.emit(
-            self.__rawData,  # raw dat
-            self.__rawData,  # calculated
-            average,
-            self.sensor_name,
-            self.__startTime,
+            self.data, self.average, self.sensor_name, self.__startTime,
         )
 
     def clear_datasets(self):
         """
         Remove data from temporary dataframes
         """
-        self.__rawData = np.zeros(shape=(STEP, 4))
+        self.data = self.data.iloc[0:0]
+
+    def update_dataframe(self):
+        """
+        Append new reading to dataframe
+        """
+        now = datetime.datetime.now()
+        dSec = (now - self.__startTime).total_seconds()
+        # ["date", "time", "T", "PresetT"]
+        new_row = pd.DataFrame(np.atleast_2d([now, dSec, self.temperature, self.temperature_setpoint]))
+        self.data = pd.concat([self.data, new_row], ignore_index=True)
+
+    def calc_average(self):
+        """
+        Average signal
+        """
+        self.average = self.data["T"].mean()
 
     @QtCore.pyqtSlot()
     def readT(self):
@@ -191,23 +192,13 @@ class MAX6675(Worker):
             # Temperature sampling time. For MAX6675 min read time = 0.25s
             time.sleep(0.25)
             self.read_thermocouple()
-            print(self.temperature)
-
-            # Pass data on its way
-            now = datetime.datetime.now()
-            dSec = (now - self.__startTime).total_seconds()
-            # TODO: fix data shape
-            self.__rawData[step] = [dSec, dSec, self.temperature, self.__presetTemp]
+            self.update_dataframe()
 
             if step % (STEP - 1) == 0 and step != 0:
-                # average 10 points of data
-                ave = np.mean(self.__rawData[:, 1], dtype=float)
-                average = np.array([[Signals.TEMPERATURE, ave]])
-
-                self.temperature_control(average, self.membrane_heater)
-                self.send_processed_data_to_main()
+                self.calc_average()
+                self.temperature_control(self.average, self.membrane_heater)
+                self.send_processed_data_to_main_thread()
                 self.clear_datasets()
-
                 step = 0
             else:
                 step += 1
@@ -216,18 +207,11 @@ class MAX6675(Worker):
 
         else:
             # On ABORT. Now renders some strange behavior and numpy errors.
-            if self.__rawData[step][0] == 0.0:
+            if self.data.shape[0] < 2:
                 step -= 1
             if step > -1:
-                ave = np.mean(self.__rawData[:, 1], dtype=float)
-                average = np.array([[Signals.TEMPERATURE, ave]])
-                self.sigStep.emit(
-                    self.__rawData[: step + 1, :],
-                    self.__rawData[: step + 1, :],
-                    average,
-                    self.sensor_name,
-                    self.__startTime,
-                )
+                self.calc_average()
+                self.send_processed_data_to_main_thread()
             self.sigMsg.emit(f"Worker #{self.__id} aborting work at step {totalStep}")
 
             self.sigAbortHeater.emit()
@@ -245,7 +229,7 @@ class MAX6675(Worker):
         """
         Shouldn't the self.sampling here be 0.25, not the one for ADC?
         """
-        e = self.__presetTemp - aveTemp[0, 1]
+        e = self.temperature_setpoint - aveTemp[0, 1]
         integral = self.__sumE + e * self.sampling
         derivative = (e - self.__exE) / self.sampling
 
@@ -269,7 +253,7 @@ class MAX6675(Worker):
 
     def __controlTemp1(self, aveTemp: float, steps: int):
         if steps <= 0:
-            d = self.__presetTemp - aveTemp[0, 1]
+            d = self.temperature_setpoint - aveTemp[0, 1]
             if d <= 1.5:
                 return -1
             elif d >= 15:
