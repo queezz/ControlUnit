@@ -51,8 +51,14 @@ class ElectricCurrent(QtCore.QObject):
 
 
 def hall_to_current(v, **kws):
-    """Convert voltage from the Hall effect current sensor into current
-    There are several sensors, with range 5A, 10 A, and 30 A
+    """
+    Convert voltage from the Hall effect current sensor into current.
+    There are several sensors, with ranges 5A, 10 A, and 30 A
+
+    Parameters
+    ----------
+    v: array
+        array of signal values
     """
     return 5 / 1 * (v - 2.52)
 

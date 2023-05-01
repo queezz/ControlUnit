@@ -405,7 +405,7 @@ class ADC(Worker):
             # Why Ito-kun hid this somewhere? Not helpful.
             #  calculate DATA
             # p1_d = Signals.getCalcValue(Signals.PRESSURE1, p1_v, IGmode=self.__IGmode, IGrange=self.__IGrange)
-            p1_d = calcIGPres(p1_v, IGmode=self.__IGmode, IGrange=self.__IGrange)
+            p1_d = calcIGPres(p1_v, self.__IGmode, self.__IGrange)
             # p2_d = Signals.getCalcValue(Signals.PRESSURE2, p2_v)
             p2_d = calcPfePres(p2_v)
             ip_d = hall_to_current(ip_v)  #
