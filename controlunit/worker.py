@@ -95,7 +95,7 @@ class MAX6675(Worker):
 
     # set temperature worker
     def setTempWorker(self, presetTemp: int):
-        self.__rawData = np.zeros(shape=(STEP, 3))
+        self.__rawData = np.zeros(shape=(STEP, 4))
         self.__presetTemp = presetTemp
         self.sampling = read_settings()["samplingtime"]
 
@@ -390,21 +390,13 @@ class ADC(Worker):
                 ave_p2 = np.mean(self.__calcData[:, 2], dtype=float)
                 ave_ip = np.mean(self.__calcData[:, 3], dtype=float)
                 average = np.array(
-                    [
-                        [Signals.PLASMA, ave_ip],
-                        [Signals.PRESSURE1, ave_p1],
-                        [Signals.PRESSURE2, ave_p2],
-                    ]
+                    [[Signals.PLASMA, ave_ip], [Signals.PRESSURE1, ave_p1], [Signals.PRESSURE2, ave_p2],]
                 )
 
                 # SEND ADC data back to main loop
 
                 self.sigStep.emit(
-                    self.__adc_data,
-                    self.__calcData,
-                    average,
-                    self.__ttype,
-                    self.__startTime,
+                    self.__adc_data, self.__calcData, average, self.__ttype, self.__startTime,
                 )
 
                 # Reset temporary data arrays
@@ -425,18 +417,10 @@ class ADC(Worker):
                 ave_p2 = np.mean(self.__calcData[:, 2], dtype=float)
                 ave_ip = np.mean(self.__calcData[:, 3], dtype=float)
                 average = np.array(
-                    [
-                        [Signals.PLASMA, ave_ip],
-                        [Signals.PRESSURE1, ave_p1],
-                        [Signals.PRESSURE2, ave_p2],
-                    ]
+                    [[Signals.PLASMA, ave_ip], [Signals.PRESSURE1, ave_p1], [Signals.PRESSURE2, ave_p2],]
                 )
                 self.sigStep.emit(
-                    self.__adc_data[: step + 1, :],
-                    self.__calcData,
-                    average,
-                    self.__ttype,
-                    self.__startTime,
+                    self.__adc_data[: step + 1, :], self.__calcData, average, self.__ttype, self.__startTime,
                 )
             self.sigMsg.emit(f"Worker #{self.__id} aborting work at step {totalStep}")
 
