@@ -7,6 +7,10 @@ from customTypes import Signals  # import for now, then get rid of Signals
 from electricCurrent import ElectricCurrent, hall_to_current
 from readsettings import read_settings
 
+# Converting raw signals to data
+from ionizationGauge import maskIonPres, calcIGPres
+from pfeiffer import maskPfePres, calcPfePres
+
 TEST = False
 
 # Specify cable connections to ADC
@@ -268,6 +272,9 @@ class ADC(Worker):
         self.__abort = False
 
     def setPresWorker(self, IGmode: int, IGrange: int):
+        """
+        Initiate ADC thread parameters
+        """
         self.adc_columns = [
             "date",
             "time",
@@ -320,13 +327,28 @@ class ADC(Worker):
         self.readADC()
 
     # MARK: - Plot
+
+    def set_adc_channels(self):
+        """
+        Setup ADC channels: numbers, voltages, etc.
+        """
+        self.CHNLS = [CHP1, CHP2, CHIP]
+        scale10 = [CHP1, CHP2]
+        scale5 = [CHIP]
+        kws = {CH: {"pga": self.aio.PGA.PGA_10_0352V} for CH in scale10}
+        for CH in scale5:
+            kws[CH] = {"pga": self.aio.PGA.PGA_5_0176V}
+
     def readADC(self):
-        """Reads ADC raw signals, converts it, sends it back to main loop
-        to plot ad save data.
+        """
+        Reads ADC raw signals in a loop.
+        Convert voltage to units.
+        Send data back to main thread for ploting ad saving.
         """
 
-        aio = adc(0x49, 0x3E)  # instance of AIO_32_0RA_IRC from AIO.py
+        self.aio = adc(0x49, 0x3E)  # instance of AIO_32_0RA_IRC from AIO.py
         # Why this addresses?
+        self.set_adc_channels()  # Configure ADC channels and voltages
 
         totalStep = 0
         step = 0
@@ -335,23 +357,26 @@ class ADC(Worker):
             time.sleep(self.sampling)
 
             # READ DATA
+            # TODO: remove, replaced by self.set_adc_channels()
+            """
             CHNLS = [CHP1, CHP2, CHIP]
             scale10 = [CHP1, CHP2]
             scale5 = [CHIP]
             kws = {CH: {"pga": aio.PGA.PGA_10_0352V} for CH in scale10}
             for CH in scale5:
                 kws[CH] = {"pga": aio.PGA.PGA_5_0176V}
+            """
 
             # Communitcate with ADC
 
-            arg = [aio.DataRate.DR_860SPS]
-            p1_v, p2_v, ip_v = [aio.analog_read_volt(CH, *arg, **kws[CH]) for CH in CHNLS]
+            arg = [self.aio.DataRate.DR_860SPS]
+            p1_v, p2_v, ip_v = [self.aio.analog_read_volt(CH, *arg, **kws[CH]) for CH in CHNLS]
 
             # Process values
             now = datetime.datetime.now()
             dSec = (now - self.__startTime).total_seconds()
             self.__adc_data[step] = [
-                dSec,  # dummy
+                "date",  # dummy
                 dSec,
                 p1_v,
                 p2_v,
@@ -378,17 +403,19 @@ class ADC(Worker):
             # Define calculations inside individual subclass right here.
             # Why Ito-kun hid this somewhere? Not helpful.
             #  calculate DATA
-            p1_d = Signals.getCalcValue(Signals.PRESSURE1, p1_v, IGmode=self.__IGmode, IGrange=self.__IGrange)
-            p2_d = Signals.getCalcValue(Signals.PRESSURE2, p2_v)
+            # p1_d = Signals.getCalcValue(Signals.PRESSURE1, p1_v, IGmode=self.__IGmode, IGrange=self.__IGrange)
+            p1_d = calcIGPres(p1_v, IGmode=self.__IGmode, IGrange=self.__IGrange)
+            # p2_d = Signals.getCalcValue(Signals.PRESSURE2, p2_v)
+            p2_d = calcPfePres(p2_v)
             ip_d = hall_to_current(ip_v)  #
 
             self.__calcData[step] = [dSec, p1_d, p2_d, ip_d]
 
             if step % (STEP - 1) == 0 and step != 0:
                 # get average
-                ave_p1 = np.mean(self.__calcData[:, 1], dtype=float)
-                ave_p2 = np.mean(self.__calcData[:, 2], dtype=float)
-                ave_ip = np.mean(self.__calcData[:, 3], dtype=float)
+                ave_p1 = np.mean(self.__calcData[:, 2], dtype=float)
+                ave_p2 = np.mean(self.__calcData[:, 3], dtype=float)
+                ave_ip = np.mean(self.__calcData[:, 4], dtype=float)
                 average = np.array(
                     [[Signals.PLASMA, ave_ip], [Signals.PRESSURE1, ave_p1], [Signals.PRESSURE2, ave_p2],]
                 )
