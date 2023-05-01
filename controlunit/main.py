@@ -403,7 +403,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
     # Mark: connecting slots with threads
     @QtCore.pyqtSlot(pd.DataFrame)
-    def onWorkerStep(self, rawResult, calcResult, ave, sensor_name, startTime):
+    def onWorkerStep(self, result):
         """collect data on worker step
         - Recives data from worker(s)
         - Updates text indicators in GUI
@@ -415,14 +415,24 @@ class MainWidget(QtCore.QObject, UIWindow):
         # scale = self.__scale.value
         tind = self.tind  # For MAX6675 Temperature sensor
         scale = self.adcind  # For ADC signals
+        sensor_name = result[-2]
 
         if sensor_name == "MAX6675":
+            # [self.data, self.average, self.sensor_name, self.__startTime,]
+            averages = result[1]
+            print(sensor_name)
+            print(averages)
             # plot data
+            #
             """
             skip = int((self.tData.shape[0] + MAX_SIZE - 1) / MAX_SIZE)
             self.valueTPlot.setData(self.tData[tind::skip, 0], self.tData[tind::skip, 1])
             """
         elif sensor_name == "ADC":
+            #  [self.__adc_data, self.__calcData, self.averages, self.sensor_name, self.__startTime,]
+            averages = result[2]
+            print(sensor_name)
+            print(averages)
             # plot data
             """
             skip = int((self.plaData.shape[0] + MAX_SIZE - 1) / MAX_SIZE)

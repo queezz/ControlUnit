@@ -33,7 +33,7 @@ except:
 # must inherit QtCore.QObject in order to use 'connect'
 class Worker(QtCore.QObject):
     # Change to a dictionary. Trancparency!
-    sigStep = QtCore.pyqtSignal(np.ndarray, np.ndarray, np.ndarray, dict, datetime.datetime)
+    sigStep = QtCore.pyqtSignal(list)
     sigDone = QtCore.pyqtSignal(str)
     sigMsg = QtCore.pyqtSignal(str)
 
@@ -152,7 +152,7 @@ class MAX6675(Worker):
         Send processed data to main.py
         """
         self.sigStep.emit(
-            self.data, self.average, self.sensor_name, self.__startTime,
+            [self.data, self.average, self.sensor_name, self.__startTime,]
         )
 
     def clear_datasets(self):
@@ -196,7 +196,7 @@ class MAX6675(Worker):
 
             if step % (STEP - 1) == 0 and step != 0:
                 self.calc_average()
-                self.temperature_control(self.average, self.membrane_heater)
+                self.temperature_control()
                 self.send_processed_data_to_main_thread()
                 self.clear_datasets()
                 step = 0
@@ -225,11 +225,11 @@ class MAX6675(Worker):
         self.sigDone.emit(self.sensor_name)
 
     # MARK: - Control
-    def temperature_control(self, aveTemp: np.ndarray, membrane_heater: HeaterContol):
+    def temperature_control(self):
         """
         Shouldn't the self.sampling here be 0.25, not the one for ADC?
         """
-        e = self.temperature_setpoint - aveTemp[0, 1]
+        e = self.temperature_setpoint - self.average
         integral = self.__sumE + e * self.sampling
         derivative = (e - self.__exE) / self.sampling
 
@@ -245,9 +245,9 @@ class MAX6675(Worker):
         if e >= 0:
             output = Kp * e + Ki * integral + Kd * derivative
             output = output * 0.0002
-            membrane_heater.setOnLight(max(output, 0))
+            self.membrane_heater.setOnLight(max(output, 0))
         else:
-            membrane_heater.setOnLight(0)
+            self.membrane_heater.setOnLight(0)
         self.__exE = e
         self.__sumE = integral
 
@@ -417,7 +417,7 @@ class ADC(Worker):
         Clears temporary dataframes to reset memory consumption.
         """
         self.sigStep.emit(
-            self.__adc_data, self.__calcData, self.averages, self.sensor_name, self.__startTime,
+            [self.__adc_data, self.__calcData, self.averages, self.sensor_name, self.__startTime,]
         )
         self.clear_datasets()
 
