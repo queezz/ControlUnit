@@ -372,6 +372,7 @@ class ADC(Worker):
             p1_v, p2_v, ip_v = [
                 self.aio.analog_read_volt(CH, *self.adc_raw_data, **kws[CH]) for CH in self.CHNLS
             ]
+            print(p1_v,p2_v, ip_v)
 
             # Process values
             now = datetime.datetime.now()
