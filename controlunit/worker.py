@@ -377,7 +377,7 @@ class ADC(Worker):
             now = datetime.datetime.now()
             dSec = (now - self.__startTime).total_seconds()
             self.__adc_data[step] = [
-                "date",  # dummy
+                now.year,  # dummy
                 dSec,
                 p1_v,
                 p2_v,
