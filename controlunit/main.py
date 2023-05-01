@@ -411,16 +411,13 @@ class MainWidget(QtCore.QObject, UIWindow):
         """
         self.update_current_vallues()
 
-        # scale = self.__scale.value
-        tind = self.tind  # For MAX6675 Temperature sensor
-        scale = self.adcind  # For ADC signals
         sensor_name = result[-2]
 
         if sensor_name == "MAX6675":
             # [self.data, self.average, self.sensor_name, self.__startTime,]
-            averages = result[1]
+            data = result[0]
             print(sensor_name)
-            print(averages)
+            print(data)
             # plot data
             #
             """
@@ -429,9 +426,9 @@ class MainWidget(QtCore.QObject, UIWindow):
             """
         elif sensor_name == "ADC":
             #  [self.__adc_data, self.__calcData, self.averages, self.sensor_name, self.__startTime,]
-            averages = result[2]
+            data = result[0]
             print(sensor_name)
-            print(averages)
+            print(data)
             # plot data
             """
             skip = int((self.plaData.shape[0] + MAX_SIZE - 1) / MAX_SIZE)
