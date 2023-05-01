@@ -4,12 +4,11 @@ import pandas as pd
 from PyQt5 import QtGui, QtCore, QtWidgets
 
 from customTypes import Signals  # import for now, then get rid of Signals
-from electricCurrent import ElectricCurrent, hall_to_current
+from heatercontrol import HeaterContol
 from readsettings import read_settings
 
 # Converting raw signals to data
-from ionizationGauge import maskIonPres, calcIGPres
-from pfeiffer import maskPfePres, calcPfePres
+from conversions import ionization_gauge, hall_current_sensor, pfeiffer_single_gauge
 
 TEST = False
 
@@ -18,10 +17,11 @@ CHP1 = 0  # 15, Ionization Gauge
 CHP2 = 1  # 16, Pfeiffer single gauge
 CHIP = 2  # 5, Plasma current, Hall effect sensor
 CHT = 0  # 0 -> CS0, 1 -> CS1
+CHHEATER = 17  # GPIO channel for turning on heater
 PRINTTHREADINFO = False
 
-# Make Worker superclass
-# Make separate class for each sensor, keep it clean!
+# TT - if gets into setting up membrane heater current
+TT = True  # What is this? Used in Temperature Feedback Control
 
 # Number of data points for collection, steps%STEP == 0
 STEP = 3
@@ -34,18 +34,12 @@ except:
     TEST = True
     import pigpioplug as pigpio
 
-# TT - if gets into setting up membrane heater current
-TT = True  # What is this? Used in Temperature Feedback Control
-
-
 # must inherit QtCore.QObject in order to use 'connect'
 class Worker(QtCore.QObject):
     # Change to a dictionary. Trancparency!
     sigStep = QtCore.pyqtSignal(np.ndarray, np.ndarray, np.ndarray, dict, datetime.datetime)
     sigDone = QtCore.pyqtSignal(int, dict)
     sigMsg = QtCore.pyqtSignal(str)
-
-    sigAbortHeater = QtCore.pyqtSignal()
 
     def __init__(self, id, app, sensor_name, startTime):
         super().__init__()
@@ -71,8 +65,6 @@ class Worker(QtCore.QObject):
         print(threadName)
         return
 
-        self.sigMsg.emit("Running worker #{} from thread '{}' (#{})".format(self.__id, threadName))
-
     # MARK: - Getters
     def getStartTime(self):
         return self.__startTime
@@ -89,6 +81,9 @@ class Worker(QtCore.QObject):
 
 
 class MAX6675(Worker):
+
+    sigAbortHeater = QtCore.pyqtSignal()
+
     def __init__(self, id, app, sensor_name, startTime):
         super().__init__(id, app, sensor_name, startTime)
         self.__id = id
@@ -128,23 +123,66 @@ class MAX6675(Worker):
         self.readT()
 
     # temperature plot
+
+    def send_processed_data_to_main(self):
+        """
+        Send processed data to main.py
+        """
+
+    def init_heater_control(self):
+        self.membrane_heater = HeaterContol(self.pi, self.__app)
+        self.thread = QtCore.QThread()
+        self.thread.setObjectName("heater current")
+        self.membrane_heater.moveToThread(self.thread)
+        self.thread.started.connect(self.membrane_heater.work)
+        self.sigAbortHeater.connect(self.membrane_heater.setAbort)
+        self.thread.start()
+
+    def init_thermocouple(self):
+        """
+        Select MAX6675 sensor on the SPI
+        """
+        self.sensor = self.pi.spi_open(CHT, 1000000, 0)
+
+    def read_thermocouple(self):
+        """
+        Read MAX6675 sensor output
+        """
+        self.temperature = -1000  # Temperature.
+
+        # READ DATA
+        c, d = self.pi.spi_read(sensor, 2)  # if c==2: ok else: ng
+        if c == 2:
+            word = (d[0] << 8) | d[1]
+            if (word & 0x8006) == 0:  # Bits 15, 2, and 1 should be zero.
+                self.temperature = (word >> 3) / 4.0
+            else:
+                print("bad reading {:b}".format(word))
+
+    def send_processed_data_to_main_thread(self):
+        """
+        """
+        self.sigStep.emit(
+            self.__rawData,  # raw dat
+            self.__rawData,  # calculated
+            average,
+            self.__sensor_name,
+            self.__startTime,
+        )
+
+    def clear_datasets(self):
+        """
+        Remove data from temporary dataframes
+        """
+        self.__rawData = np.zeros(shape=(STEP, 4))
+
     @QtCore.pyqtSlot()
     def readT(self):
-        """Temperature acquisition and Feedback Control function"""
-        # Select MAX6675 sensor on the SPI
-        sensor = self.pi.spi_open(CHT, 1000000, 0)
-        if TT:
-            eCurrent = ElectricCurrent(self.pi, self.__app)
-            thread = QtCore.QThread()
-            thread.setObjectName("heater current")
-            eCurrent.moveToThread(thread)
-            thread.started.connect(eCurrent.work)
-            self.sigAbortHeater.connect(eCurrent.setAbort)
-            thread.start()
-        else:
-            pinNum = Signals.getGPIO(Signals.TEMPERATURE)
-            self.pi.set_mode(pinNum, pigpio.OUTPUT)
-            controlStep = -1
+        """
+        Temperature acquisition and Feedback Control loop
+        """
+        self.init_thermocouple()
+        self.init_heater_control()
 
         totalStep = 0
         step = 0
@@ -152,51 +190,28 @@ class MAX6675(Worker):
         while not (self.__abort):
             # Temperature sampling time. For MAX6675 min read time = 0.25s
             time.sleep(0.25)
-            temp = -1000  # Temperature.
-
-            # READ DATA
-            c, d = self.pi.spi_read(sensor, 2)  # if c==2: ok else: ng
-            if c == 2:
-                word = (d[0] << 8) | d[1]
-                if (word & 0x8006) == 0:  # Bits 15, 2, and 1 should be zero.
-                    temp = (word >> 3) / 4.0
-                else:
-                    print("bad reading {:b}".format(word))
+            self.read_thermocouple()
+            print(self.temperature)
 
             # Pass data on its way
             now = datetime.datetime.now()
             dSec = (now - self.__startTime).total_seconds()
             # TODO: fix data shape
-            self.__rawData[step] = [dSec, dSec, temp, self.__presetTemp]
+            self.__rawData[step] = [dSec, dSec, self.temperature, self.__presetTemp]
 
             if step % (STEP - 1) == 0 and step != 0:
                 # average 10 points of data
                 ave = np.mean(self.__rawData[:, 1], dtype=float)
                 average = np.array([[Signals.TEMPERATURE, ave]])
 
-                # CONTROL
-                if TT:
-                    self.__controlTemp(average, eCurrent)
-                else:
-                    controlStep = self.__controlTemp1(average, controlStep)
+                self.temperature_control(average, self.membrane_heater)
+                self.send_processed_data_to_main()
+                self.clear_datasets()
 
-                # Send Temperature back to main loop
-                # MAX6675 returns temperature in degree C, no need for formula
-                self.sigStep.emit(
-                    self.__rawData,  # raw dat
-                    self.__rawData,  # calculated
-                    average,
-                    self.__sensor_name,
-                    self.__startTime,
-                )
-                self.__rawData = np.zeros(shape=(STEP, 4))
                 step = 0
             else:
                 step += 1
             totalStep += 1
-            if not TT:
-                self.pi.write(pinNum, controlStep > 0)
-                controlStep -= 1
             self.__app.processEvents()
 
         else:
@@ -214,18 +229,19 @@ class MAX6675(Worker):
                     self.__startTime,
                 )
             self.sigMsg.emit(f"Worker #{self.__id} aborting work at step {totalStep}")
-            if TT:
-                self.sigAbortHeater.emit()
-                self.__sumE = 0
-                thread.quit()
-                thread.wait()
-            self.pi.spi_close(sensor)
+
+            self.sigAbortHeater.emit()
+            self.__sumE = 0
+            self.thread.quit()
+            self.thread.wait()
+            self.pi.spi_close(self.sensor)
             self.pi.stop()
 
+        self.thread = None
         self.sigDone.emit(self.__id, self.__sensor_name)
 
     # MARK: - Control
-    def __controlTemp(self, aveTemp: np.ndarray, eCurrent: ElectricCurrent):
+    def temperature_control(self, aveTemp: np.ndarray, membrane_heater: HeaterContol):
         """
         Shouldn't the self.sampling here be 0.25, not the one for ADC?
         """
@@ -245,9 +261,9 @@ class MAX6675(Worker):
         if e >= 0:
             output = Kp * e + Ki * integral + Kd * derivative
             output = output * 0.0002
-            eCurrent.setOnLight(max(output, 0))
+            membrane_heater.setOnLight(max(output, 0))
         else:
-            eCurrent.setOnLight(0)
+            membrane_heater.setOnLight(0)
         self.__exE = e
         self.__sumE = integral
 
@@ -396,9 +412,13 @@ class ADC(Worker):
         """
         p1_v, p2_v, ip_v = self.adc_voltages
         new_calc_row = pd.DataFrame(
-            np.atleast_2d(calcIGPres(p1_v, self.__IGmode, self.__IGrange)),
-            calcPfePres(p2_v),
-            hall_to_current(ip_v),
+            np.atleast_2d(
+                [
+                    ionization_gauge(p1_v, self.__IGmode, self.__IGrange),
+                    pfeiffer_single_gauge(p2_v),
+                    hall_current_sensor(ip_v),
+                ]
+            )
         )
         self.__calcData = pd.concat([self.__calcData, new_calc_row], ignore_index=True)
 
