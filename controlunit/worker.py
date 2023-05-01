@@ -370,7 +370,7 @@ class ADC(Worker):
             # Communitcate with ADC
 
             arg = [self.aio.DataRate.DR_860SPS]
-            p1_v, p2_v, ip_v = [self.aio.analog_read_volt(CH, *arg, **kws[CH]) for CH in CHNLS]
+            p1_v, p2_v, ip_v = [self.aio.analog_read_volt(CH, *arg, **kws[CH]) for CH in self.CHNLS]
 
             # Process values
             now = datetime.datetime.now()
