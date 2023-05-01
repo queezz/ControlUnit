@@ -372,9 +372,8 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         # TODO: updated dislpayed valuves from dataframes
 
-        temp_now = f"{self.currentvalues['T']:.0f}"
-        self.registerDock.setTempText(self.__temp, temp_now)
-        self.controlDock.gaugeT.update_value(temp_now)
+        self.registerDock.setTempText(self.__temp, f"{self.currentvalues['T']:.0f}")
+        self.controlDock.gaugeT.update_value(self.currentvalues["T"])
         txt = f"""
               <table>
                  <tr>
