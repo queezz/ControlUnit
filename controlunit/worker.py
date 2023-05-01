@@ -34,15 +34,15 @@ except:
 class Worker(QtCore.QObject):
     # Change to a dictionary. Trancparency!
     sigStep = QtCore.pyqtSignal(np.ndarray, np.ndarray, np.ndarray, dict, datetime.datetime)
-    sigDone = QtCore.pyqtSignal(int, dict)
+    sigDone = QtCore.pyqtSignal(str)
     sigMsg = QtCore.pyqtSignal(str)
 
-    def __init__(self, id, app, sensor_name, startTime):
+    def __init__(self, sensor_name, app, startTime):
         super().__init__()
 
         self.__id = id
         self.__app = app
-        self.__sensor_name = sensor_name
+        self.sensor_name = sensor_name
         self.__startTime = startTime
         self.__abort = False
 
@@ -80,28 +80,32 @@ class MAX6675(Worker):
 
     sigAbortHeater = QtCore.pyqtSignal()
 
-    def __init__(self, id, app, sensor_name, startTime):
-        super().__init__(id, app, sensor_name, startTime)
-        self.__id = id
+    def __init__(self, sensor_name, app, startTime):
+        super().__init__(sensor_name, app, startTime)
         self.__app = app
-        self.__sensor_name = sensor_name
+        self.sensor_name = sensor_name
         self.__startTime = startTime
         self.__abort = False
 
     # set temperature worker
     def setTempWorker(self, presetTemp: int):
+        self.columns = ["date", "time"]
+        # self.__adc_data = np.zeros(shape=(STEP, len(self.adc_columns)))
+        self.__adc_data = pd.DataFrame(columns=self.adc_columns)
+        # self.__calcData = np.zeros(shape=(STEP, 4))
+        self.__calcData = pd.DataFrame(columns=self.adc_processed_columns)
+
         self.__rawData = np.zeros(shape=(STEP, 4))
         self.__presetTemp = presetTemp
         self.sampling = read_settings()["samplingtime"]
 
-        # PID control
-        if not TEST:
-            self.pi = pigpio.pi()
-            self.__onLight = 0.1
-            self.__sumE = 0
-            self.__exE = 0
-        else:
+        if TEST:
             print("needs pigpio to access SPI")
+            return
+
+        self.pi = pigpio.pi()
+        self.__sumE = 0
+        self.__exE = 0
 
     # MARK: - Setters
     def setPresetTemp(self, newTemp: int):
@@ -147,7 +151,7 @@ class MAX6675(Worker):
         self.temperature = -1000  # Temperature.
 
         # READ DATA
-        c, d = self.pi.spi_read(sensor, 2)  # if c==2: ok else: ng
+        c, d = self.pi.spi_read(self.sensor, 2)  # if c==2: ok else: not good
         if c == 2:
             word = (d[0] << 8) | d[1]
             if (word & 0x8006) == 0:  # Bits 15, 2, and 1 should be zero.
@@ -162,7 +166,7 @@ class MAX6675(Worker):
             self.__rawData,  # raw dat
             self.__rawData,  # calculated
             average,
-            self.__sensor_name,
+            self.sensor_name,
             self.__startTime,
         )
 
@@ -221,7 +225,7 @@ class MAX6675(Worker):
                     self.__rawData[: step + 1, :],
                     self.__rawData[: step + 1, :],
                     average,
-                    self.__sensor_name,
+                    self.sensor_name,
                     self.__startTime,
                 )
             self.sigMsg.emit(f"Worker #{self.__id} aborting work at step {totalStep}")
@@ -234,7 +238,7 @@ class MAX6675(Worker):
             self.pi.stop()
 
         self.thread = None
-        self.sigDone.emit(self.__id, self.__sensor_name)
+        self.sigDone.emit(self.sensor_name)
 
     # MARK: - Control
     def temperature_control(self, aveTemp: np.ndarray, membrane_heater: HeaterContol):
@@ -277,11 +281,10 @@ class MAX6675(Worker):
 
 
 class ADC(Worker):
-    def __init__(self, id, app, sensor_name, startTime):
-        super().__init__(id, app, sensor_name, startTime)
-        self.__id = id
+    def __init__(self, sensor_name, app, startTime):
+        super().__init__(sensor_name, app, startTime)
         self.__app = app
-        self.__sensor_name = sensor_name
+        self.sensor_name = sensor_name
         self.__startTime = startTime
         self.__abort = False
 
@@ -430,7 +433,7 @@ class ADC(Worker):
         Clears temporary dataframes to reset memory consumption.
         """
         self.sigStep.emit(
-            self.__adc_data, self.__calcData, self.averages, self.__sensor_name, self.__startTime,
+            self.__adc_data, self.__calcData, self.averages, self.sensor_name, self.__startTime,
         )
         self.clear_datasets()
 
@@ -477,7 +480,7 @@ class ADC(Worker):
 
             self.sigMsg.emit(f"Worker #{self.__id} aborting work at step {totalStep}")
 
-        self.sigDone.emit(self.__id, self.__sensor_name)
+        self.sigDone.emit(self.sensor_name)
         return
 
 
