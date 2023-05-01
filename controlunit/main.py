@@ -60,12 +60,6 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.p1Data = None
         self.p2Data = None
 
-        # Define which signals comming from ADC
-        # REMOVE
-        # self.ADCtypes = [Signals.PLASMA, Signals.PRESSURE1, Signals.PRESSURE2]
-        # print('main __init__:', Signals.adcSignals)
-
-        # self.graph.removeItem(self.graph.plaPl) # remove Plasma current plot
 
         # Plot line colors
         self.pens = {
@@ -391,6 +385,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         Signals.PRESSURE1: 0,
         Signals.PRESSURE2: 0,
     }
+    print(currentvals)
 
     # Mark: connecting slots with threads
     @QtCore.pyqtSlot(np.ndarray, np.ndarray, np.ndarray, Signals, datetime.datetime)
@@ -520,7 +515,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         # reset Data
         if ttype == Signals.TEMPERATURE:
             self.tData = None
-        # elif ttype in self.ADCtypes: # old, relic from Signals
+        # elif ttype in self.ADCtypes: # old, relic from 
         else:
             self.plaData = None
             self.p1Data = None

@@ -332,20 +332,40 @@ class ADC(Worker):
     def set_adc_channels(self):
         """
         Setup ADC channels: numbers, voltages, etc.
+
+        Results
+        -------
+        self.adc_channels: dict
+            dictionary of channels with their voltage scales
         """
         self.CHNLS = [CHP1, CHP2, CHIP]
         scale10 = [CHP1, CHP2]
         scale5 = [CHIP]
-        kws = {CH: {"pga": self.aio.PGA.PGA_10_0352V} for CH in scale10}
+        self.adc_channels = {CH: {"pga": self.aio.PGA.PGA_10_0352V} for CH in scale10}
         for CH in scale5:
-            kws[CH] = {"pga": self.aio.PGA.PGA_5_0176V}
-        return kws
+            self.adc_channels[CH] = {"pga": self.aio.PGA.PGA_5_0176V}
 
-    def communicate_with_adc(self):
+    def adc_init(self):
         """
-        Communicate with ADC (read voltages)
+        Initiates an instance of AIO_32_0RA_IRC from AIO.py
+        Address: 0x49, 0x3E
+        Why this addresses?
         """
-        self.adc_raw_data = [self.aio.DataRate.DR_860SPS]
+        self.aio = adc(0x49, 0x3E)
+
+    def get_adc_datarate(self):
+        """
+        Communicate with ADC
+        """
+        self.adc_datarate = [self.aio.DataRate.DR_860SPS]
+
+    def read_adc_voltages(self):
+        """
+        Read ADC voltages for selected channels
+        """
+        self.adc_voltages = [
+            self.aio.analog_read_volt(CH, *self.adc_datarate, **self.adc_channels[CH]) for CH in self.CHNLS
+        ]
 
     def acquisition_loop(self):
         """
@@ -354,9 +374,8 @@ class ADC(Worker):
         Send data back to main thread for ploting ad saving.
         """
 
-        self.aio = adc(0x49, 0x3E)  # instance of AIO_32_0RA_IRC from AIO.py
-        # Why this addresses?
-        kws = self.set_adc_channels()  # Configure ADC channels and voltages
+        self.adc_init()
+        self.set_adc_channels()
 
         totalStep = 0
         step = 0
@@ -364,15 +383,11 @@ class ADC(Worker):
         while not (self.__abort):
             time.sleep(self.sampling)
 
-            # Communitcate with ADC
-            # arg = [self.aio.DataRate.DR_860SPS]
-            self.communicate_with_adc()
-            print(self.adc_raw_data)
+            self.get_adc_datarate()
 
-            p1_v, p2_v, ip_v = [
-                self.aio.analog_read_volt(CH, *self.adc_raw_data, **kws[CH]) for CH in self.CHNLS
-            ]
-            print(p1_v,p2_v, ip_v)
+            self.read_adc_voltages()
+            p1_v, p2_v, ip_v = self.adc_voltages
+            print(self.adc_voltages)
 
             # Process values
             now = datetime.datetime.now()
