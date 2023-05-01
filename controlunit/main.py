@@ -42,6 +42,13 @@ class MainWidget(QtCore.QObject, UIWindow):
 
     sigAbortWorkers = QtCore.pyqtSignal()
 
+    currentvals = {
+        Signals.PLASMA: 0,
+        Signals.TEMPERATURE: 0,
+        Signals.PRESSURE1: 0,
+        Signals.PRESSURE2: 0,
+    }
+
     def __init__(self, app: QtWidgets.QApplication):
         super(self.__class__, self).__init__()
         self.__app = app
@@ -59,7 +66,6 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.tData = None
         self.p1Data = None
         self.p2Data = None
-
 
         # Plot line colors
         self.pens = {
@@ -154,11 +160,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         else:
             quit_msg = "Are you sure you want to stop data acquisition?"
             reply = QtWidgets.QMessageBox.warning(
-                self.MainWindow,
-                "Message",
-                quit_msg,
-                QtWidgets.QMessageBox.Yes,
-                QtWidgets.QMessageBox.No,
+                self.MainWindow, "Message", quit_msg, QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No,
             )
             if reply == QtWidgets.QMessageBox.Yes:
                 self.abortThreads()
@@ -261,11 +263,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         else:
             quit_msg = "Stop Experiment Marker?"
             reply = QtWidgets.QMessageBox.warning(
-                self.MainWindow,
-                "Message",
-                quit_msg,
-                QtWidgets.QMessageBox.Yes,
-                QtWidgets.QMessageBox.No,
+                self.MainWindow, "Message", quit_msg, QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No,
             )
             if reply == QtWidgets.QMessageBox.Yes:
                 # old function: QMSSignal.blink_led
@@ -305,20 +303,28 @@ class MainWidget(QtCore.QObject, UIWindow):
         threads = {}
 
         # MAX6675 thermocouple sensor for Membrane temperature with PID
-        sensor = "MAX6675"
-        threads[sensor] = QtCore.QThread()
-        threads[sensor].setObjectName(f"{sensor}")
-        self.tWorker = MAX6675(sensor, self.__app, self.datadict[sensor], now)
+        sensor_name = "MAX6675"
+        threads[sensor_name] = QtCore.QThread()
+        threads[sensor_name].setObjectName(f"{sensor_name}")
+        self.tWorker = MAX6675(sensor_name, self.__app, sensor_name, now)
+        """
+        class MAX6675(Worker):
+            def __init__(self, id, app, sensor_name, startTime):
+        """
         self.tWorker.setTempWorker(self.__temp)
 
         # Multichannel ADC
-        sensor = "ADC"
-        threads[sensor] = QtCore.QThread()
-        threads[sensor].setObjectName(f"{sensor}")
-        self.adcWorker = ADC(sensor, self.__app, self.datadict[sensor], now)
+        sensor_name = "ADC"
+        threads[sensor_name] = QtCore.QThread()
+        threads[sensor_name].setObjectName(f"{sensor_name}")
+        self.adcWorker = ADC(sensor_name, self.__app, sensor_name, now)
+        """
+        class ADC(Worker):
+            def __init__(self, id, app, sensor_name, startTime):
+        """
         mode = self.controlDock.IGmode.currentIndex()
         scale = self.controlDock.IGrange.value()
-        self.adcWorker.setPresWorker(mode, scale)
+        self.adcWorker.init_adc_worker(mode, scale)
 
         workers = {i: j for i, j in zip(sensors, [self.tWorker, self.adcWorker])}
 
@@ -352,10 +358,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         if name == "MAX6675":
             df = pd.DataFrame(dtype=float, columns=["time", "T", "PresetT"])
             df.to_csv(
-                os.path.join(
-                    self.datapth,
-                    f"{testmark}out_{worker.getStartTime():%Y%m%d_%H%M%S}_temp.csv",
-                ),
+                os.path.join(self.datapth, f"{testmark}out_{worker.getStartTime():%Y%m%d_%H%M%S}_temp.csv",),
                 index=False,
             )
         # pressures and current
@@ -363,10 +366,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         elif name == "ADC":
             df = pd.DataFrame(dtype=object, columns=columns)
             df.to_csv(
-                os.path.join(
-                    self.datapth,
-                    f"{testmark}out_{worker.getStartTime():%Y%m%d_%H%M%S}.csv",
-                ),
+                os.path.join(self.datapth, f"{testmark}out_{worker.getStartTime():%Y%m%d_%H%M%S}.csv",),
                 index=False,
             )
         else:
@@ -379,17 +379,9 @@ class MainWidget(QtCore.QObject, UIWindow):
         thread.started.connect(worker.start)
         thread.start()
 
-    currentvals = {
-        Signals.PLASMA: 0,
-        Signals.TEMPERATURE: 0,
-        Signals.PRESSURE1: 0,
-        Signals.PRESSURE2: 0,
-    }
-    print(currentvals)
-
     # Mark: connecting slots with threads
     @QtCore.pyqtSlot(np.ndarray, np.ndarray, np.ndarray, Signals, datetime.datetime)
-    def onWorkerStep(self, rawResult, calcResult, ave, ttype, startTime):
+    def onWorkerStep(self, rawResult, calcResult, ave, sensor_name, startTime):
         """collect data on worker step
         - Recives data from worker(s)
         - Updates text indicators in GUI
@@ -434,16 +426,15 @@ class MainWidget(QtCore.QObject, UIWindow):
         tind = self.tind  # For MAX6675 Temperature sensor
         scale = self.adcind  # For ADC signals
 
-        if ttype == Signals.TEMPERATURE:
+        if sensor_name == "MAX6675":
             # get data
             t_data = self.tData
             # set and save data
-            self.tData = self.__setStepData(t_data, rawResult, calcResult, ttype, startTime)
+            self.tData = self.__setStepData(t_data, rawResult, calcResult, sensor_name, startTime)
             # plot data
             skip = int((self.tData.shape[0] + MAX_SIZE - 1) / MAX_SIZE)
             self.valueTPlot.setData(self.tData[tind::skip, 0], self.tData[tind::skip, 1])
-        # elif ttype in self.ADCtypes: # old, relic from Signals
-        else:
+        elif sensor_name == "ADC":
             # get data
             pl_data = self.plaData
             p1_data = self.p1Data
@@ -462,61 +453,48 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.valueP1Plot.setData(self.p1Data[scale::skip, 0], self.p1Data[scale::skip, 1])
             self.valueP2Plot.setData(self.p2Data[scale::skip, 0], self.p2Data[scale::skip, 1])
 
-    def __setStepData(self, data, rawResult, calcResult, ttype, startTime):
+    def __setStepData(self, data, rawResult, calcResult, sensor_name, startTime):
         """
         - Save raw data
         - Append new data from Worker to the main data arrays
         """
         # TODO: save interval
         # Save raw data
-        self.__save(rawResult, ttype, startTime)
+        self.__save(rawResult, sensor_name, startTime)
         if data is None:
-            data = np.zeros([self.STEP, 2])
-            data[:, 0] = calcResult[:, 0]
-            data[:, 1] = calcResult[:, ttype.getIndex()]
+            # TODO: create empty dataframe
+            pass
         else:
-            steps = calcResult.shape[0]
-            calcData = np.zeros([steps, 2])
-            calcData[:, 0] = calcResult[:, 0]
-            calcData[:, 1] = calcResult[:, ttype.getIndex()]
-            data = np.concatenate((data, np.array(calcData)))
+            # TODO: append new data to dataframe
+            pass
         return data
 
-    def __save(self, data, ttype, startTime):
+    def __save(self, data, sensor_name, startTime):
         """Save sensor data
         - For [both] sensors dumps dataframe into a *.csv via pandas to_csv
         """
-        if ttype == Signals.TEMPERATURE:
+        if sensor_name == "MAX6675":
             df = pd.DataFrame(data)
+            savepath = os.path.join(self.datapth, f"{testmark}out_{startTime:%Y%m%d_%H%M%S}_temp.csv")
             df.to_csv(
-                os.path.join(self.datapth, f"{testmark}out_{startTime:%Y%m%d_%H%M%S}_temp.csv"),
-                mode="a",
-                header=False,
-                index=False,
+                savepath, mode="a", header=False, index=False,
             )
-        # TODO: change structure
-        # For now to save data only once, a workaround:
-        # Save only for one Signal type from ADC signals.
-        # elif ttype == self.ADCtypes[0]: # Old version, when using Signals for each ADC channel
-        else:
+        elif sensor_name == "ADC":
             df = pd.DataFrame(data)
+            savepath = os.path.join(self.datapth, f"{testmark}out_{startTime:%Y%m%d_%H%M%S}.csv")
             df.to_csv(
-                os.path.join(self.datapth, f"{testmark}out_{startTime:%Y%m%d_%H%M%S}.csv"),
-                mode="a",
-                header=False,
-                index=False,
+                savepath, mode="a", header=False, index=False,
             )
 
     @QtCore.pyqtSlot(int, Signals)
-    def onWorkerDone(self, workerId, ttype):
+    def onWorkerDone(self, workerId, sensor_name):
         self.logDock.log.append("Worker #{} done".format(workerId))
         self.logDock.progress.append("-- Signal {} STOPPED".format(workerId))
         self.__workers_done += 1
         # reset Data
-        if ttype == Signals.TEMPERATURE:
+        if sensor_name == "MAX6675":
             self.tData = None
-        # elif ttype in self.ADCtypes: # old, relic from 
-        else:
+        elif sensor_name == "ADC":
             self.plaData = None
             self.p1Data = None
             self.p2Data = None

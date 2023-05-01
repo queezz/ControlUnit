@@ -47,12 +47,12 @@ class Worker(QtCore.QObject):
 
     sigAbortHeater = QtCore.pyqtSignal()
 
-    def __init__(self, id, app, ttype, startTime):
+    def __init__(self, id, app, sensor_name, startTime):
         super().__init__()
 
         self.__id = id
         self.__app = app
-        self.__ttype = ttype
+        self.__sensor_name = sensor_name
         self.__startTime = startTime
         self.__abort = False
 
@@ -89,11 +89,11 @@ class Worker(QtCore.QObject):
 
 
 class MAX6675(Worker):
-    def __init__(self, id, app, ttype, startTime):
-        super().__init__(id, app, ttype, startTime)
+    def __init__(self, id, app, sensor_name, startTime):
+        super().__init__(id, app, sensor_name, startTime)
         self.__id = id
         self.__app = app
-        self.__ttype = ttype
+        self.__sensor_name = sensor_name
         self.__startTime = startTime
         self.__abort = False
 
@@ -186,7 +186,7 @@ class MAX6675(Worker):
                     self.__rawData,  # raw dat
                     self.__rawData,  # calculated
                     average,
-                    self.__ttype,
+                    self.__sensor_name,
                     self.__startTime,
                 )
                 self.__rawData = np.zeros(shape=(STEP, 4))
@@ -210,7 +210,7 @@ class MAX6675(Worker):
                     self.__rawData[: step + 1, :],
                     self.__rawData[: step + 1, :],
                     average,
-                    self.__ttype,
+                    self.__sensor_name,
                     self.__startTime,
                 )
             self.sigMsg.emit(f"Worker #{self.__id} aborting work at step {totalStep}")
@@ -222,11 +222,13 @@ class MAX6675(Worker):
             self.pi.spi_close(sensor)
             self.pi.stop()
 
-        self.sigDone.emit(self.__id, self.__ttype)
+        self.sigDone.emit(self.__id, self.__sensor_name)
 
     # MARK: - Control
     def __controlTemp(self, aveTemp: np.ndarray, eCurrent: ElectricCurrent):
-        """Shouldn't the self.sampling here be 0.25, not the one for ADC?"""
+        """
+        Shouldn't the self.sampling here be 0.25, not the one for ADC?
+        """
         e = self.__presetTemp - aveTemp[0, 1]
         integral = self.__sumE + e * self.sampling
         derivative = (e - self.__exE) / self.sampling
@@ -263,32 +265,36 @@ class MAX6675(Worker):
 
 
 class ADC(Worker):
-    def __init__(self, id, app, ttype, startTime):
-        super().__init__(id, app, ttype, startTime)
+    def __init__(self, id, app, sensor_name, startTime):
+        super().__init__(id, app, sensor_name, startTime)
         self.__id = id
         self.__app = app
-        self.__ttype = ttype
+        self.__sensor_name = sensor_name
         self.__startTime = startTime
         self.__abort = False
 
-    def setPresWorker(self, IGmode: int, IGrange: int):
+    def init_adc_worker(self, IGmode: int, IGrange: int):
         """
         Initiate ADC thread parameters
+
+        adc_columns
+        -----------
+        date: datetime.datetime
+        time: float, seconds from start of recording
+        adc_voltage_columns: ADC raw signals
+        IGmode: int, log o linear mode for Ionization Gauge measurements
+        IGscale: range (scale) of Ionization Gauge in linear mode
+        QMS_signal: int, "trigger" on or off. When on emits a signal from GPIO
         """
-        self.adc_columns = [
-            "date",
-            "time",
-            "P1",
-            "P2",
-            "Ip",
-            "IGmode",
-            "IGscale",
-            "QMS_signal",
-        ]
-        self.__adc_data = np.zeros(shape=(STEP, len(self.adc_columns)))
-        # TODO: change append to concat for pandas (deprecation)
-        # self.__adc_data = pd.DataFrame(columns=self.adc_columns)
-        self.__calcData = np.zeros(shape=(STEP, 4))
+        self.adc_voltage_columns = ["P1", "P2", "Ip"]
+        self.adc_processed_columns = [i + "_c" for i in self.adc_voltage_columns]
+        self.adc_columns = (
+            ["date", "time"] + self.adc_voltage_columns + ["IGmode", "IGscale", "QMS_signal",]
+        )
+        # self.__adc_data = np.zeros(shape=(STEP, len(self.adc_columns)))
+        self.__adc_data = pd.DataFrame(columns=self.adc_columns)
+        # self.__calcData = np.zeros(shape=(STEP, 4))
+        self.__calcData = pd.DataFrame(columns=self.adc_processed_columns)
         self.__IGmode = IGmode
         self.__IGrange = IGrange
         self.__qmsSignal = 0
@@ -296,6 +302,7 @@ class ADC(Worker):
 
     def setIGmode(self, IGmode: int):
         """
+        Sets Ionization Gauge mode from GUI
         0: Torr
         1: Pa
         """
@@ -304,6 +311,7 @@ class ADC(Worker):
 
     def setIGrange(self, IGrange: int):
         """
+        Sets Ionization Gauge range (scale) from GUI
         range: -8 ~ -3
         """
         self.__IGrange = IGrange
@@ -311,6 +319,7 @@ class ADC(Worker):
 
     def setQmsSignal(self, signal: int):
         """
+        Sets "trigger" signal from GUI for syncing QMS and RasPi data
         waiting: 0
         running: 1
         """
@@ -367,69 +376,76 @@ class ADC(Worker):
             self.aio.analog_read_volt(CH, *self.adc_datarate, **self.adc_channels[CH]) for CH in self.CHNLS
         ]
 
+    def put_new_data_in_dataframe(self):
+        """
+        Put new data from ADC and GUI into pandas dataframe
+        """
+        now = datetime.datetime.now()
+        dSec = (now - self.__startTime).total_seconds()
+        new_data_row = pd.DataFrame(
+            np.atleast_2d([now, dSec, *self.adc_voltages, self.__IGmode, self.__IGrange, self.__qmsSignal,]),
+            columns=self.adc_columns,
+        )
+        self.__adc_data = pd.concat([self.__adc_data, new_data_row], ignore_index=True)
+
+    def update_processed_signals_dataframe(self):
+        """
+        Update processed dataframe with new values
+        TODO: add a list of signals with their calc functions somewhere
+        to make this automatc
+        """
+        p1_v, p2_v, ip_v = self.adc_voltages
+        new_calc_row = pd.DataFrame(
+            np.atleast_2d(calcIGPres(p1_v, self.__IGmode, self.__IGrange)),
+            calcPfePres(p2_v),
+            hall_to_current(ip_v),
+        )
+        self.__calcData = pd.concat([self.__calcData, new_calc_row], ignore_index=True)
+
+    def calculate_averaged_signals(self):
+        """
+        Calculate averages for the calibrated signals to show them in GUI
+        """
+        self.averages = self.__calcData.mean().values
+
+    def send_processed_data_to_main_thread(self):
+        """
+        Sends processed data to main thread in main.py
+        Clears temporary dataframes to reset memory consumption.
+        """
+        self.sigStep.emit(
+            self.__adc_data, self.__calcData, self.averages, self.__sensor_name, self.__startTime,
+        )
+        self.clear_datasets()
+
+    def clear_datasets(self):
+        """
+        Remove data from temporary dataframes
+        """
+        self.__adc_data = self.__adc_data.iloc[0:0]
+        self.__calcData = self.__calcData.iloc[0:0]
+
     def acquisition_loop(self):
         """
         Reads ADC raw signals in a loop.
         Convert voltage to units.
         Send data back to main thread for ploting ad saving.
         """
-
         self.adc_init()
         self.set_adc_channels()
-
         totalStep = 0
         step = 0
 
         while not (self.__abort):
             time.sleep(self.sampling)
-
             self.get_adc_datarate()
-
             self.read_adc_voltages()
-            p1_v, p2_v, ip_v = self.adc_voltages
-            print(self.adc_voltages)
-
-            # Process values
-            now = datetime.datetime.now()
-            dSec = (now - self.__startTime).total_seconds()
-            self.__adc_data[step] = [
-                now.year,  # dummy
-                dSec,
-                p1_v,
-                p2_v,
-                ip_v,
-                self.__IGmode,
-                self.__IGrange,
-                self.__qmsSignal,
-            ]
-
-            #  calculate DATA
-            # p1_d = Signals.getCalcValue(Signals.PRESSURE1, p1_v, IGmode=self.__IGmode, IGrange=self.__IGrange)
-            p1_d = calcIGPres(p1_v, self.__IGmode, self.__IGrange)
-            # p2_d = Signals.getCalcValue(Signals.PRESSURE2, p2_v)
-            p2_d = calcPfePres(p2_v)
-            ip_d = hall_to_current(ip_v)  #
-
-            self.__calcData[step] = [dSec, p1_d, p2_d, ip_d]
+            self.put_new_data_in_dataframe()
+            self.update_processed_signals_dataframe()
 
             if step % (STEP - 1) == 0 and step != 0:
-                # get average
-                ave_p1 = np.mean(self.__calcData[:, 2], dtype=float)
-                ave_p2 = np.mean(self.__calcData[:, 3], dtype=float)
-                ave_ip = np.mean(self.__calcData[:, 4], dtype=float)
-                average = np.array(
-                    [[Signals.PLASMA, ave_ip], [Signals.PRESSURE1, ave_p1], [Signals.PRESSURE2, ave_p2],]
-                )
-
-                # SEND ADC data back to main loop
-
-                self.sigStep.emit(
-                    self.__adc_data, self.__calcData, average, self.__ttype, self.__startTime,
-                )
-
-                # Reset temporary data arrays
-                self.__adc_data = np.zeros(shape=(STEP, 8))
-                self.__calcData = np.zeros(shape=(STEP, 4))
+                self.calculate_averaged_signals()
+                self.send_processed_data_to_main_thread()
                 step = 0
             else:
                 step += 1
@@ -440,19 +456,12 @@ class ADC(Worker):
             if self.__calcData[step][0] == 0.0:
                 step -= 1
             if step > -1:
-                # get average
-                ave_p1 = np.mean(self.__calcData[:, 1], dtype=float)
-                ave_p2 = np.mean(self.__calcData[:, 2], dtype=float)
-                ave_ip = np.mean(self.__calcData[:, 3], dtype=float)
-                average = np.array(
-                    [[Signals.PLASMA, ave_ip], [Signals.PRESSURE1, ave_p1], [Signals.PRESSURE2, ave_p2],]
-                )
-                self.sigStep.emit(
-                    self.__adc_data[: step + 1, :], self.__calcData, average, self.__ttype, self.__startTime,
-                )
+                self.calculate_averaged_signals()
+                self.send_processed_data_to_main_thread()
+
             self.sigMsg.emit(f"Worker #{self.__id} aborting work at step {totalStep}")
 
-        self.sigDone.emit(self.__id, self.__ttype)
+        self.sigDone.emit(self.__id, self.__sensor_name)
         return
 
 
