@@ -8,7 +8,7 @@ from worker import MAX6675, ADC, Worker
 from customTypes import Signals
 from readsettings import make_datafolders, read_settings
 import qmsSignal
-from channels import TCCOLUMNS, ADCCOLUMNS, ADCCONVERTED
+from channels import TCCOLUMNS, ADCCOLUMNS, ADCCONVERTED, ADCSIGNALS
 
 testmark = "test-"
 
@@ -62,7 +62,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.p2Data = None
 
         # Plot line colors
-        self.currentvalues = {"Ip": 0, "P1": 0, "P2": 0, "T": 0}
+        # self.currentvalues = {"Ip": 0, "P1": 0, "P2": 0, "T": 0}
+        self.currentvalues = {i: 0 for i in ADCSIGNALS + ["T"]}
         self.pens = {
             "Ip": {"color": "#8d3de3", "width": 2},
             "P1": {"color": "#6ac600", "width": 2},
@@ -410,8 +411,9 @@ class MainWidget(QtCore.QObject, UIWindow):
         if sensor_name == "MAX6675":
             # [self.data, self.sensor_name]
             self.datadict["MAX6675"] = pd.concat([self.datadict["MAX6675"], result[0]], ignore_index=True)
-            print(sensor_name)
-            print(self.datadict["MAX6675"].iloc[-3:])
+            # print(sensor_name)
+            # print(self.datadict["MAX6675"].iloc[-3:])
+            self.currentvalues["T"] = self.datadict["MAX6675"].iloc[-3:]["T"].mean()
             # plot data
             #
             """
@@ -421,8 +423,10 @@ class MainWidget(QtCore.QObject, UIWindow):
         if sensor_name == "ADC":
             #  self.send_step_data.emit([newdata, self.sensor_name])
             self.datadict["ADC"] = pd.concat([self.datadict["ADC"], result[0]], ignore_index=True)
-            print(sensor_name)
-            print(self.datadict["ADC"].iloc[-3:])
+            # print(sensor_name)
+            # print(self.datadict["ADC"].iloc[-3:])
+            for plotname, name in zip(ADCSIGNALS, ADCCONVERTED):
+                self.currentvalues[plotname] = self.datadict["ADC"].iloc[-3:][name].mean()
             # plot data
             """
             skip = int((self.plaData.shape[0] + MAX_SIZE - 1) / MAX_SIZE)
@@ -431,14 +435,6 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.valueP2Plot.setData(self.p2Data[scale::skip, 0], self.p2Data[scale::skip, 1])
             """
             self.update_current_values()
-
-    def append_new_data(self, sensor_name):
-        """
-        - Append new data from Worker to the main data arrays
-        - Save dataframe    
-        """
-        # TODO: append new data
-        self.save_data(sensor_name)
 
     def save_data(self, sensor_name):
         """
@@ -453,7 +449,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.logDock.log.append("Worker #{} done".format(sensor_name))
         self.logDock.progress.append("-- Signal {} STOPPED".format(sensor_name))
         self.__workers_done += 1
-        self.reset_data()
+        self.reset_data(sensor_name)
 
         if self.__workers_done == 2:
             self.abort_all_threads()
@@ -468,8 +464,8 @@ class MainWidget(QtCore.QObject, UIWindow):
             thread.wait()
         self.logDock.log.append("All threads exited")
 
-    def reset_data(self,):
-        self.datadict = {}
+    def reset_data(self, sensor_name):
+        self.datadict[sensor_name] = self.datadict[sensor_name].iloc[0:0]
 
     @QtCore.pyqtSlot()
     def registerTemp(self):
