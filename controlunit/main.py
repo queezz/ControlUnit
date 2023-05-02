@@ -126,7 +126,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.controlDock.FullNormSW.clicked.connect(self.fulltonormal)
         self.controlDock.OnOffSW.clicked.connect(self.__onoff)
         self.controlDock.quitBtn.clicked.connect(self.__quit)
-        self.controlDock.qmsSigSw.clicked.connect(self.__qmsSignal)
+        self.controlDock.qmsSigSw.clicked.connect(self.sync_signal_switch)
 
         # Toggle plots for Current, Temperature, and Pressure
         self.scaleDock.togIp.clicked.connect(self.togglePlots)
@@ -159,7 +159,7 @@ class MainWidget(QtCore.QObject, UIWindow):
                 self.MainWindow, "Message", quit_msg, QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No,
             )
             if reply == QtWidgets.QMessageBox.Yes:
-                self.abortThreads()
+                self.abort_all_threads()
                 self.controlDock.quitBtn.setEnabled(True)
             else:
                 self.controlDock.OnOffSW.setChecked(True)
@@ -212,7 +212,8 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.controlDock.setStretch(*(10, 300))  # minimize control dock width
 
     def togglePlots(self):
-        """Toggle plots
+        """
+        Toggle plots
         self.scaleDock.togIp
         self.graph.plaPl
         """
@@ -237,8 +238,9 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         [toggleplot(*items[jj]) for jj in ["Ip", "T", "P"]]
 
-    def __qmsSignal(self):
-        """Experiment indicator, analog output is sent to QMS to sync
+    def sync_signal_switch(self):
+        """
+        Experiment indicator, analog output is sent to QMS to sync
         expermint time between recording devices.
         This signal is helpfull to separate experiments (same as shot numbers in fusion)
         """
@@ -252,7 +254,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             return
 
         if self.controlDock.qmsSigSw.isChecked():
-            self.qmsSigThread = qmsSignal.QMSSignal(pi, self.__app, 1)
+            self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 1)
             self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
             self.qmsSigThread.start()
             self.adcWorker.setQmsSignal(1)
@@ -262,9 +264,7 @@ class MainWidget(QtCore.QObject, UIWindow):
                 self.MainWindow, "Message", quit_msg, QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No,
             )
             if reply == QtWidgets.QMessageBox.Yes:
-                # old function: QMSSignal.blink_led
-                # self.qmsSigThread = qmsSignal.QMSSignal(pi, self.__app, 2)
-                self.qmsSigThread = qmsSignal.QMSSignal(pi, self.__app, 0)
+                self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 0)
                 self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
                 self.qmsSigThread.start()
                 self.adcWorker.setQmsSignal(0)
@@ -294,7 +294,6 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.__threads = []
 
         now = datetime.datetime.now()
-        # make threads from sensor worker classes
         threads = {}
 
         # MAX6675 thermocouple sensor for Membrane temperature with PID
@@ -302,10 +301,6 @@ class MainWidget(QtCore.QObject, UIWindow):
         threads[sensor_name] = QtCore.QThread()
         threads[sensor_name].setObjectName(f"{sensor_name}")
         self.tWorker = MAX6675(sensor_name, self.__app, now)
-        """
-        class MAX6675(Worker):
-            def __init__(self, id, app, sensor_name, startTime):
-        """
         self.tWorker.setTempWorker(self.__temp)
 
         # Multichannel ADC
@@ -313,10 +308,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         threads[sensor_name] = QtCore.QThread()
         threads[sensor_name].setObjectName(f"{sensor_name}")
         self.adcWorker = ADC(sensor_name, self.__app, now)
-        """
-        class ADC(Worker):
-            def __init__(self, id, app, sensor_name, startTime):
-        """
+
         mode = self.controlDock.IGmode.currentIndex()
         scale = self.controlDock.IGrange.value()
         self.adcWorker.init_adc_worker(mode, scale)
@@ -329,12 +321,11 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.sensor_names = list(workers)
 
         # start threads
-        [self.setThread(workers[s], threads[s]) for s in self.sensor_names]
+        [self.start_threads(workers[s], threads[s]) for s in self.sensor_names]
 
-    def setThread(
-        self, worker: Worker, thread: QtCore.QThread,
-    ):
-        """Setup workers [Dataframe creation]
+    def start_threads(self, worker: Worker, thread: QtCore.QThread):
+        """
+        Setup workers [Dataframe creation]
         - Creates instances of worker
         - Creates connections
         - Creates Pandas Dataframes for data logging
@@ -345,11 +336,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         self.__threads.append((thread, worker))
         worker.moveToThread(thread)
-
-        worker.sigStep.connect(self.onWorkerStep)
-        worker.sigDone.connect(self.onWorkerDone)
-        worker.sigMsg.connect(self.logDock.log.append)
-        self.sigAbortWorkers.connect(worker.abort)
+        self.connect_worker_signals(worker)
 
         if worker.sensor_name == "MAX6675":
             self.savepaths[worker.sensor_name] = os.path.join(
@@ -365,7 +352,16 @@ class MainWidget(QtCore.QObject, UIWindow):
         thread.started.connect(worker.start)
         thread.start()
 
-    def update_current_vallues(self):
+    def connect_worker_signals(self, worker):
+        """
+        Connects worker signals to the main thread
+        """
+        worker.sigStep.connect(self.on_worker_step)
+        worker.sigDone.connect(self.on_worker_done)
+        worker.sigMsg.connect(self.logDock.log.append)
+        self.sigAbortWorkers.connect(worker.abort)
+
+    def update_current_values(self):
         """
         update current values when new signal comes
         """
@@ -402,14 +398,15 @@ class MainWidget(QtCore.QObject, UIWindow):
 
     # Mark: connecting slots with threads
     @QtCore.pyqtSlot(list)
-    def onWorkerStep(self, result):
-        """collect data on worker step
+    def on_worker_step(self, result):
+        """
+        Collect data from worker
         - Recives data from worker(s)
         - Updates text indicators in GUI
         - Appends recived data to dataframes (call to self.__setStepData)
         - Updates data in plots (skips points if data is too big)
         """
-        self.update_current_vallues()
+        self.update_current_values()
 
         sensor_name = result[-2]
 
@@ -437,39 +434,41 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.valueP2Plot.setData(self.p2Data[scale::skip, 0], self.p2Data[scale::skip, 1])
             """
 
-    def __setStepData(self, data, rawResult, calcResult, sensor_name, startTime):
+    def append_new_data(self, sensor_name):
         """
-        - Save raw data
         - Append new data from Worker to the main data arrays
+        - Save dataframe    
         """
-        # TODO: save interval
-        # Save raw data
-        self.__save(rawResult, sensor_name, startTime)
-        if data is None:
-            # TODO: create empty dataframe
-            pass
-        else:
-            # TODO: append new data to dataframe
-            pass
-        return data
+        # TODO: append new data
+        self.save_data(sensor_name)
 
-    def __save(self, data, sensor_name, startTime):
+    def save_data(self, sensor_name):
         """
         Save sensor data        
         """
         savepath = self.savepaths[sensor_name]
+        data = self.datadict[sensor_name]
         data.to_csv(savepath, mode="a", header=False, index=False)
 
     @QtCore.pyqtSlot(str)
-    def onWorkerDone(self, sensor_name):
+    def on_worker_done(self, sensor_name):
         self.logDock.log.append("Worker #{} done".format(sensor_name))
         self.logDock.progress.append("-- Signal {} STOPPED".format(sensor_name))
         self.__workers_done += 1
         self.reset_data()
 
         if self.__workers_done == 2:
-            # self.abortThreads()   # not necessary
+            self.abort_all_threads()   
             self.logDock.log.append("No more plot workers active")
+
+    @QtCore.pyqtSlot()
+    def abort_all_threads(self):
+        self.sigAbortWorkers.emit()
+        self.logDock.log.append("Asking each worker to abort")
+        for thread, worker in self.__threads:
+            thread.quit()
+            thread.wait()
+        self.logDock.log.append("All threads exited")
 
     def reset_data(self, sensor_name):
         if sensor_name == "MAX6675":
@@ -479,16 +478,6 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.p1Data = None
             self.p2Data = None
 
-    @QtCore.pyqtSlot()
-    def abortThreads(self):
-        self.sigAbortWorkers.emit()
-        self.logDock.log.append("Asking each worker to abort")
-        for thread, worker in self.__threads:
-            thread.quit()
-            thread.wait()
-        self.logDock.log.append("All threads exited")
-
-    # MARK: - Methods
     @QtCore.pyqtSlot()
     def registerTemp(self):
         value = self.registerDock.temperatureSB.value()

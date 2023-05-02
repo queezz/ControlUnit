@@ -1,3 +1,10 @@
+"""
+Worker threads
+
+Constants, such as channel for ADC, GPIO on RasPi, column names for dataframes,
+are specified in channels.py. Adjust values there to affect the whole of Contorlunit.
+"""
+from channels import *
 import time, datetime
 import numpy as np
 import pandas as pd
@@ -12,7 +19,6 @@ from conversions import ionization_gauge, hall_current_sensor, pfeiffer_single_g
 
 TEST = False
 
-from channels import *
 
 PRINTTHREADINFO = False
 
@@ -32,7 +38,11 @@ except:
 
 # must inherit QtCore.QObject in order to use 'connect'
 class Worker(QtCore.QObject):
-    # Change to a dictionary. Trancparency!
+    """
+    sigMsg usage:
+    self.sigMsg.emit(f"Your Message Here to pass to main.py")
+    """
+
     sigStep = QtCore.pyqtSignal(list)
     sigDone = QtCore.pyqtSignal(str)
     sigMsg = QtCore.pyqtSignal(str)
@@ -116,20 +126,16 @@ class MAX6675(Worker):
         self.__sumE = 0
         self.__exE = 0
 
-    # MARK: - Setters
     def setPresetTemp(self, newTemp: int):
         self.temperature_setpoint = newTemp
         return
 
-        # MARK: - Methods
-
     @QtCore.pyqtSlot()
     def start(self):
-        """Set Thread ID and name, then run corresponding "plot" function.
-        "plot" functions are main data acquisition loops.
         """
-        # self.__setThread()
-        self.readT()
+        Start data acquisition
+        """
+        self.acquisition_loop()
 
     def init_heater_control(self):
         self.membrane_heater = HeaterContol(self.pi, self.__app)
@@ -160,7 +166,7 @@ class MAX6675(Worker):
             if (word & 0x8006) == 0:  # Bits 15, 2, and 1 should be zero.
                 self.temperature = (word >> 3) / 4.0
             else:
-                print("bad reading {:b}".format(word))
+                print("MAX6675: bad reading {:b} (read_thermocuple())".format(word))
 
     def send_processed_data_to_main_thread(self):
         """
@@ -195,14 +201,13 @@ class MAX6675(Worker):
         self.average = self.data["T"].mean()
 
     @QtCore.pyqtSlot()
-    def readT(self):
+    def acquisition_loop(self):
         """
         Temperature acquisition and Feedback Control loop
         """
         self.init_thermocouple()
         self.init_heater_control()
 
-        totalStep = 0
         step = 0
 
         while not (self.__abort):
@@ -219,7 +224,6 @@ class MAX6675(Worker):
                 step = 0
             else:
                 step += 1
-            totalStep += 1
             self.__app.processEvents()
 
         else:
@@ -229,7 +233,6 @@ class MAX6675(Worker):
             if step > -1:
                 self.calc_average()
                 self.send_processed_data_to_main_thread()
-            self.sigMsg.emit(f"Worker #{self.__id} aborting work at step {totalStep}")
 
             self.sigAbortHeater.emit()
             self.__sumE = 0
@@ -302,7 +305,7 @@ class ADC(Worker):
         IGscale: range (scale) of Ionization Gauge in linear mode
         QMS_signal: int, "trigger" on or off. When on emits a signal from GPIO
         """
-        self.adc_voltage_columns = ["P1", "P2", "Ip"]
+        self.adc_voltage_columns = ADCSIGNALS
         self.adc_processed_columns = [i + "_c" for i in self.adc_voltage_columns]
         self.adc_columns = (
             ["date", "time"] + self.adc_voltage_columns + ["IGmode", "IGscale", "QMS_signal",]
