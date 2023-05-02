@@ -411,7 +411,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             # [self.data, self.sensor_name]
             self.datadict["MAX6675"] = pd.concat([self.datadict["MAX6675"], result[0]], ignore_index=True)
             print(sensor_name)
-            # print(result[0])
+            print(self.datadict["MAX6675"].iloc[-3:])
             # plot data
             #
             """
@@ -422,7 +422,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             #  self.send_step_data.emit([newdata, self.sensor_name])
             self.datadict["ADC"] = pd.concat([self.datadict["ADC"], result[0]], ignore_index=True)
             print(sensor_name)
-            # print(result[0])
+            print(self.datadict["ADC"].iloc[-3:])
             # plot data
             """
             skip = int((self.plaData.shape[0] + MAX_SIZE - 1) / MAX_SIZE)

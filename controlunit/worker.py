@@ -185,7 +185,7 @@ class MAX6675(Worker):
         )
         self.data = pd.concat([self.data, new_row], ignore_index=True)
 
-    def calc_average(self):
+    def calculate_average(self):
         """
         Average signal
         """
@@ -208,7 +208,7 @@ class MAX6675(Worker):
             self.update_dataframe()
 
             if step % (STEP - 1) == 0 and step != 0:
-                self.calc_average()
+                self.calculate_average()
                 self.temperature_control()
                 self.send_processed_data_to_main_thread()
                 self.clear_datasets()
@@ -218,7 +218,7 @@ class MAX6675(Worker):
             self.__app.processEvents()
         else:
             # ABORTING
-            self.calc_average()
+            self.calculate_average()
             self.send_processed_data_to_main_thread()
             self.sigAbortHeater.emit()
             self.__sumE = 0
@@ -424,7 +424,6 @@ class ADC(Worker):
         Clears temporary dataframes to reset memory consumption.
         """
         newdata = self.__adc_data.join(self.__calcData)
-        print(self.__calcData)
         self.send_step_data.emit([newdata, self.sensor_name])
         self.clear_datasets()
 
@@ -454,7 +453,7 @@ class ADC(Worker):
             self.update_processed_signals_dataframe()
 
             if step % (STEP - 1) == 0 and step != 0:
-                self.calculate_averaged_signals()
+                # self.calculate_averaged_signals()
                 self.send_processed_data_to_main_thread()
                 step = 0
             else:
@@ -462,7 +461,7 @@ class ADC(Worker):
             totalStep += 1
             self.__app.processEvents()
         else:
-            self.calculate_averaged_signals()
+            # self.calculate_averaged_signals()
             self.send_processed_data_to_main_thread()
 
         self.sigDone.emit(self.sensor_name)
