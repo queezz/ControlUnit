@@ -81,22 +81,22 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.datapth = read_settings()["datafolder"]
 
         self.sampling = read_settings()["samplingtime"]
-        self.__changeScale()
+        self.update_plot_timewindow()
 
         self.showMain()
 
-    def __changeScale(self):
+    def update_plot_timewindow(self):
         """
-        Set data window size for plotting
-        STEP = 2 from worker
+        adjust time window for data plots
         """
-        index = self.controlDock.scaleBtn.currentIndex()
+        # index = self.controlDock.scaleBtn.currentIndex()
         txt = self.controlDock.scaleBtn.currentText()
         val = self.controlDock.sampling_windows[txt]
-        print(f'Scale = {val}')
+        self.time_window = val
+        print(f"Scale = {val}")
 
     def connections(self):
-        self.controlDock.scaleBtn.currentIndexChanged.connect(self.__changeScale)
+        self.controlDock.scaleBtn.currentIndexChanged.connect(self.update_plot_timewindow)
 
         self.registerDock.registerBtn.clicked.connect(self.registerTemp)
         self.controlDock.IGmode.currentIndexChanged.connect(self.updateIGmode)
@@ -386,6 +386,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         """
 
         sensor_name = result[-1]
+        sizes = [20, 60, 5 * 60, 15 * 60, 30 * 60, 60 * 60, -1]
+        self.time_window
 
         if sensor_name == "MAX6675":
             # [self.data, self.sensor_name]
@@ -393,8 +395,10 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.save_data(sensor_name)
             self.currentvalues["T"] = self.datadict[sensor_name].iloc[-3:]["T"].mean()
             # plot data
-            time = self.datadict[sensor_name]["time"].values.astype(float)
-            temperature = self.datadict[sensor_name]["T"].values.astype(float)
+            df = self.select_data_to_plot(sensor_name)
+
+            time = df["time"].values.astype(float)
+            temperature = df["T"].values.astype(float)
             self.valueTPlot.setData(time, temperature)
 
         if sensor_name == "ADC":
@@ -404,15 +408,28 @@ class MainWidget(QtCore.QObject, UIWindow):
             for plotname, name in zip(ADCSIGNALS, ADCCONVERTED):
                 self.currentvalues[plotname] = self.datadict["ADC"].iloc[-3:][name].mean()
             # plot data
-            time = self.datadict[sensor_name]["time"].values.astype(float)
-            ip = self.datadict[sensor_name]["Ip_c"].values.astype(float)
-            p1 = self.datadict[sensor_name]["P1_c"].values.astype(float)
-            p2 = self.datadict[sensor_name]["P2_c"].values.astype(float)
+            df = self.select_data_to_plot(sensor_name)
+
+            time = df["time"].values.astype(float)
+            ip = df["Ip_c"].values.astype(float)
+            p1 = df["P1_c"].values.astype(float)
+            p2 = df["P2_c"].values.astype(float)
             self.valuePlaPlot.setData(time, ip)
             self.valueP1Plot.setData(time, p1)
             self.valueP2Plot.setData(time, p2)
 
             self.update_current_values()
+
+    def select_data_to_plot(self, sensor_name):
+        """
+        Select data based on self.time_window
+        """
+        df = self.datadict[sensor_name]
+        if self.time_window > 0:
+            last_ts = df["date"].iloc[-1]
+            timewindow = last_ts - pd.Timedelta(self.time_window, "seconds")
+            df = df[df["date"] > timewindow]
+        return df
 
     def save_data(self, sensor_name):
         """
@@ -471,7 +488,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         txt = self.SettingsDock.samplingCb.currentText()
         value = float(txt.split(" ")[0])
         self.sampling = value
-        self.__changeScale()
+        self.update_plot_timewindow()
         if self.adcWorker is not None:
             self.adcWorker.setSampling(value)
 
