@@ -26,12 +26,6 @@ except:
 
 MAX_SIZE = 10000  # Maximum displayed points in pyqgraph plot
 
-# debug
-# def trap_exc_during_debug(*args):
-#     print(args)
-
-# sys.excepthook = trap_exc_during_debug
-
 
 # must inherit QtCore.QObject in order to use 'connect'
 class MainWidget(QtCore.QObject, UIWindow):
@@ -92,28 +86,14 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.showMain()
 
     def __changeScale(self):
-        """Set data window size for plotting
+        """
+        Set data window size for plotting
         STEP = 2 from worker
         """
         index = self.controlDock.scaleBtn.currentIndex()
         txt = self.controlDock.scaleBtn.currentText()
         val = self.controlDock.sampling_windows[txt]
-        if val > 0:
-            adcind = -int(val / self.sampling / (self.STEP - 1))
-            tind = -int(val / 0.25)
-        else:
-            adcind = 0
-            tind = 0
-        self.adcind = adcind
-        self.tind = tind
-
-        return
-        print(f"{txt}\t{adcind}\t{tind}")
-        try:
-            print(self.p1Data.shape)
-        except:
-            pass
-        # self.__scale = ScaleSize.getEnum(index)
+        print(f'Scale = {val}')
 
     def connections(self):
         self.controlDock.scaleBtn.currentIndexChanged.connect(self.__changeScale)
