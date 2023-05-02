@@ -423,6 +423,7 @@ class ADC(Worker):
         Clears temporary dataframes to reset memory consumption.
         """
         newdata = self.__adc_data.join(self.__calcData)
+        print(self.__calcData)
         self.send_step_data.emit([newdata, self.sensor_name])
         self.clear_datasets()
 
