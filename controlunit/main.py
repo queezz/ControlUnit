@@ -411,18 +411,18 @@ class MainWidget(QtCore.QObject, UIWindow):
             # [self.data, self.sensor_name]
             self.datadict["MAX6675"] = pd.concat([self.datadict["MAX6675"], result[0]], ignore_index=True)
             print(sensor_name)
-            #print(result[0])
+            # print(result[0])
             # plot data
             #
             """
             skip = int((self.tData.shape[0] + MAX_SIZE - 1) / MAX_SIZE)
             self.valueTPlot.setData(self.tData[tind::skip, 0], self.tData[tind::skip, 1])
             """
-        elif sensor_name == "ADC":
+        if sensor_name == "ADC":
             #  self.send_step_data.emit([newdata, self.sensor_name])
             self.datadict["ADC"] = pd.concat([self.datadict["ADC"], result[0]], ignore_index=True)
             print(sensor_name)
-            #print(result[0])
+            # print(result[0])
             # plot data
             """
             skip = int((self.plaData.shape[0] + MAX_SIZE - 1) / MAX_SIZE)

@@ -407,7 +407,8 @@ class ADC(Worker):
                     pfeiffer_single_gauge(p2_v),
                     hall_current_sensor(ip_v),
                 ]
-            )
+            ),
+            columns=ADCCONVERTED,
         )
         self.__calcData = pd.concat([self.__calcData, new_calc_row], ignore_index=True)
 
