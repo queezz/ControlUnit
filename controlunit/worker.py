@@ -54,7 +54,6 @@ class Worker(QtCore.QObject):
         self.__app = app
         self.sensor_name = sensor_name
         self.__startTime = startTime
-        self.__abort = False
 
     def print_checks(self):
         attrs = vars(self)
@@ -80,13 +79,6 @@ class Worker(QtCore.QObject):
         self.sampling = sampling
         print(f"Updated sampling to {sampling}")
 
-    @QtCore.pyqtSlot()
-    def abort(self):
-        message = "Worker thread {} aborting acquisition".format(self.sensor_name)
-        self.send_message.emit(message)
-        print(message)
-        self.__abort = True
-
     def enable_pigpio(self):
         """
         pigpiod is needed to acces RasPi GPIO
@@ -108,6 +100,13 @@ class MAX6675(Worker):
         self.sensor_name = sensor_name
         self.__startTime = startTime
         self.__abort = False
+
+    @QtCore.pyqtSlot()
+    def abort(self):
+        message = "Worker thread {} aborting acquisition".format(self.sensor_name)
+        self.send_message.emit(message)
+        print(message)
+        self.__abort = True
 
     def setTempWorker(self, presetTemp: int):
         """
@@ -294,6 +293,13 @@ class ADC(Worker):
         self.sensor_name = sensor_name
         self.__startTime = startTime
         self.__abort = False
+
+    @QtCore.pyqtSlot()
+    def abort(self):
+        message = "Worker thread {} aborting acquisition".format(self.sensor_name)
+        self.send_message.emit(message)
+        print(message)
+        self.__abort = True
 
     def init_adc_worker(self, IGmode: int, IGrange: int):
         """
