@@ -415,10 +415,12 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.currentvalues["T"] = self.datadict["MAX6675"].iloc[-3:]["T"].mean()
             # plot data
             time = self.datadict["MAX6675"]["time"]
+            time = time.values
+            time = time.astype(float)
             temperature = self.datadict["MAX6675"]["T"]
-            print(time.values)
-            print(type(time.values))
-            self.valueTPlot.setData(time.values, time.values)
+            print(time)
+            print(type(time[0]))
+            self.valueTPlot.setData(time, time)
             """
             skip = int((self.tData.shape[0] + MAX_SIZE - 1) / MAX_SIZE)
             self.valueTPlot.setData(self.tData[tind::skip, 0], self.tData[tind::skip, 1])
