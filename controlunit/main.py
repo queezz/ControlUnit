@@ -356,9 +356,9 @@ class MainWidget(QtCore.QObject, UIWindow):
         """
         Connects worker signals to the main thread
         """
-        worker.sigStep.connect(self.on_worker_step)
+        worker.send_step_data.connect(self.on_worker_step)
         worker.sigDone.connect(self.on_worker_done)
-        worker.sigMsg.connect(self.logDock.log.append)
+        worker.send_message.connect(self.logDock.log.append)
         self.sigAbortWorkers.connect(worker.abort)
 
     def update_current_values(self):
@@ -458,7 +458,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.reset_data()
 
         if self.__workers_done == 2:
-            self.abort_all_threads()   
+            self.abort_all_threads()
             self.logDock.log.append("No more plot workers active")
 
     @QtCore.pyqtSlot()

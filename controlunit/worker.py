@@ -39,13 +39,13 @@ except:
 # must inherit QtCore.QObject in order to use 'connect'
 class Worker(QtCore.QObject):
     """
-    sigMsg usage:
-    self.sigMsg.emit(f"Your Message Here to pass to main.py")
+    send_message usage:
+    self.send_message.emit(f"Your Message Here to pass to main.py")
     """
 
-    sigStep = QtCore.pyqtSignal(list)
+    send_step_data = QtCore.pyqtSignal(list)
     sigDone = QtCore.pyqtSignal(str)
-    sigMsg = QtCore.pyqtSignal(str)
+    send_message = QtCore.pyqtSignal(str)
 
     def __init__(self, sensor_name, app, startTime):
         super().__init__()
@@ -82,7 +82,9 @@ class Worker(QtCore.QObject):
 
     @QtCore.pyqtSlot()
     def abort(self):
-        self.sigMsg.emit("Worker #{} aborting acquisition".format(self.__id))
+        message = "Worker thread {} aborting acquisition".format(self.sensor_name)
+        self.send_message.emit(message)
+        print(message)
         self.__abort = True
 
     def enable_pigpio(self):
@@ -172,7 +174,7 @@ class MAX6675(Worker):
         """
         Send processed data to main.py
         """
-        self.sigStep.emit(
+        self.send_step_data.emit(
             [self.data, self.average, self.sensor_name, self.__startTime,]
         )
 
@@ -436,7 +438,7 @@ class ADC(Worker):
         Sends processed data to main thread in main.py
         Clears temporary dataframes to reset memory consumption.
         """
-        self.sigStep.emit(
+        self.send_step_data.emit(
             [self.__adc_data, self.__calcData, self.averages, self.sensor_name, self.__startTime,]
         )
         self.clear_datasets()
@@ -482,7 +484,7 @@ class ADC(Worker):
                 self.calculate_averaged_signals()
                 self.send_processed_data_to_main_thread()
 
-            self.sigMsg.emit(f"Worker #{self.__id} aborting work at step {totalStep}")
+            self.send_message.emit(f"Worker #{self.__id} aborting work at step {totalStep}")
 
         self.sigDone.emit(self.sensor_name)
         return
