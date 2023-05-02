@@ -455,7 +455,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.logDock.log.append("Worker #{} done".format(sensor_name))
         self.logDock.progress.append("-- Signal {} STOPPED".format(sensor_name))
         self.__workers_done += 1
-        self.reset_data()
+        self.reset_data(sensor_name)
 
         if self.__workers_done == 2:
             self.abort_all_threads()
