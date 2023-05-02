@@ -409,34 +409,29 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         if sensor_name == "MAX6675":
             # [self.data, self.sensor_name]
-            self.datadict["MAX6675"] = pd.concat([self.datadict["MAX6675"], result[0]], ignore_index=True)
+            self.datadict[sensor_name] = pd.concat([self.datadict[sensor_name], result[0]], ignore_index=True)
             self.save_data(sensor_name)
-            # print(sensor_name)
-            # print(self.datadict["MAX6675"].iloc[-3:])
-            self.currentvalues["T"] = self.datadict["MAX6675"].iloc[-3:]["T"].mean()
+            self.currentvalues["T"] = self.datadict[sensor_name].iloc[-3:]["T"].mean()
             # plot data
-            time = self.datadict["MAX6675"]["time"].values.astype(float)
-            temperature = self.datadict["MAX6675"]["T"].values.astype(float)
+            time = self.datadict[sensor_name]["time"].values.astype(float)
+            temperature = self.datadict[sensor_name]["T"].values.astype(float)
             self.valueTPlot.setData(time, temperature)
-            """
-            skip = int((self.tData.shape[0] + MAX_SIZE - 1) / MAX_SIZE)
-            self.valueTPlot.setData(self.tData[tind::skip, 0], self.tData[tind::skip, 1])
-            """
+
         if sensor_name == "ADC":
             #  self.send_step_data.emit([newdata, self.sensor_name])
-            self.datadict["ADC"] = pd.concat([self.datadict["ADC"], result[0]], ignore_index=True)
+            self.datadict[sensor_name] = pd.concat([self.datadict[sensor_name], result[0]], ignore_index=True)
             self.save_data(sensor_name)
-            # print(sensor_name)
-            # print(self.datadict["ADC"].iloc[-3:])
             for plotname, name in zip(ADCSIGNALS, ADCCONVERTED):
                 self.currentvalues[plotname] = self.datadict["ADC"].iloc[-3:][name].mean()
             # plot data
-            """
-            skip = int((self.plaData.shape[0] + MAX_SIZE - 1) / MAX_SIZE)
-            self.valuePlaPlot.setData(self.plaData[scale::skip, 0], self.plaData[scale::skip, 1])            
-            self.valueP1Plot.setData(self.p1Data[scale::skip, 0], self.p1Data[scale::skip, 1])
-            self.valueP2Plot.setData(self.p2Data[scale::skip, 0], self.p2Data[scale::skip, 1])
-            """
+            time = self.datadict[sensor_name]["time"].values.astype(float)
+            ip = self.datadict[sensor_name]["Ip_c"].values.astype(float)
+            p1 = self.datadict[sensor_name]["P1_c"].values.astype(float)
+            p2 = self.datadict[sensor_name]["P2_c"].values.astype(float)
+            self.valuePlaPlot.setData(time, ip)
+            self.valueP1Plot.setData(time, p1)
+            self.valueP2Plot.setData(time, p2)
+
             self.update_current_values()
 
     def save_data(self, sensor_name):
