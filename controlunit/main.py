@@ -410,6 +410,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         if sensor_name == "MAX6675":
             # [self.data, self.sensor_name]
             self.datadict["MAX6675"] = pd.concat([self.datadict["MAX6675"], result[0]], ignore_index=True)
+            self.save_data(sensor_name)
             # print(sensor_name)
             # print(self.datadict["MAX6675"].iloc[-3:])
             self.currentvalues["T"] = self.datadict["MAX6675"].iloc[-3:]["T"].mean()
@@ -424,6 +425,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         if sensor_name == "ADC":
             #  self.send_step_data.emit([newdata, self.sensor_name])
             self.datadict["ADC"] = pd.concat([self.datadict["ADC"], result[0]], ignore_index=True)
+            self.save_data(sensor_name)
             # print(sensor_name)
             # print(self.datadict["ADC"].iloc[-3:])
             for plotname, name in zip(ADCSIGNALS, ADCCONVERTED):
