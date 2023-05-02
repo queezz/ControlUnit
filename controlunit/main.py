@@ -418,7 +418,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             temperature = self.datadict["MAX6675"]["T"]
             print(time.values)
             print(type(time.values))
-            # self.valueTPlot.setData(time.values, temperature.values)
+            self.valueTPlot.setData(time.values, time.values)
             """
             skip = int((self.tData.shape[0] + MAX_SIZE - 1) / MAX_SIZE)
             self.valueTPlot.setData(self.tData[tind::skip, 0], self.tData[tind::skip, 1])
