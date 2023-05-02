@@ -75,6 +75,16 @@ class Worker(QtCore.QObject):
         self.sigMsg.emit("Worker #{} aborting acquisition".format(self.__id))
         self.__abort = True
 
+    def enable_pigpio(self):
+        """
+        pigpiod is needed to acces RasPi GPIO
+        Used in, i.e., temperature control
+        https://raspberrypi.stackexchange.com/questions/70568/how-to-run-pigpiod-on-boot
+        """
+        from os import system
+
+        system("sudo pigpiod")
+
 
 class MAX6675(Worker):
 
@@ -87,8 +97,10 @@ class MAX6675(Worker):
         self.__startTime = startTime
         self.__abort = False
 
-    # set temperature worker
     def setTempWorker(self, presetTemp: int):
+        """
+        needs pigpio daemon
+        """
         self.columns = ["date", "time", "T", "PresetT"]
         self.data = pd.DataFrame(columns=self.columns)
         self.temperature_setpoint = presetTemp
@@ -97,6 +109,8 @@ class MAX6675(Worker):
         if TEST:
             print("needs pigpio to access SPI")
             return
+
+        self.enable_pigpio()
 
         self.pi = pigpio.pi()
         self.__sumE = 0
@@ -129,6 +143,7 @@ class MAX6675(Worker):
     def init_thermocouple(self):
         """
         Select MAX6675 sensor on the SPI
+        Need to start PIGPIO daemon
         """
         self.sensor = self.pi.spi_open(CHT, 1000000, 0)
 
