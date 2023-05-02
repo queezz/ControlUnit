@@ -230,13 +230,11 @@ class MAX6675(Worker):
 
         else:
             # ABORTING
-            if self.data.shape[0] < 2:
-                step -= 1
-            if step > -1:
-                self.calc_average()
-                self.send_processed_data_to_main_thread()
+            print(f"{self.sensor_name} get out of the while")
+            self.calc_average()
+            self.send_processed_data_to_main_thread()
 
-            print(f"Exited while loop {self.sensor_name}")
+            print(f"{self.sensor_name} before aborting heater")
 
             self.sigAbortHeater.emit()
             self.__sumE = 0
@@ -479,12 +477,8 @@ class ADC(Worker):
             totalStep += 1
             self.__app.processEvents()
         else:
-            # On ABORT
-            if self.__calcData.shape[0] == 0:
-                step -= 1
-            if step > -1:
-                self.calculate_averaged_signals()
-                self.send_processed_data_to_main_thread()
+            self.calculate_averaged_signals()
+            self.send_processed_data_to_main_thread()
 
             print(f"Exited while loop {self.sensor_name}")
 
