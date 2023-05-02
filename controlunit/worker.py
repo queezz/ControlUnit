@@ -227,6 +227,7 @@ class MAX6675(Worker):
             else:
                 step += 1
             self.__app.processEvents()
+            print(f"{self.sensor_name} self.__abort={self.__abort}")
 
         else:
             # ABORTING
