@@ -19,4 +19,7 @@ CHLED = 27         # GPIO output for LED and sync signal for QMS
 # column names and channels
 TCCOLUMNS = ["date", "time", "T", "PresetT"]
 ADCSIGNALS = ["P1", "P2", "Ip"]
-ADCCHANNELS = [CHP1, CHP2, CHIP]
+ADCCONVERTED = [i + "_c" for i in ADCSIGNALS]
+ADCCOLUMNS = ["date", "time"] + ADCSIGNALS + ["IGmode", "IGscale", "QMS_signal"]
+
+# ADCCHANNELS = [CHP1, CHP2, CHIP]

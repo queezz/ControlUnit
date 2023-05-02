@@ -18,13 +18,7 @@ from readsettings import read_settings
 from conversions import ionization_gauge, hall_current_sensor, pfeiffer_single_gauge
 
 TEST = False
-
-
 PRINTTHREADINFO = False
-
-# TT - if gets into setting up membrane heater current
-TT = True  # What is this? Used in Temperature Feedback Control
-
 # Number of data points for collection, steps%STEP == 0
 STEP = 3
 
@@ -70,7 +64,6 @@ class Worker(QtCore.QObject):
         print(threadName)
         return
 
-    # MARK: - Getters
     def getStartTime(self):
         return self.__startTime
 
@@ -158,9 +151,8 @@ class MAX6675(Worker):
         """
         Read MAX6675 sensor output
         """
-        self.temperature = -1000  # Temperature.
+        self.temperature = -1000  # If reading fails
 
-        # READ DATA
         c, d = self.pi.spi_read(self.sensor, 2)  # if c==2: ok else: not good
         if c == 2:
             word = (d[0] << 8) | d[1]
@@ -173,9 +165,7 @@ class MAX6675(Worker):
         """
         Send processed data to main.py
         """
-        self.send_step_data.emit(
-            [self.data, self.average, self.sensor_name, self.__startTime,]
-        )
+        self.send_step_data.emit([self.data, self.sensor_name])
 
     def clear_datasets(self):
         """
@@ -226,16 +216,10 @@ class MAX6675(Worker):
             else:
                 step += 1
             self.__app.processEvents()
-            print(f"{self.sensor_name} self.__abort={self.__abort}")
-
         else:
             # ABORTING
-            print(f"{self.sensor_name} get out of the while")
             self.calc_average()
             self.send_processed_data_to_main_thread()
-
-            print(f"{self.sensor_name} before aborting heater")
-
             self.sigAbortHeater.emit()
             self.__sumE = 0
             self.thread.quit()
@@ -246,7 +230,6 @@ class MAX6675(Worker):
         self.thread = None
         self.sigDone.emit(self.sensor_name)
 
-    # MARK: - Control
     def temperature_control(self):
         """
         Shouldn't the self.sampling here be 0.25, not the one for ADC?
@@ -315,13 +298,10 @@ class ADC(Worker):
         QMS_signal: int, "trigger" on or off. When on emits a signal from GPIO
         """
         self.adc_voltage_columns = ADCSIGNALS
-        self.adc_processed_columns = [i + "_c" for i in self.adc_voltage_columns]
-        self.adc_columns = (
-            ["date", "time"] + self.adc_voltage_columns + ["IGmode", "IGscale", "QMS_signal",]
-        )
-        # self.__adc_data = np.zeros(shape=(STEP, len(self.adc_columns)))
+        self.adc_processed_columns = ADCCONVERTED
+        self.adc_columns = ADCCOLUMNS
+
         self.__adc_data = pd.DataFrame(columns=self.adc_columns)
-        # self.__calcData = np.zeros(shape=(STEP, 4))
         self.__calcData = pd.DataFrame(columns=self.adc_processed_columns)
         self.__IGmode = IGmode
         self.__IGrange = IGrange
@@ -354,7 +334,6 @@ class ADC(Worker):
         self.__qmsSignal = signal
         return
 
-    # MARK: - Methods
     @QtCore.pyqtSlot()
     def start(self):
         """
@@ -363,8 +342,6 @@ class ADC(Worker):
         """
         self.set_thread_name()
         self.acquisition_loop()
-
-    # MARK: - Plot
 
     def set_adc_channels(self):
         """
@@ -445,9 +422,8 @@ class ADC(Worker):
         Sends processed data to main thread in main.py
         Clears temporary dataframes to reset memory consumption.
         """
-        self.send_step_data.emit(
-            [self.__adc_data, self.__calcData, self.averages, self.sensor_name, self.__startTime,]
-        )
+        newdata = self.__adc_data.join(self.__calcData)
+        self.send_step_data.emit([newdata, self.sensor_name])
         self.clear_datasets()
 
     def clear_datasets(self):
@@ -486,8 +462,6 @@ class ADC(Worker):
         else:
             self.calculate_averaged_signals()
             self.send_processed_data_to_main_thread()
-
-            print(f"Exited while loop {self.sensor_name}")
 
         self.sigDone.emit(self.sensor_name)
         return
