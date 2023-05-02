@@ -5,12 +5,9 @@ from PyQt5 import QtGui, QtCore, QtWidgets
 
 from mainView import UIWindow
 from worker import MAX6675, ADC, Worker
-from customTypes import Signals
 from readsettings import make_datafolders, read_settings
 import qmsSignal
 from channels import TCCOLUMNS, ADCCOLUMNS, ADCCONVERTED, ADCSIGNALS
-
-testmark = "test-"
 
 try:
     from AIO import AIO_32_0RA_IRC as adc
@@ -341,12 +338,14 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         if worker.sensor_name == "MAX6675":
             self.savepaths[worker.sensor_name] = os.path.join(
-                self.datapth, f"{testmark}out_{worker.getStartTime():%Y%m%d_%H%M%S}_temp.csv",
+                os.path.abspath(self.datapth), f"controlunit_{worker.getStartTime():%Y%m%d_%H%M%S}_temp.csv"
             )
+            self.logDock.log.append(f"{worker.sensor_name} savepath: {self.savepaths[worker.sensor_name]}")
         if worker.sensor_name == "ADC":
-            self.savepaths[worker.sensor_name] = (
-                os.path.join(self.datapth, f"{testmark}out_{worker.getStartTime():%Y%m%d_%H%M%S}.csv",),
+            self.savepaths[worker.sensor_name] = os.path.join(
+                os.path.abspath(self.datapth), f"controlunit_{worker.getStartTime():%Y%m%d_%H%M%S}.csv"
             )
+            self.logDock.log.append(f"{worker.sensor_name} savepath: {self.savepaths[worker.sensor_name]}")
 
         thread.started.connect(worker.start)
         thread.start()
@@ -415,7 +414,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             # print(self.datadict["MAX6675"].iloc[-3:])
             self.currentvalues["T"] = self.datadict["MAX6675"].iloc[-3:]["T"].mean()
             # plot data
-            #
+            self.valueTPlot.setData(self.datadict["MAX6675"]["time"], self.datadict["MAX6675"]["T"])
             """
             skip = int((self.tData.shape[0] + MAX_SIZE - 1) / MAX_SIZE)
             self.valueTPlot.setData(self.tData[tind::skip, 0], self.tData[tind::skip, 1])
@@ -471,7 +470,7 @@ class MainWidget(QtCore.QObject, UIWindow):
     def registerTemp(self):
         value = self.registerDock.temperatureSB.value()
         self.__temp = value
-        temp_now = self.currentvals[Signals.TEMPERATURE]
+        temp_now = self.currentvalues["T"]
         self.registerDock.setTemp(self.__temp, f"{temp_now:.0f}")
         if self.tWorker is not None:
             self.tWorker.setPresetTemp(self.__temp)

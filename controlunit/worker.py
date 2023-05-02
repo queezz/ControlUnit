@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 from PyQt5 import QtGui, QtCore, QtWidgets
 
-from customTypes import Signals  # import for now, then get rid of Signals
 from heatercontrol import HeaterContol
 from readsettings import read_settings
 
