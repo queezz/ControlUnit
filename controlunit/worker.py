@@ -229,12 +229,14 @@ class MAX6675(Worker):
             self.__app.processEvents()
 
         else:
-            # On ABORT. Now renders some strange behavior and numpy errors.
+            # ABORTING
             if self.data.shape[0] < 2:
                 step -= 1
             if step > -1:
                 self.calc_average()
                 self.send_processed_data_to_main_thread()
+
+            print(f"Exited while loop {self.sensor_name}")
 
             self.sigAbortHeater.emit()
             self.__sumE = 0
@@ -478,13 +480,13 @@ class ADC(Worker):
             self.__app.processEvents()
         else:
             # On ABORT
-            if self.__calcData[step][0] == 0.0:
+            if self.__calcData.shape[0] == 0:
                 step -= 1
             if step > -1:
                 self.calculate_averaged_signals()
                 self.send_processed_data_to_main_thread()
 
-            self.send_message.emit(f"Worker #{self.__id} aborting work at step {totalStep}")
+            print(f"Exited while loop {self.sensor_name}")
 
         self.sigDone.emit(self.sensor_name)
         return
