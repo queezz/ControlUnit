@@ -351,12 +351,15 @@ class ADC(Worker):
         self.adc_channels: dict
             dictionary of channels with their voltage scales
         """
-        self.CHNLS = [CHP1, CHP2, CHIP]
+        self.CHNLS = CHNLSADC
         scale10 = [CHP1, CHP2]
         scale5 = [CHIP]
+        scale1 = [CHB1]
         self.adc_channels = {CH: {"pga": self.aio.PGA.PGA_10_0352V} for CH in scale10}
         for CH in scale5:
             self.adc_channels[CH] = {"pga": self.aio.PGA.PGA_5_0176V}
+        for CH in scale1:
+            self.adc_channels[CH] = {"pga": self.aio.PGA.PGA_1_2544V}
 
     def adc_init(self):
         """

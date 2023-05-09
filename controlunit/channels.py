@@ -30,3 +30,4 @@ ionization_gauge(p1_v, self.__IGmode, self.__IGrange),
 pfeiffer_single_gauge(p2_v),
 hall_current_sensor(ip_v),
 """
+# When adding ADC channels, must add adc gain in set_adc_channels in worker line 345
