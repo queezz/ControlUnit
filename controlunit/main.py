@@ -333,13 +333,14 @@ class MainWidget(QtCore.QObject, UIWindow):
         """
         if sensor_name == "MAX6675":
             self.savepaths[sensor_name] = os.path.join(
-                os.path.abspath(self.datapth), f"cu_{datetime.datetime.now:%Y%m%d_%H%M%S}_temp.csv"
+                os.path.abspath(self.datapth),
+                f"cu_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_temp.csv",
             )
             with open(self.savepaths[sensor_name], "w") as f:
                 f.writelines(self.generate_header_temperature())
         if sensor_name == "ADC":
             self.savepaths[sensor_name] = os.path.join(
-                os.path.abspath(self.datapth), f"cu_{datetime.datetime.now:%Y%m%d_%H%M%S}.csv"
+                os.path.abspath(self.datapth), f"cu_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
             )
             with open(self.savepaths[sensor_name], "w") as f:
                 f.writelines(self.generate_header_adc())
