@@ -60,6 +60,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             "Ip": {"color": "#8d3de3", "width": 2},
             "P1": {"color": "#6ac600", "width": 2},
             "P2": {"color": "#c9004d", "width": 2},
+            "B1": {"color": "#ffb405", "width": 2},
             "T": {"color": "#5999ff", "width": 2},
             "trigger": {"color": "#edbc34", "width": 2},
         }
@@ -68,6 +69,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.valueTPlot = self.graph.tempPl.plot(pen=self.pens["T"])
         self.valueP1Plot = self.graph.presPl.plot(pen=self.pens["P1"])
         self.valueP2Plot = self.graph.presPl.plot(pen=self.pens["P2"])
+        self.valueB1Plot = self.graph.presPl.plot(pen=self.pens["B1"])
         self.graph.tempPl.setXLink(self.graph.presPl)
         self.graph.plaPl.setXLink(self.graph.presPl)
 
@@ -77,7 +79,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         self.tWorker = None
         self.adcWorker = None
-    
+
         self.datapth = make_datafolders()
 
         self.sampling = read_settings()["samplingtime"]
@@ -409,6 +411,11 @@ class MainWidget(QtCore.QObject, UIWindow):
                     I = {self.currentvalues['Ip']:.2f}
                    </font>
                   </td>
+                  <td>
+                   <font size=5 color={self.pens['B1']['color']}>
+                    I = {self.currentvalues['B1']:.2f}
+                   </font>
+                  </td>
                  </tr>
                 </table>
         """
@@ -435,6 +442,8 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.newdata[sensor_name] = result[0]
             self.append_data(sensor_name)
             self.save_data(sensor_name)
+            # here 3 is number of data points recieved from worker.
+            # TODO: update to self.newdata[sensor_name]['T'].mean()
             self.currentvalues["T"] = self.datadict[sensor_name].iloc[-3:]["T"].mean()
             # plot data
             df = self.select_data_to_plot(sensor_name)
@@ -457,9 +466,11 @@ class MainWidget(QtCore.QObject, UIWindow):
             ip = df["Ip_c"].values.astype(float)
             p1 = df["P1_c"].values.astype(float)
             p2 = df["P2_c"].values.astype(float)
+            b1 = df["B1_c"].values.astype(float)
             self.valuePlaPlot.setData(time, ip)
             self.valueP1Plot.setData(time, p1)
             self.valueP2Plot.setData(time, p2)
+            self.valueB1Plot.setData(time, b1)
 
             self.update_current_values()
 
