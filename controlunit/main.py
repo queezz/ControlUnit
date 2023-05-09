@@ -413,7 +413,7 @@ class MainWidget(QtCore.QObject, UIWindow):
                   </td>
                   <td>
                    <font size=5 color={self.pens['B1']['color']}>
-                    I = {self.currentvalues['B1']:.3f}
+                    I = {self.currentvalues['B1']:.1e}
                    </font>
                   </td>
                  </tr>
