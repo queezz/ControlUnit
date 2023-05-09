@@ -77,9 +77,8 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         self.tWorker = None
         self.adcWorker = None
-
-        make_datafolders()
-        self.datapth = read_settings()["datafolder"]
+    
+        self.datapth = make_datafolders()
 
         self.sampling = read_settings()["samplingtime"]
         self.update_plot_timewindow()

@@ -14,12 +14,15 @@ def make_datafolders():
     if foldername.startswith("~"):
         home = expanduser("~")
         foldername = home + foldername[1:]
+    print(f"I'll try to create datafolder: {foldername}")
 
     try:
         os.makedirs(foldername)
         print(f"created {foldername}")
     except FileExistsError:
         pass
+
+    return foldername
 
 
 def read_settings():
