@@ -8,7 +8,7 @@ def make_datafolders():
     foldername = settings['datafolder']
 
     try:
-        os.mkdir(foldername)
+        os.makedirs(foldername)
         print(f'created {foldername}')
     except FileExistsError:
         pass 
