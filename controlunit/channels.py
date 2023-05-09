@@ -6,10 +6,11 @@ TODO: add conversion functions for each sensor in a dictionary
 """
 # fmt: off
 # ADC
-CHP1 = 0           # 15, Ionization Gauge
-CHP2 = 1           # 16, Pfeiffer single gauge
+CHP1 = 0           # 15, Ionization Gauge (downstream)
+CHP2 = 1           # 16, Pfeiffer single gauge (upstream)
 CHIP = 2           # 5, Plasma current, Hall effect sensor
-CHNLSADC = [CHP1, CHP2, CHIP]
+CHB1 = 3           # Baratron 1 (upstream)
+CHNLSADC = [CHP1, CHP2, CHIP,CHB1]
 # Thermocouple
 CHT = 0            # 0 -> CS0, 1 -> CS1 Thermocouple
 # GPIOs
@@ -19,8 +20,13 @@ CHLED = 27         # GPIO output for LED and sync signal for QMS
 # fmt: on
 # column names and channels
 TCCOLUMNS = ["date", "time", "T", "PresetT"]
-ADCSIGNALS = ["P1", "P2", "Ip"]
+ADCSIGNALS = ["P1", "P2", "Ip", "B1"]
 ADCCONVERTED = [i + "_c" for i in ADCSIGNALS]
 ADCCOLUMNS = ["date", "time"] + ADCSIGNALS + ["IGmode", "IGscale", "QMS_signal"]
 
-# ADCCHANNELS = [CHP1, CHP2, CHIP]
+# Conversion of signals is done in worker.py line 405 in update_processed_signals_dataframe
+"""
+ionization_gauge(p1_v, self.__IGmode, self.__IGrange),
+pfeiffer_single_gauge(p2_v),
+hall_current_sensor(ip_v),
+"""

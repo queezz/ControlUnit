@@ -14,7 +14,7 @@ from heatercontrol import HeaterContol
 from readsettings import read_settings
 
 # Converting raw signals to data
-from conversions import ionization_gauge, hall_current_sensor, pfeiffer_single_gauge
+from conversions import ionization_gauge, hall_current_sensor, pfeiffer_single_gauge, baratron
 
 TEST = False
 PRINTTHREADINFO = False
@@ -398,13 +398,14 @@ class ADC(Worker):
         TODO: add a list of signals with their calc functions somewhere
         to make this automatc
         """
-        p1_v, p2_v, ip_v = self.adc_voltages
+        p1_v, p2_v, ip_v, b1 = self.adc_voltages
         new_calc_row = pd.DataFrame(
             np.atleast_2d(
                 [
                     ionization_gauge(p1_v, self.__IGmode, self.__IGrange),
                     pfeiffer_single_gauge(p2_v),
                     hall_current_sensor(ip_v),
+                    baratron(b1, 0.1),  # Fullscale = 0.1 Torr
                 ]
             ),
             columns=ADCCONVERTED,

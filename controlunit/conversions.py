@@ -53,3 +53,12 @@ def hall_current_sensor(v, type=5):
         max range of the sensor
     """
     return 5 / 1 * (v - 2.52)
+
+
+def baratron(v, fullscale):
+    """
+    Convert Baratron signal to pressure in Torr
+    Full scale corresponds to 10 V.
+    """
+    return v / 10 * fullscale
+
