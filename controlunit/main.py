@@ -7,7 +7,8 @@ from mainView import UIWindow
 from worker import MAX6675, ADC, Worker
 from readsettings import make_datafolders, read_settings
 import qmsSignal
-from channels import TCCOLUMNS, ADCCOLUMNS, ADCCONVERTED, ADCSIGNALS
+from channels import TCCOLUMNS, ADCCOLUMNS, ADCCONVERTED, ADCSIGNALS, CHNLSADC
+from channels import CHHEATER, CHLED
 
 try:
     from AIO import AIO_32_0RA_IRC as adc
@@ -266,6 +267,10 @@ class MainWidget(QtCore.QObject, UIWindow):
             "MAX6675": pd.DataFrame(columns=TCCOLUMNS),
             "ADC": pd.DataFrame(columns=ADCCOLUMNS + ADCCONVERTED),
         }
+        self.newdata = {
+            "MAX6675": pd.DataFrame(columns=TCCOLUMNS),
+            "ADC": pd.DataFrame(columns=ADCCOLUMNS + ADCCONVERTED),
+        }
 
         self.__workers_done = 0
 
@@ -316,19 +321,55 @@ class MainWidget(QtCore.QObject, UIWindow):
         worker.moveToThread(thread)
         self.connect_worker_signals(worker)
 
-        if worker.sensor_name == "MAX6675":
-            self.savepaths[worker.sensor_name] = os.path.join(
-                os.path.abspath(self.datapth), f"controlunit_{worker.getStartTime():%Y%m%d_%H%M%S}_temp.csv"
-            )
-            self.logDock.log.append(f"{worker.sensor_name} savepath: {self.savepaths[worker.sensor_name]}")
-        if worker.sensor_name == "ADC":
-            self.savepaths[worker.sensor_name] = os.path.join(
-                os.path.abspath(self.datapth), f"controlunit_{worker.getStartTime():%Y%m%d_%H%M%S}.csv"
-            )
-            self.logDock.log.append(f"{worker.sensor_name} savepath: {self.savepaths[worker.sensor_name]}")
+        self.create_file(worker.sensor_name)
+        self.logDock.log.append(f"{worker.sensor_name} savepath: {self.savepaths[worker.sensor_name]}")
 
         thread.started.connect(worker.start)
         thread.start()
+
+    def create_file(self, sensor_name):
+        """
+        Create file for saving sensor data
+        """
+        if sensor_name == "MAX6675":
+            self.savepaths[sensor_name] = os.path.join(
+                os.path.abspath(self.datapth), f"cu_{datetime.datetime.now:%Y%m%d_%H%M%S}_temp.csv"
+            )
+            with open(self.savepaths[sensor_name], "w") as f:
+                f.writelines(self.generate_header_temperature())
+        if sensor_name == "ADC":
+            self.savepaths[sensor_name] = os.path.join(
+                os.path.abspath(self.datapth), f"cu_{datetime.datetime.now:%Y%m%d_%H%M%S}.csv"
+            )
+            with open(self.savepaths[sensor_name], "w") as f:
+                f.writelines(self.generate_header_adc())
+
+    def generate_header_adc(self):
+        """
+        Generage ADC header
+        """
+        return [
+            "# Control Unit ADC signals\n",
+            f"# Date: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n",
+            f"# Columns: {', '.join(ADCCOLUMNS + ADCCONVERTED)}\n" f"# Signals: {', '.join(ADCSIGNALS)}\n",
+            f"# Channels: {', '.join([str(i) for i in CHNLSADC])}\n"
+            "# For converted signals '_c' is added\n",
+            "#\n",
+            "# [Data]\n",
+        ]
+
+    def generate_header_temperature(self):
+        """
+        Generage Teperature header
+        """
+        return [
+            "# Control Unit Temperature Control signals\n",
+            f"# Date: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n",
+            f"# Columns: {', '.join(TCCOLUMNS)}\n" f"# Heater GPIO: {CHHEATER}\n",
+            f"# LED GPIO: {CHLED}\n",
+            "#\n",
+            "# [Data]\n",
+        ]
 
     def connect_worker_signals(self, worker):
         """
@@ -391,7 +432,8 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         if sensor_name == "MAX6675":
             # [self.data, self.sensor_name]
-            self.datadict[sensor_name] = pd.concat([self.datadict[sensor_name], result[0]], ignore_index=True)
+            self.newdata[sensor_name] = result[0]
+            self.append_data(sensor_name)
             self.save_data(sensor_name)
             self.currentvalues["T"] = self.datadict[sensor_name].iloc[-3:]["T"].mean()
             # plot data
@@ -403,7 +445,8 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         if sensor_name == "ADC":
             #  self.send_step_data.emit([newdata, self.sensor_name])
-            self.datadict[sensor_name] = pd.concat([self.datadict[sensor_name], result[0]], ignore_index=True)
+            self.newdata[sensor_name] = result[0]
+            self.append_data(sensor_name)
             self.save_data(sensor_name)
             for plotname, name in zip(ADCSIGNALS, ADCCONVERTED):
                 self.currentvalues[plotname] = self.datadict["ADC"].iloc[-3:][name].mean()
@@ -419,6 +462,14 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.valueP2Plot.setData(time, p2)
 
             self.update_current_values()
+
+    def append_data(self, sensor_name):
+        """
+        Append new data to dataframe
+        """
+        self.datadict[sensor_name] = pd.concat(
+            [self.datadict[sensor_name], self.newdata[sensor_name]], ignore_index=True
+        )
 
     def select_data_to_plot(self, sensor_name):
         """
@@ -436,7 +487,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         Save sensor data        
         """
         savepath = self.savepaths[sensor_name]
-        data = self.datadict[sensor_name]
+        data = self.newdata[sensor_name]
         data.to_csv(savepath, mode="a", header=False, index=False)
 
     @QtCore.pyqtSlot(str)
@@ -461,6 +512,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
     def reset_data(self, sensor_name):
         self.datadict[sensor_name] = self.datadict[sensor_name].iloc[0:0]
+        self.newdata[sensor_name] = self.newdata[sensor_name].iloc[0:0]
 
     @QtCore.pyqtSlot()
     def registerTemp(self):

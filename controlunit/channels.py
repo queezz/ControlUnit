@@ -9,6 +9,7 @@ TODO: add conversion functions for each sensor in a dictionary
 CHP1 = 0           # 15, Ionization Gauge
 CHP2 = 1           # 16, Pfeiffer single gauge
 CHIP = 2           # 5, Plasma current, Hall effect sensor
+CHNLSADC = [CHP1, CHP2, CHIP]
 # Thermocouple
 CHT = 0            # 0 -> CS0, 1 -> CS1 Thermocouple
 # GPIOs
