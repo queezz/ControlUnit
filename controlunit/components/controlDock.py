@@ -21,7 +21,7 @@ class ControlDock(Dock):
         self.quitBtn.setFont(QtGui.QFont("serif", 16))
 
         self.valueBw = QtWidgets.QTextBrowser()
-        self.valueBw.setMaximumHeight(90)
+        self.valueBw.setMaximumHeight(100)
         self.valueBw.setMinimumWidth(300)
         self.valueBw.setCurrentFont(QtGui.QFont("Courier New"))
 

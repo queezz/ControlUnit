@@ -108,6 +108,7 @@ class MainWidget(QtCore.QObject, UIWindow):
     def connections(self):
         self.controlDock.scaleBtn.currentIndexChanged.connect(self.update_plot_timewindow)
         self.ADCGainDock.gain_box.currentIndexChanged.connect(self.update_baratron_gain)
+        self.ADCGainDock.set_gain_btn.clicked.connect(self.__set_gain)
 
         self.tempcontrolDock.registerBtn.clicked.connect(self.registerTemp)
         self.controlDock.IGmode.currentIndexChanged.connect(self.updateIGmode)
@@ -404,14 +405,17 @@ class MainWidget(QtCore.QObject, UIWindow):
               <table>
                  <tr>
                   <td>
-                  <font size=5 color={self.pens['P1']['color']}>
+                  <font size=4 color={self.pens['P1']['color']}>
                     Pd = {self.currentvalues['P1']:.1e}
                   </font>
                   </td>
                   <td>
-                   <font size=5 color={self.pens['P2']['color']}>
+                   <font size=4 color={self.pens['P2']['color']}>
                     Pu = {self.currentvalues['P2']:.1e}
                    </font>
+                  </td>
+                  <td>
+                  P
                   </td>
                  </tr>
                  <tr>
@@ -424,8 +428,7 @@ class MainWidget(QtCore.QObject, UIWindow):
                    <font size=4 color={self.pens['B1']['color']}>
                     B1 = {self.currentvalues['B1']:.1e}
                    </font>
-                  </td>
-                 </tr>
+                  </td>        
                  <td>
                    <font size=4 color={self.pens['B1']['color']}>
                     B1 = {self.baratronsignal:.4f}
