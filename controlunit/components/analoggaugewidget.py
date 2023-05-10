@@ -131,17 +131,7 @@ class AnalogGaugeWidget(QWidget):
         self.value_needle_count = 1
         self.value_needle = QObject
         self.change_value_needle_style(
-            [
-                QPolygon(
-                    [
-                        QPoint(4, 4),
-                        QPoint(-4, 4),
-                        QPoint(-3, -120),
-                        QPoint(0, -126),
-                        QPoint(3, -120),
-                    ]
-                )
-            ]
+            [QPolygon([QPoint(4, 4), QPoint(-4, 4), QPoint(-3, -120), QPoint(0, -126), QPoint(3, -120),])]
         )
 
         self.value_min = 0
@@ -238,12 +228,8 @@ class AnalogGaugeWidget(QWidget):
                     [
                         QPoint(4, 30),
                         QPoint(-4, 30),
-                        QPoint(
-                            -2, -self.widget_diameter / 2 * self.needle_scale_factor
-                        ),
-                        QPoint(
-                            0, -self.widget_diameter / 2 * self.needle_scale_factor - 6
-                        ),
+                        QPoint(-2, -self.widget_diameter / 2 * self.needle_scale_factor),
+                        QPoint(0, -self.widget_diameter / 2 * self.needle_scale_factor - 6),
                         QPoint(2, -self.widget_diameter / 2 * self.needle_scale_factor),
                     ]
                 )
@@ -506,12 +492,7 @@ class AnalogGaugeWidget(QWidget):
         # todo enable/disable bar graf here
         if not self.enable_barGraph:
             # float_value = ((lenght / (self.value_max - self.value_min)) * (self.value - self.value_min))
-            lenght = int(
-                round(
-                    (lenght / (self.value_max - self.value_min))
-                    * (self.value - self.value_min)
-                )
-            )
+            lenght = int(round((lenght / (self.value_max - self.value_min)) * (self.value - self.value_min)))
             # print("f: %s, l: %s" %(float_value, lenght))
             pass
 
@@ -552,12 +533,8 @@ class AnalogGaugeWidget(QWidget):
             painter.setPen(self.pen)
 
         colored_scale_polygon = self.create_polygon_pie(
-            ((self.widget_diameter / 2) - (self.pen.width() / 2))
-            * self.gauge_color_outer_radius_factor,
-            (
-                ((self.widget_diameter / 2) - (self.pen.width() / 2))
-                * self.gauge_color_inner_radius_factor
-            ),
+            ((self.widget_diameter / 2) - (self.pen.width() / 2)) * self.gauge_color_outer_radius_factor,
+            (((self.widget_diameter / 2) - (self.pen.width() / 2)) * self.gauge_color_inner_radius_factor),
             self.scale_angle_start_value,
             self.scale_angle_size,
         )
@@ -565,11 +542,7 @@ class AnalogGaugeWidget(QWidget):
         # gauge_rect seems to be unused.
         # gauge_rect = QRect(QPoint(0, 0), QSize(self.widget_diameter / 2 - 1, self.widget_diameter - 1))
         grad = QConicalGradient(
-            QPointF(0, 0),
-            -self.scale_angle_size
-            - self.scale_angle_start_value
-            + self.angle_offset
-            - 1,
+            QPointF(0, 0), -self.scale_angle_size - self.scale_angle_start_value + self.angle_offset - 1,
         )
 
         # todo definition scale color as array here
@@ -646,9 +619,7 @@ class AnalogGaugeWidget(QWidget):
             w = fm.width(text) + 1
             h = fm.height()
             painter.setFont(QFont(self.scale_fontname, self.scale_fontsize))
-            angle = angle_distance * i + float(
-                self.scale_angle_start_value - self.angle_offset
-            )
+            angle = angle_distance * i + float(self.scale_angle_start_value - self.angle_offset)
             x = text_radius * math.cos(math.radians(angle))
             y = text_radius * math.sin(math.radians(angle))
             # print(w, h, x, y, text)
@@ -673,9 +644,7 @@ class AnalogGaugeWidget(QWidget):
 
         painter.setPen(Qt.black)
         painter.rotate(self.scale_angle_start_value - self.angle_offset)
-        steps_size = float(self.scale_angle_size) / float(
-            self.scala_main_count * self.scala_subdiv_count
-        )
+        steps_size = float(self.scale_angle_size) / float(self.scala_main_count * self.scala_subdiv_count)
         scale_line_outer_start = self.widget_diameter / 2
         scale_line_lenght = (self.widget_diameter / 2) - (self.widget_diameter / 40)
         for i in range((self.scala_main_count * self.scala_subdiv_count) + 1):
@@ -715,9 +684,7 @@ class AnalogGaugeWidget(QWidget):
         # Skalenende = Skalenanfang - 360 + Skalenlaenge
         # Skalenmitte = (Skalenende - Skalenanfang) / 2 + Skalenanfang
         angle_end = float(self.scale_angle_start_value + self.scale_angle_size - 360)
-        angle = (
-            angle_end - self.scale_angle_start_value
-        ) / 2 + self.scale_angle_start_value
+        angle = (angle_end - self.scale_angle_start_value) / 2 + self.scale_angle_start_value
 
         x = text_radius * math.cos(math.radians(angle))
         y = text_radius * math.sin(math.radians(angle))
@@ -737,9 +704,7 @@ class AnalogGaugeWidget(QWidget):
         # painter.setPen(Qt.NoPen)
         painter.setBrush(self.CenterPointColor)
         # diameter = diameter # self.widget_diameter/6
-        painter.drawEllipse(
-            int(-diameter / 2), int(-diameter / 2), int(diameter), int(diameter)
-        )
+        painter.drawEllipse(int(-diameter / 2), int(-diameter / 2), int(diameter), int(diameter))
 
     def draw_border(self):
         painter = QPainter(self)
@@ -855,34 +820,22 @@ class AnalogGaugeWidget(QWidget):
             # min wert + umskalierter wert
             value = (
                 float(math.fmod(angle - self.scale_angle_start_value + 720, 360))
-                / (
-                    float(self.scale_angle_size)
-                    / float(self.value_max - self.value_min)
-                )
+                / (float(self.scale_angle_size) / float(self.value_max - self.value_min))
             ) + self.value_min
             temp = value
             fmod = float(math.fmod(angle - self.scale_angle_start_value + 720, 360))
             state = 0
             if (
-                (
-                    self.value
-                    - (self.value_max - self.value_min) * self.value_needle_snapzone
-                )
+                (self.value - (self.value_max - self.value_min) * self.value_needle_snapzone)
                 <= value
-                <= (
-                    self.value
-                    + (self.value_max - self.value_min) * self.value_needle_snapzone
-                )
+                <= (self.value + (self.value_max - self.value_min) * self.value_needle_snapzone)
             ):
                 self.NeedleColor = self.NeedleColorDrag
                 # todo: evtl ueberpruefen
                 #
                 state = 9
                 # if value >= self.value_max and self.last_value < (self.value_max - self.value_min) / 2:
-                if (
-                    value >= self.value_max
-                    and self.last_value < (self.value_max - self.value_min) / 2
-                ):
+                if value >= self.value_max and self.last_value < (self.value_max - self.value_min) / 2:
                     state = 1
                     value = self.value_max
                     self.last_value = self.value_min

@@ -5,6 +5,7 @@ from pyqtgraph.dockarea import Dock
 # from components.scaleButtons import ScaleButtons
 from components.onoffswitch import MySwitch, OnOffSwitch, QmsSwitch
 from components.analoggaugewidget import AnalogGaugeWidget
+from channels import MAXTEMP
 
 
 class ControlDock(Dock):
@@ -57,7 +58,7 @@ class ControlDock(Dock):
         # Analog Gauge to show Temperature
         self.gaugeT = AnalogGaugeWidget()
         self.gaugeT.set_MinValue(0)
-        self.gaugeT.set_MaxValue(400)
+        self.gaugeT.set_MaxValue(MAXTEMP)
         self.gaugeT.set_total_scale_angle_size(180)
         self.gaugeT.set_start_scale_angle(180)
         self.gaugeT.set_enable_value_text(False)

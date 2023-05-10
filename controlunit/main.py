@@ -25,9 +25,6 @@ except:
             return 0
 
 
-MAX_SIZE = 10000  # Maximum displayed points in pyqgraph plot
-
-
 # must inherit QtCore.QObject in order to use 'connect'
 class MainWidget(QtCore.QObject, UIWindow):
     DEFAULT_TEMPERATURE = 0
@@ -39,7 +36,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         super(self.__class__, self).__init__()
         self.__app = app
         self.connections()
-        self.registerDock.setTemp(self.DEFAULT_TEMPERATURE, "---")
+        self.tempcontrolDock.setTemp(self.DEFAULT_TEMPERATURE, "---")
 
         QtCore.QThread.currentThread().setObjectName("main")
 
@@ -96,11 +93,23 @@ class MainWidget(QtCore.QObject, UIWindow):
         val = self.controlDock.sampling_windows[txt]
         self.time_window = val
         print(f"Scale = {val}")
+        try:
+            [self.update_plots(sensor_name) for sensor_name in self.sensor_names]
+        except AttributeError:
+            print("can't update plots, no workers yet")
+
+    def update_baratron_gain(self):
+        """"""
+        txt = self.ADCGainDock.gain_box.currentText()
+        val = self.ADCGainDock.gains[txt]
+        self.baratrongain = val
+        print(f"ADC gain = {val}")
 
     def connections(self):
         self.controlDock.scaleBtn.currentIndexChanged.connect(self.update_plot_timewindow)
+        self.ADCGainDock.gain_box.currentIndexChanged.connect(self.update_baratron_gain)
 
-        self.registerDock.registerBtn.clicked.connect(self.registerTemp)
+        self.tempcontrolDock.registerBtn.clicked.connect(self.registerTemp)
         self.controlDock.IGmode.currentIndexChanged.connect(self.updateIGmode)
         self.controlDock.IGrange.valueChanged.connect(self.updateIGrange)
 
@@ -407,13 +416,19 @@ class MainWidget(QtCore.QObject, UIWindow):
                  </tr>
                  <tr>
                   <td>
-                   <font size=5 color={self.pens['Ip']['color']}>
+                   <font size=4 color={self.pens['Ip']['color']}>
                     I = {self.currentvalues['Ip']:.2f}
                    </font>
                   </td>
                   <td>
-                   <font size=5 color={self.pens['B1']['color']}>
-                    I = {self.currentvalues['B1']:.1e}
+                   <font size=4 color={self.pens['B1']['color']}>
+                    B1 = {self.currentvalues['B1']:.1e}
+                   </font>
+                  </td>
+                 </tr>
+                 <td>
+                   <font size=4 color={self.pens['B1']['color']}>
+                    B1 = {self.baratronsignal:.4f}
                    </font>
                   </td>
                  </tr>
@@ -434,8 +449,6 @@ class MainWidget(QtCore.QObject, UIWindow):
         """
 
         sensor_name = result[-1]
-        sizes = [20, 60, 5 * 60, 15 * 60, 30 * 60, 60 * 60, -1]
-        self.time_window
 
         if sensor_name == "MAX6675":
             # [self.data, self.sensor_name]
@@ -445,12 +458,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             # here 3 is number of data points recieved from worker.
             # TODO: update to self.newdata[sensor_name]['T'].mean()
             self.currentvalues["T"] = self.datadict[sensor_name].iloc[-3:]["T"].mean()
-            # plot data
-            df = self.select_data_to_plot(sensor_name)
-
-            time = df["time"].values.astype(float)
-            temperature = df["T"].values.astype(float)
-            self.valueTPlot.setData(time, temperature)
+            self.update_plots(sensor_name)
 
         if sensor_name == "ADC":
             #  self.send_step_data.emit([newdata, self.sensor_name])
@@ -459,9 +467,22 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.save_data(sensor_name)
             for plotname, name in zip(ADCSIGNALS, ADCCONVERTED):
                 self.currentvalues[plotname] = self.datadict["ADC"].iloc[-3:][name].mean()
-            # plot data
-            df = self.select_data_to_plot(sensor_name)
+            # to debug mV signal from Baratron, ouptut it directly.
+            self.baratronsignal = self.datadict["ADC"].iloc[-3:]["B1"].mean()
+            self.update_plots(sensor_name)
 
+        self.update_current_values()
+
+    def update_plots(self, sensor_name):
+        """"""
+        if sensor_name == "MAX6675":
+            df = self.select_data_to_plot(sensor_name)
+            time = df["time"].values.astype(float)
+            temperature = df["T"].values.astype(float)
+            self.valueTPlot.setData(time, temperature)
+
+        if sensor_name == "ADC":
+            df = self.select_data_to_plot(sensor_name)
             time = df["time"].values.astype(float)
             ip = df["Ip_c"].values.astype(float)
             p1 = df["P1_c"].values.astype(float)
@@ -471,8 +492,6 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.valueP1Plot.setData(time, p1)
             self.valueP2Plot.setData(time, p2)
             self.valueB1Plot.setData(time, b1)
-
-            self.update_current_values()
 
     def append_data(self, sensor_name):
         """

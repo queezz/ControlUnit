@@ -369,7 +369,7 @@ class ADC(Worker):
         """
         self.aio = adc(0x49, 0x3E)
 
-    def get_adc_datarate(self):
+    def set_adc_datarate(self):
         """
         Communicate with ADC
         """
@@ -378,6 +378,7 @@ class ADC(Worker):
     def read_adc_voltages(self):
         """
         Read ADC voltages for selected channels
+        Can change ADC gain at any time by updating self.adc_channels
         """
         self.adc_voltages = [
             self.aio.analog_read_volt(CH, *self.adc_datarate, **self.adc_channels[CH]) for CH in self.CHNLS
@@ -450,7 +451,7 @@ class ADC(Worker):
 
         while not (self.__abort):
             time.sleep(self.sampling)
-            self.get_adc_datarate()
+            self.set_adc_datarate()
             self.read_adc_voltages()
             self.put_new_data_in_dataframe()
             self.update_processed_signals_dataframe()

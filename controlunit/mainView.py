@@ -4,10 +4,11 @@ from pyqtgraph.dockarea import DockArea, Dock
 
 from components.controlDock import ControlDock
 from components.logDock import LogDock
-from components.registerDock import RegisterDock
+from components.tepmcontrolDock import RegisterDock
 from components.graph import Graph
 from components.plotscaleDock import PlotScaleDock
 from components.settingsDock import SettingsDock
+from components.adcgainDock import ADCGainDock
 
 
 class UIWindow(object):
@@ -21,8 +22,8 @@ class UIWindow(object):
         self.plotDock = Dock("Plots", size=(300, 400))
         self.controlDock = ControlDock()
         self.logDock = LogDock()
-        self.registerDock = RegisterDock()
-        [i.setStretch(*(10, 20)) for i in [self.controlDock, self.logDock, self.registerDock]]
+        self.tempcontrolDock = RegisterDock()
+        [i.setStretch(*(10, 20)) for i in [self.controlDock, self.logDock, self.tempcontrolDock]]
         self.controlDock.setStretch(*(10, 300))
         self.graph = Graph()
         self.scaleDock = PlotScaleDock()
@@ -31,6 +32,8 @@ class UIWindow(object):
         self.SettingsDock = SettingsDock()
         self.logDock.setStretch(*(200, 100))
         self.SettingsDock.setStretch(*(80, 100))
+
+        self.ADCGainDock = ADCGainDock()
 
         self.MainWindow.setGeometry(20, 50, 1000, 600)
         sizeObject = QtWidgets.QDesktopWidget().screenGeometry(-1)
@@ -52,8 +55,9 @@ class UIWindow(object):
 
         self.area.addDock(self.plotDock, "top")
         self.area.addDock(self.scaleDock, "left")
-        self.area.addDock(self.controlDock, "above", self.scaleDock)
-        self.area.addDock(self.registerDock, "bottom", self.controlDock)
+        self.area.addDock(self.ADCGainDock, "above", self.scaleDock)
+        self.area.addDock(self.controlDock, "above", self.ADCGainDock)
+        self.area.addDock(self.tempcontrolDock, "bottom", self.controlDock)
 
         self.plotDock.addWidget(self.graph)
 

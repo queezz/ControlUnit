@@ -4,6 +4,7 @@ are specified in here. Affects the whole of Contorlunit.
 TODO: organize into dictionaries
 TODO: add conversion functions for each sensor in a dictionary
 """
+MAXTEMP = 1000
 # fmt: off
 # ADC
 CHP1 = 0           # 15, Ionization Gauge (downstream)
