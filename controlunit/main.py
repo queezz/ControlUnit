@@ -103,7 +103,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         txt = self.ADCGainDock.gain_box.currentText()
         val = self.ADCGainDock.gains[txt]
         self.baratrongain = val
-        print(f"ADC gain = {val}")
+        # print(f"ADC gain = {val}")
 
     def connections(self):
         self.controlDock.scaleBtn.currentIndexChanged.connect(self.update_plot_timewindow)
@@ -563,6 +563,21 @@ class MainWidget(QtCore.QObject, UIWindow):
         value = self.controlDock.IGmode.currentIndex()
         if self.adcWorker is not None:
             self.adcWorker.setIGmode(value)
+
+    @QtCore.pyqtSlot()
+    def __set_gain(self):
+        """
+        Set gain for Baratron channel on ADC
+        Parameters
+        ----------
+        value: int
+            gain, values [1,2,5,10] (in V)
+        """
+        txt = self.ADCGainDock.gain_box.currentText()
+        gain = self.ADCGainDock.gains[txt]
+
+        if self.adcWorker is not None:
+            self.adcWorker.setGain(gain)
 
     @QtCore.pyqtSlot()
     def __set_sampling(self):

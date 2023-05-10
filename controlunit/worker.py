@@ -79,7 +79,10 @@ class Worker(QtCore.QObject):
         """
         from os import system
 
-        system("sudo pigpiod")
+        try:
+            system("sudo pigpiod")
+        except:
+            print("Make sure pigpiod is running")
 
 
 class MAX6675(Worker):
@@ -341,6 +344,23 @@ class ADC(Worker):
         """
         self.set_thread_name()
         self.acquisition_loop()
+
+    def setGain(self, gain):
+        """
+        Set gain for Baratron channel on ADC
+        Parameters
+        ----------
+        value: int
+            gain, values [1,2,5,10] (in V)
+        """
+        print(f"update ADC gain to {gain}")
+        gains = {
+            1: {"pga": self.aio.PGA.PGA_1_2544V},
+            2: {"pga": self.aio.PGA.PGA_2_5088V},
+            5: {"pga": self.aio.PGA.PGA_5_0176V},
+            10: {"pga": self.aio.PGA.PGA_10_0352V},
+        }
+        self.adc_channels[CHB1] = gains[gain]
 
     def set_adc_channels(self):
         """
