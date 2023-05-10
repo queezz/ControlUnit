@@ -398,7 +398,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         # TODO: updated dislpayed valuves from dataframes
 
-        self.registerDock.setTempText(self.__temp, f"{self.currentvalues['T']:.0f}")
+        self.tempcontrolDock.setTempText(self.__temp, f"{self.currentvalues['T']:.0f}")
         self.controlDock.gaugeT.update_value(self.currentvalues["T"])
         txt = f"""
               <table>
@@ -546,10 +546,10 @@ class MainWidget(QtCore.QObject, UIWindow):
 
     @QtCore.pyqtSlot()
     def registerTemp(self):
-        value = self.registerDock.temperatureSB.value()
+        value = self.tempcontrolDock.temperatureSB.value()
         self.__temp = value
         temp_now = self.currentvalues["T"]
-        self.registerDock.setTemp(self.__temp, f"{temp_now:.0f}")
+        self.tempcontrolDock.setTemp(self.__temp, f"{temp_now:.0f}")
         if self.tWorker is not None:
             self.tWorker.setPresetTemp(self.__temp)
 
