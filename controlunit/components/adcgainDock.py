@@ -19,6 +19,8 @@ class ADCGainDock(Dock):
         self.set_gain_btn = QtWidgets.QPushButton("set")
         self.set_gain_btn.setFont(QtGui.QFont("serif", 18))
 
+
+
         self.__setLayout()
 
     def __setLayout(self):

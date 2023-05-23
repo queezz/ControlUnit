@@ -361,6 +361,7 @@ class ADC(Worker):
             10: {"pga": self.aio.PGA.PGA_10_0352V},
         }
         self.adc_channels[CHB1] = gains[gain]
+        self.adc_channels[CHB2] = gains[gain]
 
     def set_adc_channels(self):
         """
@@ -374,7 +375,7 @@ class ADC(Worker):
         self.CHNLS = CHNLSADC
         scale10 = [CHP1, CHP2]
         scale5 = [CHIP]
-        scale1 = [CHB1]
+        scale1 = [CHB1, CHB2]
         self.adc_channels = {CH: {"pga": self.aio.PGA.PGA_10_0352V} for CH in scale10}
         for CH in scale5:
             self.adc_channels[CH] = {"pga": self.aio.PGA.PGA_5_0176V}
@@ -422,14 +423,15 @@ class ADC(Worker):
         TODO: add a list of signals with their calc functions somewhere
         to make this automatc
         """
-        p1_v, p2_v, ip_v, b1 = self.adc_voltages
+        p1_v, p2_v, ip_v, b1, b2 = self.adc_voltages
         new_calc_row = pd.DataFrame(
             np.atleast_2d(
                 [
                     ionization_gauge(p1_v, self.__IGmode, self.__IGrange),
                     pfeiffer_single_gauge(p2_v),
                     hall_current_sensor(ip_v),
-                    baratron(b1, 1),  # Fullscale = 0.1 Torr
+                    baratron(b1, 1),  # Fullscale = 1 Torr
+                    baratron(b2, 0.1) # Fullscale = 0.1 Torr
                 ]
             ),
             columns=ADCCONVERTED,
