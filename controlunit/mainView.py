@@ -4,7 +4,7 @@ from pyqtgraph.dockarea import DockArea, Dock
 
 from components.controlDock import ControlDock
 from components.logDock import LogDock
-from components.tepmcontrolDock import RegisterDock
+from ControlUnit.controlunit.components.tempcontrolDock import RegisterDock
 from components.graph import Graph
 from components.plotscaleDock import PlotScaleDock
 from components.settingsDock import SettingsDock

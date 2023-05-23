@@ -429,7 +429,7 @@ class ADC(Worker):
                     ionization_gauge(p1_v, self.__IGmode, self.__IGrange),
                     pfeiffer_single_gauge(p2_v),
                     hall_current_sensor(ip_v),
-                    baratron(b1, 0.1),  # Fullscale = 0.1 Torr
+                    baratron(b1, 1),  # Fullscale = 0.1 Torr
                 ]
             ),
             columns=ADCCONVERTED,

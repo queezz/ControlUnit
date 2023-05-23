@@ -58,6 +58,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             "P1": {"color": "#6ac600", "width": 2},
             "P2": {"color": "#c9004d", "width": 2},
             "B1": {"color": "#ffb405", "width": 2},
+            "B2": {"color": "#ff8c00", "width": 2},
             "T": {"color": "#5999ff", "width": 2},
             "trigger": {"color": "#edbc34", "width": 2},
         }
@@ -67,6 +68,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.valueP1Plot = self.graph.presPl.plot(pen=self.pens["P1"])
         self.valueP2Plot = self.graph.presPl.plot(pen=self.pens["P2"])
         self.valueB1Plot = self.graph.presPl.plot(pen=self.pens["B1"])
+        self.valueB2Plot = self.graph.presPl.plot(pen=self.pens["B2"])
         self.graph.tempPl.setXLink(self.graph.presPl)
         self.graph.plaPl.setXLink(self.graph.presPl)
 
@@ -415,23 +417,25 @@ class MainWidget(QtCore.QObject, UIWindow):
                    </font>
                   </td>
                   <td>
-                  P
-                  </td>
-                 </tr>
-                 <tr>
-                  <td>
                    <font size=4 color={self.pens['Ip']['color']}>
                     I = {self.currentvalues['Ip']:.2f}
                    </font>
                   </td>
+                 </tr>
+                 <tr>
                   <td>
                    <font size=4 color={self.pens['B1']['color']}>
                     B1 = {self.currentvalues['B1']:.1e}
                    </font>
-                  </td>        
-                 <td>
-                   <font size=4 color={self.pens['B1']['color']}>
-                    B1 = {self.baratronsignal:.4f}
+                  </td>
+                  <td>
+                   <font size=4 color={self.pens['B2']['color']}>
+                    B2 = {self.currentvalues['B2']:.1e}
+                   </font>
+                  </td>   
+                  <td>
+                   <font size=4 color={self.pens['B2']['color']}>
+                    B2 = {self.baratronsignal2:.4f}
                    </font>
                   </td>
                  </tr>
@@ -471,7 +475,8 @@ class MainWidget(QtCore.QObject, UIWindow):
             for plotname, name in zip(ADCSIGNALS, ADCCONVERTED):
                 self.currentvalues[plotname] = self.datadict["ADC"].iloc[-3:][name].mean()
             # to debug mV signal from Baratron, ouptut it directly.
-            self.baratronsignal = self.datadict["ADC"].iloc[-3:]["B1"].mean()
+            self.baratronsignal1 = self.datadict["ADC"].iloc[-3:]["B1"].mean()
+            self.baratronsignal2 = self.datadict["ADC"].iloc[-3:]["B2"].mean()
             self.update_plots(sensor_name)
 
         self.update_current_values()
@@ -491,10 +496,12 @@ class MainWidget(QtCore.QObject, UIWindow):
             p1 = df["P1_c"].values.astype(float)
             p2 = df["P2_c"].values.astype(float)
             b1 = df["B1_c"].values.astype(float)
+            b2 = df["B2_c"].values.astype(float)
             self.valuePlaPlot.setData(time, ip)
             self.valueP1Plot.setData(time, p1)
             self.valueP2Plot.setData(time, p2)
             self.valueB1Plot.setData(time, b1)
+            self.valueB2Plot.setData(time, b2)
 
     def append_data(self, sensor_name):
         """
