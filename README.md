@@ -59,9 +59,35 @@ The analog signals from vacuum gauges, 0 - 10 V, and the K-type thermocouple, 0 
 
 ![UI](images/app_screenshot_1.png)
 
+# 2. Usage
+
+## 2.1 start Logger
+Make sure that `GPIO` pins are enabled:
+```shell
+sudo pigpiod
+```
+Then start the program.
+```shell
+cd ~/path/to/controlunit
+$ pyton3 main.py
+```
+
+## 2.2 Settings
+Settings file is in the project directory, `.settings`:
+
+```
+datafolder, ~/work/cudata
+pathislocal, True
+sampling_rate, 0.1
+```
+Other useful settings, such as ADC channels and GPIO assignments are defined in [`channels.py`](./controlunit/channels.py).
+
+### Data folder
+
+The data folder name and location is stored in the settings file, .setings - a csv file. By default the data folder is placed relatively to the parent directory in `../data`.
 
 
-# 2. Requirements
+# 3. Requirements
 
 ```
 - pyqtgraph
@@ -98,19 +124,3 @@ or
 ```
 sudo apt-get install python3-smbus
 ```
-
-
-
-# 3. Usage
-
-## 3.1 start Logger
-
-```
-$ pyton3 main.py
-```
-
-## 3.2 Settings
-
-### Data folder
-
-The data folder name and location is stored in the settings file, .setings - a csv file. By default the data folder is placed relatively to the parent directory in `../data`.
