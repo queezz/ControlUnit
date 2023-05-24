@@ -61,7 +61,7 @@ The analog signals from vacuum gauges, 0 - 10 V, and the K-type thermocouple, 0 
 
 # 2. Usage
 
-## 2.1 start Logger
+## 2.1 How to run
 Make sure that `GPIO` pins are enabled:
 ```shell
 sudo pigpiod
@@ -73,18 +73,17 @@ $ pyton3 main.py
 ```
 
 ## 2.2 Settings
-Settings file is in the project directory, `.settings`:
+
+Settings file is in the project directory, [`.settings`](./controlunit/.settings):
 
 ```
 datafolder, ~/work/cudata
 pathislocal, True
 sampling_rate, 0.1
 ```
+## 2.3 Channel assignment
 Other useful settings, such as ADC channels and GPIO assignments are defined in [`channels.py`](./controlunit/channels.py).
 
-### Data folder
-
-The data folder name and location is stored in the settings file, .setings - a csv file. By default the data folder is placed relatively to the parent directory in `../data`.
 
 
 # 3. Requirements
