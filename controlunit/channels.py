@@ -11,7 +11,8 @@ CHP1 = 0           # 15, Ionization Gauge (downstream)
 CHP2 = 1           # 16, Pfeiffer single gauge (upstream)
 CHIP = 2           # 5, Plasma current, Hall effect sensor
 CHB1 = 3           # Baratron 1 (upstream)
-CHNLSADC = [CHP1, CHP2, CHIP,CHB1]
+CHB2 = 4           # Baratron 2 (downstream)
+CHNLSADC = [CHP1, CHP2, CHIP, CHB1, CHB2]
 # Thermocouple
 CHT = 0            # 0 -> CS0, 1 -> CS1 Thermocouple
 # GPIOs
@@ -21,7 +22,7 @@ CHLED = 27         # GPIO output for LED and sync signal for QMS
 # fmt: on
 # column names and channels
 TCCOLUMNS = ["date", "time", "T", "PresetT"]
-ADCSIGNALS = ["P1", "P2", "Ip", "B1"]
+ADCSIGNALS = ["P1", "P2", "Ip", "B1", "B2"]
 ADCCONVERTED = [i + "_c" for i in ADCSIGNALS]
 ADCCOLUMNS = ["date", "time"] + ADCSIGNALS + ["IGmode", "IGscale", "QMS_signal"]
 
