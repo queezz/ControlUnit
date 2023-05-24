@@ -51,13 +51,28 @@ class AdcChannelProps:
 ADC_CHANNELS = [
     AdcChannelProps("Pd", 0, 10, "Ionization Gauge (downstream)", ionization_gauge),
     AdcChannelProps("Pu", 1, 10, "Pfeffer  Single Gauge (upstream)", pfeiffer_single_gauge),
-    AdcChannelProps("Ip", 2, 10, "Plasma Current", hall_current_sensor),
+    AdcChannelProps("Ip", 2, 5, "Plasma Current", hall_current_sensor),
     AdcChannelProps("Bu", 3, 1, "Baratron 1 Torr (upstream)", lambda v: baratron(v, 1)),
     AdcChannelProps("Bd", 4, 1, "Baratron 0.1 Torr (downstream)", lambda v: baratron(v, 0.1)),
 ]
 
 ADC_COLNAMES = ["date", "time"] + [i.name for i in ADC_CHANNELS] + ["IGmode", "IGscale", "QMS_signal"]
 ADC_COLNAMES_CONV = [i + "_c" for i in [i.name for i in ADC_CHANNELS]]
+
+
+def get_adc_channel(name, channels):
+    """
+    Look for a channel in ADC_CHANNELS by name
+    """
+    names = [i.name for i in channels]
+    if name in names:
+        ind = names.index(name)
+        print("channel found:", channels[ind])
+        return channels[ind]
+    else:
+        print("channel not found")
+        return None
+
 
 # When adding ADC channels, must add adc gain in set_adc_channels in worker line 345
 

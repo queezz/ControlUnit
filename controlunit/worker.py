@@ -278,6 +278,18 @@ class ADC(Worker):
         self.sensor_name = sensor_name
         self.__startTime = startTime
         self.__abort = False
+        self.setup_gain_definitions()
+
+    def setup_gain_definitions(self):
+        """
+        Setup dictionary with ADC gains
+        """
+        self.gain_definitions = {
+            10: self.aio.PGA.PGA_10_0352V,
+            5: self.aio.PGA.PGA_5_0176V,
+            2: self.aio.PGA.PGA_2_5088V,
+            1: self.aio.PGA.PGA_1_2544V,
+        }
 
     @QtCore.pyqtSlot()
     def abort(self):
@@ -353,15 +365,16 @@ class ADC(Worker):
         value: int
             gain, values [1,2,5,10] (in V)
         """
-        print(f"update ADC gain to {gain}")
-        gains = {
-            1: {"pga": self.aio.PGA.PGA_1_2544V},
-            2: {"pga": self.aio.PGA.PGA_2_5088V},
-            5: {"pga": self.aio.PGA.PGA_5_0176V},
-            10: {"pga": self.aio.PGA.PGA_10_0352V},
-        }
-        self.adc_channels[CHB1] = gains[gain]
-        self.adc_channels[CHB2] = gains[gain]
+        allowed = [1, 2, 5, 10]
+        if not gain in allowed:
+            gain = 10
+            print(f"{gain} is not supported, gain set to 10. Choose from {allowed}")
+        else:
+            print(f"update ADC gain to {gain}")
+
+        # TODO: use AdcChannelsProps instead
+        self.adc_channels[CHB1] = self.gain_definitions[gain]
+        self.adc_channels[CHB2] = self.gain_definitions[gain]
 
     def set_adc_channels(self):
         """
@@ -431,7 +444,7 @@ class ADC(Worker):
                     pfeiffer_single_gauge(p2_v),
                     hall_current_sensor(ip_v),
                     baratron(b1, 1),  # Fullscale = 1 Torr
-                    baratron(b2, 0.1) # Fullscale = 0.1 Torr
+                    baratron(b2, 0.1),  # Fullscale = 0.1 Torr
                 ]
             ),
             columns=ADCCONVERTED,
