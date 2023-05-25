@@ -1,6 +1,39 @@
 import csv
 import os
 from os.path import join, expanduser
+import channels
+
+
+def load_settings(path_to_file):
+    """
+    UPDATE: change sattings from a csv file to 
+    fully defined settings in a yaml file.
+    """
+    import yaml
+
+    with open(path_to_file, "r") as stream:
+        try:
+            return yaml.safe_load(stream)
+        except yaml.YAMLError as exc:
+            print(exc)
+
+
+# TODO: make the main method
+def init_configuration():
+    # TODO: add option to load ~/.controlunit/settings.yml if exists
+    config = load_settings("settings.yml")
+    # make_data_folders_updated_function()
+
+    adc_channels = {
+        name: channels.AdcChannelProps(name, **config["ADC Channels"][name])
+        for name in list(config["ADC Channels"])
+    }
+
+    config["Adc Channel Properties"] = adc_channels
+    return config
+
+
+# TODO: Remove
 
 
 def make_datafolders():

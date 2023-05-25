@@ -1,0 +1,97 @@
+# General Settings
+# Path: use leading '~' to specify path in user directory
+# Data Folder: ~/work/cudata
+Data Folder: ~/work/cudata #
+
+Path is Local: True
+
+Sampling Rate: 0.1 # Default sampling rate
+
+# ================================================
+#
+# Set maximum temperature for
+# Temperature Control and for Analog Gauge widget
+Max Temperature: 1000
+
+# ================================================
+#
+# MAX6675
+# Cold-Junction-Compensated K-Thermocoupleto-Digital Converter (0°C to +1024°C)
+# https://www.analog.com/media/en/technical-documentation/data-sheets/MAX6675.pdf
+#
+# ================================================
+
+# Channel Selector
+MAX6675 Channel: 0 # 0 -> CS0, 1 -> CS1 Thermocouple
+# GPIO pin used to turn on Heatr (via relay)
+Heater GPIO: 17
+# GPIO pin to turn on LED indicator (front panel)
+# The same pin is used to send sync signal to QMS
+LED GPIO: 27
+# Temperature worker column names
+Temperature Columns:
+  - "date"
+  - "time"
+  - "T"
+  - "PresetT"
+
+# ================================================
+#
+# Analog to Digital Converter: ADC
+# I2C アナログ入力ボード AIO-32/0RA-IRC
+# 32 channel 16-Bit ADC based on ADS1115
+# https://www.y2c.co.jp/i2c-r/aio-32-0ra-irc/
+# https://www.ti.com/lit/ds/symlink/ads1113.pdf
+# https://www.nxp.com/docs/en/data-sheet/PCA9554B_PCA9554C.pdf
+# https://www.ti.com/lit/ds/symlink/cd74hc4067.pdf
+#
+# ================================================
+
+# Setup ADC channes. Choose a short speaking name for each signal.
+# Gain - maximum accepted voltage [1,2,5,10]
+# Channel - 0-31 (Need to confirm the numbering)
+# Description - give a proper description of the signal
+# Conversion Function:
+#  - "Ionization Gauge"
+#  - "Pfeiffer Single Gauge"
+#  - "Hall Sensor"
+#  - "Baratron"  # Baratron with range 0.1
+#     If function is "Baratron", spesify its Full Scale in Torr
+#     tag = Full Scale
+# - "No Conversion" # If no conversion needed
+
+ADC Channels:
+  Pd:
+    Channel: 0
+    Gain: 10
+    Description: "Ionization Gauge (downstream)"
+    Conversion Function: "Ionization Gauge"
+  Pu:
+    Channel: 1
+    Gain: 10
+    Description: "Pfeffer  Single Gauge (upstream)"
+    Conversion Function: "Pfeiffer Single Gauge"
+  Ip:
+    Channel: 2
+    Gain: 5
+    Description: "Plasma Current"
+    Conversion Function: "Hall Sensor"
+  Bu:
+    Channel: 3
+    Gain: 1
+    Description: "Baratron MKS 627 FS = 1 Torr (upstream)"
+    Conversion Function: "Baratron"
+    Full Scale: 1.0
+  Bd:
+    Channel: 4
+    Gain: 1
+    Description: "Baratron MKS 628B.1TDF2b FS = 0.1 Torr (downstream)"
+    Conversion Function: "Baratron"
+    Full Scale: 0.1
+
+ADC Additional Columns:
+  - "date"
+  - "time"
+  - "IGmode"
+  - "IGscale"
+  - "QMS_signal"

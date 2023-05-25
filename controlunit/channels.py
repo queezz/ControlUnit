@@ -1,10 +1,9 @@
 """
 Constants, such as channel for ADC, GPIO on RasPi, column names for dataframes,
 are specified in here. Affects the whole of Contorlunit.
-TODO: organize into dictionaries
-TODO: add conversion functions for each sensor in a dictionary
+TODO: move all definitions into readsetting.py, read everything from settings.yml
+Here: Leave only the definition of the ADC channel properties class.
 """
-from conversions import ionization_gauge, hall_current_sensor, pfeiffer_single_gauge, baratron
 
 MAXTEMP = 1000
 
@@ -35,29 +34,43 @@ class AdcChannelProps:
     ADC channel properties
     """
 
-    def __init__(self, *arg) -> None:
+    def __init__(self, *arg, **kws) -> None:
         """
         Arguments
         ----------
         [name,channel, gain, description, conversion]
         """
         self.name = arg[0]
-        self.channel = arg[1]
-        self.gain = arg[2]
-        self.description = arg[3]
-        self.conversion = arg[4]
+        self.channel = kws["Channel"]
+        self.gain = kws["Gain"]
+        self.description = kws["Description"]
+        self.conversion_id = kws["Conversion Function"]
+        self.full_scale = kws.get("Full Scale", None)
+        self.set_conversion_function()
 
+    def set_conversion_function(self):
+        """
+        Select conversion function from a dict by conversion_id
+        """
+        from controlunit.conversions import (
+            ionization_gauge,
+            hall_current_sensor,
+            pfeiffer_single_gauge,
+            baratron,
+        )
 
-ADC_CHANNELS = [
-    AdcChannelProps("Pd", 0, 10, "Ionization Gauge (downstream)", ionization_gauge),
-    AdcChannelProps("Pu", 1, 10, "Pfeffer  Single Gauge (upstream)", pfeiffer_single_gauge),
-    AdcChannelProps("Ip", 2, 5, "Plasma Current", hall_current_sensor),
-    AdcChannelProps("Bu", 3, 1, "Baratron 1 Torr (upstream)", lambda v: baratron(v, 1)),
-    AdcChannelProps("Bd", 4, 1, "Baratron 0.1 Torr (downstream)", lambda v: baratron(v, 0.1)),
-]
+        conversions = {
+            "Ionization Gauge": ionization_gauge,
+            "Pfeiffer Single Gauge": pfeiffer_single_gauge,
+            "Hall Sensor": hall_current_sensor,
+            "No Conversion": lambda v: v,
+        }
 
-ADC_COLNAMES = ["date", "time"] + [i.name for i in ADC_CHANNELS] + ["IGmode", "IGscale", "QMS_signal"]
-ADC_COLNAMES_CONV = [i + "_c" for i in [i.name for i in ADC_CHANNELS]]
+        if self.conversion_id == "Baratron":
+            self.conversion = lambda v: baratron(v, self.full_scale)
+            return
+
+        self.conversion = conversions[self.conversion_id]
 
 
 def get_adc_channel(name, channels):
