@@ -342,7 +342,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         self.create_file(worker.sensor_name)
         self.log_message(
-            f"<font size=4 color='blue'>{worker.sensor_name}</font> savepath:\n {self.savepaths[worker.sensor_name]}"
+            f"<font size=4 color='blue'>{worker.sensor_name}</font> savepath:<br> {self.savepaths[worker.sensor_name]}"
         )
 
         thread.started.connect(worker.start)

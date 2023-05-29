@@ -44,7 +44,7 @@ class UIWindow(object):
         # self.MainWindow.showFullScreen()
         self.MainWindow.setObjectName("Monitor")
         self.MainWindow.setWindowTitle("Data Logger")
-        self.MainWindow.statusBar().showMessage("")
+        #self.MainWindow.statusBar().showMessage("")
         self.MainWindow.setAcceptDrops(True)
 
         self.__setLayout()
