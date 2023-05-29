@@ -545,16 +545,16 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         if self.__workers_done == 2:
             self.abort_all_threads()
-            self.log_message(f"No more plot workers active")
+            # self.log_message(f"No more plot workers active")
 
     @QtCore.pyqtSlot()
     def abort_all_threads(self):
         self.sigAbortWorkers.emit()
-        self.log_message(f"Asking each worker to abort")
+        # self.log_message(f"Asking each worker to abort")
         for thread, worker in self.__threads:
             thread.quit()
             thread.wait()
-        self.log_message("All threads exited")
+        # self.log_message("All threads exited")
 
     def reset_data(self, sensor_name):
         self.datadict[sensor_name] = self.datadict[sensor_name].iloc[0:0]
