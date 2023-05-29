@@ -100,7 +100,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         try:
             [self.update_plots(sensor_name) for sensor_name in self.sensor_names]
         except AttributeError:
-            print("can't update plots, no workers yet")
+            pass
+            #print("can't update plots, no workers yet")
 
     def update_baratron_gain(self):
         """"""
