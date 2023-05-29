@@ -53,6 +53,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         # Plot line colors
         # self.currentvalues = {"Ip": 0, "P1": 0, "P2": 0, "T": 0}
         self.currentvalues = {i: 0 for i in ADCSIGNALS + ["T"]}
+        self.baratronsignal1 = 0
+        self.baratronsignal2 = 0
         self.pens = {
             "Ip": {"color": "#8d3de3", "width": 2},
             "P1": {"color": "#6ac600", "width": 2},
@@ -607,14 +609,14 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.update_plot_timewindow()
         if self.adcWorker is not None:
             self.adcWorker.setSampling(value)
-            self.log_message(f"ADC sampling set to {self.sampling}")
+            self.log_message(f"ADC sampling set to {value}")
 
         # For MAX6675 min read time is 0.25s
         if self.tWorker is not None:
             if value < 0.25:
                 value = 0.25
             self.tWorker.setSampling(value)
-            self.log_message(f"MAX6675 sampling set to {self.sampling}")
+            self.log_message(f"MAX6675 sampling set to {value}")
 
     @QtCore.pyqtSlot()
     def updateIGrange(self):
