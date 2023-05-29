@@ -278,6 +278,7 @@ class ADC(Worker):
         self.sensor_name = sensor_name
         self.__startTime = startTime
         self.__abort = False
+        self.adc_init()
         self.setup_gain_definitions()
 
     def setup_gain_definitions(self):
@@ -479,7 +480,6 @@ class ADC(Worker):
         Convert voltage to units.
         Send data back to main thread for ploting ad saving.
         """
-        self.adc_init()
         self.set_adc_channels()
         totalStep = 0
         step = 0
