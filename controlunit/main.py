@@ -94,7 +94,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         txt = self.controlDock.scaleBtn.currentText()
         val = self.controlDock.sampling_windows[txt]
         self.time_window = val
-        print(f"Scale = {val}")
+        # self.log_message(f"Timewindow = {val}")
         try:
             [self.update_plots(sensor_name) for sensor_name in self.sensor_names]
         except AttributeError:
@@ -342,7 +342,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.connect_worker_signals(worker)
 
         self.create_file(worker.sensor_name)
-        self.log_message(f"{worker.sensor_name} savepath: {self.savepaths[worker.sensor_name]}")
+        self.log_message(f"{worker.sensor_name} savepath:\n {self.savepaths[worker.sensor_name]}")
 
         thread.started.connect(worker.start)
         thread.start()
@@ -604,6 +604,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.update_plot_timewindow()
         if self.adcWorker is not None:
             self.adcWorker.setSampling(value)
+            self.log_message(f"ADC sampling set to {self.sampling}")
 
     @QtCore.pyqtSlot()
     def updateIGrange(self):

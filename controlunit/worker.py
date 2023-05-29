@@ -99,8 +99,8 @@ class MAX6675(Worker):
     @QtCore.pyqtSlot()
     def abort(self):
         message = "Worker thread {} aborting acquisition".format(self.sensor_name)
-        self.send_message.emit(message)
-        print(message)
+        #self.send_message.emit(message)
+        #print(message)
         self.__abort = True
 
     def setTempWorker(self, presetTemp: int):
@@ -295,8 +295,8 @@ class ADC(Worker):
     @QtCore.pyqtSlot()
     def abort(self):
         message = "Worker thread {} aborting acquisition".format(self.sensor_name)
-        self.send_message.emit(message)
-        print(message)
+        # self.send_message.emit(message)
+        # print(message)
         self.__abort = True
 
     def init_adc_worker(self, IGmode: int, IGrange: int):
