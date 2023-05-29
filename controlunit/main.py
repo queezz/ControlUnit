@@ -274,7 +274,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         2020/03/05: two sensors: ADC and temperatures, hence
         2 threds to read a) temperature, and b) analog signals (P1,P2, Ip)
         """
-        self.log_message("Starting 2 threads")
+        self.log_message("<font size=4 color={'green'}>Starting acquisition</font>")
         self.savepaths = {}
         self.datadict = {
             "MAX6675": pd.DataFrame(columns=TCCOLUMNS),
@@ -539,7 +539,9 @@ class MainWidget(QtCore.QObject, UIWindow):
 
     @QtCore.pyqtSlot(str)
     def on_worker_done(self, sensor_name):
-        self.log_message(f"Sensor thread {sensor_name} stopped")
+        self.log_message(
+            f"Sensor thread <font size=4 color={'blue'}> {sensor_name}</font> <font size=4 color={'red'}>stopped</font>"
+        )
         self.__workers_done += 1
         self.reset_data(sensor_name)
 
