@@ -608,13 +608,13 @@ class MainWidget(QtCore.QObject, UIWindow):
         if self.adcWorker is not None:
             self.adcWorker.setSampling(value)
             self.log_message(f"ADC sampling set to {self.sampling}")
-        
+
         # For MAX6675 min read time is 0.25s
         if self.tWorker is not None:
-            if value >= 0.25:
-                self.tWorker.setSampling(value)
-                self.log_message(f"MAX6675 sampling set to {self.sampling}")
-        
+            if value < 0.25:
+                value = 0.25
+            self.tWorker.setSampling(value)
+            self.log_message(f"MAX6675 sampling set to {self.sampling}")
 
     @QtCore.pyqtSlot()
     def updateIGrange(self):
