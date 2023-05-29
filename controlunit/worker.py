@@ -67,9 +67,9 @@ class Worker(QtCore.QObject):
         return self.__startTime
 
     def setSampling(self, sampling):
-        """Set sampling time for ADC"""
+        """Set sampling time"""
         self.sampling = sampling
-        print(f"Updated sampling to {sampling}")
+        # print(f"Updated sampling to {sampling}")
 
     def enable_pigpio(self):
         """
@@ -99,8 +99,8 @@ class MAX6675(Worker):
     @QtCore.pyqtSlot()
     def abort(self):
         message = "Worker thread {} aborting acquisition".format(self.sensor_name)
-        #self.send_message.emit(message)
-        #print(message)
+        # self.send_message.emit(message)
+        # print(message)
         self.__abort = True
 
     def setTempWorker(self, presetTemp: int):
@@ -203,9 +203,8 @@ class MAX6675(Worker):
 
         step = 0
 
-        while not (self.__abort):
-            # Temperature sampling time. For MAX6675 min read time = 0.25s
-            time.sleep(0.25)
+        while not (self.__abort):            
+            time.sleep(self.sampling)
             self.read_thermocouple()
             self.update_dataframe()
 
