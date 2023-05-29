@@ -22,7 +22,7 @@ class ControlDock(Dock):
 
         self.valueBw = QtWidgets.QTextBrowser()
         self.valueBw.setMaximumHeight(100)
-        self.valueBw.setMinimumWidth(300)
+        self.valueBw.setMinimumWidth(400)
         self.valueBw.setCurrentFont(QtGui.QFont("Courier New"))
 
         # self.scaleBtn = ScaleButtons()
