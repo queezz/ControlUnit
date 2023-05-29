@@ -9,15 +9,13 @@ class LogDock(Dock):
         self.widget = pg.LayoutWidget()
 
         self.log = QtWidgets.QTextEdit()
-        self.progress = QtWidgets.QTextEdit()
 
         self.__setLayout()
 
     def __setLayout(self):
         self.addWidget(self.widget)
 
-        self.widget.addWidget(self.log, 0, 0, 1, 2)
-        self.widget.addWidget(self.progress, 0, 2, 1, 2)
+        self.widget.addWidget(self.log, 0, 0, 1, 1)
 
 
 if __name__ == "__main__":

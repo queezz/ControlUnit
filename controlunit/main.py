@@ -274,7 +274,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         2020/03/05: two sensors: ADC and temperatures, hence
         2 threds to read a) temperature, and b) analog signals (P1,P2, Ip)
         """
-        self.logDock.log.append("starting 2 threads")
+        self.log_message("Starting 2 threads")
         self.savepaths = {}
         self.datadict = {
             "MAX6675": pd.DataFrame(columns=TCCOLUMNS),
@@ -316,8 +316,15 @@ class MainWidget(QtCore.QObject, UIWindow):
         workers = {worker.sensor_name: worker for worker in [self.tWorker, self.adcWorker]}
         self.sensor_names = list(workers)
 
-        self.logDock.progress.append("threads started: {}".format(now))
+        self.log_message("Threads started")
         [self.start_thread(workers[s], threads[s]) for s in self.sensor_names]
+
+    def log_message(self, message):
+        """
+        Append a message to the log browser with a timestamp.
+        """
+        nowstamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.logDock.log.append(f"{nowstamp}: " + message)
 
     def start_thread(self, worker: Worker, thread: QtCore.QThread):
         """
@@ -335,7 +342,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.connect_worker_signals(worker)
 
         self.create_file(worker.sensor_name)
-        self.logDock.log.append(f"{worker.sensor_name} savepath: {self.savepaths[worker.sensor_name]}")
+        self.log_message(f"{worker.sensor_name} savepath: {self.savepaths[worker.sensor_name]}")
 
         thread.started.connect(worker.start)
         thread.start()
@@ -391,7 +398,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         """
         worker.send_step_data.connect(self.on_worker_step)
         worker.sigDone.connect(self.on_worker_done)
-        worker.send_message.connect(self.logDock.log.append)
+        worker.send_message.connect(self.log_message)
         self.sigAbortWorkers.connect(worker.abort)
 
     def update_current_values(self):
@@ -532,23 +539,22 @@ class MainWidget(QtCore.QObject, UIWindow):
 
     @QtCore.pyqtSlot(str)
     def on_worker_done(self, sensor_name):
-        self.logDock.log.append("Worker #{} done".format(sensor_name))
-        self.logDock.progress.append("-- Signal {} STOPPED".format(sensor_name))
+        self.log_message(f"Sensor thread {sensor_name} stopped")
         self.__workers_done += 1
         self.reset_data(sensor_name)
 
         if self.__workers_done == 2:
             self.abort_all_threads()
-            self.logDock.log.append("No more plot workers active")
+            self.log_message(f"No more plot workers active")
 
     @QtCore.pyqtSlot()
     def abort_all_threads(self):
         self.sigAbortWorkers.emit()
-        self.logDock.log.append("Asking each worker to abort")
+        self.log_message(f"Asking each worker to abort")
         for thread, worker in self.__threads:
             thread.quit()
             thread.wait()
-        self.logDock.log.append("All threads exited")
+        self.log_message("All threads exited")
 
     def reset_data(self, sensor_name):
         self.datadict[sensor_name] = self.datadict[sensor_name].iloc[0:0]
