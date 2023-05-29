@@ -55,8 +55,9 @@ Control unit box:
 The analog signals from vacuum gauges, 0 - 10 V, and the K-type thermocouple, 0 - 15 mV, are red by the DAC in the worker thread. The Raspi GPIO are used to control the solid state relay and turn on the halogen lamp. A Variac is used to power the lamp.
 
 
-
-![UI](images/app_screenshot_1.png)
+|              Main display               |                     Scales                     |                     Settings                     |
+| :-------------------------------------: | :--------------------------------------------: | :----------------------------------------------: |
+| ![UI](images/app_screenshot_v0.2.0.png) | ![UI](images/app_screenshot_v0.2.0_scales.png) | ![UI](images/app_screenshot_v0.2.0_settings.png) |
 
 # 2. Usage
 
