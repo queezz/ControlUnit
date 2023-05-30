@@ -5,7 +5,10 @@ from pyqtgraph.dockarea import Dock
 # from components.scaleButtons import ScaleButtons
 from ..buttons.toggles import MySwitch, OnOffSwitch, QmsSwitch
 from ..widgets.analoggauge import AnalogGaugeWidget
-from channels import MAXTEMP
+from ...readsettings import select_settings
+
+config = select_settings(verbose=True)
+MAXTEMP = config["Max Temperature"]
 
 
 class ControlDock(Dock):

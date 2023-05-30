@@ -18,7 +18,7 @@ def load_settings(path_to_file):
             print(exc)
 
 
-def select_settings(path_to_file="settings.yml"):
+def select_settings(path_to_file="settings.yml", verbose=False):
     """
     Check if there is local settings file and 
     if its version is same as current, load local one.
@@ -30,13 +30,16 @@ def select_settings(path_to_file="settings.yml"):
         config = load_settings(path_to_file)
         if local_config["Settings Version"] == config["Settings Version"]:
             config = local_config
-            print(f"configuration file loaded:\n{local_settings}")
+            if verbose:
+                print(f"configuration file loaded:\n{local_settings}")
             return config
     except Exception as ex:
-        print(ex)
+        if verbose:
+            print(ex)
 
     config = load_settings(path_to_file)
-    print(f"configuration file loaded:\n{os.path.abspath(path_to_file)}")
+    if verbose:
+        print(f"configuration file loaded:\n{os.path.abspath(path_to_file)}")
 
     return config
 
