@@ -282,7 +282,6 @@ class ADC(Worker):
         self.config = config
         self.adc_init()
 
-
     @QtCore.pyqtSlot()
     def abort(self):
         message = "Worker thread {} aborting acquisition".format(self.sensor_name)
@@ -427,7 +426,7 @@ class ADC(Worker):
             else:
                 converted_signals.append(conversion(value))
 
-        self.__calcData = pd.concat([self.__calcData, converted_signals], ignore_index=True)
+        self.__calcData = pd.concat([self.__calcData, np.atleast_2d(converted_signals)], ignore_index=True)
 
     def calculate_averaged_signals(self):
         """
