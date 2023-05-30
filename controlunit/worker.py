@@ -280,19 +280,8 @@ class ADC(Worker):
         self.__startTime = startTime
         self.__abort = False
         self.config = config
-        self.setup_gain_definitions()
         self.adc_init()
 
-    def setup_gain_definitions(self):
-        """
-        Setup dictionary with ADC gains
-        """
-        self.gain_definitions = {
-            10: self.aio.PGA.PGA_10_0352V,
-            5: self.aio.PGA.PGA_5_0176V,
-            2: self.aio.PGA.PGA_2_5088V,
-            1: self.aio.PGA.PGA_1_2544V,
-        }
 
     @QtCore.pyqtSlot()
     def abort(self):
@@ -386,6 +375,13 @@ class ADC(Worker):
         Why this addresses?
         """
         self.aio = adc(0x49, 0x3E)
+
+        self.gain_definitions = {
+            10: self.aio.PGA.PGA_10_0352V,
+            5: self.aio.PGA.PGA_5_0176V,
+            2: self.aio.PGA.PGA_2_5088V,
+            1: self.aio.PGA.PGA_1_2544V,
+        }
 
         self.adc_channels = self.config["Adc Channel Properties"]
         for _, j in self.adc_channels.items():
