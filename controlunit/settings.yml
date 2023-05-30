@@ -16,7 +16,7 @@ Sampling Rate: 0.1 # Default sampling rate
 # ================================================
 #
 # MAX6675
-# Cold-Junction-Compensated K-Thermocoupleto-Digital Converter (0°C to +1024°C)
+# Cold-Junction-Compensated K-Thermocoupleto-Digital Converter (0C to +1024C)
 # https://www.analog.com/media/en/technical-documentation/data-sheets/MAX6675.pdf
 #
 # ================================================
@@ -40,8 +40,6 @@ Temperature Columns:
 
 # ================================================
 #
-# nalog to Digital Converter: ADC
-# I2C アナログ入力ボード AIO-32/0RA-IRC
 # 32 channel 16-Bit ADC based on ADS1115
 # https://www.y2c.co.jp/i2c-r/aio-32-0ra-irc/
 # https://www.ti.com/lit/ds/symlink/ads1113.pdf
