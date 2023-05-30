@@ -425,12 +425,12 @@ class MainWidget(QtCore.QObject, UIWindow):
                  <tr>
                   <td>
                   <font size=4 color={self.pens['P1']['color']}>
-                    Pd = {self.currentvalues['P1']:.1e}
+                    Pd = {self.currentvalues['Pu']:.1e}
                   </font>
                   </td>
                   <td>
                    <font size=4 color={self.pens['P2']['color']}>
-                    Pu = {self.currentvalues['P2']:.1e}
+                    Pu = {self.currentvalues['Pd']:.1e}
                    </font>
                   </td>
                   <td>
@@ -442,12 +442,12 @@ class MainWidget(QtCore.QObject, UIWindow):
                  <tr>
                   <td>
                    <font size=4 color={self.pens['B1']['color']}>
-                    B1 = {self.currentvalues['B1']:.1e}
+                    B1 = {self.currentvalues['Bu']:.1e}
                    </font>
                   </td>
                   <td>
                    <font size=4 color={self.pens['B2']['color']}>
-                    B2 = {self.currentvalues['B2']:.1e}
+                    B2 = {self.currentvalues['Bd']:.1e}
                    </font>
                   </td>   
                   <td>
