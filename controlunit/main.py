@@ -53,7 +53,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.p1Data = None
         self.p2Data = None
 
-        self.config = readsettings.init_configuration()
+        self.config = readsettings.init_configuration(verbose=True)
         self.datapath = self.config["Data Folder"]
         self.sampling = self.config["Sampling Rate"]
 

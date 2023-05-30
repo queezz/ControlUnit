@@ -8,7 +8,7 @@ except:
 from pyqtgraph.Qt import QtCore
 from readsettings import select_settings
 
-config = select_settings(verbose=True)
+config = select_settings(verbose=False)
 CHLED = config["LED GPIO"]
 
 # must inherit QtCore.QObject in order to use 'connect'

@@ -10,7 +10,7 @@ except:
 from pyqtgraph.Qt import QtCore
 from readsettings import select_settings
 
-config = select_settings(verbose=True)
+config = select_settings(verbose=False)
 CHHEATER = config["Heater GPIO"]
 
 

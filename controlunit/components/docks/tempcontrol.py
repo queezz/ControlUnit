@@ -4,7 +4,7 @@ from pyqtgraph.dockarea import Dock
 
 from readsettings import select_settings
 
-config = select_settings(verbose=True)
+config = select_settings(verbose=False)
 MAXTEMP = config["Max Temperature"]
 
 DEGREE_SMB = "\N{DEGREE SIGN}"

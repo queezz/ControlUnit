@@ -45,9 +45,9 @@ def select_settings(path_to_file="settings.yml", verbose=False):
 
 
 # TODO: make the main method
-def init_configuration(settings="settings.yml"):
+def init_configuration(settings="settings.yml",verbose=False):
     # TODO: add option to load ~/.controlunit/settings.yml if exists
-    config = select_settings(settings)
+    config = select_settings(settings,verbose=verbose)
     # make_data_folders_updated_function()
 
     adc_channels = {

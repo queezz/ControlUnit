@@ -7,7 +7,9 @@ from ..buttons.toggles import MySwitch, OnOffSwitch, QmsSwitch
 from ..widgets.analoggauge import AnalogGaugeWidget
 from readsettings import select_settings
 
-config = select_settings(verbose=True)
+config = select_settings(verbose=False)
+print("GET CONFIG: control.py")
+print(f'config["Max Temperature"] {config["Max Temperature"]}')
 MAXTEMP = config["Max Temperature"]
 
 
