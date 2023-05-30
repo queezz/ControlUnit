@@ -1,7 +1,7 @@
 import csv
 import os
 from os.path import join, expanduser
-import channels
+import adcchannels
 
 
 def load_settings(path_to_file):
@@ -18,19 +18,78 @@ def load_settings(path_to_file):
             print(exc)
 
 
+def select_settings(path_to_file="settings.yml"):
+    """
+    Check if there is local settings file and 
+    if its version is same as current, load local one.
+    """
+    local_settings = os.path.join(os.path.expanduser("~"), ".controlunit", "settings.yml")
+
+    try:
+        local_config = load_settings(local_settings)
+        config = load_settings(path_to_file)
+        if local_config["Settings Version"] == config["Settings Version"]:
+            config = local_config
+            print(f"configuration file loaded:\n{local_settings}")
+            return config
+    except Exception as ex:
+        print(ex)
+
+    config = load_settings(path_to_file)
+    print(f"configuration file loaded:\n{os.path.abspath(path_to_file)}")
+
+    return config
+
+
 # TODO: make the main method
-def init_configuration(settings = 'settings.yml'):
+def init_configuration(settings="settings.yml"):
     # TODO: add option to load ~/.controlunit/settings.yml if exists
-    config = load_settings(settings)
+    config = select_settings(settings)
     # make_data_folders_updated_function()
 
     adc_channels = {
-        name: channels.AdcChannelProps(name, **config["ADC Channels"][name])
+        name: adcchannels.AdcChannelProps(name, **config["ADC Channels"][name])
         for name in list(config["ADC Channels"])
     }
 
     config["Adc Channel Properties"] = adc_channels
+    config["Data Folder"] = init_datafolder(config)
+
+    config["ADC Signal Names"] = list(config["ADC Channels"])
+    config["ADC Converted Names"] = [i + "_c" for i in config["ADC Signal Names"]]
+    config["ADC Column Names"] = (
+        config["ADC Additional Columns"] + config["ADC Signal Names"] + config["ADC Converted Names"]
+    )
+
+    a = config["ADC Channels"]
+    config["ADC Channel Numbers"] = [a[i]["Channel"] for i in list(a)]
+
+    print("controlunit configuration loaded successfully.")
     return config
+
+
+def init_datafolder(config):
+    """
+    Create folder for saving data, if not existing
+    if datafolder starts with '~' - put the folder in home directory
+    """
+    foldername = config["Data Folder"]
+
+    if foldername.startswith("~"):
+        home = expanduser("~")
+        foldername = home + foldername[1:]
+
+    foldername = os.path.abspath(foldername)
+    print(f"I'll try to create datafolder: {foldername}")
+
+    try:
+        os.makedirs(foldername)
+        print(f"created {foldername}")
+    except FileExistsError:
+        print("Already exists.")
+        pass
+
+    return foldername
 
 
 # TODO: Remove
@@ -47,6 +106,7 @@ def make_datafolders():
     if foldername.startswith("~"):
         home = expanduser("~")
         foldername = home + foldername[1:]
+
     print(f"I'll try to create datafolder: {foldername}")
 
     try:

@@ -5,10 +5,13 @@ from PyQt5 import QtGui, QtCore, QtWidgets
 
 from mainView import UIWindow
 from worker import MAX6675, ADC, Worker
-from readsettings import make_datafolders, read_settings
+
+# from readsettings import make_datafolders, read_settings
+import readsettings
 import qmsSignal
-from channels import TCCOLUMNS, ADCCOLUMNS, ADCCONVERTED, ADCSIGNALS, CHNLSADC
-from channels import CHHEATER, CHLED
+
+# from channels import TCCOLUMNS, ADCCOLUMNS, ADCCONVERTED, ADCSIGNALS, CHNLSADC
+# from channels import CHHEATER, CHLED
 
 try:
     from AIO import AIO_32_0RA_IRC as adc
@@ -52,7 +55,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         # Plot line colors
         # self.currentvalues = {"Ip": 0, "P1": 0, "P2": 0, "T": 0}
-        self.currentvalues = {i: 0 for i in ADCSIGNALS + ["T"]}
+        self.currentvalues = {i: 0 for i in self.config["ADC Signal Names"] + ["T"]}
         self.baratronsignal1 = 0
         self.baratronsignal2 = 0
         self.pens = {
@@ -81,9 +84,12 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.tWorker = None
         self.adcWorker = None
 
-        self.datapth = make_datafolders()
+        self.config = readsettings.init_configuration()
+        self.datapath = self.config["Data Folder"]
+        self.sampling = self.config["Sampling Rate"]
+        # self.datapth = make_datafolders()
+        # self.sampling = read_settings()["samplingtime"]
 
-        self.sampling = read_settings()["samplingtime"]
         self.update_plot_timewindow()
 
         self.showMain()
@@ -280,12 +286,12 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.log_message("<font size=4 color='#1cad47'>Starting</font> acquisition")
         self.savepaths = {}
         self.datadict = {
-            "MAX6675": pd.DataFrame(columns=TCCOLUMNS),
-            "ADC": pd.DataFrame(columns=ADCCOLUMNS + ADCCONVERTED),
+            "MAX6675": pd.DataFrame(columns=self.config["Temperature Columns"]),
+            "ADC": pd.DataFrame(columns=self.config["ADC Column Names"]),
         }
         self.newdata = {
-            "MAX6675": pd.DataFrame(columns=TCCOLUMNS),
-            "ADC": pd.DataFrame(columns=ADCCOLUMNS + ADCCONVERTED),
+            "MAX6675": pd.DataFrame(columns=self.config["Temperature Columns"]),
+            "ADC": pd.DataFrame(columns=self.config["ADC Column Names"]),
         }
 
         self.__workers_done = 0
@@ -303,14 +309,14 @@ class MainWidget(QtCore.QObject, UIWindow):
         sensor_name = "MAX6675"
         threads[sensor_name] = QtCore.QThread()
         threads[sensor_name].setObjectName(f"{sensor_name}")
-        self.tWorker = MAX6675(sensor_name, self.__app, now)
+        self.tWorker = MAX6675(sensor_name, self.__app, now, self.config)
         self.tWorker.setTempWorker(self.__temp)
 
         # Multichannel ADC
         sensor_name = "ADC"
         threads[sensor_name] = QtCore.QThread()
         threads[sensor_name].setObjectName(f"{sensor_name}")
-        self.adcWorker = ADC(sensor_name, self.__app, now)
+        self.adcWorker = ADC(sensor_name, self.__app, now, self.config)
 
         mode = self.controlDock.IGmode.currentIndex()
         scale = self.controlDock.IGrange.value()
@@ -376,8 +382,9 @@ class MainWidget(QtCore.QObject, UIWindow):
         return [
             "# Control Unit ADC signals\n",
             f"# Date: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n",
-            f"# Columns: {', '.join(ADCCOLUMNS + ADCCONVERTED)}\n" f"# Signals: {', '.join(ADCSIGNALS)}\n",
-            f"# Channels: {', '.join([str(i) for i in CHNLSADC])}\n"
+            f"# Columns: {', '.join(self.config['ADC Column Names'])}\n"
+            f"# Signals: {', '.join(self.config['ADC Signal Names'])}\n",
+            f"# Channels: {', '.join([str(i) for i in self.config['ADC Channel Numbers']])}\n"
             "# For converted signals '_c' is added\n",
             "#\n",
             "# [Data]\n",
@@ -390,8 +397,9 @@ class MainWidget(QtCore.QObject, UIWindow):
         return [
             "# Control Unit Temperature Control signals\n",
             f"# Date: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n",
-            f"# Columns: {', '.join(TCCOLUMNS)}\n" f"# Heater GPIO: {CHHEATER}\n",
-            f"# LED GPIO: {CHLED}\n",
+            f"# Columns: {', '.join(self.config['Temperature Columns'])}\n",
+            f"# Heater GPIO: {self.config['Heater GPIO']}\n",
+            f"# LED GPIO: {self.config['LED GPIO']}\n",
             "#\n",
             "# [Data]\n",
         ]
@@ -483,7 +491,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.newdata[sensor_name] = result[0]
             self.append_data(sensor_name)
             self.save_data(sensor_name)
-            for plotname, name in zip(ADCSIGNALS, ADCCONVERTED):
+            for plotname, name in zip(self.config["ADC Signal Names"], self.config["ADC Converted Names"]):
                 self.currentvalues[plotname] = self.datadict["ADC"].iloc[-3:][name].mean()
             # to debug mV signal from Baratron, ouptut it directly.
             self.baratronsignal1 = self.datadict["ADC"].iloc[-3:]["B1"].mean()

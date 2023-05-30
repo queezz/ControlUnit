@@ -1,8 +1,15 @@
-# General Settings
-# Path: use leading '~' to specify path in user directory
+Settings Version: 1
+# Define your local settings in
+# localsettings = os.path.join(os.path.expanduser('~'),'.controlunit', 'settings.yml')
+# ~/.controlunit/settings.yml
+# If settings items are changed and settings version is higher then
+# the local one, local settings are ignored.
+
+# Data Path: use leading '~' to specify path in user directory
 # Data Folder: ~/work/cudata
 Data Folder: ~/work/cudata #
-Path is Local: True
+# Save the info from Log Dock to this file in Data Folder
+Log File: controlunit.log
 
 Sampling Rate: 0.1 # Default sampling rate
 
@@ -54,7 +61,10 @@ Temperature Columns:
 #  - "Baratron"  # Baratron with range 0.1
 #     If function is "Baratron", spesify its Full Scale in Torr
 #     tag = Full Scale
-# - "No Conversion" # If no conversion needed
+# - "No Conversion" # If no conversion neededt
+# TODO: update worker.update_processed_signals_dataframe()
+# If channels are changed or added, this function must be manually
+# updated now.
 
 ADC Channels:
   Pd:

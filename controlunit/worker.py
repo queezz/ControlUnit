@@ -4,7 +4,7 @@ Worker threads
 Constants, such as channel for ADC, GPIO on RasPi, column names for dataframes,
 are specified in channels.py. Adjust values there to affect the whole of Contorlunit.
 """
-from channels import *
+# from channels import *
 import time, datetime
 import numpy as np
 import pandas as pd
@@ -40,13 +40,14 @@ class Worker(QtCore.QObject):
     sigDone = QtCore.pyqtSignal(str)
     send_message = QtCore.pyqtSignal(str)
 
-    def __init__(self, sensor_name, app, startTime):
+    def __init__(self, sensor_name, app, startTime, config):
         super().__init__()
 
         self.__id = id
         self.__app = app
         self.sensor_name = sensor_name
         self.__startTime = startTime
+        self.config = config
 
     def print_checks(self):
         attrs = vars(self)
@@ -147,7 +148,7 @@ class MAX6675(Worker):
         Select MAX6675 sensor on the SPI
         Need to start PIGPIO daemon
         """
-        self.sensor = self.pi.spi_open(CHT, 1000000, 0)
+        self.sensor = self.pi.spi_open(self.config["MAX6675 Channel"], 1000000, 0)
 
     def read_thermocouple(self):
         """
@@ -203,7 +204,7 @@ class MAX6675(Worker):
 
         step = 0
 
-        while not (self.__abort):            
+        while not (self.__abort):
             time.sleep(self.sampling)
             self.read_thermocouple()
             self.update_dataframe()
@@ -311,9 +312,9 @@ class ADC(Worker):
         IGscale: range (scale) of Ionization Gauge in linear mode
         QMS_signal: int, "trigger" on or off. When on emits a signal from GPIO
         """
-        self.adc_voltage_columns = ADCSIGNALS
-        self.adc_processed_columns = ADCCONVERTED
-        self.adc_columns = ADCCOLUMNS
+        self.adc_voltage_columns = self.config["ADC Signal Names"]
+        self.adc_processed_columns = self.config["ADC Converted Names"]
+        self.adc_columns = self.config["ADC Additional Columns"] + self.config["ADC Signal Names"]
 
         self.__adc_data = pd.DataFrame(columns=self.adc_columns)
         self.__calcData = pd.DataFrame(columns=self.adc_processed_columns)
@@ -373,27 +374,8 @@ class ADC(Worker):
             print(f"update ADC gain to {gain}")
 
         # TODO: use AdcChannelsProps instead
-        self.adc_channels[CHB1] = self.gain_definitions[gain]
-        self.adc_channels[CHB2] = self.gain_definitions[gain]
-
-    def set_adc_channels(self):
-        """
-        Setup ADC channels: numbers, voltages, etc.
-
-        Results
-        -------
-        self.adc_channels: dict
-            dictionary of channels with their voltage scales
-        """
-        self.CHNLS = CHNLSADC
-        scale10 = [CHP1, CHP2]
-        scale5 = [CHIP]
-        scale1 = [CHB1, CHB2]
-        self.adc_channels = {CH: {"pga": self.aio.PGA.PGA_10_0352V} for CH in scale10}
-        for CH in scale5:
-            self.adc_channels[CH] = {"pga": self.aio.PGA.PGA_5_0176V}
-        for CH in scale1:
-            self.adc_channels[CH] = {"pga": self.aio.PGA.PGA_1_2544V}
+        # self.adc_channels[CHB1] = self.gain_definitions[gain]
+        # self.adc_channels[CHB2] = self.gain_definitions[gain]
 
     def adc_init(self):
         """
@@ -402,6 +384,10 @@ class ADC(Worker):
         Why this addresses?
         """
         self.aio = adc(0x49, 0x3E)
+
+        self.adc_channels = self.config["Adc Channel Properties"]
+        for _, j in self.adc_channels.items():
+            j.gain = self.gain_definitions[j.gainIndex]
 
     def set_adc_datarate(self):
         """
@@ -414,9 +400,10 @@ class ADC(Worker):
         Read ADC voltages for selected channels
         Can change ADC gain at any time by updating self.adc_channels
         """
-        self.adc_voltages = [
-            self.aio.analog_read_volt(CH, *self.adc_datarate, **self.adc_channels[CH]) for CH in self.CHNLS
-        ]
+        self.adc_voltages = {
+            ch.name: self.aio.analog_read_volt(ch.channel, *self.adc_datarate, ch.gain)
+            for _, ch in self.adc_channels.items()
+        }
 
     def put_new_data_in_dataframe(self):
         """
@@ -425,31 +412,24 @@ class ADC(Worker):
         now = datetime.datetime.now()
         dSec = (now - self.__startTime).total_seconds()
         new_data_row = pd.DataFrame(
-            np.atleast_2d([now, dSec, *self.adc_voltages, self.__IGmode, self.__IGrange, self.__qmsSignal,]),
+            np.atleast_2d([now, dSec, self.__IGmode, self.__IGrange, self.__qmsSignal, *self.adc_voltages]),
             columns=self.adc_columns,
         )
         self.__adc_data = pd.concat([self.__adc_data, new_data_row], ignore_index=True)
 
     def update_processed_signals_dataframe(self):
         """
-        Update processed dataframe with new values
-        TODO: add a list of signals with their calc functions somewhere
-        to make this automatc
+        Update processed dataframe with new values        
         """
-        p1_v, p2_v, ip_v, b1, b2 = self.adc_voltages
-        new_calc_row = pd.DataFrame(
-            np.atleast_2d(
-                [
-                    ionization_gauge(p1_v, self.__IGmode, self.__IGrange),
-                    pfeiffer_single_gauge(p2_v),
-                    hall_current_sensor(ip_v),
-                    baratron(b1, 1),  # Fullscale = 1 Torr
-                    baratron(b2, 0.1),  # Fullscale = 0.1 Torr
-                ]
-            ),
-            columns=ADCCONVERTED,
-        )
-        self.__calcData = pd.concat([self.__calcData, new_calc_row], ignore_index=True)
+        converted_signals = []
+        for name, value in self.adc_voltages.items():
+            conversion = self.adc_channels[name].conversion
+            if conversion.__name__ == "ionization_gauge":
+                converted_signals.append(conversion(value, self.__IGmode, self.__IGrange))
+            else:
+                converted_signals.append(conversion(value))
+
+        self.__calcData = pd.concat([self.__calcData, converted_signals], ignore_index=True)
 
     def calculate_averaged_signals(self):
         """
@@ -479,7 +459,6 @@ class ADC(Worker):
         Convert voltage to units.
         Send data back to main thread for ploting ad saving.
         """
-        self.set_adc_channels()
         totalStep = 0
         step = 0
 
