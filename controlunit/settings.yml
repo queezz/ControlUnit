@@ -40,7 +40,7 @@ Temperature Columns:
 
 # ================================================
 #
-# Analog to Digital Converter: ADC
+#Analog to Digital Converter: ADC
 # I2C アナログ入力ボード AIO-32/0RA-IRC
 # 32 channel 16-Bit ADC based on ADS1115
 # https://www.y2c.co.jp/i2c-r/aio-32-0ra-irc/
