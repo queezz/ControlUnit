@@ -426,7 +426,9 @@ class ADC(Worker):
             else:
                 converted_signals.append(conversion(value))
 
-        self.__calcData = pd.concat([self.__calcData, np.atleast_2d(converted_signals)], ignore_index=True)
+        converted_signals = pd.DataFrame(np.atleast_2d(converted_signals))
+
+        self.__calcData = pd.concat([self.__calcData, converted_signals], ignore_index=True)
 
     def calculate_averaged_signals(self):
         """
