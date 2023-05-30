@@ -280,8 +280,8 @@ class ADC(Worker):
         self.__startTime = startTime
         self.__abort = False
         self.config = config
-        self.adc_init()
         self.setup_gain_definitions()
+        self.adc_init()
 
     def setup_gain_definitions(self):
         """
