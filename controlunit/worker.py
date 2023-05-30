@@ -90,11 +90,12 @@ class MAX6675(Worker):
 
     sigAbortHeater = QtCore.pyqtSignal()
 
-    def __init__(self, sensor_name, app, startTime):
-        super().__init__(sensor_name, app, startTime)
+    def __init__(self, sensor_name, app, startTime, config):
+        super().__init__(sensor_name, app, startTime, config)
         self.__app = app
         self.sensor_name = sensor_name
         self.__startTime = startTime
+        self.config = config
         self.__abort = False
 
     @QtCore.pyqtSlot()
@@ -272,12 +273,13 @@ class MAX6675(Worker):
 
 
 class ADC(Worker):
-    def __init__(self, sensor_name, app, startTime):
-        super().__init__(sensor_name, app, startTime)
+    def __init__(self, sensor_name, app, startTime, config):
+        super().__init__(sensor_name, app, startTime, config)
         self.__app = app
         self.sensor_name = sensor_name
         self.__startTime = startTime
         self.__abort = False
+        self.config = config
         self.adc_init()
         self.setup_gain_definitions()
 
