@@ -53,6 +53,10 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.p1Data = None
         self.p2Data = None
 
+        self.config = readsettings.init_configuration()
+        self.datapath = self.config["Data Folder"]
+        self.sampling = self.config["Sampling Rate"]
+
         # Plot line colors
         # self.currentvalues = {"Ip": 0, "P1": 0, "P2": 0, "T": 0}
         self.currentvalues = {i: 0 for i in self.config["ADC Signal Names"] + ["T"]}
@@ -83,12 +87,6 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         self.tWorker = None
         self.adcWorker = None
-
-        self.config = readsettings.init_configuration()
-        self.datapath = self.config["Data Folder"]
-        self.sampling = self.config["Sampling Rate"]
-        # self.datapth = make_datafolders()
-        # self.sampling = read_settings()["samplingtime"]
 
         self.update_plot_timewindow()
 
