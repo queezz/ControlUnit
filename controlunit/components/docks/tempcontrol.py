@@ -1,12 +1,12 @@
 import pyqtgraph as pg
-from PyQt5 import QtGui, QtCore, QtWidgets
+from PyQt5 import QtCore, QtWidgets
 from pyqtgraph.dockarea import Dock
 from channels import MAXTEMP
 
 DEGREE_SMB = "\N{DEGREE SIGN}"
 
 
-class RegisterDock(Dock):
+class HeaterControl(Dock):
     def __init__(self):
         super().__init__("Membreane Heater")
         self.widget = pg.LayoutWidget()
@@ -27,9 +27,9 @@ class RegisterDock(Dock):
         self.registerBtn = QtWidgets.QPushButton("set")
         self.registerBtn.setMinimumSize(QtCore.QSize(80, 80))
         self.registerBtn.setStyleSheet("font: 26pt")
-        self.__setLayout()
+        self.set_layout()
 
-    def __setLayout(self):
+    def set_layout(self):
         self.addWidget(self.widget)
 
         self.widget.addWidget(self.tempBw, 0, 0, 1, 2)
@@ -42,11 +42,11 @@ class RegisterDock(Dock):
         # self.widget.layout.setVerticalSpacing(0)
         self.widget.layout.addItem(self.verticalSpacer)
 
-    def __setLabelFont(self, text: str, color: str):
+    def set_label_font(self, text: str, color: str):
         txt = "<font color={}><h4>{}</h4></font>".format(color, text)
         return txt
 
-    def setTempText(self, temperature, temp_now):
+    def update_displayed_temperatures(self, temperature, temp_now):
         """ set values into browser"""
         htmltag = '<font size=6 color="#d1451b">'
         htag1 = '<font size=6 color = "#4275f5">'
@@ -56,8 +56,8 @@ class RegisterDock(Dock):
             f"&nbsp;&nbsp;&nbsp;{htag1}{temp_now} {DEGREE_SMB}C{cf}"
         )
 
-    def setTemp(self, temperature: int, temp_now):
-        self.setTempText(temperature, temp_now)
+    def set_heating_goal(self, temperature: int, temp_now):
+        self.update_displayed_temperatures(temperature, temp_now)
         self.temperatureSB.setValue(temperature)
 
 

@@ -2,16 +2,9 @@
 # Path: use leading '~' to specify path in user directory
 # Data Folder: ~/work/cudata
 Data Folder: ~/work/cudata #
-
 Path is Local: True
 
 Sampling Rate: 0.1 # Default sampling rate
-
-# ================================================
-#
-# Set maximum temperature for
-# Temperature Control and for Analog Gauge widget
-Max Temperature: 1000
 
 # ================================================
 #
@@ -20,6 +13,9 @@ Max Temperature: 1000
 # https://www.analog.com/media/en/technical-documentation/data-sheets/MAX6675.pdf
 #
 # ================================================
+# Set maximum temperature for
+# Temperature Control and for Analog Gauge widget
+Max Temperature: 1000
 
 # Channel Selector
 MAX6675 Channel: 0 # 0 -> CS0, 1 -> CS1 Thermocouple

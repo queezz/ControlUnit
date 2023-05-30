@@ -2,13 +2,13 @@ import pyqtgraph as pg
 from PyQt5 import QtGui, QtWidgets
 from pyqtgraph.dockarea import DockArea, Dock
 
-from components.controlDock import ControlDock
-from components.logDock import LogDock
-from components.tempcontrolDock import RegisterDock
-from components.graph import Graph
-from components.plotscaleDock import PlotScaleDock
-from components.settingsDock import SettingsDock
-from components.adcgainDock import ADCGainDock
+from components.docks.log import LogDock
+from components.docks.plots import PlotScaleDock
+from components.docks.control import ControlDock
+from components.docks.adcgain import ADCGain
+from components.docks.settings import SettingsDock
+from components.docks.tempcontrol import HeaterControl
+from components.widgets.graph import Graph
 
 
 class UIWindow(object):
@@ -22,7 +22,7 @@ class UIWindow(object):
         self.plotDock = Dock("Plots", size=(300, 400))
         self.controlDock = ControlDock()
         self.logDock = LogDock()
-        self.tempcontrolDock = RegisterDock()
+        self.tempcontrolDock = HeaterControl()
         [i.setStretch(*(10, 20)) for i in [self.controlDock, self.logDock, self.tempcontrolDock]]
         self.controlDock.setStretch(*(10, 300))
         self.graph = Graph()
@@ -33,7 +33,7 @@ class UIWindow(object):
         self.logDock.setStretch(*(200, 100))
         self.SettingsDock.setStretch(*(80, 100))
 
-        self.ADCGainDock = ADCGainDock()
+        self.ADCGainDock = ADCGain()
 
         self.MainWindow.setGeometry(20, 50, 1000, 600)
         sizeObject = QtWidgets.QDesktopWidget().screenGeometry(-1)
@@ -44,7 +44,7 @@ class UIWindow(object):
         # self.MainWindow.showFullScreen()
         self.MainWindow.setObjectName("Monitor")
         self.MainWindow.setWindowTitle("Data Logger")
-        #self.MainWindow.statusBar().showMessage("")
+        # self.MainWindow.statusBar().showMessage("")
         self.MainWindow.setAcceptDrops(True)
 
         self.__setLayout()
