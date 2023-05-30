@@ -442,17 +442,17 @@ class MainWidget(QtCore.QObject, UIWindow):
                  <tr>
                   <td>
                    <font size=4 color={self.pens['B1']['color']}>
-                    B1 = {self.currentvalues['Bu']:.1e}
+                    Bu = {self.currentvalues['Bu']:.1e}
                    </font>
                   </td>
                   <td>
                    <font size=4 color={self.pens['B2']['color']}>
-                    B2 = {self.currentvalues['Bd']:.1e}
+                    Bd = {self.currentvalues['Bd']:.1e}
                    </font>
                   </td>   
                   <td>
                    <font size=4 color={self.pens['B2']['color']}>
-                    B2 = {self.baratronsignal2:.4f}
+                    Bd = {self.baratronsignal2:.4f}
                    </font>
                   </td>
                  </tr>
@@ -492,8 +492,8 @@ class MainWidget(QtCore.QObject, UIWindow):
             for plotname, name in zip(self.config["ADC Signal Names"], self.config["ADC Converted Names"]):
                 self.currentvalues[plotname] = self.datadict["ADC"].iloc[-3:][name].mean()
             # to debug mV signal from Baratron, ouptut it directly.
-            self.baratronsignal1 = self.datadict["ADC"].iloc[-3:]["B1"].mean()
-            self.baratronsignal2 = self.datadict["ADC"].iloc[-3:]["B2"].mean()
+            self.baratronsignal1 = self.datadict["ADC"].iloc[-3:]["Bu"].mean()
+            self.baratronsignal2 = self.datadict["ADC"].iloc[-3:]["Bd"].mean()
             self.update_plots(sensor_name)
 
         self.update_current_values()
@@ -510,10 +510,10 @@ class MainWidget(QtCore.QObject, UIWindow):
             df = self.select_data_to_plot(sensor_name)
             time = df["time"].values.astype(float)
             ip = df["Ip_c"].values.astype(float)
-            p1 = df["P1_c"].values.astype(float)
-            p2 = df["P2_c"].values.astype(float)
-            b1 = df["B1_c"].values.astype(float)
-            b2 = df["B2_c"].values.astype(float)
+            p1 = df["Pu_c"].values.astype(float)
+            p2 = df["Pd_c"].values.astype(float)
+            b1 = df["Bu_c"].values.astype(float)
+            b2 = df["Bd_c"].values.astype(float)
             self.valuePlaPlot.setData(time, ip)
             self.valueP1Plot.setData(time, p1)
             self.valueP2Plot.setData(time, p2)
