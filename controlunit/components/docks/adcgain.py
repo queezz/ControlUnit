@@ -1,10 +1,9 @@
 import pyqtgraph as pg
 from PyQt5 import QtGui, QtCore, QtWidgets
 from pyqtgraph.dockarea import Dock
-from components.onoffswitch import *
 
 
-class ADCGainDock(Dock):
+class ADCGain(Dock):
     def __init__(self):
         super().__init__("Gain")
         self.widget = pg.LayoutWidget()
@@ -18,8 +17,6 @@ class ADCGainDock(Dock):
 
         self.set_gain_btn = QtWidgets.QPushButton("set")
         self.set_gain_btn.setFont(QtGui.QFont("serif", 18))
-
-
 
         self.__setLayout()
 

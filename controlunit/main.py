@@ -36,7 +36,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         super(self.__class__, self).__init__()
         self.__app = app
         self.connections()
-        self.tempcontrolDock.setTemp(self.DEFAULT_TEMPERATURE, "---")
+        self.tempcontrolDock.set_heating_goal(self.DEFAULT_TEMPERATURE, "---")
 
         QtCore.QThread.currentThread().setObjectName("main")
 
@@ -101,7 +101,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             [self.update_plots(sensor_name) for sensor_name in self.sensor_names]
         except AttributeError:
             pass
-            #print("can't update plots, no workers yet")
+            # print("can't update plots, no workers yet")
 
     def update_baratron_gain(self):
         """"""
@@ -115,9 +115,9 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.ADCGainDock.gain_box.currentIndexChanged.connect(self.update_baratron_gain)
         self.ADCGainDock.set_gain_btn.clicked.connect(self.__set_gain)
 
-        self.tempcontrolDock.registerBtn.clicked.connect(self.registerTemp)
-        self.controlDock.IGmode.currentIndexChanged.connect(self.updateIGmode)
-        self.controlDock.IGrange.valueChanged.connect(self.updateIGrange)
+        self.tempcontrolDock.registerBtn.clicked.connect(self.set_heater_goal)
+        self.controlDock.IGmode.currentIndexChanged.connect(self.update_ig_mode)
+        self.controlDock.IGrange.valueChanged.connect(self.update_ig_range)
 
         self.controlDock.FullNormSW.clicked.connect(self.fulltonormal)
         self.controlDock.OnOffSW.clicked.connect(self.__onoff)
@@ -125,9 +125,9 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.controlDock.qmsSigSw.clicked.connect(self.sync_signal_switch)
 
         # Toggle plots for Current, Temperature, and Pressure
-        self.scaleDock.togIp.clicked.connect(self.togglePlots)
-        self.scaleDock.togT.clicked.connect(self.togglePlots)
-        self.scaleDock.togP.clicked.connect(self.togglePlots)
+        self.scaleDock.togIp.clicked.connect(self.toggle_plots)
+        self.scaleDock.togT.clicked.connect(self.toggle_plots)
+        self.scaleDock.togP.clicked.connect(self.toggle_plots)
 
         self.scaleDock.Pmin.valueChanged.connect(self.__updatePScale)
         self.scaleDock.Pmax.valueChanged.connect(self.__updatePScale)
@@ -207,7 +207,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.MainWindow.showNormal()
             self.controlDock.setStretch(*(10, 300))  # minimize control dock width
 
-    def togglePlots(self):
+    def toggle_plots(self):
         """
         Toggle plots
         self.scaleDock.togIp
@@ -412,7 +412,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         # TODO: updated dislpayed valuves from dataframes
 
-        self.tempcontrolDock.setTempText(self.__temp, f"{self.currentvalues['T']:.0f}")
+        self.tempcontrolDock.update_displayed_temperatures(self.__temp, f"{self.currentvalues['T']:.0f}")
         self.controlDock.gaugeT.update_value(self.currentvalues["T"])
         txt = f"""
               <table>
@@ -567,16 +567,16 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.newdata[sensor_name] = self.newdata[sensor_name].iloc[0:0]
 
     @QtCore.pyqtSlot()
-    def registerTemp(self):
+    def set_heater_goal(self):
         value = self.tempcontrolDock.temperatureSB.value()
         self.__temp = value
         temp_now = self.currentvalues["T"]
-        self.tempcontrolDock.setTemp(self.__temp, f"{temp_now:.0f}")
+        self.tempcontrolDock.set_heating_goal(self.__temp, f"{temp_now:.0f}")
         if self.tWorker is not None:
             self.tWorker.setPresetTemp(self.__temp)
 
     @QtCore.pyqtSlot()
-    def updateIGmode(self):
+    def update_ig_mode(self):
         """Update mode of the IG controller:
         Torr and linear
         or
@@ -620,7 +620,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.log_message(f"MAX6675 sampling set to {value}")
 
     @QtCore.pyqtSlot()
-    def updateIGrange(self):
+    def update_ig_range(self):
         """Update range of the IG controller:
         10^{-3} - 10^{-8} multiplier when in linear mode (Torr)
         """

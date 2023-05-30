@@ -1,5 +1,5 @@
 import pyqtgraph as pg
-from PyQt5 import QtGui, QtCore, QtWidgets
+from PyQt5 import QtWidgets
 from pyqtgraph.dockarea import Dock
 
 

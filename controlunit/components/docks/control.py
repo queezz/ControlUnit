@@ -3,8 +3,8 @@ from PyQt5 import QtGui, QtCore, QtWidgets
 from pyqtgraph.dockarea import Dock
 
 # from components.scaleButtons import ScaleButtons
-from components.onoffswitch import MySwitch, OnOffSwitch, QmsSwitch
-from components.analoggaugewidget import AnalogGaugeWidget
+from ..buttons.toggles import MySwitch, OnOffSwitch, QmsSwitch
+from ..widgets.analoggauge import AnalogGaugeWidget
 from channels import MAXTEMP
 
 
