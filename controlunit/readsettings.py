@@ -33,9 +33,8 @@ def select_settings(path_to_file="settings.yml", verbose=False):
             if verbose:
                 print(f"configuration file loaded:\n{local_settings}")
             return config
-    except Exception as ex:
-        if verbose:
-            print(ex)
+    except FileNotFoundError as ex:
+        pass
 
     config = load_settings(path_to_file)
     if verbose:
@@ -45,9 +44,9 @@ def select_settings(path_to_file="settings.yml", verbose=False):
 
 
 # TODO: make the main method
-def init_configuration(settings="settings.yml",verbose=False):
+def init_configuration(settings="settings.yml", verbose=False):
     # TODO: add option to load ~/.controlunit/settings.yml if exists
-    config = select_settings(settings,verbose=verbose)
+    config = select_settings(settings, verbose=verbose)
     # make_data_folders_updated_function()
 
     adc_channels = {

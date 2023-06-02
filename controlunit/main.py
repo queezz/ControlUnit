@@ -492,7 +492,8 @@ class MainWidget(QtCore.QObject, UIWindow):
             for plotname, name in zip(self.config["ADC Signal Names"], self.config["ADC Converted Names"]):
                 self.currentvalues[plotname] = self.datadict["ADC"].iloc[-3:][name].mean()
             # to debug mV signal from Baratron, ouptut it directly.
-            # print(self.datadict["ADC"].iloc[-3:])
+            print(plotname, name)
+            print(self.datadict["ADC"].iloc[-3:])
             self.baratronsignal1 = 0
             self.baratronsignal2 = 0
             # self.baratronsignal1 = self.datadict["ADC"].iloc[-3:]["Bu"].mean()

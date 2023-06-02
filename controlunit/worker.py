@@ -72,19 +72,6 @@ class Worker(QtCore.QObject):
         self.sampling = sampling
         # print(f"Updated sampling to {sampling}")
 
-    def enable_pigpio(self):
-        """
-        pigpiod is needed to acces RasPi GPIO
-        Used in, i.e., temperature control
-        https://raspberrypi.stackexchange.com/questions/70568/how-to-run-pigpiod-on-boot
-        """
-        from os import system
-
-        try:
-            system("sudo pigpiod")
-        except:
-            print("Make sure pigpiod is running")
-
 
 class MAX6675(Worker):
 
@@ -117,8 +104,6 @@ class MAX6675(Worker):
         if TEST:
             print("needs pigpio to access SPI")
             return
-
-        self.enable_pigpio()
 
         self.pi = pigpio.pi()
         self.__sumE = 0
@@ -442,7 +427,7 @@ class ADC(Worker):
         Sends processed data to main thread in main.py
         Clears temporary dataframes to reset memory consumption.
         """
-        newdata = self.adc_values.join(self.converted_values)        
+        newdata = self.adc_values.join(self.converted_values)
         self.send_step_data.emit([newdata, self.sensor_name])
         self.clear_datasets()
 
