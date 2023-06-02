@@ -425,7 +425,9 @@ class ADC(Worker):
             else:
                 converted_signals.append(conversion(value))
 
-        converted_signals = pd.DataFrame(np.atleast_2d(converted_signals))
+        converted_signals = pd.DataFrame(
+            np.atleast_2d(converted_signals), columns=self.config["ADC Converted Names"]
+        )
 
         self.converted_values = pd.concat([self.converted_values, converted_signals], ignore_index=True)
 
