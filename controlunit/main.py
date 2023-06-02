@@ -336,7 +336,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         [self.start_thread(workers[s], threads[s]) for s in self.sensor_names]
 
-    def log_message(self, message,htmltag=''):
+    def log_message(self, message,htmltag='p'):
         """
         Append a message to the log browser with a timestamp.
         """
@@ -363,7 +363,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         self.create_file(worker.sensor_name)
         self.log_message(
-            f"<font size=4 color='blue'>{worker.sensor_name}</font> savepath:<br> {self.savepaths[worker.sensor_name]}"
+            f"<font size=4 color='blue'>{worker.sensor_name}</font> savepath:<br> {self.savepaths[worker.sensor_name]}",
         )
 
         thread.started.connect(worker.start)
