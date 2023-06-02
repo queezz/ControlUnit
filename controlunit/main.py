@@ -633,7 +633,9 @@ class MainWidget(QtCore.QObject, UIWindow):
 
     @QtCore.pyqtSlot()
     def __set_sampling(self):
-        """Set sampling time for ADC"""
+        """Set sampling time for all threads"""
+        if not len(self.__threads):
+            return
         txt = self.SettingsDock.samplingCb.currentText()
         value = float(txt.split(" ")[0])
         self.sampling = value
