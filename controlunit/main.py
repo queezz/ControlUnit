@@ -337,6 +337,8 @@ class MainWidget(QtCore.QObject, UIWindow):
             current_text = self.logDock.log.toHtml()
             current_text += new_line
             self.logDock.log.setHtml(current_text)
+
+        self.logDock.log.moveCursor(self.logDock.log.textCursor().End)
         # self.logDock.log.append(f"<{htmltag}>{nowstamp}: {message}</{htmltag}>")
 
     def start_thread(self, worker: Worker, thread: QtCore.QThread):

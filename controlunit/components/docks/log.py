@@ -11,8 +11,7 @@ class LogDock(Dock):
         self.log = QtWidgets.QTextEdit()
         self.log.setReadOnly(True)
         self.log.document().setDefaultStyleSheet("p { margin: 0; }")
-        self.log.setStyleSheet("QTextEdit { background-color: #c27878; }")
-    
+        self.log.setStyleSheet("QTextEdit { background-color: #f2e9b8; }")
 
         self.__setLayout()
 
