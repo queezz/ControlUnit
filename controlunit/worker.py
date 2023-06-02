@@ -392,6 +392,7 @@ class ADC(Worker):
         """
         now = datetime.datetime.now()
         dSec = (now - self.__startTime).total_seconds()
+        print(self.adc_voltages)
         new_data_row = pd.DataFrame(
             np.atleast_2d([now, dSec, self.__IGmode, self.__IGrange, self.__qmsSignal, *self.adc_voltages]),
             columns=self.adc_values_columns,
@@ -402,19 +403,19 @@ class ADC(Worker):
         """
         Update processed dataframe with new values        
         """
-        converted_signals = []
+        converted_values = []
         for name, value in self.adc_voltages.items():
             conversion = self.adc_channels[name].conversion
             if conversion.__name__ == "ionization_gauge":
-                converted_signals.append(conversion(value, self.__IGmode, self.__IGrange))
+                converted_values.append(conversion(value, self.__IGmode, self.__IGrange))
             else:
-                converted_signals.append(conversion(value))
+                converted_values.append(conversion(value))
 
-        converted_signals = pd.DataFrame(
-            np.atleast_2d(converted_signals), columns=self.config["ADC Converted Names"]
+        converted_values = pd.DataFrame(
+            np.atleast_2d(converted_values), columns=self.config["ADC Converted Names"]
         )
 
-        self.converted_values = pd.concat([self.converted_values, converted_signals], ignore_index=True)
+        self.converted_values = pd.concat([self.converted_values, converted_values], ignore_index=True)
 
     def calculate_averaged_signals(self):
         """
@@ -428,7 +429,6 @@ class ADC(Worker):
         Clears temporary dataframes to reset memory consumption.
         """
         newdata = self.adc_values.join(self.converted_values)
-        print(newdata)
         self.send_step_data.emit([newdata, self.sensor_name])
         self.clear_datasets()
 
