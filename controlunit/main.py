@@ -5,10 +5,14 @@ from PyQt5 import QtGui, QtCore, QtWidgets
 
 from mainView import UIWindow
 from worker import MAX6675, ADC, Worker
-from readsettings import make_datafolders, read_settings
+
+# from readsettings import make_datafolders, read_settings
+import readsettings
+from striphtmltags import strip_tags
 import qmsSignal
-from channels import TCCOLUMNS, ADCCOLUMNS, ADCCONVERTED, ADCSIGNALS, CHNLSADC
-from channels import CHHEATER, CHLED
+
+# from channels import TCCOLUMNS, ADCCOLUMNS, ADCCONVERTED, ADCSIGNALS, CHNLSADC
+# from channels import CHHEATER, CHLED
 
 try:
     from AIO import AIO_32_0RA_IRC as adc
@@ -50,9 +54,13 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.p1Data = None
         self.p2Data = None
 
+        self.config = readsettings.init_configuration(verbose=True)
+        self.datapath = self.config["Data Folder"]
+        self.sampling = self.config["Sampling Time"]
+
         # Plot line colors
         # self.currentvalues = {"Ip": 0, "P1": 0, "P2": 0, "T": 0}
-        self.currentvalues = {i: 0 for i in ADCSIGNALS + ["T"]}
+        self.currentvalues = {i: 0 for i in self.config["ADC Signal Names"] + ["T"]}
         self.baratronsignal1 = 0
         self.baratronsignal2 = 0
         self.pens = {
@@ -81,12 +89,10 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.tWorker = None
         self.adcWorker = None
 
-        self.datapth = make_datafolders()
-
-        self.sampling = read_settings()["samplingtime"]
         self.update_plot_timewindow()
 
         self.showMain()
+        self.log_to_file(f"App started: {os.path.abspath(__file__)}")
 
     def update_plot_timewindow(self):
         """
@@ -277,15 +283,15 @@ class MainWidget(QtCore.QObject, UIWindow):
         2020/03/05: two sensors: ADC and temperatures, hence
         2 threds to read a) temperature, and b) analog signals (P1,P2, Ip)
         """
-        self.log_message("<font size=4 color='#1cad47'>Starting</font> acquisition")
+        self.log_message("<font color='#1cad47'>Starting</font> acquisition", htmltag="h2")
         self.savepaths = {}
         self.datadict = {
-            "MAX6675": pd.DataFrame(columns=TCCOLUMNS),
-            "ADC": pd.DataFrame(columns=ADCCOLUMNS + ADCCONVERTED),
+            "MAX6675": pd.DataFrame(columns=self.config["Temperature Columns"]),
+            "ADC": pd.DataFrame(columns=self.config["ADC Column Names"]),
         }
         self.newdata = {
-            "MAX6675": pd.DataFrame(columns=TCCOLUMNS),
-            "ADC": pd.DataFrame(columns=ADCCOLUMNS + ADCCONVERTED),
+            "MAX6675": pd.DataFrame(columns=self.config["Temperature Columns"]),
+            "ADC": pd.DataFrame(columns=self.config["ADC Column Names"]),
         }
 
         self.__workers_done = 0
@@ -303,14 +309,14 @@ class MainWidget(QtCore.QObject, UIWindow):
         sensor_name = "MAX6675"
         threads[sensor_name] = QtCore.QThread()
         threads[sensor_name].setObjectName(f"{sensor_name}")
-        self.tWorker = MAX6675(sensor_name, self.__app, now)
+        self.tWorker = MAX6675(sensor_name, self.__app, now, self.config)
         self.tWorker.setTempWorker(self.__temp)
 
         # Multichannel ADC
         sensor_name = "ADC"
         threads[sensor_name] = QtCore.QThread()
         threads[sensor_name].setObjectName(f"{sensor_name}")
-        self.adcWorker = ADC(sensor_name, self.__app, now)
+        self.adcWorker = ADC(sensor_name, self.__app, now, self.config)
 
         mode = self.controlDock.IGmode.currentIndex()
         scale = self.controlDock.IGrange.value()
@@ -321,12 +327,32 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         [self.start_thread(workers[s], threads[s]) for s in self.sensor_names]
 
-    def log_message(self, message):
+    def generate_time_stamp(self):
+        return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    def log_to_file(self, message):
+        filepath = self.config["Log File Path"]
+        time_stamp = self.generate_time_stamp()
+        new_line = f"{time_stamp}, {message}\n"
+        with open(filepath, "a") as f:
+            f.write(new_line)
+
+    def log_message(self, message, htmltag="p"):
         """
         Append a message to the log browser with a timestamp.
         """
-        nowstamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.logDock.log.append(f"{nowstamp}: " + message)
+        time_stamp = self.generate_time_stamp()
+        self.log_to_file(strip_tags(message))
+        new_line = f"<{htmltag}>{time_stamp}: {message}</{htmltag}>"
+        if not self.logDock.log.toPlainText():
+            self.logDock.log.setHtml(new_line)
+        else:
+            current_text = self.logDock.log.toHtml()
+            current_text += new_line
+            self.logDock.log.setHtml(current_text)
+
+        self.logDock.log.moveCursor(self.logDock.log.textCursor().End)
+        # self.logDock.log.append(f"<{htmltag}>{nowstamp}: {message}</{htmltag}>")
 
     def start_thread(self, worker: Worker, thread: QtCore.QThread):
         """
@@ -345,7 +371,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         self.create_file(worker.sensor_name)
         self.log_message(
-            f"<font size=4 color='blue'>{worker.sensor_name}</font> savepath:<br> {self.savepaths[worker.sensor_name]}"
+            f"<font size=4 color='blue'>{worker.sensor_name}</font> savepath:<br> {self.savepaths[worker.sensor_name]}",
         )
 
         thread.started.connect(worker.start)
@@ -357,14 +383,14 @@ class MainWidget(QtCore.QObject, UIWindow):
         """
         if sensor_name == "MAX6675":
             self.savepaths[sensor_name] = os.path.join(
-                os.path.abspath(self.datapth),
+                os.path.abspath(self.datapath),
                 f"cu_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_temp.csv",
             )
             with open(self.savepaths[sensor_name], "w") as f:
                 f.writelines(self.generate_header_temperature())
         if sensor_name == "ADC":
             self.savepaths[sensor_name] = os.path.join(
-                os.path.abspath(self.datapth), f"cu_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+                os.path.abspath(self.datapath), f"cu_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
             )
             with open(self.savepaths[sensor_name], "w") as f:
                 f.writelines(self.generate_header_adc())
@@ -376,8 +402,9 @@ class MainWidget(QtCore.QObject, UIWindow):
         return [
             "# Control Unit ADC signals\n",
             f"# Date: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n",
-            f"# Columns: {', '.join(ADCCOLUMNS + ADCCONVERTED)}\n" f"# Signals: {', '.join(ADCSIGNALS)}\n",
-            f"# Channels: {', '.join([str(i) for i in CHNLSADC])}\n"
+            f"# Columns: {', '.join(self.config['ADC Column Names'])}\n"
+            f"# Signals: {', '.join(self.config['ADC Signal Names'])}\n",
+            f"# Channels: {', '.join([str(i) for i in self.config['ADC Channel Numbers']])}\n"
             "# For converted signals '_c' is added\n",
             "#\n",
             "# [Data]\n",
@@ -390,8 +417,9 @@ class MainWidget(QtCore.QObject, UIWindow):
         return [
             "# Control Unit Temperature Control signals\n",
             f"# Date: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n",
-            f"# Columns: {', '.join(TCCOLUMNS)}\n" f"# Heater GPIO: {CHHEATER}\n",
-            f"# LED GPIO: {CHLED}\n",
+            f"# Columns: {', '.join(self.config['Temperature Columns'])}\n",
+            f"# Heater GPIO: {self.config['Heater GPIO']}\n",
+            f"# LED GPIO: {self.config['LED GPIO']}\n",
             "#\n",
             "# [Data]\n",
         ]
@@ -418,13 +446,13 @@ class MainWidget(QtCore.QObject, UIWindow):
               <table>
                  <tr>
                   <td>
-                  <font size=4 color={self.pens['P1']['color']}>
-                    Pd = {self.currentvalues['P1']:.1e}
+                   <font size=4 color={self.pens['P2']['color']}>
+                    Pu = {self.currentvalues['Pu']:.1e}                    
                   </font>
                   </td>
                   <td>
-                   <font size=4 color={self.pens['P2']['color']}>
-                    Pu = {self.currentvalues['P2']:.1e}
+                  <font size=4 color={self.pens['P1']['color']}>
+                    Pd = {self.currentvalues['Pd']:.1e}
                    </font>
                   </td>
                   <td>
@@ -436,17 +464,17 @@ class MainWidget(QtCore.QObject, UIWindow):
                  <tr>
                   <td>
                    <font size=4 color={self.pens['B1']['color']}>
-                    B1 = {self.currentvalues['B1']:.1e}
+                    Bu = {self.currentvalues['Bu']:.1e}
                    </font>
                   </td>
                   <td>
                    <font size=4 color={self.pens['B2']['color']}>
-                    B2 = {self.currentvalues['B2']:.1e}
+                    Bd = {self.currentvalues['Bd']:.1e}
                    </font>
                   </td>   
                   <td>
                    <font size=4 color={self.pens['B2']['color']}>
-                    B2 = {self.baratronsignal2:.4f}
+                    Bd = {self.baratronsignal2:.4f}
                    </font>
                   </td>
                  </tr>
@@ -483,11 +511,11 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.newdata[sensor_name] = result[0]
             self.append_data(sensor_name)
             self.save_data(sensor_name)
-            for plotname, name in zip(ADCSIGNALS, ADCCONVERTED):
+            for plotname, name in zip(self.config["ADC Signal Names"], self.config["ADC Converted Names"]):
                 self.currentvalues[plotname] = self.datadict["ADC"].iloc[-3:][name].mean()
             # to debug mV signal from Baratron, ouptut it directly.
-            self.baratronsignal1 = self.datadict["ADC"].iloc[-3:]["B1"].mean()
-            self.baratronsignal2 = self.datadict["ADC"].iloc[-3:]["B2"].mean()
+            self.baratronsignal1 = self.datadict["ADC"].iloc[-3:]["Bu"].mean()
+            self.baratronsignal2 = self.datadict["ADC"].iloc[-3:]["Bd"].mean()
             self.update_plots(sensor_name)
 
         self.update_current_values()
@@ -504,10 +532,10 @@ class MainWidget(QtCore.QObject, UIWindow):
             df = self.select_data_to_plot(sensor_name)
             time = df["time"].values.astype(float)
             ip = df["Ip_c"].values.astype(float)
-            p1 = df["P1_c"].values.astype(float)
-            p2 = df["P2_c"].values.astype(float)
-            b1 = df["B1_c"].values.astype(float)
-            b2 = df["B2_c"].values.astype(float)
+            p1 = df["Pu_c"].values.astype(float)
+            p2 = df["Pd_c"].values.astype(float)
+            b1 = df["Bu_c"].values.astype(float)
+            b2 = df["Bd_c"].values.astype(float)
             self.valuePlaPlot.setData(time, ip)
             self.valueP1Plot.setData(time, p1)
             self.valueP2Plot.setData(time, p2)
@@ -535,7 +563,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
     def save_data(self, sensor_name):
         """
-        Save sensor data        
+        Save sensor data
         """
         savepath = self.savepaths[sensor_name]
         data = self.newdata[sensor_name]
@@ -544,23 +572,23 @@ class MainWidget(QtCore.QObject, UIWindow):
     @QtCore.pyqtSlot(str)
     def on_worker_done(self, sensor_name):
         self.log_message(
-            f"Sensor thread <font size=4 color='blue'> {sensor_name}</font> <font size=4 color={'red'}>stopped</font>"
+            f"Sensor thread <font size=4 color='blue'> {sensor_name}</font> <font size=4 color={'red'}>stopped</font>",
+            htmltag="div",
         )
         self.__workers_done += 1
         self.reset_data(sensor_name)
 
         if self.__workers_done == 2:
             self.abort_all_threads()
-            # self.log_message(f"No more plot workers active")
 
     @QtCore.pyqtSlot()
     def abort_all_threads(self):
         self.sigAbortWorkers.emit()
-        # self.log_message(f"Asking each worker to abort")
         for thread, worker in self.__threads:
             thread.quit()
             thread.wait()
-        # self.log_message("All threads exited")
+
+        self.__threads = []
 
     def reset_data(self, sensor_name):
         self.datadict[sensor_name] = self.datadict[sensor_name].iloc[0:0]
@@ -603,7 +631,9 @@ class MainWidget(QtCore.QObject, UIWindow):
 
     @QtCore.pyqtSlot()
     def __set_sampling(self):
-        """Set sampling time for ADC"""
+        """Set sampling time for all threads"""
+        if not len(self.__threads):
+            return
         txt = self.SettingsDock.samplingCb.currentText()
         value = float(txt.split(" ")[0])
         self.sampling = value

@@ -8,7 +8,10 @@ except:
 
 
 from pyqtgraph.Qt import QtCore
-from channels import CHHEATER
+from readsettings import select_settings
+
+config = select_settings(verbose=False)
+CHHEATER = config["Heater GPIO"]
 
 
 # must inherit QtCore.QObject in order to use 'connect'
