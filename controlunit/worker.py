@@ -394,7 +394,7 @@ class ADC(Worker):
         dSec = (now - self.__startTime).total_seconds()
         print(self.adc_voltages)
         new_data_row = pd.DataFrame(
-            np.atleast_2d([now, dSec, self.__IGmode, self.__IGrange, self.__qmsSignal, *self.adc_voltages]),
+            np.atleast_2d([now, dSec, self.__IGmode, self.__IGrange, self.__qmsSignal, *self.adc_voltages.values()]),
             columns=self.adc_values_columns,
         )
         self.adc_values = pd.concat([self.adc_values, new_data_row], ignore_index=True)
