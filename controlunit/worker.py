@@ -302,11 +302,10 @@ class ADC(Worker):
         IGscale: range (scale) of Ionization Gauge in linear mode
         QMS_signal: int, "trigger" on or off. When on emits a signal from GPIO
         """
-        self.adc_voltage_columns = self.config["ADC Signal Names"]
+        self.adc_signals_columns = self.config["ADC Signal Names"]
+        self.adc_values_columns = self.config["ADC Additional Columns"] + self.config["ADC Signal Names"]
 
-        self.adc_values = pd.DataFrame(
-            columns=self.config["ADC Additional Columns"] + self.config["ADC Signal Names"]
-        )
+        self.adc_values = pd.DataFrame(columns=self.adc_values_columns)
         self.converted_values = pd.DataFrame(columns=self.config["ADC Converted Names"])
         self.__IGmode = IGmode
         self.__IGrange = IGrange
@@ -410,7 +409,7 @@ class ADC(Worker):
         dSec = (now - self.__startTime).total_seconds()
         new_data_row = pd.DataFrame(
             np.atleast_2d([now, dSec, self.__IGmode, self.__IGrange, self.__qmsSignal, *self.adc_voltages]),
-            columns=self.adc_columns,
+            columns=self.adc_values_columns,
         )
         self.adc_values = pd.concat([self.adc_values, new_data_row], ignore_index=True)
 
