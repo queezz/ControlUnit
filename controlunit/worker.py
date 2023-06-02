@@ -442,9 +442,7 @@ class ADC(Worker):
         Sends processed data to main thread in main.py
         Clears temporary dataframes to reset memory consumption.
         """
-        newdata = self.adc_values.join(self.converted_values)
-        print(newdata.columns)
-        print(newdata)
+        newdata = self.adc_values.join(self.converted_values)        
         self.send_step_data.emit([newdata, self.sensor_name])
         self.clear_datasets()
 
