@@ -493,6 +493,7 @@ class MainWidget(QtCore.QObject, UIWindow):
                 self.currentvalues[plotname] = self.datadict["ADC"].iloc[-3:][name].mean()
             # to debug mV signal from Baratron, ouptut it directly.
             print(self.datadict["ADC"].iloc[-3:].columns)
+            print(self.datadict["ADC"].iloc[-3:]["Bu"])
             self.baratronsignal1 = 0
             self.baratronsignal2 = 0
             # self.baratronsignal1 = self.datadict["ADC"].iloc[-3:]["Bu"].mean()
