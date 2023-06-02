@@ -87,6 +87,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         self.tWorker = None
         self.adcWorker = None
+        self.logDock.log.append("<style type='text/css'>p { margin-bottom:10px; margin-top:10px; }</style>")
 
         self.update_plot_timewindow()
 
