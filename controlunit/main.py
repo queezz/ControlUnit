@@ -440,13 +440,13 @@ class MainWidget(QtCore.QObject, UIWindow):
               <table>
                  <tr>
                   <td>
-                  <font size=4 color={self.pens['P1']['color']}>
-                    Pd = {self.currentvalues['Pd']:.1e}
+                   <font size=4 color={self.pens['P2']['color']}>
+                    Pu = {self.currentvalues['Pu']:.1e}                    
                   </font>
                   </td>
                   <td>
-                   <font size=4 color={self.pens['P2']['color']}>
-                    Pu = {self.currentvalues['Pu']:.1e}
+                  <font size=4 color={self.pens['P1']['color']}>
+                    Pd = {self.currentvalues['Pd']:.1e}
                    </font>
                   </td>
                   <td>
