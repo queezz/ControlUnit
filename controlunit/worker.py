@@ -98,7 +98,9 @@ class MAX6675(Worker):
         self.columns = ["date", "time", "T", "PresetT"]
         self.data = pd.DataFrame(columns=self.columns)
         self.temperature_setpoint = presetTemp
-        self.sampling = read_settings()["samplingtime"]
+        self.sampling = self.config["Sampling Time"]
+        if self.sampling < 0.25:
+            self.sampling = 0.25
 
         if TEST:
             print("needs pigpio to access SPI")

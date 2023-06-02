@@ -1,4 +1,4 @@
-Settings Version: 1
+Settings Version: 1.1
 # Define your local settings in
 # localsettings = os.path.join(os.path.expanduser('~'),'.controlunit', 'settings.yml')
 # ~/.controlunit/settings.yml
@@ -11,7 +11,7 @@ Data Folder: ~/work/cudata #
 # Save the info from Log Dock to this file in Data Folder
 Log File: controlunit.log
 
-Sampling Rate: 0.1 # Default sampling rate
+Sampling Time: 0.1 # Default sampling rate
 
 # ================================================
 #

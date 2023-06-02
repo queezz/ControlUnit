@@ -56,7 +56,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         self.config = readsettings.init_configuration(verbose=True)
         self.datapath = self.config["Data Folder"]
-        self.sampling = self.config["Sampling Rate"]
+        self.sampling = self.config["Sampling Time"]
 
         # Plot line colors
         # self.currentvalues = {"Ip": 0, "P1": 0, "P2": 0, "T": 0}
