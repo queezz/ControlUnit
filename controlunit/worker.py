@@ -296,7 +296,7 @@ class ADC(Worker):
         self.__IGmode = IGmode
         self.__IGrange = IGrange
         self.__qmsSignal = 0
-        self.sampling = read_settings()["samplingtime"]
+        self.sampling = self.config["Sampling Time"]
 
     def setIGmode(self, IGmode: int):
         """
