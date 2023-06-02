@@ -391,8 +391,7 @@ class ADC(Worker):
         Put new data from ADC and GUI into pandas dataframe
         """
         now = datetime.datetime.now()
-        dSec = (now - self.__startTime).total_seconds()
-        print(self.adc_voltages)
+        dSec = (now - self.__startTime).total_seconds()        
         new_data_row = pd.DataFrame(
             np.atleast_2d([now, dSec, self.__IGmode, self.__IGrange, self.__qmsSignal, *self.adc_voltages.values()]),
             columns=self.adc_values_columns,
