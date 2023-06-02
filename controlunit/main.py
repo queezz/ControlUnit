@@ -281,7 +281,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         2020/03/05: two sensors: ADC and temperatures, hence
         2 threds to read a) temperature, and b) analog signals (P1,P2, Ip)
         """
-        self.log_message("<font size=4 color='#1cad47'>Starting</font> acquisition")
+        self.log_message("<h1><font size=4 color='#1cad47'>Starting</font> acquisition</h1>")
         self.savepaths = {}
         self.datadict = {
             "MAX6675": pd.DataFrame(columns=self.config["Temperature Columns"]),
@@ -425,12 +425,12 @@ class MainWidget(QtCore.QObject, UIWindow):
                  <tr>
                   <td>
                   <font size=4 color={self.pens['P1']['color']}>
-                    Pd = {self.currentvalues['Pu']:.1e}
+                    Pd = {self.currentvalues['Pd']:.1e}
                   </font>
                   </td>
                   <td>
                    <font size=4 color={self.pens['P2']['color']}>
-                    Pu = {self.currentvalues['Pd']:.1e}
+                    Pu = {self.currentvalues['Pu']:.1e}
                    </font>
                   </td>
                   <td>
