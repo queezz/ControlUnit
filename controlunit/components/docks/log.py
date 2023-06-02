@@ -8,7 +8,7 @@ class LogDock(Dock):
         super().__init__("Log")
         self.widget = pg.LayoutWidget()
 
-        self.log = QtWidgets.QTextEdit()
+        self.log = QtWidgets.QTextBrowser()
 
         self.__setLayout()
 
