@@ -334,7 +334,6 @@ class MainWidget(QtCore.QObject, UIWindow):
         filepath = self.config["Log File Path"]
         time_stamp = self.generate_time_stamp()
         new_line = f"{time_stamp}, {message}\n"
-        print(new_line)
         with open(filepath, "a") as f:
             f.write(new_line)
 
