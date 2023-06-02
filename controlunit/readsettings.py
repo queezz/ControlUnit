@@ -43,11 +43,14 @@ def select_settings(path_to_file="settings.yml", verbose=False):
     return config
 
 
-# TODO: make the main method
 def init_configuration(settings="settings.yml", verbose=False):
-    # TODO: add option to load ~/.controlunit/settings.yml if exists
+    """
+    Read settings.yml file, populate ADC Channels Properties,
+    create datafolder if it dosn't exist.
+    """
     config = select_settings(settings, verbose=verbose)
-    # make_data_folders_updated_function()
+    config["Data Folder"] = init_datafolder(config)
+    config["Log File Path"] = check_logfile(config)
 
     adc_channels = {
         name: adcchannels.AdcChannelProps(name, **config["ADC Channels"][name])
@@ -55,7 +58,6 @@ def init_configuration(settings="settings.yml", verbose=False):
     }
 
     config["Adc Channel Properties"] = adc_channels
-    config["Data Folder"] = init_datafolder(config)
 
     config["ADC Signal Names"] = list(config["ADC Channels"])
     config["ADC Converted Names"] = [i + "_c" for i in config["ADC Signal Names"]]
@@ -68,6 +70,15 @@ def init_configuration(settings="settings.yml", verbose=False):
 
     print("controlunit configuration loaded successfully.")
     return config
+
+
+def check_logfile(config):
+    folder = config["Data Folder"]
+    logname = config["Log File"]
+    logfilepath = os.path.join(folder, logname)
+    if not os.path.exists(logfilepath):
+        open(logfilepath, "a").close()
+    return logfilepath
 
 
 def init_datafolder(config):
@@ -94,57 +105,5 @@ def init_datafolder(config):
     return foldername
 
 
-# TODO: Remove
-
-
-def make_datafolders():
-    """
-    Create folder for saving data, if not existing
-    if datafolder starts with '~' - put the folder in home directory
-    """
-    settings = read_settings()
-    foldername = settings["datafolder"]
-
-    if foldername.startswith("~"):
-        home = expanduser("~")
-        foldername = home + foldername[1:]
-
-    print(f"I'll try to create datafolder: {foldername}")
-
-    try:
-        os.makedirs(foldername)
-        print(f"created {foldername}")
-    except FileExistsError:
-        pass
-
-    return foldername
-
-
-def read_settings():
-    """ Read .settings and get datafoldr path"""
-    pth = None
-    sampling_rate = 0.01
-    with open(".settings", "r") as f:
-        s = csv.reader(f, delimiter=",")
-        for r in s:
-            if r[0] == "datafolder":
-                pth = r[1].strip()
-            if r[0] == "pathislocal":
-                local = r[1].strip()
-            if r[0] == "sampling_rate":
-                sampling_rate = r[1].strip()
-    if local == "True":
-        local = True
-    sampling_rate = float(sampling_rate)
-    settings = {
-        "datafolder": pth,
-        "pathislocal": local,
-        "samplingtime": sampling_rate,
-    }
-
-    return settings
-
-
 if __name__ == "__main__":
-    # print(read_settings())
-    make_datafolders()
+    print(load_settings())

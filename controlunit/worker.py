@@ -11,7 +11,6 @@ import pandas as pd
 from PyQt5 import QtGui, QtCore, QtWidgets
 
 from heatercontrol import HeaterContol
-from readsettings import read_settings
 
 # Converting raw signals to data
 from conversions import ionization_gauge, hall_current_sensor, pfeiffer_single_gauge, baratron
@@ -391,9 +390,11 @@ class ADC(Worker):
         Put new data from ADC and GUI into pandas dataframe
         """
         now = datetime.datetime.now()
-        dSec = (now - self.__startTime).total_seconds()        
+        dSec = (now - self.__startTime).total_seconds()
         new_data_row = pd.DataFrame(
-            np.atleast_2d([now, dSec, self.__IGmode, self.__IGrange, self.__qmsSignal, *self.adc_voltages.values()]),
+            np.atleast_2d(
+                [now, dSec, self.__IGmode, self.__IGrange, self.__qmsSignal, *self.adc_voltages.values()]
+            ),
             columns=self.adc_values_columns,
         )
         self.adc_values = pd.concat([self.adc_values, new_data_row], ignore_index=True)

@@ -8,6 +8,7 @@ from worker import MAX6675, ADC, Worker
 
 # from readsettings import make_datafolders, read_settings
 import readsettings
+from striphtmltags import strip_tags
 import qmsSignal
 
 # from channels import TCCOLUMNS, ADCCOLUMNS, ADCCONVERTED, ADCSIGNALS, CHNLSADC
@@ -91,6 +92,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.update_plot_timewindow()
 
         self.showMain()
+        self.log_to_file(f"App started: {os.path.abspath(__file__)}")
 
     def update_plot_timewindow(self):
         """
@@ -325,11 +327,23 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         [self.start_thread(workers[s], threads[s]) for s in self.sensor_names]
 
+    def generate_time_stamp(self):
+        return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    def log_to_file(self, message):
+        filepath = self.config["Log File Path"]
+        time_stamp = self.generate_time_stamp()
+        new_line = f"{time_stamp}, {message}\n"
+        print(new_line)
+        with open(filepath, "a") as f:
+            f.write(new_line)
+
     def log_message(self, message, htmltag="p"):
         """
         Append a message to the log browser with a timestamp.
         """
-        time_stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        time_stamp = self.generate_time_stamp()
+        self.log_to_file(strip_tags(message))
         new_line = f"<{htmltag}>{time_stamp}: {message}</{htmltag}>"
         if not self.logDock.log.toPlainText():
             self.logDock.log.setHtml(new_line)
