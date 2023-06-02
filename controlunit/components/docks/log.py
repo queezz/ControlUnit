@@ -9,6 +9,7 @@ class LogDock(Dock):
         self.widget = pg.LayoutWidget()
 
         self.log = QtWidgets.QTextBrowser()
+        self.log.document().setDefaultStyleSheet('p{font-size:12px; margin-top:20px;}')
 
         self.__setLayout()
 
