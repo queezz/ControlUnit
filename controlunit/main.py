@@ -568,7 +568,8 @@ class MainWidget(QtCore.QObject, UIWindow):
     @QtCore.pyqtSlot(str)
     def on_worker_done(self, sensor_name):
         self.log_message(
-            f"Sensor thread <font size=4 color='blue'> {sensor_name}</font> <font size=4 color={'red'}>stopped</font>"
+            f"Sensor thread <font size=4 color='blue'> {sensor_name}</font> <font size=4 color={'red'}>stopped</font>",
+            htmltag='div'
         )
         self.__workers_done += 1
         self.reset_data(sensor_name)
