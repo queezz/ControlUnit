@@ -8,8 +8,11 @@ class LogDock(Dock):
         super().__init__("Log")
         self.widget = pg.LayoutWidget()
 
-        self.log = QtWidgets.QTextBrowser()
-        self.log.document().setDefaultStyleSheet('p{font-size:16px; margin-top:0px; margin-bottom:0px;}')
+        self.log = QtWidgets.QTextEdit()
+        self.log.setReadOnly(True)
+        self.log.document().setDefaultStyleSheet("p { margin: 0; }")
+        self.log.setStyleSheet("QTextEdit { background-color: #c27878; }")
+    
 
         self.__setLayout()
 
