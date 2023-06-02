@@ -1,5 +1,4 @@
 import time
-from channels import CHLED
 
 try:
     import pigpio
@@ -7,6 +6,10 @@ except:
     print("no pigpio module, continue for a test")
 
 from pyqtgraph.Qt import QtCore
+from readsettings import select_settings
+
+config = select_settings(verbose=False)
+CHLED = config["LED GPIO"]
 
 # must inherit QtCore.QObject in order to use 'connect'
 class SyncSignal(QtCore.QThread):
