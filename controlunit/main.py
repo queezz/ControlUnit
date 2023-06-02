@@ -334,7 +334,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         if not self.logDock.log.toPlainText():
             self.logDock.log.setHtml(new_line)
         else:
-            current_text = self.text_edit.toHtml()
+            current_text = self.logDock.log.toHtml()
             current_text += new_line
             self.logDock.log.setHtml(current_text)
         # self.logDock.log.append(f"<{htmltag}>{nowstamp}: {message}</{htmltag}>")
