@@ -303,11 +303,11 @@ class ADC(Worker):
         QMS_signal: int, "trigger" on or off. When on emits a signal from GPIO
         """
         self.adc_voltage_columns = self.config["ADC Signal Names"]
-        self.adc_processed_columns = self.config["ADC Converted Names"]
-        self.adc_columns = self.config["ADC Additional Columns"] + self.config["ADC Signal Names"]
 
-        self.__adc_data = pd.DataFrame(columns=self.adc_columns)
-        self.__calcData = pd.DataFrame(columns=self.adc_processed_columns)
+        self.adc_values = pd.DataFrame(
+            columns=self.config["ADC Additional Columns"] + self.config["ADC Signal Names"]
+        )
+        self.converted_values = pd.DataFrame(columns=self.config["ADC Converted Names"])
         self.__IGmode = IGmode
         self.__IGrange = IGrange
         self.__qmsSignal = 0
@@ -412,7 +412,7 @@ class ADC(Worker):
             np.atleast_2d([now, dSec, self.__IGmode, self.__IGrange, self.__qmsSignal, *self.adc_voltages]),
             columns=self.adc_columns,
         )
-        self.__adc_data = pd.concat([self.__adc_data, new_data_row], ignore_index=True)
+        self.adc_values = pd.concat([self.adc_values, new_data_row], ignore_index=True)
 
     def update_processed_signals_dataframe(self):
         """
@@ -428,20 +428,22 @@ class ADC(Worker):
 
         converted_signals = pd.DataFrame(np.atleast_2d(converted_signals))
 
-        self.__calcData = pd.concat([self.__calcData, converted_signals], ignore_index=True)
+        self.converted_values = pd.concat([self.converted_values, converted_signals], ignore_index=True)
 
     def calculate_averaged_signals(self):
         """
         Calculate averages for the calibrated signals to show them in GUI
         """
-        self.averages = self.__calcData.mean().values
+        self.averages = self.converted_values.mean().values
 
     def send_processed_data_to_main_thread(self):
         """
         Sends processed data to main thread in main.py
         Clears temporary dataframes to reset memory consumption.
         """
-        newdata = self.__adc_data.join(self.__calcData)
+        newdata = self.adc_values.join(self.converted_values)
+        print(newdata.columns)
+        print(newdata)
         self.send_step_data.emit([newdata, self.sensor_name])
         self.clear_datasets()
 
@@ -449,8 +451,8 @@ class ADC(Worker):
         """
         Remove data from temporary dataframes
         """
-        self.__adc_data = self.__adc_data.iloc[0:0]
-        self.__calcData = self.__calcData.iloc[0:0]
+        self.adc_values = self.adc_values.iloc[0:0]
+        self.converted_values = self.converted_values.iloc[0:0]
 
     def acquisition_loop(self):
         """
