@@ -541,11 +541,11 @@ class MainWidget(QtCore.QObject, UIWindow):
             b1 = df["Bu_c"].values.astype(float)
             b2 = df["Bd_c"].values.astype(float)
             skip = self.calculate_skip_points(time.shape[0])
-            self.valuePlaPlot.setData(time, ip)
-            self.valueP1Plot.setData(time, p1)
-            self.valueP2Plot.setData(time, p2)
-            self.valueB1Plot.setData(time, b1)
-            self.valueB2Plot.setData(time, b2)
+            self.valuePlaPlot.setData(time[::skip], ip[::skip])
+            self.valueP1Plot.setData(time[::skip], p1[::skip])
+            self.valueP2Plot.setData(time[::skip], p2[::skip])
+            self.valueB1Plot.setData(time[::skip], b1[::skip])
+            self.valueB2Plot.setData(time[::skip], b2[::skip])
 
     def append_data(self, sensor_name):
         """
