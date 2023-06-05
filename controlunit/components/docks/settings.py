@@ -8,9 +8,9 @@ class SettingsDock(Dock):
         super().__init__("Settings")
         self.widget = pg.LayoutWidget()
         self.samplingCb = QtWidgets.QComboBox()
-        items = [f"{i} s" for i in [1, 0.1, 0.01]]
+        items = [f"{i} s" for i in [10,1, 0.1, 0.01]]
         [self.samplingCb.addItem(i) for i in items]
-        self.samplingCb.setCurrentIndex(1)
+        self.samplingCb.setCurrentIndex(2)
         self.samplingCb.setMaximumWidth(120)
         self.samplingCb.setToolTip("sampling time")
         self.setSamplingBtn = QtWidgets.QPushButton("set")

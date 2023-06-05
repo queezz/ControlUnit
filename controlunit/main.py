@@ -520,13 +520,17 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         self.update_current_values()
 
+    def calculate_skip_points(self, l, noskip=5000):
+        return 1 if l < noskip else l // noskip + 1
+
     def update_plots(self, sensor_name):
         """"""
         if sensor_name == "MAX6675":
             df = self.select_data_to_plot(sensor_name)
             time = df["time"].values.astype(float)
             temperature = df["T"].values.astype(float)
-            self.valueTPlot.setData(time, temperature)
+            skip = self.calculate_skip_points(time.shape[0])
+            self.valueTPlot.setData(time[::skip], temperature[::skip])
 
         if sensor_name == "ADC":
             df = self.select_data_to_plot(sensor_name)
@@ -536,6 +540,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             p2 = df["Pd_c"].values.astype(float)
             b1 = df["Bu_c"].values.astype(float)
             b2 = df["Bd_c"].values.astype(float)
+            skip = self.calculate_skip_points(time.shape[0])
             self.valuePlaPlot.setData(time, ip)
             self.valueP1Plot.setData(time, p1)
             self.valueP2Plot.setData(time, p2)
