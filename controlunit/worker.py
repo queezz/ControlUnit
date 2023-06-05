@@ -194,21 +194,19 @@ class MAX6675(Worker):
         self.init_thermocouple()
         self.init_heater_control()
 
-        step = 0
-
         while not (self.__abort):
             time.sleep(self.sampling)
             self.read_thermocouple()
             self.update_dataframe()
 
-            if step % (self.number_of_loops - 1) == 0 and step != 0:
+            if step < self.number_of_loops:
                 self.calculate_average()
                 self.temperature_control()
                 self.send_processed_data_to_main_thread()
                 self.clear_datasets()
-                step = 0
-            else:
                 step += 1
+            else:
+                step = 0
             self.__app.processEvents()
         else:
             # ABORTING
@@ -452,7 +450,6 @@ class ADC(Worker):
         Convert voltage to units.
         Send data back to main thread for ploting ad saving.
         """
-        totalStep = 0
         step = 0
 
         while not (self.__abort):
@@ -462,13 +459,12 @@ class ADC(Worker):
             self.put_new_data_in_dataframe()
             self.update_processed_signals_dataframe()
 
-            if step % (self.number_of_loops - 1) == 0 and step != 0:
+            if step < self.number_of_loops:
                 # self.calculate_averaged_signals()
                 self.send_processed_data_to_main_thread()
-                step = 0
-            else:
                 step += 1
-            totalStep += 1
+            else:
+                step = 0
             self.__app.processEvents()
         else:
             # self.calculate_averaged_signals()
