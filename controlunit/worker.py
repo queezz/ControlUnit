@@ -47,7 +47,6 @@ class Worker(QtCore.QObject):
         self.sensor_name = sensor_name
         self.__startTime = startTime
         self.config = config
-        self.number_of_loops = STEP
 
     def print_checks(self):
         attrs = vars(self)
@@ -70,10 +69,6 @@ class Worker(QtCore.QObject):
     def setSampling(self, sampling):
         """Set sampling time"""
         self.sampling = sampling
-        if sampling < 1:
-            self.number_of_loops = STEP
-        else:
-            self.number_of_loops = 1
         # print(f"Updated sampling to {sampling}")
 
 
@@ -201,7 +196,7 @@ class MAX6675(Worker):
             self.read_thermocouple()
             self.update_dataframe()
 
-            if step % (self.number_of_loops - 1) == 0 and step != 0:
+            if step % (STEP - 1) == 0 and step != 0:
                 self.calculate_average()
                 self.temperature_control()
                 self.send_processed_data_to_main_thread()
@@ -462,7 +457,7 @@ class ADC(Worker):
             self.put_new_data_in_dataframe()
             self.update_processed_signals_dataframe()
 
-            if step % (self.number_of_loops - 1) == 0 and step != 0:
+            if step % (STEP - 1) == 0 and step != 0:
                 # self.calculate_averaged_signals()
                 self.send_processed_data_to_main_thread()
                 step = 0
