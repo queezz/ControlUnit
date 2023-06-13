@@ -32,6 +32,7 @@ except:
 # must inherit QtCore.QObject in order to use 'connect'
 class MainWidget(QtCore.QObject, UIWindow):
     # DEFAULT_TEMPERATURE = 0
+    DEFALT_VOLTAGE = 0
     STEP = 3
 
     sigAbortWorkers = QtCore.pyqtSignal()
@@ -41,12 +42,16 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.__app = app
         self.connections()
         # self.tempcontrolDock.set_heating_goal(self.DEFAULT_TEMPERATURE, "---")
+        self.mfccontrolDock.set_output1_goal(self.DEFALT_VOLTAGE, "---")
+        self.mfccontrolDock.set_output2_goal(self.DEFALT_VOLTAGE, "---")
 
         QtCore.QThread.currentThread().setObjectName("main")
 
         self.__workers_done = 0
         self.__threads = []
         # self.__temp = self.DEFAULT_TEMPERATURE
+        self.__mfc1 = self.DEFALT_VOLTAGE
+        self.__mfc2 = self.DEFALT_VOLTAGE
 
         self.plaData = None
         self.trigData = None
@@ -456,6 +461,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         # TODO: updated dislpayed valuves from dataframes
 
         # self.tempcontrolDock.update_displayed_temperatures(self.__temp, f"{self.currentvalues['T']:.0f}")
+        self.mfccontrolDock.update_displayed_voltage(self.__mfc1,f"{self.currentvalues['MFC1']*1000:.0f}",1)
+        self.mfccontrolDock.update_displayed_voltage(self.__mfc2,f"{self.currentvalues['MFC2']*1000:.0f}",2)
         # self.controlDock.gaugeT.update_value(self.currentvalues["T"])
         txt = f"""
               <table>
@@ -629,25 +636,17 @@ class MainWidget(QtCore.QObject, UIWindow):
         for i, spin_box in enumerate(self.mfccontrolDock.masflowcontrolerSB1):
             voltage = spin_box.value()
             value += (voltage * pow(10, 3-i))
+        if value > 5000:
+            value = 5000
         self.__mfc1 = value
-        # voltage_now = self.currentvalues["V1"]
-        voltage_now = 0
-        self.mfccontrolDock.set_output1_goal(self.__mfc1,voltage_now)
+        voltage_now = self.currentvalues["MFC1"]
+        self.mfccontrolDock.set_output1_goal(self.__mfc1,f"{voltage_now*1000:.0f}")
         if self.dacWorker is not None:
             self.dacWorker.output_voltage(1,self.__mfc1)
+        if self.adcWorker is not None:
+            self.adcWorker.setPresetV1(self.__mfc1)
+
     
-    @QtCore.pyqtSlot()
-    def set_mfc2_voltage(self):
-        value = 0
-        for i, spin_box in enumerate(self.mfccontrolDock.masflowcontrolerSB2):
-            voltage = spin_box.value()
-            value += (voltage * pow(10, 3-i))
-        self.__mfc2 = value
-        # voltage_now = self.currentvalues["V2"]
-        voltage_now = 0
-        self.mfccontrolDock.set_output2_goal(self.__mfc2,voltage_now)
-        if self.dacWorker is not None:
-            self.dacWorker.output_voltage(2,self.__mfc2)
 
     @QtCore.pyqtSlot()
     def set_mfc2_goal(self):
@@ -655,13 +654,15 @@ class MainWidget(QtCore.QObject, UIWindow):
         for i, spin_box in enumerate(self.mfccontrolDock.masflowcontrolerSB2):
             voltage = spin_box.value()
             value += (voltage * pow(10, 3-i))
+        if value > 5000:
+            value = 5000
         self.__mfc2 = value
-        # voltage_now = self.currentvalues["V2"]
-        voltage_now = 0
-        self.mfccontrolDock.set_output2_goal(self.__mfc2,voltage_now)
+        voltage_now = self.currentvalues["MFC2"]
+        self.mfccontrolDock.set_output2_goal(self.__mfc2,f"{voltage_now*1000:.0f}")
         if self.dacWorker is not None:
-            # self.dacWorker.setMFC2(self.__mfc2)
-            pass
+            self.dacWorker.output_voltage(2, self.__mfc2)
+        if self.adcWorker is not None:
+            self.adcWorker.setPresetV2(self.__mfc2)
 
     @QtCore.pyqtSlot()
     def resetSpinBoxes1(self):

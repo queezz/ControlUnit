@@ -307,9 +307,11 @@ class DAC8532(Worker):
 
     def output_voltage(self, channel, voltage):
         if channel == 1:
-            self.DAC.DAC8532_Out_Voltage(self.DAC.channel_A, voltage)
+            self.DAC.DAC8532_Out_Voltage(self.DAC.channel_A, voltage/1000)
+            print(f"voltage output: {voltage/1000} V")
         elif channel == 2:
-            self.DAC.DAC8532_Out_Voltage(self.DAC.channel_B, voltage)
+            self.DAC.DAC8532_Out_Voltage(self.DAC.channel_B, voltage/1000)
+            print(f"voltage output: {voltage/1000} V")
         else:
             print("wrong channel")
 
@@ -352,6 +354,8 @@ class ADC(Worker):
         self.__IGmode = IGmode
         self.__IGrange = IGrange
         self.__qmsSignal = 0
+        self.__PresetV1 = 0
+        self.__PresetV2 = 0
         self.sampling = self.config["Sampling Time"]
 
     def setIGmode(self, IGmode: int):
@@ -378,6 +382,22 @@ class ADC(Worker):
         running: 1
         """
         self.__qmsSignal = signal
+        return
+    
+    def setPresetV1(self, voltage: int):
+        """
+        Sets Preset Voltage of Mas Flow Control for H2 from GUI
+        range: 0 ~ 5000 mV
+        """
+        self.__PresetV1 = voltage/1000
+        return
+    
+    def setPresetV2(self, voltage: int):
+        """
+        Sets Preset Voltage of Mas Flow Control for H2 from GUI
+        range: 0 ~ 5000 mV
+        """
+        self.__PresetV2 = voltage/1000
         return
 
     @QtCore.pyqtSlot()
@@ -451,7 +471,7 @@ class ADC(Worker):
         dSec = (now - self.__startTime).total_seconds()
         new_data_row = pd.DataFrame(
             np.atleast_2d(
-                [now, dSec, self.__IGmode, self.__IGrange, self.__qmsSignal, *self.adc_voltages.values()]
+                [now, dSec, self.__IGmode, self.__IGrange, self.__qmsSignal,self.__PresetV1, self.__PresetV2, *self.adc_voltages.values()]
             ),
             columns=self.adc_values_columns,
         )

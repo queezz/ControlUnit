@@ -92,6 +92,17 @@ ADC Channels:
     Description: "Baratron MKS 628B.1TDF2b FS = 0.1 Torr (downstream)"
     Conversion Function: "Baratron"
     Full Scale: 0.1
+  MFC1:
+    Channel: 5
+    Gain: 5
+    Description: "MFC for Hydrogen, 20 SCCM"
+    Conversion Function: "No Conversion"
+  MFC2:
+    Channel: 6
+    Gain: 5
+    Description: "MFC2 for Oxygen, 10 SCCM"
+    Conversion Function: "No Conversion"
+  
 
 ADC Additional Columns:
   - "date"
@@ -99,6 +110,8 @@ ADC Additional Columns:
   - "IGmode"
   - "IGscale"
   - "QMS_signal"
+  - "PresetV1"
+  - "PresetV2"
 
 
 # ================================================
