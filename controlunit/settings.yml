@@ -99,3 +99,18 @@ ADC Additional Columns:
   - "IGmode"
   - "IGscale"
   - "QMS_signal"
+
+
+# ================================================
+#
+# High-Precision AD/DA Board
+# https://www.waveshare.com/wiki/High-Precision_AD/DA_Board
+# https://pinout.xyz/pinout/high_precision_adda_board
+#
+# ================================================
+# Set maximum output voltage for
+# MFC Control
+Max Voltage : 5.0
+
+# GPIO pin used to communication (SPI)
+CS gpio: 23

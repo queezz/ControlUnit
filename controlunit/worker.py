@@ -22,11 +22,14 @@ STEP = 3
 
 try:
     from AIO import AIO_32_0RA_IRC as adc
+    from DAC import DAC8532
     import pigpio
+    import RPi.GPIO as GPIO
 except:
     print("no pigpio or AIO")
     TEST = True
     import pigpioplug as pigpio
+    import RPi.GPIO as GPIO
 
 # must inherit QtCore.QObject in order to use 'connect'
 class Worker(QtCore.QObject):
@@ -256,6 +259,53 @@ class MAX6675(Worker):
                 return int(d + 1)
         else:
             return steps
+
+class DAC8532(Worker):
+
+    sigAbortHeater = QtCore.pyqtSignal()
+
+    def __init__(self, sensor_name, app, startTime, config):
+        super().__init__(sensor_name, app, startTime, config)
+        self.__app = app
+        self.sensor_name = sensor_name
+        self.__startTime = startTime
+        self.config = config
+        self.__abort = False
+
+    @QtCore.pyqtSlot()
+    def abort(self):
+        message = "Worker thread {} aborting acquisition".format(self.sensor_name)
+        # self.send_message.emit(message)
+        # print(message)
+        self.__abort = True
+        self.dac_init()
+
+    def init_dac_worker(self, presetVoltage: int):
+        pass
+
+    def dac_init(self):
+        try:
+            print("DAC started correctry\r\n")
+            
+            self.DAC = DAC8532.DAC8532()
+            self.DAC.DAC8532_Out_Voltage(DAC8532.channel_A, 0)
+            self.DAC.DAC8532_Out_Voltage(DAC8532.channel_B, 0)
+        
+
+        except :
+            self.DAC.DAC8532_Out_Voltage(DAC8532.channel_A, 0)
+            self.DAC.DAC8532_Out_Voltage(DAC8532.channel_B, 0)
+            GPIO.cleanup()
+            print ("\r\nProgram end     ")
+            exit()
+
+    def output_voltage(self, channel, voltage):
+        if channel == 1:
+            self.DAC.DAC8532_Out_Voltage(DAC8532.channel_A, voltage)
+        elif channel == 2:
+            self.DAC.DAC8532_Out_Voltage(DAC8532.channel_B, voltage)
+        else:
+            print("wrong channel")
 
 
 class ADC(Worker):

@@ -7,7 +7,8 @@ from components.docks.plots import PlotScaleDock
 from components.docks.control import ControlDock
 from components.docks.adcgain import ADCGain
 from components.docks.settings import SettingsDock
-from components.docks.tempcontrol import HeaterControl
+# from components.docks.tempcontrol import HeaterControl
+from components.docks.mfccontrol import MassFlowControllerControl as MFCControl
 from components.widgets.graph import Graph
 
 
@@ -22,8 +23,9 @@ class UIWindow(object):
         self.plotDock = Dock("Plots", size=(300, 400))
         self.controlDock = ControlDock()
         self.logDock = LogDock()
-        self.tempcontrolDock = HeaterControl()
-        [i.setStretch(*(10, 20)) for i in [self.controlDock, self.logDock, self.tempcontrolDock]]
+        # self.tempcontrolDock = HeaterControl()
+        self.mfccontrolDock = MFCControl()
+        [i.setStretch(*(10, 20)) for i in [self.controlDock, self.logDock, self.mfccontrolDock]]
         self.controlDock.setStretch(*(10, 300))
         self.graph = Graph()
         self.scaleDock = PlotScaleDock()
@@ -57,7 +59,7 @@ class UIWindow(object):
         self.area.addDock(self.scaleDock, "left")
         self.area.addDock(self.ADCGainDock, "above", self.scaleDock)
         self.area.addDock(self.controlDock, "above", self.ADCGainDock)
-        self.area.addDock(self.tempcontrolDock, "bottom", self.controlDock)
+        self.area.addDock(self.mfccontrolDock, "bottom", self.controlDock)
 
         self.plotDock.addWidget(self.graph)
 

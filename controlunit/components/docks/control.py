@@ -9,8 +9,8 @@ from readsettings import select_settings
 
 config = select_settings(verbose=False)
 print("GET CONFIG: control.py")
-print(f'config["Max Temperature"] {config["Max Temperature"]}')
-MAXTEMP = config["Max Temperature"]
+print(f'config["Max Voltage"] {config["Max Voltage"]}')
+MAXTEMP = config["Max Voltage"]
 
 
 class ControlDock(Dock):
@@ -61,12 +61,12 @@ class ControlDock(Dock):
         self.OnOffSW.setFont(QtGui.QFont("serif", 16))
 
         # Analog Gauge to show Temperature
-        self.gaugeT = AnalogGaugeWidget()
-        self.gaugeT.set_MinValue(0)
-        self.gaugeT.set_MaxValue(MAXTEMP)
-        self.gaugeT.set_total_scale_angle_size(180)
-        self.gaugeT.set_start_scale_angle(180)
-        self.gaugeT.set_enable_value_text(False)
+        # self.gaugeT = AnalogGaugeWidget()
+        # self.gaugeT.set_MinValue(0)
+        # self.gaugeT.set_MaxValue(MAXTEMP)
+        # self.gaugeT.set_total_scale_angle_size(180)
+        # self.gaugeT.set_start_scale_angle(180)
+        # self.gaugeT.set_enable_value_text(False)
 
         self.__setLayout()
 
@@ -74,18 +74,21 @@ class ControlDock(Dock):
         self.addWidget(self.widget)
 
         self.widget.addWidget(self.OnOffSW, 0, 0)
-        self.widget.addWidget(self.quitBtn, 0, 1)
+        self.widget.addWidget(self.qmsSigSw, 0, 1)
+        self.widget.addWidget(self.quitBtn, 0, 2)
 
-        self.widget.addWidget(self.valueBw, 1, 0, 1, 2)
-        self.widget.addWidget(self.scaleBtn, 2, 1)
-        self.widget.addWidget(self.FullNormSW, 2, 0)
-        self.widget.addWidget(self.IGmode, 3, 0)
-        self.widget.addWidget(self.IGrange, 3, 1)
+        self.widget.addWidget(self.valueBw, 1, 0, 1, 3)
+
+        self.widget.addWidget(self.FullNormSW, 2, 0, 1, 2)
+        self.widget.addWidget(self.scaleBtn, 2, 2)
+        
+        self.widget.addWidget(self.IGmode, 3, 0, 1, 2)
+        self.widget.addWidget(self.IGrange, 3, 2)
 
         # Temperature analouge gauge
-        self.widget.addWidget(self.gaugeT, 5, 0, 10, 1)
+        # self.widget.addWidget(self.gaugeT, 5, 0, 10, 1)
 
-        self.widget.addWidget(self.qmsSigSw, 10, 1, 1, 1)
+        # self.widget.addWidget(self.qmsSigSw, 5, 1, 1, 1)
 
         self.verticalSpacer = QtWidgets.QSpacerItem(
             0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
