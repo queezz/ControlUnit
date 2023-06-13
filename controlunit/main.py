@@ -383,10 +383,11 @@ class MainWidget(QtCore.QObject, UIWindow):
         worker.moveToThread(thread)
         self.connect_worker_signals(worker)
 
-        self.create_file(worker.sensor_name)
-        self.log_message(
-            f"<font size=4 color='blue'>{worker.sensor_name}</font> savepath:<br> {self.savepaths[worker.sensor_name]}",
-        )
+        if worker.sensor_name != "DAC8532":
+            self.create_file(worker.sensor_name)
+            self.log_message(
+                f"<font size=4 color='blue'>{worker.sensor_name}</font> savepath:<br> {self.savepaths[worker.sensor_name]}",
+            )
 
         thread.started.connect(worker.start)
         thread.start()
@@ -454,8 +455,8 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         # TODO: updated dislpayed valuves from dataframes
 
-        self.tempcontrolDock.update_displayed_temperatures(self.__temp, f"{self.currentvalues['T']:.0f}")
-        self.controlDock.gaugeT.update_value(self.currentvalues["T"])
+        # self.tempcontrolDock.update_displayed_temperatures(self.__temp, f"{self.currentvalues['T']:.0f}")
+        # self.controlDock.gaugeT.update_value(self.currentvalues["T"])
         txt = f"""
               <table>
                  <tr>

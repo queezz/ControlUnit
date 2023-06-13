@@ -22,12 +22,13 @@ STEP = 3
 
 try:
     from AIO import AIO_32_0RA_IRC as adc
-    from DAC import DAC8532
+    from DAC import DAC8532 as dac
     import pigpio
     import RPi.GPIO as GPIO
 except:
     print("no pigpio or AIO")
     TEST = True
+    from DAC import DAC8532 as dac
     import pigpioplug as pigpio
     import RPi.GPIO as GPIO
 
@@ -280,6 +281,10 @@ class DAC8532(Worker):
         self.__abort = True
         self.dac_init()
 
+    @QtCore.pyqtSlot()
+    def start(self):
+        pass
+
     def init_dac_worker(self, presetVoltage: int):
         pass
 
@@ -287,23 +292,24 @@ class DAC8532(Worker):
         try:
             print("DAC started correctry\r\n")
             
-            self.DAC = DAC8532.DAC8532()
-            self.DAC.DAC8532_Out_Voltage(DAC8532.channel_A, 0)
-            self.DAC.DAC8532_Out_Voltage(DAC8532.channel_B, 0)
+            self.DAC = dac()
+            self.DAC.DAC8532_Out_Voltage(self.DAC.channel_A, 0)
+            self.DAC.DAC8532_Out_Voltage(self.DAC.channel_B, 0)
         
 
         except :
-            self.DAC.DAC8532_Out_Voltage(DAC8532.channel_A, 0)
-            self.DAC.DAC8532_Out_Voltage(DAC8532.channel_B, 0)
+            self.DAC = dac()
+            self.DAC.DAC8532_Out_Voltage(self.DAC.channel_A, 0)
+            self.DAC.DAC8532_Out_Voltage(self.DAC.channel_B, 0)
             GPIO.cleanup()
             print ("\r\nProgram end     ")
             exit()
 
     def output_voltage(self, channel, voltage):
         if channel == 1:
-            self.DAC.DAC8532_Out_Voltage(DAC8532.channel_A, voltage)
+            self.DAC.DAC8532_Out_Voltage(self.DAC.channel_A, voltage)
         elif channel == 2:
-            self.DAC.DAC8532_Out_Voltage(DAC8532.channel_B, voltage)
+            self.DAC.DAC8532_Out_Voltage(self.DAC.channel_B, voltage)
         else:
             print("wrong channel")
 
