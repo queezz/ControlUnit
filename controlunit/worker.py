@@ -272,6 +272,7 @@ class DAC8532(Worker):
         self.__startTime = startTime
         self.config = config
         self.__abort = False
+        self.calibrating = False
 
     @QtCore.pyqtSlot()
     def abort(self):
@@ -314,6 +315,42 @@ class DAC8532(Worker):
             print(f"voltage output: {voltage/1000} V")
         else:
             print("wrong channel")
+
+    @QtCore.pyqtSlot()
+    def calibration(self,max_voltage,step,waiting_time):
+        self.calibrating = True
+        if max_voltage == 0:
+            max_voltage = 5000
+        while self.calibrating:
+
+            for i in range(step+1):
+                if self.calibrating == False:
+                    break
+                self.output_voltage(1,(max_voltage)/step*i)
+                time.sleep(waiting_time)
+            for i in range(step):
+                if self.calibrating == False:
+                    break
+                self.output_voltage(1,(max_voltage)/step*(step-i - 1))
+                time.sleep(waiting_time)
+            self.calibrating = False
+        self.output_voltage(1,0)
+
+class Calibrator(QtCore.QThread):
+    def __init__(self, app, object, voltage, step, waiting_time):
+        super().__init__()
+        self.app = app
+        self.object = object
+        self.voltage = voltage
+        self.step = step
+        self.waiting_time = waiting_time
+    
+    def run(self):
+        self.object.calibrating = True
+        self.object.calibration(self.voltage,self.step,self.waiting_time)
+        self.object.calibrating = False
+        self.app.processEvents()
+        self.finished.emit()
 
 
 class ADC(Worker):

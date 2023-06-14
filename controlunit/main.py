@@ -4,7 +4,7 @@ import pandas as pd
 from PyQt5 import QtGui, QtCore, QtWidgets
 
 from mainView import UIWindow
-from worker import DAC8532, ADC, Worker
+from worker import DAC8532, ADC, Worker, Calibrator
 
 # from readsettings import make_datafolders, read_settings
 import readsettings
@@ -182,22 +182,6 @@ class MainWidget(QtCore.QObject, UIWindow):
 
 
 
-
-    # @QtCore.pyqtSlot()
-    # def set_mfc1_goal(self):
-    #     value=0
-    #     for i, spin_box in enumerate(self.mfccontrolDock.masflowcontrolerSB1):
-    #         voltage = spin_box.value()
-    #         value += (voltage * pow(10, 3-i))
-    #     if value > 5000:
-    #         value = 5000
-    #     self.__mfc1 = value
-    #     voltage_now = self.currentvalues["MFC1"]
-    #     self.mfccontrolDock.set_output1_goal(self.__mfc1,f"{voltage_now*1000:.0f}")
-    #     if self.dacWorker is not None:
-    #         self.dacWorker.output_voltage(1,self.__mfc1)
-    #     if self.adcWorker is not None:
-    #         self.adcWorker.setPresetV1(self.__mfc1)
 
     def __updatePScale(self):
         """Updated plot limits for the Pressure viewgraph"""
@@ -697,18 +681,23 @@ class MainWidget(QtCore.QObject, UIWindow):
         for spin_box in self.mfccontrolDock.masflowcontrolerSB2:
             spin_box.setValue(0)
 
-
+    # @QtCore.pyqtSlot()
     def __calibration(self):
         """
         Start and stop calibration
         """
-        if not self.calibrating:
+        if not self.dacWorker.calibrating:
             stating_msg = "Are you sure you want to start calibration?"
             reply = QtWidgets.QMessageBox.warning(
                 self.MainWindow, "Message", stating_msg, QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No,
             )
             if reply == QtWidgets.QMessageBox.Yes:
-                self.calibration_output()
+                # self.dacWorker.calibration(self.__mfc1,step=10,waiting_time=1)
+                self.thread_calibration = Calibrator(self.__app, self.dacWorker, self.__mfc1,10,1)
+                self.thread_calibration.finished.connect(self.calibration_terminated)
+                self.thread_calibration.start()
+
+
             else:
                 pass
         else:
@@ -717,27 +706,14 @@ class MainWidget(QtCore.QObject, UIWindow):
                 self.MainWindow, "Message", ending_msg, QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No,
             )
             if reply == QtWidgets.QMessageBox.Yes:
-                self.calibrating = False
+                self.dacWorker.calibrating = False
             else:
                 pass
 
-    @QtCore.pyqtSlot()
-    def calibration_output(self):
-        """
-        Set calibration output
-        """
-        self.calibrating = True
-        while self.calibrating:
-            if self.__mfc1 == 0:
-                self.__mfc1 = 5000
-            if self.dacWorker is not None:
-                for i in range(10):
-                    self.dacWorker.output_voltage(1,(self.__mfc1)/10*i)
-                    time.sleep(10)
-                for i in range(10):
-                    self.dacWorker.output_voltage(1,(self.__mfc1)/10*(10-i))
-                    time.sleep(10)
-        self.calibrating = False
+    def calibration_terminated(self):
+        self.thread_calibration.quit()
+        self.thread_calibration.wait()
+
 
 
     @QtCore.pyqtSlot()
