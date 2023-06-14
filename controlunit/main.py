@@ -11,6 +11,7 @@ import readsettings
 from striphtmltags import strip_tags
 import qmsSignal
 
+import time
 # from channels import TCCOLUMNS, ADCCOLUMNS, ADCCONVERTED, ADCSIGNALS, CHNLSADC
 # from channels import CHHEATER, CHLED
 
@@ -95,6 +96,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.tWorker = None
         self.adcWorker = None
         self.dacWorker = None
+        self.calibrating = False
 
         self.update_plot_timewindow()
 
@@ -133,6 +135,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.mfccontrolDock.registerBtn2.clicked.connect(self.set_mfc2_goal)
         self.mfccontrolDock.resetBtn1.clicked.connect(self.resetSpinBoxes1)
         self.mfccontrolDock.resetBtn2.clicked.connect(self.resetSpinBoxes2)
+        self.mfccontrolDock.calibrationBtn.clicked.connect(self.__calibration)
         self.controlDock.IGmode.currentIndexChanged.connect(self.update_ig_mode)
         self.controlDock.IGrange.valueChanged.connect(self.update_ig_range)
 
@@ -176,6 +179,25 @@ class MainWidget(QtCore.QObject, UIWindow):
                 self.controlDock.quitBtn.setEnabled(True)
             else:
                 self.controlDock.OnOffSW.setChecked(True)
+
+
+
+
+    # @QtCore.pyqtSlot()
+    # def set_mfc1_goal(self):
+    #     value=0
+    #     for i, spin_box in enumerate(self.mfccontrolDock.masflowcontrolerSB1):
+    #         voltage = spin_box.value()
+    #         value += (voltage * pow(10, 3-i))
+    #     if value > 5000:
+    #         value = 5000
+    #     self.__mfc1 = value
+    #     voltage_now = self.currentvalues["MFC1"]
+    #     self.mfccontrolDock.set_output1_goal(self.__mfc1,f"{voltage_now*1000:.0f}")
+    #     if self.dacWorker is not None:
+    #         self.dacWorker.output_voltage(1,self.__mfc1)
+    #     if self.adcWorker is not None:
+    #         self.adcWorker.setPresetV1(self.__mfc1)
 
     def __updatePScale(self):
         """Updated plot limits for the Pressure viewgraph"""
@@ -664,6 +686,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         if self.adcWorker is not None:
             self.adcWorker.setPresetV2(self.__mfc2)
 
+
     @QtCore.pyqtSlot()
     def resetSpinBoxes1(self):
         for spin_box in self.mfccontrolDock.masflowcontrolerSB1:
@@ -673,6 +696,48 @@ class MainWidget(QtCore.QObject, UIWindow):
     def resetSpinBoxes2(self):
         for spin_box in self.mfccontrolDock.masflowcontrolerSB2:
             spin_box.setValue(0)
+
+
+    def __calibration(self):
+        """
+        Start and stop calibration
+        """
+        if not self.calibrating:
+            stating_msg = "Are you sure you want to start calibration?"
+            reply = QtWidgets.QMessageBox.warning(
+                self.MainWindow, "Message", stating_msg, QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No,
+            )
+            if reply == QtWidgets.QMessageBox.Yes:
+                self.calibration_output()
+            else:
+                pass
+        else:
+            ending_msg = "Are you sure you want to stop calibration?"
+            reply = QtWidgets.QMessageBox.warning(
+                self.MainWindow, "Message", ending_msg, QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No,
+            )
+            if reply == QtWidgets.QMessageBox.Yes:
+                self.calibrating = False
+            else:
+                pass
+
+    @QtCore.pyqtSlot()
+    def calibration_output(self):
+        """
+        Set calibration output
+        """
+        self.calibrating = True
+        while self.calibrating:
+            if self.__mfc1 == 0:
+                self.__mfc1 = 5000
+            if self.dacWorker is not None:
+                for i in range(10):
+                    self.dacWorker.output_voltage(1,(self.__mfc1)/10*i)
+                    time.sleep(10)
+                for i in range(10):
+                    self.dacWorker.output_voltage(1,(self.__mfc1)/10*(10-i))
+                    time.sleep(10)
+        self.calibrating = False
 
 
     @QtCore.pyqtSlot()
