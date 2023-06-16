@@ -9,7 +9,7 @@ There are commercially available data loggers and temperature control units, how
 
 
 
-However, the cheaper and more importantly, open source alternative would be to use  a [SPC](https://en.wikipedia.org/wiki/Single-board_computer).
+However, the cheaper and more importantly, open source alternative would be to use  a [SBC](https://en.wikipedia.org/wiki/Single-board_computer).
 
 
 
