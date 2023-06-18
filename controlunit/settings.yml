@@ -127,3 +127,9 @@ Max Voltage : 5.0
 
 # GPIO pin used to communication (SPI)
 CS gpio: 23
+# MOSI GPIO : 10
+# MISO GPIO : 9
+# SCLK GPIO : 11
+# DRDY GPIO : 17
+# PDWN GPIO : 27
+# RESET GPIO : 18
