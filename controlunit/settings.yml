@@ -30,7 +30,7 @@ MAX6675 Channel: 0 # 0 -> CS0, 1 -> CS1 Thermocouple
 Heater GPIO: 17
 # GPIO pin to turn on LED indicator (front panel)
 # The same pin is used to send sync signal to QMS
-LED GPIO: 27
+LED GPIO: 26
 # Temperature worker column names
 Temperature Columns:
   - "date"
