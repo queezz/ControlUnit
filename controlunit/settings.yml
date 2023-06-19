@@ -65,21 +65,21 @@ Temperature Columns:
 # updated now.
 
 ADC Channels:
-  Pd:
+  Ip:
     Channel: 0
+    Gain: 5
+    Description: "Plasma Current"
+    Conversion Function: "Hall Sensor"
+  Pd:
+    Channel: 1
     Gain: 10
     Description: "Ionization Gauge (downstream)"
     Conversion Function: "Ionization Gauge"
   Pu:
-    Channel: 1
+    Channel: 2
     Gain: 10
     Description: "Pfeffer  Single Gauge (upstream)"
     Conversion Function: "Pfeiffer Single Gauge"
-  Ip:
-    Channel: 2
-    Gain: 5
-    Description: "Plasma Current"
-    Conversion Function: "Hall Sensor"
   Bu:
     Channel: 3
     Gain: 1
