@@ -30,7 +30,6 @@ MAX6675 Channel: 0 # 0 -> CS0, 1 -> CS1 Thermocouple
 Heater GPIO: 17
 # GPIO pin to turn on LED indicator (front panel)
 # The same pin is used to send sync signal to QMS
-# LED GPIO: 27
 LED GPIO: 26
 # Temperature worker column names
 Temperature Columns:
@@ -66,21 +65,21 @@ Temperature Columns:
 # updated now.
 
 ADC Channels:
-  Pd:
+  Ip:
     Channel: 0
+    Gain: 5
+    Description: "Plasma Current"
+    Conversion Function: "Hall Sensor"
+  Pd:
+    Channel: 1
     Gain: 10
     Description: "Ionization Gauge (downstream)"
     Conversion Function: "Ionization Gauge"
   Pu:
-    Channel: 1
+    Channel: 2
     Gain: 10
     Description: "Pfeffer  Single Gauge (upstream)"
     Conversion Function: "Pfeiffer Single Gauge"
-  Ip:
-    Channel: 2
-    Gain: 5
-    Description: "Plasma Current"
-    Conversion Function: "Hall Sensor"
   Bu:
     Channel: 3
     Gain: 1
@@ -128,3 +127,9 @@ Max Voltage : 5.0
 
 # GPIO pin used to communication (SPI)
 CS gpio: 23
+# MOSI GPIO : 10
+# MISO GPIO : 9
+# SCLK GPIO : 11
+# DRDY GPIO : 17
+# PDWN GPIO : 27
+# RESET GPIO : 18
