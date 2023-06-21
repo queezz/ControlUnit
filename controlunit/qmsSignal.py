@@ -17,6 +17,7 @@ class SyncSignal(QtCore.QThread):
     Emit signal for syncronization. Also connected to LED indicator.
     TODO: hardware: use GPIO as a switching signal, don't keep this on
     When this is kept on for too long, the APP crashes.
+    TODO: when turn on and off LED so many times (10 or more), the signal is not stable. 
     """
 
     def __init__(self, pi, app, onoff):
@@ -41,8 +42,10 @@ class SyncSignal(QtCore.QThread):
         """
         if self.onoff:
             self.pi.write(self.pinNum, 1)
+            self.pi.stop()
         else:
             self.pi.write(self.pinNum, 0)
+            self.pi.stop()
 
     def blink_led(self):
         """turn led on and off, "onoff" times"""

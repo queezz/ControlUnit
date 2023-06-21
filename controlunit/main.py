@@ -278,17 +278,17 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.qmsSigThread.start()
             self.adcWorker.setQmsSignal(1)
         else:
-            quit_msg = "Stop Experiment Marker?"
-            reply = QtWidgets.QMessageBox.warning(
-                self.MainWindow, "Message", quit_msg, QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No,
-            )
-            if reply == QtWidgets.QMessageBox.Yes:
-                self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 0)
-                self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
-                self.qmsSigThread.start()
-                self.adcWorker.setQmsSignal(0)
-            else:
-                self.controlDock.qmsSigSw.setChecked(True)
+            # quit_msg = "Stop Experiment Marker?"
+            # reply = QtWidgets.QMessageBox.warning(
+            #     self.MainWindow, "Message", quit_msg, QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No,
+            # )
+            # if reply == QtWidgets.QMessageBox.Yes:
+            self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 0)
+            self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
+            self.qmsSigThread.start()
+            self.adcWorker.setQmsSignal(0)
+            # else:
+            #     self.controlDock.qmsSigSw.setChecked(True)
 
     def qmsSignalTerminate(self):
         self.qmsSigThread.quit()
