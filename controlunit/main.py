@@ -781,7 +781,6 @@ class MainWidget(QtCore.QObject, UIWindow):
         value = self.controlDock.IGrange.value()
         if self.adcWorker is not None:
             self.adcWorker.setIGrange(value)
-            print(f"pressed\ncurrent value = {value}")
 
 
 def main():
