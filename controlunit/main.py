@@ -779,7 +779,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         10^{-3} - 10^{-8} multiplier when in linear mode (Torr)
         """
         value = self.controlDock.IGrange.value()
-        if self.tWorker is not None:
+        if self.adcWorker is not None:
             self.adcWorker.setIGrange(value)
             print(f"pressed\ncurrent value = {value}")
 
