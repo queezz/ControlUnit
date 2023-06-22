@@ -14,3 +14,13 @@
 
 
 __version__ = "0.2.0"
+
+__abou__ = """
+This version used I2C ADC to record time traces 
+and MAX temperature sensor to monitor membrane temperature
+and control it by using PWM via transistor + solid state relay
+To insulate membrane from the thermocouple we switched to National Intsruments
+insulated sensor, which is now controlled from windows PC.
+
+This version is to save the previous version of the app.
+"""
