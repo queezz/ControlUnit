@@ -700,7 +700,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             )
             if reply == QtWidgets.QMessageBox.Yes:
                 # self.dacWorker.calibration(self.__mfc1,step=10,waiting_time=1)
-                self.thread_calibration = Calibrator(self.__app, self.dacWorker, self.__mfc1,10,1)
+                self.thread_calibration = Calibrator(self.__app, self.dacWorker, self.__mfc1,10,10)
                 self.thread_calibration.finished.connect(self.calibration_terminated)
                 self.thread_calibration.start()
 
