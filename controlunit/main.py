@@ -735,6 +735,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
         self.qmsSigThread.start()
         self.adcWorker.setQmsSignal(0)
+        self.controlDock.qmsSigSw.setChecked(False)
     
 
 
