@@ -177,6 +177,13 @@ class MainWidget(QtCore.QObject, UIWindow):
             if reply == QtWidgets.QMessageBox.Yes:
                 self.abort_all_threads()
                 self.controlDock.quitBtn.setEnabled(True)
+                if self.controlDock.qmsSigSw.isChecked():
+                    pi = pigpio.pi()
+                    self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 0)
+                    self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
+                    self.qmsSigThread.start()
+                    self.adcWorker.setQmsSignal(0)
+                    self.controlDock.qmsSigSw.setChecked(False)
             else:
                 self.controlDock.OnOffSW.setChecked(True)
 

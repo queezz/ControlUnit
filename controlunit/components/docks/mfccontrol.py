@@ -12,11 +12,11 @@ class MassFlowControllerControl(Dock):
         super().__init__("MFC control")
         self.widget = pg.LayoutWidget()
         self.mfcBw1 = QtWidgets.QTextBrowser()
-        self.mfcBw1.setMinimumSize(QtCore.QSize(80, 60))
+        self.mfcBw1.setMinimumSize(QtCore.QSize(60, 50))
         self.mfcBw1.setMaximumHeight(60)
 
         self.mfcBw2 = QtWidgets.QTextBrowser()
-        self.mfcBw2.setMinimumSize(QtCore.QSize(80, 60))
+        self.mfcBw2.setMinimumSize(QtCore.QSize(60, 50))
         self.mfcBw2.setMaximumHeight(60)
 
         
@@ -29,12 +29,12 @@ class MassFlowControllerControl(Dock):
             else:
                 spin_box.setMaximum(9)
             spin_box.setSuffix(f"e{3-i}")
-            spin_box.setMinimumSize(QtCore.QSize(100, 80))
+            spin_box.setMinimumSize(QtCore.QSize(80, 40))
             spin_box.setSingleStep(1)
             spin_box.setStyleSheet(
-                "QSpinBox::up-button   { width: 45px; }\n"
-                "QSpinBox::down-button { width: 45px;}\n"
-                "QSpinBox {font: 20pt;}"
+                "QSpinBox::up-button   { width: 35px; }\n"
+                "QSpinBox::down-button { width: 35px;}\n"
+                "QSpinBox {font: 16pt;}"
                 )
             spin_box.setWrapping(True)
             self.masflowcontrolerSB1.append(spin_box)
@@ -48,37 +48,37 @@ class MassFlowControllerControl(Dock):
             else:
                 spin_box.setMaximum(9)
             spin_box.setSuffix(f"e{3-i}")
-            spin_box.setMinimumSize(QtCore.QSize(100, 80))
+            spin_box.setMinimumSize(QtCore.QSize(80, 40))
             spin_box.setSingleStep(1)
             spin_box.setStyleSheet(
-                "QSpinBox::up-button   { width: 45px; }\n"
-                "QSpinBox::down-button { width: 45px;}\n"
-                "QSpinBox {font: 20pt;}"
+                "QSpinBox::up-button   { width: 35px; }\n"
+                "QSpinBox::down-button { width: 35px;}\n"
+                "QSpinBox {font: 16pt;}"
                 )
             spin_box.setWrapping(True)
             self.masflowcontrolerSB2.append(spin_box)
 
 
         self.registerBtn1 = QtWidgets.QPushButton("set")
-        self.registerBtn1.setMinimumSize(QtCore.QSize(50, 50))
-        self.registerBtn1.setStyleSheet("font: 26pt")
+        self.registerBtn1.setMinimumSize(QtCore.QSize(80, 50))
+        self.registerBtn1.setStyleSheet("font: 20pt")
 
         self.registerBtn2 = QtWidgets.QPushButton("set")
-        self.registerBtn2.setMinimumSize(QtCore.QSize(50, 50))
-        self.registerBtn2.setStyleSheet("font: 26pt")
+        self.registerBtn2.setMinimumSize(QtCore.QSize(80, 50))
+        self.registerBtn2.setStyleSheet("font: 20pt")
 
         self.resetBtn1 = QtWidgets.QPushButton("reset")
-        self.resetBtn1.setMinimumSize(QtCore.QSize(50, 50))
-        self.resetBtn1.setStyleSheet("font: 26pt")
+        self.resetBtn1.setMinimumSize(QtCore.QSize(80, 50))
+        self.resetBtn1.setStyleSheet("font: 20pt")
 
 
         self.resetBtn2 = QtWidgets.QPushButton("reset")
-        self.resetBtn2.setMinimumSize(QtCore.QSize(50, 50))
-        self.resetBtn2.setStyleSheet("font: 26pt")
+        self.resetBtn2.setMinimumSize(QtCore.QSize(80, 50))
+        self.resetBtn2.setStyleSheet("font: 20pt")
 
         self.calibrationBtn = QtWidgets.QPushButton("c\na\nl\ni\nb\nr\na\nt\ni\no\nn")
-        self.calibrationBtn.setMinimumSize(QtCore.QSize(30, 300))
-        self.calibrationBtn.setStyleSheet("font: 20pt")
+        self.calibrationBtn.setMinimumSize(QtCore.QSize(30, 200))
+        self.calibrationBtn.setStyleSheet("font: 10pt")
 
         self.set_layout()
 
