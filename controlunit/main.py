@@ -72,10 +72,10 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.baratronsignal2 = 0
         self.pens = {
             "Ip": {"color": "#8d3de3", "width": 2},
-            "Pu": {"color": "#6ac600", "width": 2},
-            "Pd": {"color": "#c9004d", "width": 2},
+            "Pu": {"color": "#c9004d", "width": 2},
+            "Pd": {"color": "#6ac600", "width": 2},
             "Bu": {"color": "#ffb405", "width": 2},
-            "Bd": {"color": "#ff8c00", "width": 2},
+            "Bd": {"color": "#00a3af", "width": 2},
             # "T": {"color": "#5999ff", "width": 2},
             "trigger": {"color": "#edbc34", "width": 2},
         }
