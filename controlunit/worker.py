@@ -22,11 +22,15 @@ STEP = 3
 
 try:
     from AIO import AIO_32_0RA_IRC as adc
+    from DAC import DAC8532 as dac
     import pigpio
+    import RPi.GPIO as GPIO
 except:
     print("no pigpio or AIO")
     TEST = True
+    from DAC import DAC8532 as dac
     import pigpioplug as pigpio
+    import RPi.GPIO as GPIO
 
 # must inherit QtCore.QObject in order to use 'connect'
 class Worker(QtCore.QObject):
@@ -257,6 +261,97 @@ class MAX6675(Worker):
         else:
             return steps
 
+class DAC8532(Worker):
+
+    sigAbortHeater = QtCore.pyqtSignal()
+
+    def __init__(self, sensor_name, app, startTime, config):
+        super().__init__(sensor_name, app, startTime, config)
+        self.__app = app
+        self.sensor_name = sensor_name
+        self.__startTime = startTime
+        self.config = config
+        self.__abort = False
+        self.calibrating = False
+
+    @QtCore.pyqtSlot()
+    def abort(self):
+        message = "Worker thread {} aborting acquisition".format(self.sensor_name)
+        # self.send_message.emit(message)
+        # print(message)
+        self.__abort = True
+        self.dac_init()
+
+    @QtCore.pyqtSlot()
+    def start(self):
+        pass
+
+    def init_dac_worker(self, presetVoltage: int):
+        pass
+
+    def dac_init(self):
+        try:
+            print("DAC started correctry\r\n")
+            
+            self.DAC = dac()
+            self.DAC.DAC8532_Out_Voltage(self.DAC.channel_A, 0)
+            self.DAC.DAC8532_Out_Voltage(self.DAC.channel_B, 0)
+        
+
+        except :
+            self.DAC = dac()
+            self.DAC.DAC8532_Out_Voltage(self.DAC.channel_A, 0)
+            self.DAC.DAC8532_Out_Voltage(self.DAC.channel_B, 0)
+            GPIO.cleanup()
+            print ("\r\nProgram end     ")
+            exit()
+
+    def output_voltage(self, channel, voltage):
+        if channel == 1:
+            self.DAC.DAC8532_Out_Voltage(self.DAC.channel_A, voltage/1000)
+            print(f"voltage output: {voltage/1000} V")
+        elif channel == 2:
+            self.DAC.DAC8532_Out_Voltage(self.DAC.channel_B, voltage/1000)
+            print(f"voltage output: {voltage/1000} V")
+        else:
+            print("wrong channel")
+
+    @QtCore.pyqtSlot()
+    def calibration(self,max_voltage,step,waiting_time):
+        self.calibrating = True
+        if max_voltage == 0:
+            max_voltage = 5000
+        while self.calibrating:
+
+            for i in range(step+1):
+                if self.calibrating == False:
+                    break
+                self.output_voltage(1,(max_voltage)/step*i)
+                time.sleep(waiting_time)
+            for i in range(step):
+                if self.calibrating == False:
+                    break
+                self.output_voltage(1,(max_voltage)/step*(step-i - 1))
+                time.sleep(waiting_time)
+            self.calibrating = False
+        self.output_voltage(1,0)
+
+class Calibrator(QtCore.QThread):
+    def __init__(self, app, object, voltage, step, waiting_time):
+        super().__init__()
+        self.app = app
+        self.object = object
+        self.voltage = voltage
+        self.step = step
+        self.waiting_time = waiting_time
+    
+    def run(self):
+        self.object.calibrating = True
+        self.object.calibration(self.voltage,self.step,self.waiting_time)
+        self.object.calibrating = False
+        self.app.processEvents()
+        self.finished.emit()
+
 
 class ADC(Worker):
     def __init__(self, sensor_name, app, startTime, config):
@@ -296,6 +391,8 @@ class ADC(Worker):
         self.__IGmode = IGmode
         self.__IGrange = IGrange
         self.__qmsSignal = 0
+        self.__PresetV1 = 0
+        self.__PresetV2 = 0
         self.sampling = self.config["Sampling Time"]
 
     def setIGmode(self, IGmode: int):
@@ -322,6 +419,22 @@ class ADC(Worker):
         running: 1
         """
         self.__qmsSignal = signal
+        return
+    
+    def setPresetV1(self, voltage: int):
+        """
+        Sets Preset Voltage of Mas Flow Control for H2 from GUI
+        range: 0 ~ 5000 mV
+        """
+        self.__PresetV1 = voltage/1000
+        return
+    
+    def setPresetV2(self, voltage: int):
+        """
+        Sets Preset Voltage of Mas Flow Control for H2 from GUI
+        range: 0 ~ 5000 mV
+        """
+        self.__PresetV2 = voltage/1000
         return
 
     @QtCore.pyqtSlot()
@@ -395,7 +508,7 @@ class ADC(Worker):
         dSec = (now - self.__startTime).total_seconds()
         new_data_row = pd.DataFrame(
             np.atleast_2d(
-                [now, dSec, self.__IGmode, self.__IGrange, self.__qmsSignal, *self.adc_voltages.values()]
+                [now, dSec, self.__IGmode, self.__IGrange, self.__qmsSignal,self.__PresetV1, self.__PresetV2, *self.adc_voltages.values()]
             ),
             columns=self.adc_values_columns,
         )

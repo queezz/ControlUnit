@@ -66,3 +66,5 @@ def baratron(v, fullscale):
     """
     return v / 10 * fullscale
 
+def mfc(v):
+    return v

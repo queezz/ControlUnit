@@ -30,7 +30,7 @@ MAX6675 Channel: 0 # 0 -> CS0, 1 -> CS1 Thermocouple
 Heater GPIO: 17
 # GPIO pin to turn on LED indicator (front panel)
 # The same pin is used to send sync signal to QMS
-LED GPIO: 27
+LED GPIO: 26
 # Temperature worker column names
 Temperature Columns:
   - "date"
@@ -65,21 +65,21 @@ Temperature Columns:
 # updated now.
 
 ADC Channels:
-  Pd:
+  Ip:
     Channel: 0
+    Gain: 5
+    Description: "Plasma Current"
+    Conversion Function: "Hall Sensor"
+  Pd:
+    Channel: 1
     Gain: 10
     Description: "Ionization Gauge (downstream)"
     Conversion Function: "Ionization Gauge"
   Pu:
-    Channel: 1
+    Channel: 2
     Gain: 10
     Description: "Pfeffer  Single Gauge (upstream)"
     Conversion Function: "Pfeiffer Single Gauge"
-  Ip:
-    Channel: 2
-    Gain: 5
-    Description: "Plasma Current"
-    Conversion Function: "Hall Sensor"
   Bu:
     Channel: 3
     Gain: 1
@@ -92,6 +92,17 @@ ADC Channels:
     Description: "Baratron MKS 628B.1TDF2b FS = 0.1 Torr (downstream)"
     Conversion Function: "Baratron"
     Full Scale: 0.1
+  MFC1:
+    Channel: 5
+    Gain: 5
+    Description: "MFC for Hydrogen, 20 SCCM"
+    Conversion Function: "No Conversion"
+  MFC2:
+    Channel: 6
+    Gain: 5
+    Description: "MFC2 for Oxygen, 10 SCCM"
+    Conversion Function: "No Conversion"
+  
 
 ADC Additional Columns:
   - "date"
@@ -99,3 +110,26 @@ ADC Additional Columns:
   - "IGmode"
   - "IGscale"
   - "QMS_signal"
+  - "PresetV1"
+  - "PresetV2"
+
+
+# ================================================
+#
+# High-Precision AD/DA Board
+# https://www.waveshare.com/wiki/High-Precision_AD/DA_Board
+# https://pinout.xyz/pinout/high_precision_adda_board
+#
+# ================================================
+# Set maximum output voltage for
+# MFC Control
+Max Voltage : 5.0
+
+# GPIO pin used to communication (SPI)
+CS gpio: 23
+# MOSI GPIO : 10
+# MISO GPIO : 9
+# SCLK GPIO : 11
+# DRDY GPIO : 17
+# PDWN GPIO : 27
+# RESET GPIO : 18

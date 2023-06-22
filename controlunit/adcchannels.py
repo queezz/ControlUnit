@@ -32,6 +32,7 @@ class AdcChannelProps:
             hall_current_sensor,
             pfeiffer_single_gauge,
             baratron,
+            mfc,
         )
 
         conversions = {
@@ -44,5 +45,7 @@ class AdcChannelProps:
         if self.conversion_id == "Baratron":
             self.conversion = lambda v: baratron(v, self.full_scale)
             return
+        if self.conversion_id == "MFC":
+            self.conversion = lambda v: mfc(v)
 
         self.conversion = conversions[self.conversion_id]
