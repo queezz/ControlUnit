@@ -1,4 +1,4 @@
-Settings Version: 1.1
+Settings Version: 1.2
 # Define your local settings in
 # localsettings = os.path.join(os.path.expanduser('~'),'.controlunit', 'settings.yml')
 # ~/.controlunit/settings.yml
@@ -102,7 +102,6 @@ ADC Channels:
     Gain: 5
     Description: "MFC2 for Oxygen, 10 SCCM"
     Conversion Function: "No Conversion"
-  
 
 ADC Additional Columns:
   - "date"
@@ -113,7 +112,6 @@ ADC Additional Columns:
   - "PresetV1"
   - "PresetV2"
 
-
 # ================================================
 #
 # High-Precision AD/DA Board
@@ -123,7 +121,7 @@ ADC Additional Columns:
 # ================================================
 # Set maximum output voltage for
 # MFC Control
-Max Voltage : 5.0
+Max Voltage: 5.0
 
 # GPIO pin used to communication (SPI)
 CS gpio: 23
