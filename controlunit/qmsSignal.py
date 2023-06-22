@@ -20,32 +20,57 @@ class SyncSignal(QtCore.QThread):
     TODO: when turn on and off LED so many times (10 or more), the signal is not stable. 
     """
 
-    def __init__(self, pi, app, onoff):
+    def __init__(self, pi, app, mode,worker=None):
         super().__init__()
         self.pi = pi  # pigpio.pi() - access local GPIO
         self.app = app
         # GPIO output count
-        self.onoff = onoff
+        self.mode = mode
         self.pinNum = CHLED
+        self.worker = worker
 
     # MARK: - Methods
     def run(self):
         self.pi.set_mode(self.pinNum, pigpio.OUTPUT)
-        self.led_on_off()
+        self.led_on_off(self.mode)
         self.app.processEvents()
         self.finished.emit()
 
-    def led_on_off(self):
+    def led_on_off(self, mode):
         """switch led:
-        ON:  self.onoff > 0
-        OFF: self.onoff == 0
+        ON:  self.mode == 1
+        OFF: self.mode == 0
+        calibration light : self.mode == 2
         """
-        if self.onoff:
+        if mode == 1:
             self.pi.write(self.pinNum, 1)
             self.pi.stop()
-        else:
+        elif mode == 0:
             self.pi.write(self.pinNum, 0)
             self.pi.stop()
+        elif (mode == 2) & (self.worker is not None):
+            self.calibration_light()
+
+    def calibration_light(self):
+        """turn on and off LED for calibration"""
+        i = 0
+        while i < 3:
+            self.pi.write(self.pinNum, 1)
+            self.worker.setQmsSignal(1)
+            time.sleep(0.1)
+            self.pi.write(self.pinNum, 0)
+            self.worker.setQmsSignal(0)
+            time.sleep(0.3)
+            i += 1
+        self.pi.write(self.pinNum, 1)
+        self.worker.setQmsSignal(1)
+        self.pi.stop()
+
+    def abort_calibration(self):
+        self.pi.write(self.pinNum, 0)
+        self.pi.stop()
+        self.worker.setQmsSignal(0)
+
 
     def blink_led(self):
         """turn led on and off, "onoff" times"""

@@ -435,9 +435,9 @@ class MainWidget(QtCore.QObject, UIWindow):
         return [
             "# Control Unit ADC signals\n",
             f"# Date:, {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n",
-            f"# Columns:, {', '.join(self.config['ADC Column Names'])}\n"
-            f"# Signals:, {', '.join(self.config['ADC Signal Names'])}\n",
-            f"# Channels:, {', '.join([str(i) for i in self.config['ADC Channel Numbers']])}\n"
+            f"# Columns:\n {', '.join(self.config['ADC Column Names'])}\n"
+            f"# Signals:\n {', '.join(self.config['ADC Signal Names'])}\n",
+            f"# Channels:\n {', '.join([str(i) for i in self.config['ADC Channel Numbers']])}\n"
             "# For converted signals '_c' is added\n",
             "#\n",
             "# [Data]\n",
@@ -700,9 +700,16 @@ class MainWidget(QtCore.QObject, UIWindow):
             )
             if reply == QtWidgets.QMessageBox.Yes:
                 # self.dacWorker.calibration(self.__mfc1,step=10,waiting_time=1)
-                self.thread_calibration = Calibrator(self.__app, self.dacWorker, self.__mfc1,10,10)
-                self.thread_calibration.finished.connect(self.calibration_terminated)
-                self.thread_calibration.start()
+                try:
+                    pi = pigpio.pi()
+                except:
+                    print("pigpio is not defined")
+                    return
+                self.calibration_thread = Calibrator(self.__app, self.dacWorker, self.__mfc1,10,1)
+                self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 2, self.adcWorker)
+                self.calibration_thread.finished.connect(self.calibration_terminated)
+                self.calibration_thread.start()
+                self.qmsSigThread.start()
 
 
             else:
@@ -714,12 +721,21 @@ class MainWidget(QtCore.QObject, UIWindow):
             )
             if reply == QtWidgets.QMessageBox.Yes:
                 self.dacWorker.calibrating = False
+                self.calibration_terminated()
             else:
                 pass
 
     def calibration_terminated(self):
-        self.thread_calibration.quit()
-        self.thread_calibration.wait()
+        self.qmsSigThread.quit()
+        self.qmsSigThread.wait()
+        self.calibration_thread.wait()
+        self.calibration_thread.quit()
+        pi = pigpio.pi()
+        self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 0)
+        self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
+        self.qmsSigThread.start()
+        self.adcWorker.setQmsSignal(0)
+    
 
 
 
@@ -781,6 +797,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         value = self.controlDock.IGrange.value()
         if self.adcWorker is not None:
             self.adcWorker.setIGrange(value)
+            print(f"pressed\ncurrent value = {value}")
 
 
 def main():
