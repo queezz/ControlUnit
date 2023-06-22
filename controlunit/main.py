@@ -72,20 +72,20 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.baratronsignal2 = 0
         self.pens = {
             "Ip": {"color": "#8d3de3", "width": 2},
-            "P1": {"color": "#6ac600", "width": 2},
-            "P2": {"color": "#c9004d", "width": 2},
-            "B1": {"color": "#ffb405", "width": 2},
-            "B2": {"color": "#ff8c00", "width": 2},
+            "Pu": {"color": "#6ac600", "width": 2},
+            "Pd": {"color": "#c9004d", "width": 2},
+            "Bu": {"color": "#ffb405", "width": 2},
+            "Bd": {"color": "#ff8c00", "width": 2},
             # "T": {"color": "#5999ff", "width": 2},
             "trigger": {"color": "#edbc34", "width": 2},
         }
         self.valuePlaPlot = self.graph.plaPl.plot(pen=self.pens["Ip"])
         self.triggerPlot = self.graph.plaPl.plot(pen=self.pens["trigger"])
         # self.valueTPlot = self.graph.tempPl.plot(pen=self.pens["T"])
-        self.valueP1Plot = self.graph.presPl.plot(pen=self.pens["P1"])
-        self.valueP2Plot = self.graph.presPl.plot(pen=self.pens["P2"])
-        self.valueB1Plot = self.graph.presPl.plot(pen=self.pens["B1"])
-        self.valueB2Plot = self.graph.presPl.plot(pen=self.pens["B2"])
+        self.valueP1Plot = self.graph.presPl.plot(pen=self.pens["Pu"])
+        self.valueP2Plot = self.graph.presPl.plot(pen=self.pens["Pd"])
+        self.valueB1Plot = self.graph.presPl.plot(pen=self.pens["Bu"])
+        self.valueB2Plot = self.graph.presPl.plot(pen=self.pens["Bd"])
         # self.graph.tempPl.setXLink(self.graph.presPl)
         self.graph.plaPl.setXLink(self.graph.presPl)
 
@@ -481,12 +481,12 @@ class MainWidget(QtCore.QObject, UIWindow):
               <table>
                  <tr>
                   <td>
-                   <font size=4 color={self.pens['P2']['color']}>
+                   <font size=4 color={self.pens['Pu']['color']}>
                     Pu = {self.currentvalues['Pu']:.1e}                    
                   </font>
                   </td>
                   <td>
-                  <font size=4 color={self.pens['P1']['color']}>
+                  <font size=4 color={self.pens['Pd']['color']}>
                     Pd = {self.currentvalues['Pd']:.1e}
                    </font>
                   </td>
@@ -498,17 +498,17 @@ class MainWidget(QtCore.QObject, UIWindow):
                  </tr>
                  <tr>
                   <td>
-                   <font size=4 color={self.pens['B1']['color']}>
+                   <font size=4 color={self.pens['Bu']['color']}>
                     Bu = {self.currentvalues['Bu']:.1e}
                    </font>
                   </td>
                   <td>
-                   <font size=4 color={self.pens['B2']['color']}>
+                   <font size=4 color={self.pens['Bd']['color']}>
                     Bd = {self.currentvalues['Bd']:.1e}
                    </font>
                   </td>   
                   <td>
-                   <font size=4 color={self.pens['B2']['color']}>
+                   <font size=4 color={self.pens['Bd']['color']}>
                     Bd = {self.baratronsignal2:.4f}
                    </font>
                   </td>
