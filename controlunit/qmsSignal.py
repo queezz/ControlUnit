@@ -63,7 +63,7 @@ class SyncSignal(QtCore.QThread):
             time.sleep(0.3)
             i += 1
         self.pi.write(self.pinNum, 1)
-        self.worker.setQmsSignal(1)
+        self.worker.setQmsSignal(2)
         self.pi.stop()
 
     def abort_calibration(self):

@@ -433,11 +433,11 @@ class MainWidget(QtCore.QObject, UIWindow):
         Generage ADC header
         """
         return [
-            "# Control Unit ADC signals\n",
-            f"# Date:, {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n",
-            f"# Columns:\n {', '.join(self.config['ADC Column Names'])}\n"
-            f"# Signals:\n {', '.join(self.config['ADC Signal Names'])}\n",
-            f"# Channels:\n {', '.join([str(i) for i in self.config['ADC Channel Numbers']])}\n"
+            "# Title:,Control Unit ADC signals\n",
+            f"# Date:,{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n",
+            f"# Columns:,{','.join(self.config['ADC Column Names'])}\n",
+            f"# Signals:,{','.join(self.config['ADC Signal Names'])}\n",
+            f"# Channels:,{','.join([str(i) for i in self.config['ADC Channel Numbers']])}\n",
             "# For converted signals '_c' is added\n",
             "#\n",
             "# [Data]\n",
