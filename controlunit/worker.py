@@ -317,7 +317,7 @@ class DAC8532(Worker):
             print("wrong channel")
 
     @QtCore.pyqtSlot()
-    def calibration(self,max_voltage,step,waiting_time):
+    def calibration(self,max_voltage,step,waiting_time,adc_object):
         self.calibrating = True
         if max_voltage == 0:
             max_voltage = 5000
@@ -327,28 +327,31 @@ class DAC8532(Worker):
                 if self.calibrating == False:
                     break
                 self.output_voltage(1,(max_voltage)/step*i)
+                adc_object.setPresetV1((max_voltage)/step*i)
                 time.sleep(waiting_time)
             for i in range(step):
                 if self.calibrating == False:
                     break
                 self.output_voltage(1,(max_voltage)/step*(step-i - 1))
+                adc_object.setPresetV1((max_voltage)/step*(step-i - 1))
                 time.sleep(waiting_time)
             self.calibrating = False
         self.output_voltage(1,0)
 
 class Calibrator(QtCore.QThread):
-    def __init__(self, app, object, voltage, step, waiting_time):
+    def __init__(self, app, dac_object, adc_object, voltage, step, waiting_time):
         super().__init__()
         self.app = app
-        self.object = object
+        self.dac_object = dac_object
+        self.adc_object = adc_object
         self.voltage = voltage
         self.step = step
         self.waiting_time = waiting_time
     
     def run(self):
-        self.object.calibrating = True
-        self.object.calibration(self.voltage,self.step,self.waiting_time)
-        self.object.calibrating = False
+        self.dac_object.calibrating = True
+        self.dac_object.calibration(self.voltage,self.step,self.waiting_time,self.adc_object)
+        self.dac_object.calibrating = False
         self.app.processEvents()
         self.finished.emit()
 

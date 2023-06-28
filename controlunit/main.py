@@ -433,11 +433,11 @@ class MainWidget(QtCore.QObject, UIWindow):
         Generage ADC header
         """
         return [
-            "# Title:,Control Unit ADC signals\n",
-            f"# Date:,{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n",
-            f"# Columns:,{','.join(self.config['ADC Column Names'])}\n",
-            f"# Signals:,{','.join(self.config['ADC Signal Names'])}\n",
-            f"# Channels:,{','.join([str(i) for i in self.config['ADC Channel Numbers']])}\n",
+            "# Title , Control Unit ADC signals\n",
+            f"# Date , {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n",
+            f"# Columns , {', '.join(self.config['ADC Column Names'])}\n",
+            f"# Signals , {', '.join(self.config['ADC Signal Names'])}\n",
+            f"# Channels , {', '.join([str(i) for i in self.config['ADC Channel Numbers']])}\n",
             "# For converted signals '_c' is added\n",
             "#\n",
             "# [Data]\n",
@@ -705,7 +705,7 @@ class MainWidget(QtCore.QObject, UIWindow):
                 except:
                     print("pigpio is not defined")
                     return
-                self.calibration_thread = Calibrator(self.__app, self.dacWorker, self.__mfc1,10,1)
+                self.calibration_thread = Calibrator(self.__app, self.dacWorker,self.adcWorker,self.__mfc1,10,1)
                 self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 2, self.adcWorker)
                 self.calibration_thread.finished.connect(self.calibration_terminated)
                 self.calibration_thread.start()
