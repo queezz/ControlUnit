@@ -4,7 +4,7 @@ import pandas as pd
 from PyQt5 import QtGui, QtCore, QtWidgets
 
 from mainView import UIWindow
-from worker import DAC8532, ADC, Worker, Calibrator
+from worker import DAC8532, MCP4725, ADC, Worker, Calibrator
 
 # from readsettings import make_datafolders, read_settings
 import readsettings
@@ -14,6 +14,7 @@ import qmsSignal
 import time
 # from channels import TCCOLUMNS, ADCCOLUMNS, ADCCONVERTED, ADCSIGNALS, CHNLSADC
 # from channels import CHHEATER, CHLED
+
 
 try:
     from AIO import AIO_32_0RA_IRC as adc
@@ -45,6 +46,9 @@ class MainWidget(QtCore.QObject, UIWindow):
         # self.tempcontrolDock.set_heating_goal(self.DEFAULT_TEMPERATURE, "---")
         self.mfccontrolDock.set_output1_goal(self.DEFALT_VOLTAGE, "---")
         self.mfccontrolDock.set_output2_goal(self.DEFALT_VOLTAGE, "---")
+
+
+
 
         QtCore.QThread.currentThread().setObjectName("main")
 
@@ -284,6 +288,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
             self.qmsSigThread.start()
             self.adcWorker.setQmsSignal(1)
+            self.mcpWorker.demo()
         else:
             # quit_msg = "Stop Experiment Marker?"
             # reply = QtWidgets.QMessageBox.warning(
@@ -336,6 +341,12 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.dacWorker = DAC8532(sensor_name, self.__app, now, self.config)
         self.dacWorker.dac_init()
 
+        sensor_name = "MCP4725"
+        threads[sensor_name] = QtCore.QThread()
+        threads[sensor_name].setObjectName(f"{sensor_name}")
+        self.mcpWorker = MCP4725(sensor_name, self.__app,now, self.config)
+        self.mcpWorker.mcp_init()
+
         # MAX6675 thermocouple sensor for Membrane temperature with PID
         # sensor_name = "MAX6675"
         # threads[sensor_name] = QtCore.QThread()
@@ -354,7 +365,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.adcWorker.init_adc_worker(mode, scale)
 
         # workers = {worker.sensor_name: worker for worker in [self.tWorker, self.adcWorker]}
-        workers = {worker.sensor_name: worker for worker in [self.dacWorker, self.adcWorker]}
+        workers = {worker.sensor_name: worker for worker in [self.dacWorker,self.mcpWorker, self.adcWorker]}
         self.sensor_names = list(workers)
 
         [self.start_thread(workers[s], threads[s]) for s in self.sensor_names]
@@ -401,7 +412,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         worker.moveToThread(thread)
         self.connect_worker_signals(worker)
 
-        if worker.sensor_name != "DAC8532":
+        # if worker.sensor_name != "DAC8532" or worker.sensor_name != "MCP4725":
+        if worker.sensor_name == "ADC":
             self.create_file(worker.sensor_name)
             self.log_message(
                 f"<font size=4 color='blue'>{worker.sensor_name}</font> savepath:<br> {self.savepaths[worker.sensor_name]}",
