@@ -60,6 +60,27 @@ class ControlDock(Dock):
         self.OnOffSW = OnOffSwitch()
         self.OnOffSW.setFont(QtGui.QFont("serif", 16))
 
+
+        self.currentBw = QtWidgets.QTextBrowser()
+        self.currentBw.setMinimumSize(QtCore.QSize(60, 50))
+        self.currentBw.setMaximumHeight(60)
+
+        self.currentcontrolerSB = QtWidgets.QSpinBox()
+        self.currentcontrolerSB.setSuffix(f"mV")
+        self.currentcontrolerSB.setMinimum(0)
+        self.currentcontrolerSB.setMaximum(500)
+        self.currentcontrolerSB.setMinimumSize(QtCore.QSize(60, 60))
+        self.currentcontrolerSB.setSingleStep(10)
+        self.currentcontrolerSB.setStyleSheet(
+            "QSpinBox::up-button   { width: 50px; }\n"
+            "QSpinBox::down-button { width: 50px;}\n"
+            "QSpinBox {font: 26pt;}"
+        )
+
+        self.currentsetBtn = QtWidgets.QPushButton("Set")
+        self.currentsetBtn.setMinimumSize(QtCore.QSize(80, 50))
+        self.currentsetBtn.setStyleSheet("font: 20pt")
+
         # Analog Gauge to show Temperature
         # self.gaugeT = AnalogGaugeWidget()
         # self.gaugeT.set_MinValue(0)
@@ -73,17 +94,21 @@ class ControlDock(Dock):
     def __setLayout(self):
         self.addWidget(self.widget)
 
-        self.widget.addWidget(self.OnOffSW, 0, 0)
-        self.widget.addWidget(self.qmsSigSw, 0, 1)
-        self.widget.addWidget(self.quitBtn, 0, 2)
+        self.widget.addWidget(self.OnOffSW, 0, 0, 1, 2)
+        self.widget.addWidget(self.qmsSigSw, 0, 2, 1, 2)
+        self.widget.addWidget(self.quitBtn, 0, 4, 1, 2)
 
-        self.widget.addWidget(self.valueBw, 1, 0, 1, 3)
+        self.widget.addWidget(self.valueBw, 1, 0, 1, 6)
 
         self.widget.addWidget(self.FullNormSW, 2, 0, 1, 2)
         self.widget.addWidget(self.scaleBtn, 2, 2)
         
-        self.widget.addWidget(self.IGmode, 3, 0, 1, 2)
-        self.widget.addWidget(self.IGrange, 3, 2)
+        self.widget.addWidget(self.IGmode, 2, 3, 1, 2)
+        self.widget.addWidget(self.IGrange, 2, 5)
+
+        # self.widget.addWidget(self.currentBw, 3, 0, 1, 4)
+        self.widget.addWidget(self.currentcontrolerSB, 3, 0,1,3)
+        self.widget.addWidget(self.currentsetBtn, 3, 3, 1, 2)
 
         # Temperature analouge gauge
         # self.widget.addWidget(self.gaugeT, 5, 0, 10, 1)
