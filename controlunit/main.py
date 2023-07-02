@@ -58,6 +58,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.__mfc1 = self.DEFALT_VOLTAGE
         self.__mfc2 = self.DEFALT_VOLTAGE
 
+        self.calibration_waiting_time = self.mfccontrolDock.scaleBtn.currentText()
+
         self.plaData = None
         self.trigData = None
         self.tData = None
@@ -139,7 +141,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.mfccontrolDock.registerBtn2.clicked.connect(self.set_mfc2_goal)
         self.mfccontrolDock.resetBtn1.clicked.connect(self.resetSpinBoxes1)
         self.mfccontrolDock.resetBtn2.clicked.connect(self.resetSpinBoxes2)
-        self.mfccontrolDock.calibrationBtn.clicked.connect(self.__calibration)
+        self.mfccontrolDock.scaleBtn.currentIndexChanged.connect(self.update_calibration_waiting_time)
+        self.mfccontrolDock.calibrationBtn.clicked.connect(self.calibration)
         self.controlDock.IGmode.currentIndexChanged.connect(self.update_ig_mode)
         self.controlDock.IGrange.valueChanged.connect(self.update_ig_range)
 
@@ -147,6 +150,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.controlDock.OnOffSW.clicked.connect(self.__onoff)
         self.controlDock.quitBtn.clicked.connect(self.__quit)
         self.controlDock.qmsSigSw.clicked.connect(self.sync_signal_switch)
+
+        self.controlDock.currentsetBtn.clicked.connect(self.set_currentcontrol_voltage)
 
         # Toggle plots for Current, Temperature, and Pressure
         self.scaleDock.togIp.clicked.connect(self.toggle_plots)
@@ -288,7 +293,6 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
             self.qmsSigThread.start()
             self.adcWorker.setQmsSignal(1)
-            self.mcpWorker.demo()
         else:
             # quit_msg = "Stop Experiment Marker?"
             # reply = QtWidgets.QMessageBox.warning(
@@ -700,8 +704,12 @@ class MainWidget(QtCore.QObject, UIWindow):
         for spin_box in self.mfccontrolDock.masflowcontrolerSB2:
             spin_box.setValue(0)
 
-    # @QtCore.pyqtSlot()
-    def __calibration(self):
+    def update_calibration_waiting_time(self):
+        txt = self.mfccontrolDock.scaleBtn.currentText()
+        value = self.mfccontrolDock.sampling_windows[txt]
+        self.calibration_waiting_time = value
+
+    def calibration(self):
         """
         Start and stop calibration
         """
@@ -717,7 +725,7 @@ class MainWidget(QtCore.QObject, UIWindow):
                 except:
                     print("pigpio is not defined")
                     return
-                self.calibration_thread = Calibrator(self.__app, self.dacWorker,self.adcWorker,self.__mfc1,10,1)
+                self.calibration_thread = Calibrator(self.__app, self.dacWorker,self.adcWorker,self.__mfc1,10,self.calibration_waiting_time)
                 self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 2, self.adcWorker)
                 self.calibration_thread.finished.connect(self.calibration_terminated)
                 self.calibration_thread.start()
@@ -748,6 +756,15 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.qmsSigThread.start()
         self.adcWorker.setQmsSignal(0)
         self.controlDock.qmsSigSw.setChecked(False)
+
+    @QtCore.pyqtSlot()
+    def set_currentcontrol_voltage(self):
+        """
+        Set voltage for current control
+        """
+        value = self.controlDock.currentcontrolerSB.value()
+        if self.mcpWorker is not None:
+            self.mcpWorker.output_voltage(value)
     
 
 

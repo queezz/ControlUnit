@@ -394,7 +394,11 @@ class MCP4725(Worker):
         
 
         except :
-            exit()
+            print("error starting mcp")
+            self.pi = pigpio.pi()
+            self.mcp = mcp(self.pi)
+            self.mcp.set_voltage(0)
+            # exit()
 
     def output_voltage(self, voltage):
         self.mcp.set_voltage(voltage/1000)

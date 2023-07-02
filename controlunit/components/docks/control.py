@@ -50,8 +50,8 @@ class ControlDock(Dock):
         self.IGrange.setMinimumSize(QtCore.QSize(60, 60))
         self.IGrange.setSingleStep(1)
         self.IGrange.setStyleSheet(
-            "QSpinBox::up-button   { width: 50px; }\n"
-            "QSpinBox::down-button { width: 50px;}\n"
+            "QSpinBox::up-button   { width: 40px; }\n"
+            "QSpinBox::down-button { width: 40px;}\n"
             "QSpinBox {font: 26pt;}"
         )
 
@@ -69,16 +69,16 @@ class ControlDock(Dock):
         self.currentcontrolerSB.setSuffix(f"mV")
         self.currentcontrolerSB.setMinimum(0)
         self.currentcontrolerSB.setMaximum(500)
-        self.currentcontrolerSB.setMinimumSize(QtCore.QSize(60, 60))
+        self.currentcontrolerSB.setMinimumSize(QtCore.QSize(60, 50))
         self.currentcontrolerSB.setSingleStep(10)
         self.currentcontrolerSB.setStyleSheet(
-            "QSpinBox::up-button   { width: 50px; }\n"
-            "QSpinBox::down-button { width: 50px;}\n"
+            "QSpinBox::up-button   { width: 40px; }\n"
+            "QSpinBox::down-button { width: 40px;}\n"
             "QSpinBox {font: 26pt;}"
         )
 
-        self.currentsetBtn = QtWidgets.QPushButton("Set")
-        self.currentsetBtn.setMinimumSize(QtCore.QSize(80, 50))
+        self.currentsetBtn = QtWidgets.QPushButton("set")
+        self.currentsetBtn.setMinimumSize(QtCore.QSize(60, 50))
         self.currentsetBtn.setStyleSheet("font: 20pt")
 
         # Analog Gauge to show Temperature
@@ -118,7 +118,7 @@ class ControlDock(Dock):
         self.verticalSpacer = QtWidgets.QSpacerItem(
             0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
         )
-        self.widget.layout.setVerticalSpacing(5)
+        self.widget.layout.setVerticalSpacing(3)
         self.widget.layout.addItem(self.verticalSpacer)
 
 
