@@ -7,6 +7,8 @@ from ..buttons.toggles import MySwitch, OnOffSwitch, QmsSwitch
 from ..widgets.analoggauge import AnalogGaugeWidget
 from readsettings import select_settings
 
+from QLed import QLed
+
 config = select_settings(verbose=False)
 print("GET CONFIG: control.py")
 print(f'config["Max Voltage"] {config["Max Voltage"]}')
@@ -50,8 +52,8 @@ class ControlDock(Dock):
         self.IGrange.setMinimumSize(QtCore.QSize(60, 60))
         self.IGrange.setSingleStep(1)
         self.IGrange.setStyleSheet(
-            "QSpinBox::up-button   { width: 50px; }\n"
-            "QSpinBox::down-button { width: 50px;}\n"
+            "QSpinBox::up-button   { width: 40px; }\n"
+            "QSpinBox::down-button { width: 40px;}\n"
             "QSpinBox {font: 26pt;}"
         )
 
@@ -59,6 +61,27 @@ class ControlDock(Dock):
         self.FullNormSW = MySwitch()
         self.OnOffSW = OnOffSwitch()
         self.OnOffSW.setFont(QtGui.QFont("serif", 16))
+
+
+        self.currentBw = QtWidgets.QTextBrowser()
+        self.currentBw.setMinimumSize(QtCore.QSize(60, 50))
+        self.currentBw.setMaximumHeight(60)
+
+        self.currentcontrolerSB = QtWidgets.QSpinBox()
+        self.currentcontrolerSB.setSuffix(f"mV")
+        self.currentcontrolerSB.setMinimum(0)
+        self.currentcontrolerSB.setMaximum(500)
+        self.currentcontrolerSB.setMinimumSize(QtCore.QSize(60, 50))
+        self.currentcontrolerSB.setSingleStep(10)
+        self.currentcontrolerSB.setStyleSheet(
+            "QSpinBox::up-button   { width: 40px; }\n"
+            "QSpinBox::down-button { width: 40px;}\n"
+            "QSpinBox {font: 26pt;}"
+        )
+
+        self.currentsetBtn = QtWidgets.QPushButton("set")
+        self.currentsetBtn.setMinimumSize(QtCore.QSize(60, 50))
+        self.currentsetBtn.setStyleSheet("font: 20pt")
 
         # Analog Gauge to show Temperature
         # self.gaugeT = AnalogGaugeWidget()
@@ -73,17 +96,22 @@ class ControlDock(Dock):
     def __setLayout(self):
         self.addWidget(self.widget)
 
-        self.widget.addWidget(self.OnOffSW, 0, 0)
-        self.widget.addWidget(self.qmsSigSw, 0, 1)
-        self.widget.addWidget(self.quitBtn, 0, 2)
+        self.widget.addWidget(self.OnOffSW, 0, 0, 1, 2)
+        self.widget.addWidget(self.qmsSigSw, 0, 2, 1, 2)
+        self.widget.addWidget(self.quitBtn, 0, 4, 1, 2)
 
-        self.widget.addWidget(self.valueBw, 1, 0, 1, 3)
+        self.widget.addWidget(self.valueBw, 1, 0, 1, 6)
 
         self.widget.addWidget(self.FullNormSW, 2, 0, 1, 2)
         self.widget.addWidget(self.scaleBtn, 2, 2)
         
-        self.widget.addWidget(self.IGmode, 3, 0, 1, 2)
-        self.widget.addWidget(self.IGrange, 3, 2)
+        self.widget.addWidget(self.IGmode, 2, 3, 1, 2)
+        self.widget.addWidget(self.IGrange, 2, 5)
+
+        # self.widget.addWidget(self.currentBw, 3, 0, 1, 4)
+        self.widget.addWidget(self.currentcontrolerSB, 3, 0,1,3)
+        self.widget.addWidget(self.currentsetBtn, 3, 3, 1, 2)
+
 
         # Temperature analouge gauge
         # self.widget.addWidget(self.gaugeT, 5, 0, 10, 1)
@@ -93,7 +121,7 @@ class ControlDock(Dock):
         self.verticalSpacer = QtWidgets.QSpacerItem(
             0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
         )
-        self.widget.layout.setVerticalSpacing(5)
+        self.widget.layout.setVerticalSpacing(3)
         self.widget.layout.addItem(self.verticalSpacer)
 
 

@@ -1,5 +1,5 @@
 import pyqtgraph as pg
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore, QtWidgets, QtGui
 from pyqtgraph.dockarea import Dock
 
 from readsettings import select_settings
@@ -76,9 +76,18 @@ class MassFlowControllerControl(Dock):
         self.resetBtn2.setMinimumSize(QtCore.QSize(80, 50))
         self.resetBtn2.setStyleSheet("font: 20pt")
 
-        self.calibrationBtn = QtWidgets.QPushButton("c\na\nl\ni\nb\nr\na\nt\ni\no\nn")
-        self.calibrationBtn.setMinimumSize(QtCore.QSize(30, 200))
-        self.calibrationBtn.setStyleSheet("font: 10pt")
+        self.scaleBtn = QtWidgets.QComboBox()
+        self.scaleBtn.setFont(QtGui.QFont("serif", 18))
+        items = ["1 s", "5 s", "10 s", "30 s", "1 min"]
+        sizes = [1, 5, 10, 30, 60]
+        [self.scaleBtn.addItem(i) for i in items]
+        self.sampling_windows = {i: j for i, j in zip(items, sizes)}
+
+        # self.calibrationBtn = QtWidgets.QPushButton("c\na\nl\ni\nb\nr\na\nt\ni\no\nn")
+        self.calibrationBtn = QtWidgets.QPushButton("calib")
+        # self.calibrationBtn.setMinimumSize(QtCore.QSize(30, 200))
+        self.calibrationBtn.setMinimumSize(QtCore.QSize(60,50))
+        self.calibrationBtn.setStyleSheet("font: 20pt")
 
         self.set_layout()
 
@@ -101,7 +110,9 @@ class MassFlowControllerControl(Dock):
 
         self.widget.addWidget(self.resetBtn2, 2, 3)
 
-        self.widget.addWidget(self.calibrationBtn, 0, 4, 4, 1)
+        self.widget.addWidget(self.scaleBtn, 4, 0,)
+
+        self.widget.addWidget(self.calibrationBtn, 4, 1,)
 
         self.verticalSpacer = QtWidgets.QSpacerItem(
             0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding

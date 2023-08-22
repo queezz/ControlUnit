@@ -4,7 +4,7 @@ import pandas as pd
 from PyQt5 import QtGui, QtCore, QtWidgets
 
 from mainView import UIWindow
-from worker import DAC8532, ADC, Worker, Calibrator
+from worker import DAC8532, MCP4725, ADC, Worker, Calibrator
 
 # from readsettings import make_datafolders, read_settings
 import readsettings
@@ -14,6 +14,7 @@ import qmsSignal
 import time
 # from channels import TCCOLUMNS, ADCCOLUMNS, ADCCONVERTED, ADCSIGNALS, CHNLSADC
 # from channels import CHHEATER, CHLED
+
 
 try:
     from AIO import AIO_32_0RA_IRC as adc
@@ -46,6 +47,9 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.mfccontrolDock.set_output1_goal(self.DEFALT_VOLTAGE, "---")
         self.mfccontrolDock.set_output2_goal(self.DEFALT_VOLTAGE, "---")
 
+
+
+
         QtCore.QThread.currentThread().setObjectName("main")
 
         self.__workers_done = 0
@@ -53,6 +57,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         # self.__temp = self.DEFAULT_TEMPERATURE
         self.__mfc1 = self.DEFALT_VOLTAGE
         self.__mfc2 = self.DEFALT_VOLTAGE
+
+        self.calibration_waiting_time = self.mfccontrolDock.scaleBtn.currentText()
 
         self.plaData = None
         self.trigData = None
@@ -135,7 +141,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.mfccontrolDock.registerBtn2.clicked.connect(self.set_mfc2_goal)
         self.mfccontrolDock.resetBtn1.clicked.connect(self.resetSpinBoxes1)
         self.mfccontrolDock.resetBtn2.clicked.connect(self.resetSpinBoxes2)
-        self.mfccontrolDock.calibrationBtn.clicked.connect(self.__calibration)
+        self.mfccontrolDock.scaleBtn.currentIndexChanged.connect(self.update_calibration_waiting_time)
+        self.mfccontrolDock.calibrationBtn.clicked.connect(self.calibration)
         self.controlDock.IGmode.currentIndexChanged.connect(self.update_ig_mode)
         self.controlDock.IGrange.valueChanged.connect(self.update_ig_range)
 
@@ -143,6 +150,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.controlDock.OnOffSW.clicked.connect(self.__onoff)
         self.controlDock.quitBtn.clicked.connect(self.__quit)
         self.controlDock.qmsSigSw.clicked.connect(self.sync_signal_switch)
+
+        self.controlDock.currentsetBtn.clicked.connect(self.set_currentcontrol_voltage)
 
         # Toggle plots for Current, Temperature, and Pressure
         self.scaleDock.togIp.clicked.connect(self.toggle_plots)
@@ -285,17 +294,12 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.qmsSigThread.start()
             self.adcWorker.setQmsSignal(1)
         else:
-            # quit_msg = "Stop Experiment Marker?"
-            # reply = QtWidgets.QMessageBox.warning(
-            #     self.MainWindow, "Message", quit_msg, QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No,
-            # )
-            # if reply == QtWidgets.QMessageBox.Yes:
+
             self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 0)
             self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
             self.qmsSigThread.start()
             self.adcWorker.setQmsSignal(0)
-            # else:
-            #     self.controlDock.qmsSigSw.setChecked(True)
+
 
     def qmsSignalTerminate(self):
         self.qmsSigThread.quit()
@@ -336,6 +340,12 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.dacWorker = DAC8532(sensor_name, self.__app, now, self.config)
         self.dacWorker.dac_init()
 
+        sensor_name = "MCP4725"
+        threads[sensor_name] = QtCore.QThread()
+        threads[sensor_name].setObjectName(f"{sensor_name}")
+        self.mcpWorker = MCP4725(sensor_name, self.__app,now, self.config)
+        self.mcpWorker.mcp_init()
+
         # MAX6675 thermocouple sensor for Membrane temperature with PID
         # sensor_name = "MAX6675"
         # threads[sensor_name] = QtCore.QThread()
@@ -354,7 +364,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.adcWorker.init_adc_worker(mode, scale)
 
         # workers = {worker.sensor_name: worker for worker in [self.tWorker, self.adcWorker]}
-        workers = {worker.sensor_name: worker for worker in [self.dacWorker, self.adcWorker]}
+        workers = {worker.sensor_name: worker for worker in [self.dacWorker,self.mcpWorker, self.adcWorker]}
         self.sensor_names = list(workers)
 
         [self.start_thread(workers[s], threads[s]) for s in self.sensor_names]
@@ -401,7 +411,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         worker.moveToThread(thread)
         self.connect_worker_signals(worker)
 
-        if worker.sensor_name != "DAC8532":
+        # if worker.sensor_name != "DAC8532" or worker.sensor_name != "MCP4725":
+        if worker.sensor_name == "ADC":
             self.create_file(worker.sensor_name)
             self.log_message(
                 f"<font size=4 color='blue'>{worker.sensor_name}</font> savepath:<br> {self.savepaths[worker.sensor_name]}",
@@ -657,7 +668,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         if self.dacWorker is not None:
             self.dacWorker.output_voltage(1,self.__mfc1)
         if self.adcWorker is not None:
-            self.adcWorker.setPresetV1(self.__mfc1)
+            self.adcWorker.setPresetV_mfc1(self.__mfc1)
 
     
 
@@ -675,7 +686,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         if self.dacWorker is not None:
             self.dacWorker.output_voltage(2, self.__mfc2)
         if self.adcWorker is not None:
-            self.adcWorker.setPresetV2(self.__mfc2)
+            self.adcWorker.setPresetV_mfc2(self.__mfc2)
 
 
     @QtCore.pyqtSlot()
@@ -688,8 +699,12 @@ class MainWidget(QtCore.QObject, UIWindow):
         for spin_box in self.mfccontrolDock.masflowcontrolerSB2:
             spin_box.setValue(0)
 
-    # @QtCore.pyqtSlot()
-    def __calibration(self):
+    def update_calibration_waiting_time(self):
+        txt = self.mfccontrolDock.scaleBtn.currentText()
+        value = self.mfccontrolDock.sampling_windows[txt]
+        self.calibration_waiting_time = value
+
+    def calibration(self):
         """
         Start and stop calibration
         """
@@ -705,7 +720,7 @@ class MainWidget(QtCore.QObject, UIWindow):
                 except:
                     print("pigpio is not defined")
                     return
-                self.calibration_thread = Calibrator(self.__app, self.dacWorker,self.adcWorker,self.__mfc1,10,1)
+                self.calibration_thread = Calibrator(self.__app, self.dacWorker,self.adcWorker,self.__mfc1,10,self.calibration_waiting_time)
                 self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 2, self.adcWorker)
                 self.calibration_thread.finished.connect(self.calibration_terminated)
                 self.calibration_thread.start()
@@ -736,6 +751,17 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.qmsSigThread.start()
         self.adcWorker.setQmsSignal(0)
         self.controlDock.qmsSigSw.setChecked(False)
+
+    @QtCore.pyqtSlot()
+    def set_currentcontrol_voltage(self):
+        """
+        Set voltage for current control
+        """
+        value = self.controlDock.currentcontrolerSB.value()
+        if self.mcpWorker is not None:
+            self.mcpWorker.output_voltage(value)
+        if self.adcWorker is not None:
+            self.adcWorker.setPresetV_cathode(value)
     
 
 
