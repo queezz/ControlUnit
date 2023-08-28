@@ -94,6 +94,13 @@ class QmsSwitch(MySwitch):
     labels = ["Exp ON", "Exp OFF"]
     colors = [QtGui.QColor("#33CCFF"), QtGui.QColor("#b89c76")]
 
+class ToggleBaratronPlot(MySwitch):
+    radius = 15
+    width = 40
+    # 0 - On, 1 - Off
+    labels = ["Baratron", "no Baratron"]
+    colors = [QtGui.QColor("#8df01d"), QtGui.QColor("#b89c76")]
+
 
 if __name__ == "__main__":
     pass

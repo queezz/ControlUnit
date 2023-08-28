@@ -88,10 +88,11 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.valuePlaPlot = self.graph.plaPl.plot(pen=self.pens["Ip"])
         self.triggerPlot = self.graph.plaPl.plot(pen=self.pens["trigger"])
         # self.valueTPlot = self.graph.tempPl.plot(pen=self.pens["T"])
-        self.valueP1Plot = self.graph.presPl.plot(pen=self.pens["Pu"])
-        self.valueP2Plot = self.graph.presPl.plot(pen=self.pens["Pd"])
         self.valueB1Plot = self.graph.presPl.plot(pen=self.pens["Bu"])
         self.valueB2Plot = self.graph.presPl.plot(pen=self.pens["Bd"])
+        self.valueP1Plot = self.graph.presPl.plot(pen=self.pens["Pu"])
+        self.valueP2Plot = self.graph.presPl.plot(pen=self.pens["Pd"])
+
         # self.graph.tempPl.setXLink(self.graph.presPl)
         self.graph.plaPl.setXLink(self.graph.presPl)
 
@@ -103,6 +104,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.adcWorker = None
         self.dacWorker = None
         self.calibrating = False
+
+        self.plot_Baratron = True
 
         self.update_plot_timewindow()
 
@@ -155,7 +158,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         # Toggle plots for Current, Temperature, and Pressure
         self.scaleDock.togIp.clicked.connect(self.toggle_plots)
-        # self.scaleDock.togT.clicked.connect(self.toggle_plots)
+        self.scaleDock.togBaratron.clicked.connect(self.toggle_plots_baratron)
         self.scaleDock.togP.clicked.connect(self.toggle_plots)
 
         self.scaleDock.Pmin.valueChanged.connect(self.__updatePScale)
@@ -272,6 +275,27 @@ class MainWidget(QtCore.QObject, UIWindow):
         }
 
         [toggleplot(*items[jj]) for jj in ["Ip",  "P"]]
+    
+    def toggle_plots_baratron(self):
+        if self.scaleDock.togBaratron.isChecked():
+            self.plot_Baratron = True
+            # self.valueB1Plot = self.graph.presPl.plot(pen=self.pens["Bu"])
+            # self.valueB2Plot = self.graph.presPl.plot(pen=self.pens["Bd"])
+            # self.graph.presPl.removeItem(self.valueB1Plot)
+            # try:
+            #     self.graph.presPl.removeItem(self.valueB1Plot)
+            # except:
+            #     pass
+        else:
+            self.plot_Baratron = False
+            # self.valueB1Plot = self.graph.presPl.plot(pen={"color": "transparent", "width": 2})
+            # self.valueB2Plot = self.graph.presPl.plot(pen={"color": "transparent", "width": 2})
+            # try:
+            #     self.graph.presPl.removeItem(self.valueB1Plot)
+            # except:
+            #     pass
+
+
 
     def sync_signal_switch(self):
         """
@@ -587,11 +611,16 @@ class MainWidget(QtCore.QObject, UIWindow):
             b1 = df["Bu_c"].values.astype(float)
             b2 = df["Bd_c"].values.astype(float)
             skip = self.calculate_skip_points(time.shape[0])
+            if self.plot_Baratron:
+                self.valueB1Plot.setData(time[::skip], b1[::skip])
+                self.valueB2Plot.setData(time[::skip], b2[::skip])
+            else:
+                self.valueB1Plot.setData(time[::skip], b1[::skip]*0)
+                self.valueB2Plot.setData(time[::skip], b2[::skip]*0)
             self.valuePlaPlot.setData(time[::skip], ip[::skip])
             self.valueP1Plot.setData(time[::skip], p1[::skip])
             self.valueP2Plot.setData(time[::skip], p2[::skip])
-            self.valueB1Plot.setData(time[::skip], b1[::skip])
-            self.valueB2Plot.setData(time[::skip], b2[::skip])
+
 
     def append_data(self, sensor_name):
         """
