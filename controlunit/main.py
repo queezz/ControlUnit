@@ -146,6 +146,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.mfccontrolDock.resetBtn2.clicked.connect(self.resetSpinBoxes2)
         self.mfccontrolDock.scaleBtn.currentIndexChanged.connect(self.update_calibration_waiting_time)
         self.mfccontrolDock.calibrationBtn.clicked.connect(self.calibration)
+        self.mfccontrolDock.stopBtn.clicked.connect(self.stop_mfc)
+
         self.controlDock.IGmode.currentIndexChanged.connect(self.update_ig_mode)
         self.controlDock.IGrange.valueChanged.connect(self.update_ig_range)
 
@@ -780,6 +782,24 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.qmsSigThread.start()
         self.adcWorker.setQmsSignal(0)
         self.controlDock.qmsSigSw.setChecked(False)
+
+    @QtCore.pyqtSlot()
+    def stop_mfc(self):
+        value = 0
+        self.__mfc1 = value
+        self.__mfc2 = value
+        voltage_now1 = self.currentvalues["MFC1"]
+        voltage_now2 = self.currentvalues["MFC2"]
+
+        self.mfccontrolDock.set_output1_goal(self.__mfc1,f"{voltage_now1*1000:.0f}")
+        self.mfccontrolDock.set_output2_goal(self.__mfc2,f"{voltage_now2*1000:.0f}")
+        if self.dacWorker is not None:
+            self.dacWorker.output_voltage(1,self.__mfc1)
+            self.dacWorker.output_voltage(2,self.__mfc2)
+        if self.adcWorker is not None:
+            self.adcWorker.setPresetV_mfc1(self.__mfc1)
+            self.adcWorker.setPresetV_mfc2(self.__mfc2)
+
 
     @QtCore.pyqtSlot()
     def set_currentcontrol_voltage(self):
