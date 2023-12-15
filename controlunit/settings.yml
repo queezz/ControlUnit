@@ -109,8 +109,9 @@ ADC Additional Columns:
   - "IGmode"
   - "IGscale"
   - "QMS_signal"
-  - "PresetV1"
-  - "PresetV2"
+  - "PresetV_mfc1"
+  - "PresetV_mfc2"
+  - "PresetV_cathode"
 
 # ================================================
 #

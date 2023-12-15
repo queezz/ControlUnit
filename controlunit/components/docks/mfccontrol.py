@@ -89,6 +89,10 @@ class MassFlowControllerControl(Dock):
         self.calibrationBtn.setMinimumSize(QtCore.QSize(60,50))
         self.calibrationBtn.setStyleSheet("font: 20pt")
 
+        self.stopBtn = QtWidgets.QPushButton("stop both")
+        self.stopBtn.setMinimumSize(QtCore.QSize(120, 50))
+        self.stopBtn.setStyleSheet("font: 20pt")
+
         self.set_layout()
 
     def set_layout(self):
@@ -113,6 +117,8 @@ class MassFlowControllerControl(Dock):
         self.widget.addWidget(self.scaleBtn, 4, 0,)
 
         self.widget.addWidget(self.calibrationBtn, 4, 1,)
+
+        self.widget.addWidget(self.stopBtn, 4, 2,1,2)
 
         self.verticalSpacer = QtWidgets.QSpacerItem(
             0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding

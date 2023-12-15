@@ -13,6 +13,7 @@ class PlotScaleDock(Dock):
         self.togIp = ToggleCurrentPlot()
         # self.togT = ToggleTemperaturePlot()
         self.togP = TogglePressurePlot()
+        self.togBaratron = ToggleBaratronPlot()
         # [i.setChecked(True) for i in [self.togIp, self.togT, self.togP]]
         # self.Tmax = QtWidgets.QSpinBox()
         # self.Tmax.setMinimum(50)
@@ -58,7 +59,7 @@ class PlotScaleDock(Dock):
         self.widget.addWidget(self.Pmax, 2, 1)
         self.widget.addWidget(self.Pmin, 2, 0)
         self.widget.addWidget(self.togIp, 3, 0)
-        # self.widget.addWidget(self.togT, 3, 1)
+        self.widget.addWidget(self.togBaratron, 4, 1)
         self.widget.addWidget(self.togP, 4, 0)
         self.widget.addWidget(self.autoscale, 5, 1)
 

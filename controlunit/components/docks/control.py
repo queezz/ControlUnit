@@ -7,6 +7,8 @@ from ..buttons.toggles import MySwitch, OnOffSwitch, QmsSwitch
 from ..widgets.analoggauge import AnalogGaugeWidget
 from readsettings import select_settings
 
+from QLed import QLed
+
 config = select_settings(verbose=False)
 print("GET CONFIG: control.py")
 print(f'config["Max Voltage"] {config["Max Voltage"]}')
@@ -109,6 +111,7 @@ class ControlDock(Dock):
         # self.widget.addWidget(self.currentBw, 3, 0, 1, 4)
         self.widget.addWidget(self.currentcontrolerSB, 3, 0,1,3)
         self.widget.addWidget(self.currentsetBtn, 3, 3, 1, 2)
+
 
         # Temperature analouge gauge
         # self.widget.addWidget(self.gaugeT, 5, 0, 10, 1)

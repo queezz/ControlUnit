@@ -14,7 +14,7 @@ def pfeiffer_single_gauge(voltage):
         array of Pfeiffer Single Gauge values, V
     """
     # V → Torr
-    exponent = 1.667 * voltage - 11.46
+    exponent = 1.6801381 * voltage - 11.35925447
     pres = 10 ** exponent
     return pres
 
