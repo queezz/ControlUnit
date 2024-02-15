@@ -158,6 +158,10 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.scaleDock.autoscale.clicked.connect(self.__auto_or_levels)
         self.SettingsDock.setSamplingBtn.clicked.connect(self.__set_sampling)
 
+
+
+
+
     def __quit(self):
         """terminate app"""
         self.__app.quit()
@@ -186,6 +190,8 @@ class MainWidget(QtCore.QObject, UIWindow):
                     self.controlDock.qmsSigSw.setChecked(False)
             else:
                 self.controlDock.OnOffSW.setChecked(True)
+
+
 
 
 

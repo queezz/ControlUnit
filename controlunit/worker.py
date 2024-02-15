@@ -13,7 +13,7 @@ from PyQt5 import QtGui, QtCore, QtWidgets
 from heatercontrol import HeaterContol
 
 # Converting raw signals to data
-from conversions import ionization_gauge, hall_current_sensor, pfeiffer_single_gauge, baratron
+from conversions import ionization_gauge, hall_current_sensor, pfeiffer_single_gauge, baratron, cathode_current, cathode_volt
 
 TEST = False
 PRINTTHREADINFO = False

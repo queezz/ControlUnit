@@ -102,6 +102,16 @@ ADC Channels:
     Gain: 5
     Description: "MFC2 for Oxygen, 10 SCCM"
     Conversion Function: "No Conversion"
+  Ci:
+    Channel: 7
+    Gain: 1
+    Description: "cathode current"
+    Conversion Function: "cathode current"
+  Cv:
+    Channel: 8
+    Gain: 1
+    Description: "cathode volt"
+    Conversion Function: "cathode volt"
 
 ADC Additional Columns:
   - "date"

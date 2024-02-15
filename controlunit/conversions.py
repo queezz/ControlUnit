@@ -68,3 +68,9 @@ def baratron(v, fullscale):
 
 def mfc(v):
     return v
+
+def cathode_current(voltage):
+    return voltage
+
+def cathode_volt(voltage):
+    return voltage /10 * 42
