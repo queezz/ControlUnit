@@ -33,6 +33,8 @@ class AdcChannelProps:
             pfeiffer_single_gauge,
             baratron,
             mfc,
+            cathode_current,
+            cathode_volt,
         )
 
         conversions = {
@@ -40,6 +42,8 @@ class AdcChannelProps:
             "Pfeiffer Single Gauge": pfeiffer_single_gauge,
             "Hall Sensor": hall_current_sensor,
             "No Conversion": lambda v: v,
+            "cathode current": cathode_current,
+            "cathode volt": cathode_volt
         }
 
         if self.conversion_id == "Baratron":
