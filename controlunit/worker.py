@@ -23,12 +23,14 @@ STEP = 3
 try:
     from AIO import AIO_32_0RA_IRC as adc
     from DAC import DAC8532 as dac
+    from mMCP4725 import MCP4725 as mcp
     import pigpio
     import RPi.GPIO as GPIO
 except:
     print("no pigpio or AIO")
     TEST = True
     from DAC import DAC8532 as dac
+    from mMCP4725 import MCP4725 as mcp
     import pigpioplug as pigpio
     import RPi.GPIO as GPIO
 
@@ -327,13 +329,13 @@ class DAC8532(Worker):
                 if self.calibrating == False:
                     break
                 self.output_voltage(1,(max_voltage)/step*i)
-                adc_object.setPresetV1((max_voltage)/step*i)
+                adc_object.setPresetV_mfc1((max_voltage)/step*i)
                 time.sleep(waiting_time)
             for i in range(step):
                 if self.calibrating == False:
                     break
                 self.output_voltage(1,(max_voltage)/step*(step-i - 1))
-                adc_object.setPresetV1((max_voltage)/step*(step-i - 1))
+                adc_object.setPresetV_mfc1((max_voltage)/step*(step-i - 1))
                 time.sleep(waiting_time)
             self.calibrating = False
         self.output_voltage(1,0)
@@ -354,6 +356,64 @@ class Calibrator(QtCore.QThread):
         self.dac_object.calibrating = False
         self.app.processEvents()
         self.finished.emit()
+
+
+class MCP4725(Worker):
+
+    # sigAbortHeater = QtCore.pyqtSignal()
+
+    def __init__(self, sensor_name, app, startTime, config):
+        super().__init__(sensor_name, app, startTime, config)
+        self.__app = app
+        self.sensor_name = sensor_name
+        self.__startTime = startTime
+        self.config = config
+        self.__abort = False
+
+    @QtCore.pyqtSlot()
+    def abort(self):
+        message = "Worker thread {} aborting acquisition".format(self.sensor_name)
+        # self.send_message.emit(message)
+        # print(message)
+        self.__abort = True
+        self.mcp_init()
+
+    @QtCore.pyqtSlot()
+    def start(self):
+        pass
+
+    def init_mpc_worker(self, presetVoltage: int):
+        pass
+
+    def mcp_init(self):
+        try:
+            print("mcp started correctry\r\n")
+            self.pi = pigpio.pi()
+            self.mcp = mcp(self.pi)
+            self.mcp.set_voltage(0)
+        
+
+        except :
+            print("error starting mcp")
+            self.pi = pigpio.pi()
+            self.mcp = mcp(self.pi)
+            self.mcp.set_voltage(0)
+            # exit()
+
+    def output_voltage(self, voltage):
+        self.mcp.set_voltage(voltage/1000)
+        print(f"voltage output: {voltage/1000} V")
+        # self.pi.stop()
+
+    def demo(self):
+        i=0
+        while i < 50:
+            self.output_voltage(i/10)
+            time.sleep(2.0)
+            i += 1
+        self.mcp.cancel()
+        self.pi.stop()
+
 
 
 class ADC(Worker):
@@ -394,8 +454,9 @@ class ADC(Worker):
         self.__IGmode = IGmode
         self.__IGrange = IGrange
         self.__qmsSignal = 0
-        self.__PresetV1 = 0
-        self.__PresetV2 = 0
+        self.__PresetV_mfc1 = 0
+        self.__PresetV_mfc2 = 0
+        self.__PresetV_cathode = 0
         self.sampling = self.config["Sampling Time"]
 
     def setIGmode(self, IGmode: int):
@@ -424,20 +485,28 @@ class ADC(Worker):
         self.__qmsSignal = signal
         return
     
-    def setPresetV1(self, voltage: int):
+    def setPresetV_mfc1(self, voltage: int):
         """
         Sets Preset Voltage of Mas Flow Control for H2 from GUI
         range: 0 ~ 5000 mV
         """
-        self.__PresetV1 = voltage/1000
+        self.__PresetV_mfc1 = voltage/1000
         return
     
-    def setPresetV2(self, voltage: int):
+    def setPresetV_mfc2(self, voltage: int):
         """
         Sets Preset Voltage of Mas Flow Control for H2 from GUI
         range: 0 ~ 5000 mV
         """
-        self.__PresetV2 = voltage/1000
+        self.__PresetV_mfc2 = voltage/1000
+        return
+    
+    def setPresetV_cathode(self, voltage: int):
+        """
+        Sets Preset Voltage of Power Supplier for Cathode from GUI
+        range: 0 ~ 500 mV
+        """
+        self.__PresetV_cathode = voltage/1000
         return
 
     @QtCore.pyqtSlot()
@@ -511,7 +580,7 @@ class ADC(Worker):
         dSec = (now - self.__startTime).total_seconds()
         new_data_row = pd.DataFrame(
             np.atleast_2d(
-                [now, dSec, self.__IGmode, self.__IGrange, self.__qmsSignal,self.__PresetV1, self.__PresetV2, *self.adc_voltages.values()]
+                [now, dSec, self.__IGmode, self.__IGrange, self.__qmsSignal,self.__PresetV_mfc1, self.__PresetV_mfc2,self.__PresetV_cathode, *self.adc_voltages.values()]
             ),
             columns=self.adc_values_columns,
         )
