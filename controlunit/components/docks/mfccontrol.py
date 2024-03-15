@@ -145,13 +145,13 @@ class MassFlowControllerControl(Dock):
             self.mfcBw1.setText(
                 f"{htmltag}{set_voltage} mV{cf}"
                 f"&nbsp;&nbsp;&nbsp;{htag1}{signal_voltage} mV{cf}"
-                "&nbsp;&nbsp;&nbsp MF-H"
+                "&nbsp;&nbsp; MF-H"
             )
         elif mfc_num == 2:
             self.mfcBw2.setText(
                 f"{htmltag}{set_voltage} mV{cf}"
                 f"&nbsp;&nbsp;&nbsp;{htag1}{signal_voltage} mV{cf}"
-                "&nbsp;&nbsp;&nbsp MF-O"
+                "&nbsp;&nbsp; MF-O"
             )
         else:
             pass

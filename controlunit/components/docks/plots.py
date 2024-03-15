@@ -23,9 +23,9 @@ class PlotScaleDock(Dock):
 
         self.Pmax = QtWidgets.QSpinBox()
         self.Pmin = QtWidgets.QSpinBox()
-        self.Pmax.setMinimum(-7)
+        self.Pmax.setMinimum(-8)
         self.Pmax.setMaximum(2)
-        self.Pmin.setMinimum(-8)
+        self.Pmin.setMinimum(-9)
         self.Pmin.setMaximum(1)
         self.Pmax.setValue(1)
         self.Pmin.setValue(-8)
@@ -56,12 +56,12 @@ class PlotScaleDock(Dock):
         self.widget.addWidget(self.Imax, 0, 1)
         self.widget.addWidget(self.Imin, 0, 0)
         # self.widget.addWidget(self.Tmax, 1, 0)
-        self.widget.addWidget(self.Pmax, 2, 1)
-        self.widget.addWidget(self.Pmin, 2, 0)
-        self.widget.addWidget(self.togIp, 3, 0)
-        self.widget.addWidget(self.togBaratron, 3, 1)
-        self.widget.addWidget(self.togP, 4, 0)
-        self.widget.addWidget(self.autoscale, 4, 1)
+        self.widget.addWidget(self.Pmax, 1, 1)
+        self.widget.addWidget(self.Pmin, 1, 0)
+        self.widget.addWidget(self.togIp, 2, 0)
+        self.widget.addWidget(self.togBaratron, 2, 1)
+        self.widget.addWidget(self.togP, 3, 0)
+        self.widget.addWidget(self.autoscale, 3, 1)
 
         self.verticalSpacer = QtWidgets.QSpacerItem(
             0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding

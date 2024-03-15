@@ -521,7 +521,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.mfccontrolDock.update_display(self.__mfc1,f"{self.currentvalues['MFC1']*1000:.0f}",1)
         self.mfccontrolDock.update_display(self.__mfc2,f"{self.currentvalues['MFC2']*1000:.0f}",2)
         # self.controlDock.gaugeT.update_value(self.currentvalues["T"])
-        font_size = 5
+        font_size = 6
         txt = f"""
               <table>
                  <tr>
