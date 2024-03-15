@@ -156,7 +156,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.controlDock.quitBtn.clicked.connect(self.__quit)
         self.controlDock.qmsSigSw.clicked.connect(self.sync_signal_switch)
 
-        self.controlDock.currentsetBtn.clicked.connect(self.set_currentcontrol_voltage)
+        #self.controlDock.currentsetBtn.clicked.connect(self.set_currentcontrol_voltage)
 
         # Toggle plots for Current, Temperature, and Pressure
         self.scaleDock.togIp.clicked.connect(self.toggle_plots)
@@ -372,6 +372,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.dacWorker = DAC8532(sensor_name, self.__app, now, self.config)
         self.dacWorker.dac_init()
 
+        # DAC
         sensor_name = "MCP4725"
         threads[sensor_name] = QtCore.QThread()
         threads[sensor_name].setObjectName(f"{sensor_name}")
