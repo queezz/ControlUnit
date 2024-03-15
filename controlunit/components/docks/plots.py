@@ -59,9 +59,9 @@ class PlotScaleDock(Dock):
         self.widget.addWidget(self.Pmax, 2, 1)
         self.widget.addWidget(self.Pmin, 2, 0)
         self.widget.addWidget(self.togIp, 3, 0)
-        self.widget.addWidget(self.togBaratron, 4, 1)
+        self.widget.addWidget(self.togBaratron, 3, 1)
         self.widget.addWidget(self.togP, 4, 0)
-        self.widget.addWidget(self.autoscale, 5, 1)
+        self.widget.addWidget(self.autoscale, 4, 1)
 
         self.verticalSpacer = QtWidgets.QSpacerItem(
             0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding

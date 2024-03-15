@@ -54,17 +54,18 @@ class UIWindow(object):
     def __setLayout(self):
         self.MainWindow.setCentralWidget(self.tabwidg)
         self.tabwidg.addTab(self.area, "Data")
-
-        self.area.addDock(self.plotDock, "top")
-        self.area.addDock(self.scaleDock, "left")
-        self.area.addDock(self.ADCGainDock, "above", self.scaleDock)
-        self.area.addDock(self.controlDock, "above", self.ADCGainDock)
-        self.area.addDock(self.mfccontrolDock, "bottom", self.controlDock)
+        
+        self.area.addDock(self.controlDock)
+        self.area.addDock(self.plotDock)
+        self.area.addDock(self.mfccontrolDock,'right')
+        self.area.addDock(self.scaleDock,'bottom',self.mfccontrolDock)
+    
 
         self.plotDock.addWidget(self.graph)
 
         self.tabwidg.addTab(self.settings_area, "Settings")
         self.settings_area.addDock(self.SettingsDock)
+        self.area.addDock(self.ADCGainDock, "bottom", self.SettingsDock)
         self.settings_area.addDock(self.logDock, "right")
 
     def showMain(self):

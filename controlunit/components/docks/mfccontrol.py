@@ -137,11 +137,11 @@ class MassFlowControllerControl(Dock):
         cf = "</font>"
         self.mfcBw1.setText(
             f"{htmltag}{temperature} mV{cf}"
-            # f"&nbsp;&nbsp;&nbsp;{htag1}{temp_now} mV{cf}"
+            # f"&nbsp;&nbsp;&nbsp;{htag1}{temp_now} mV{cf} MF-H"
         )
         self.mfcBw2.setText(
             f"{htmltag}{temperature} mV{cf}"
-            # f"&nbsp;&nbsp;&nbsp;{htag1}{temp_now} mV{cf}"
+            # f"&nbsp;&nbsp;&nbsp;{htag1}{temp_now} mV{cf} MF-O"
         )
 
     def update_displayed_voltage(self, voltage, mfc_num):

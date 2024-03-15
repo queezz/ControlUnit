@@ -7,7 +7,9 @@ from ..buttons.toggles import MySwitch, OnOffSwitch, QmsSwitch
 from ..widgets.analoggauge import AnalogGaugeWidget
 from readsettings import select_settings
 
-from QLed import QLed
+# Seems that QLed was removed, and it's not used.
+# TODO: Delete
+# from QLed import QLed
 
 config = select_settings(verbose=False)
 print("GET CONFIG: control.py")
@@ -61,8 +63,16 @@ class ControlDock(Dock):
         self.FullNormSW = MySwitch()
         self.OnOffSW = OnOffSwitch()
         self.OnOffSW.setFont(QtGui.QFont("serif", 16))
+    
+        self.__setLayout()
 
-
+    def current_controls(self):        
+        """
+        Current Power supply is changed
+        Current control is not needed, the Kikusui PWR401L is doing that
+        This method is just to preserve the controls for now,
+        if we need them back.
+        """
         self.currentBw = QtWidgets.QTextBrowser()
         self.currentBw.setMinimumSize(QtCore.QSize(60, 50))
         self.currentBw.setMaximumHeight(60)
@@ -78,20 +88,22 @@ class ControlDock(Dock):
             "QSpinBox::down-button { width: 40px;}\n"
             "QSpinBox {font: 26pt;}"
         )
-
+    
         self.currentsetBtn = QtWidgets.QPushButton("set")
         self.currentsetBtn.setMinimumSize(QtCore.QSize(60, 50))
         self.currentsetBtn.setStyleSheet("font: 20pt")
 
-        # Analog Gauge to show Temperature
-        # self.gaugeT = AnalogGaugeWidget()
-        # self.gaugeT.set_MinValue(0)
-        # self.gaugeT.set_MaxValue(MAXTEMP)
-        # self.gaugeT.set_total_scale_angle_size(180)
-        # self.gaugeT.set_start_scale_angle(180)
-        # self.gaugeT.set_enable_value_text(False)
-
-        self.__setLayout()
+    def analog_gauge(self):
+        """
+        Analog Gauge to show Temperature
+        Removed from GUI for now
+        """
+        self.gaugeT = AnalogGaugeWidget()
+        self.gaugeT.set_MinValue(0)
+        self.gaugeT.set_MaxValue(MAXTEMP)
+        self.gaugeT.set_total_scale_angle_size(180)
+        self.gaugeT.set_start_scale_angle(180)
+        self.gaugeT.set_enable_value_text(False)        
 
     def __setLayout(self):
         self.addWidget(self.widget)
@@ -109,13 +121,11 @@ class ControlDock(Dock):
         self.widget.addWidget(self.IGrange, 2, 5)
 
         # self.widget.addWidget(self.currentBw, 3, 0, 1, 4)
-        self.widget.addWidget(self.currentcontrolerSB, 3, 0,1,3)
-        self.widget.addWidget(self.currentsetBtn, 3, 3, 1, 2)
-
+        # self.widget.addWidget(self.currentcontrolerSB, 3, 0,1,3)
+        # self.widget.addWidget(self.currentsetBtn, 3, 3, 1, 2)
 
         # Temperature analouge gauge
         # self.widget.addWidget(self.gaugeT, 5, 0, 10, 1)
-
         # self.widget.addWidget(self.qmsSigSw, 5, 1, 1, 1)
 
         self.verticalSpacer = QtWidgets.QSpacerItem(
