@@ -41,9 +41,9 @@ class PlotScaleDock(Dock):
 
         [
             i.setStyleSheet(
-                "QSpinBox::up-button   { width: 50px; }\n"
-                "QSpinBox::down-button { width: 50px;}\n"
-                "QSpinBox {font: 26pt;}"
+                "QSpinBox::up-button   { width: 30px; }\n"
+                "QSpinBox::down-button { width: 30px;}\n"
+                "QSpinBox {font: 16pt;}"
             )
             for i in [self.Pmax, self.Pmin, self.Imax, self.Imin]
         ]

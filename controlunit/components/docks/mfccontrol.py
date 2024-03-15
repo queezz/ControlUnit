@@ -138,20 +138,20 @@ class MassFlowControllerControl(Dock):
         mfc_num
             index of a mass flow controller 1 - MF-H, 2 - MF-O
         """
-        htmltag = '<font size=4 color="#d1451b">'
+        htag0 = '<font size=4 color="#d1451b">'
         htag1 = '<font size=4 color = "#4275f5">'
         cf = "</font>"
         if mfc_num == 1:
             self.mfcBw1.setText(
-                f"{htmltag}{set_voltage} mV{cf}"
+                f"{htag0}{set_voltage} mV{cf}"
                 f"&nbsp;&nbsp;&nbsp;{htag1}{signal_voltage} mV{cf}"
-                "&nbsp;&nbsp; MF-H"
+                "&nbsp;H"
             )
         elif mfc_num == 2:
             self.mfcBw2.setText(
-                f"{htmltag}{set_voltage} mV{cf}"
+                f"{htag0}{set_voltage} mV{cf}"
                 f"&nbsp;&nbsp;&nbsp;{htag1}{signal_voltage} mV{cf}"
-                "&nbsp;&nbsp; MF-O"
+                "&nbsp;O"
             )
         else:
             pass

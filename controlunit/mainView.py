@@ -37,7 +37,7 @@ class UIWindow(object):
 
         self.ADCGainDock = ADCGain()
 
-        self.MainWindow.setGeometry(20, 50, 1000, 600)
+        self.MainWindow.setGeometry(20, 50, 800, 400)
         sizeObject = QtWidgets.QDesktopWidget().screenGeometry(-1)
         # print(" Screen size : " + str(sizeObject.height()) + "x" + str(sizeObject.width()))
         if sizeObject.height() < 1000:
