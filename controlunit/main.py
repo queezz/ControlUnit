@@ -518,36 +518,37 @@ class MainWidget(QtCore.QObject, UIWindow):
         # TODO: updated dislpayed valuves from dataframes
 
         # self.tempcontrolDock.update_displayed_temperatures(self.__temp, f"{self.currentvalues['T']:.0f}")
-        self.mfccontrolDock.update_displayed_voltage(self.__mfc1,f"{self.currentvalues['MFC1']*1000:.0f}",1)
-        self.mfccontrolDock.update_displayed_voltage(self.__mfc2,f"{self.currentvalues['MFC2']*1000:.0f}",2)
+        self.mfccontrolDock.update_display(self.__mfc1,f"{self.currentvalues['MFC1']*1000:.0f}",1)
+        self.mfccontrolDock.update_display(self.__mfc2,f"{self.currentvalues['MFC2']*1000:.0f}",2)
         # self.controlDock.gaugeT.update_value(self.currentvalues["T"])
+        font_size = 5
         txt = f"""
               <table>
                  <tr>
                   <td>
-                   <font size=4 color={self.pens['Pu']['color']}>
+                   <font size={font_size} color={self.pens['Pu']['color']}>
                     Pu = {self.currentvalues['Pu']:.2e}                    
                   </font>
                   </td>
                   <td>
-                  <font size=4 color={self.pens['Pd']['color']}>
+                  <font size={font_size} color={self.pens['Pd']['color']}>
                     Pd = {self.currentvalues['Pd']:.2e}
                    </font>
                   </td>
                   <td>
-                   <font size=4 color={self.pens['Ip']['color']}>
+                   <font size={font_size} color={self.pens['Ip']['color']}>
                     I = {self.currentvalues['Ip']:.2f}
                    </font>
                   </td>
                  </tr>
                  <tr>
                   <td>
-                   <font size=4 color={self.pens['Bu']['color']}>
+                   <font size={font_size} color={self.pens['Bu']['color']}>
                     Bu = {self.currentvalues['Bu']:.2e}
                    </font>
                   </td>
                   <td>
-                   <font size=4 color={self.pens['Bd']['color']}>
+                   <font size={font_size} color={self.pens['Bd']['color']}>
                     Bd = {self.currentvalues['Bd']:.2e}
                    </font>
                   </td>   

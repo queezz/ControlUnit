@@ -9,7 +9,7 @@ MAXVOLTAGE = config["Max Voltage"]
 
 class MassFlowControllerControl(Dock):
     def __init__(self):
-        super().__init__("MFC control")
+        super().__init__("Mass Flow Control")
         self.widget = pg.LayoutWidget()
         self.mfcBw1 = QtWidgets.QTextBrowser()
         self.mfcBw1.setMinimumSize(QtCore.QSize(60, 50))
@@ -103,21 +103,17 @@ class MassFlowControllerControl(Dock):
             self.widget.addWidget(spin_box, 1, i)
 
         self.widget.addWidget(self.registerBtn1, 0, 2, 1)
-
         self.widget.addWidget(self.resetBtn1, 0, 3, 1)
 
         self.widget.addWidget(self.mfcBw2, 2, 0, 1, 2)
+
         for i, spin_box in enumerate(self.masflowcontrolerSB2):
             self.widget.addWidget(spin_box, 3, i)
 
         self.widget.addWidget(self.registerBtn2, 2, 2)
-
         self.widget.addWidget(self.resetBtn2, 2, 3)
-
         self.widget.addWidget(self.scaleBtn, 4, 0,)
-
         self.widget.addWidget(self.calibrationBtn, 4, 1,)
-
         self.widget.addWidget(self.stopBtn, 4, 2,1,2)
 
         self.verticalSpacer = QtWidgets.QSpacerItem(
@@ -130,66 +126,42 @@ class MassFlowControllerControl(Dock):
         txt = "<font color={}><h4>{}</h4></font>".format(color, text)
         return txt
 
-    def update_displayed_temperatures(self, temperature, temp_now):
-        """ set values into browser"""
-        htmltag = '<font size=6 color="#d1451b">'
-        htag1 = '<font size=6 color = "#4275f5">'
-        cf = "</font>"
-        self.mfcBw1.setText(
-            f"{htmltag}{temperature} mV{cf}"
-            # f"&nbsp;&nbsp;&nbsp;{htag1}{temp_now} mV{cf} MF-H"
-        )
-        self.mfcBw2.setText(
-            f"{htmltag}{temperature} mV{cf}"
-            # f"&nbsp;&nbsp;&nbsp;{htag1}{temp_now} mV{cf} MF-O"
-        )
-
-    def update_displayed_voltage(self, voltage, mfc_num):
-        """ set values into browser"""
-        htmltag = '<font size=6 color="#d1451b">'
-        htag1 = '<font size=6 color = "#4275f5">'
-        cf = "</font>"
-        if mfc_num == 1:
-            self.mfcBw1.setText(
-                f"{htmltag}{voltage} mV{cf}"
-                # f"&nbsp;&nbsp;&nbsp;{htag1}{temp_now} mV{cf}"
-            )
-        elif mfc_num == 2:
-            self.mfcBw2.setText(
-                f"{htmltag}{voltage} mV{cf}"
-                # f"&nbsp;&nbsp;&nbsp;{htag1}{temp_now} mV{cf}"
-            )
-        else:
-            pass
-
-    def update_displayed_voltage(self, voltage, voltage_now, mfc_num):
-        """ set values into browser"""
+    def update_display(self, set_voltage, signal_voltage, mfc_num):
+        """
+        Set Mass Flow Controllers signal values in the browsers
+        Parameters
+        ----------
+        set_voltage: float
+            set voltage
+        signal_voltage: float
+            signal from MFC->ADC
+        mfc_num
+            index of a mass flow controller 1 - MF-H, 2 - MF-O
+        """
         htmltag = '<font size=4 color="#d1451b">'
         htag1 = '<font size=4 color = "#4275f5">'
         cf = "</font>"
         if mfc_num == 1:
             self.mfcBw1.setText(
-                f"{htmltag}{voltage} mV{cf}"
-                f"&nbsp;&nbsp;&nbsp;{htag1}{voltage_now} mV{cf}"
+                f"{htmltag}{set_voltage} mV{cf}"
+                f"&nbsp;&nbsp;&nbsp;{htag1}{signal_voltage} mV{cf}"
+                "&nbsp;&nbsp;&nbsp MF-H"
             )
         elif mfc_num == 2:
             self.mfcBw2.setText(
-                f"{htmltag}{voltage} mV{cf}"
-                f"&nbsp;&nbsp;&nbsp;{htag1}{voltage_now} mV{cf}"
+                f"{htmltag}{set_voltage} mV{cf}"
+                f"&nbsp;&nbsp;&nbsp;{htag1}{signal_voltage} mV{cf}"
+                "&nbsp;&nbsp;&nbsp MF-O"
             )
         else:
             pass
 
-    # def set_heating_goal(self, temperature: float, temp_now):
-    #     self.update_displayed_temperatures(temperature, temp_now)
-    #     self.masflowcontrolerSB1.setValue(temperature)
-    #     self.masflowcontrolerSB2.setValue(temperature)
 
     def set_output1_goal(self, voltage,voltage_now):
-        self.update_displayed_voltage(voltage, voltage_now,1)
+        self.update_display(voltage, voltage_now,1)
     
     def set_output2_goal(self, voltage,voltage_now):
-        self.update_displayed_voltage(voltage, voltage_now,2)
+        self.update_display(voltage, voltage_now,2)
 
 
 
