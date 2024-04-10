@@ -15,7 +15,7 @@ class Graph(pg.GraphicsLayoutWidget):
         self.plaPl = self.addPlot(row=0, col=0)
         # TODO: 単位
         self.plaPl.setLabel('left', "Ip", units='A',**labelStyle)
-        self.plaPl.getAxis('left').setWidth(100)
+        self.plaPl.getAxis('left').setWidth(50)
         self.plaPl.getAxis('left').tickFont = font
 
         # self.tempPl = self.addPlot(row=1, col=0)
@@ -25,7 +25,7 @@ class Graph(pg.GraphicsLayoutWidget):
 
         self.presPl = self.addPlot(row=1, col=0)
         self.presPl.setLabel('left', "P", units='Torr',**labelStyle)
-        self.presPl.getAxis('left').setWidth(100)
+        self.presPl.getAxis('left').setWidth(50)
         self.presPl.setLabel('bottom', "time", units='sec',**labelStyle)
         
         self.setBackground(background='#25272b')
