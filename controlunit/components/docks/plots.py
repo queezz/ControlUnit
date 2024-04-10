@@ -14,6 +14,8 @@ class PlotScaleDock(Dock):
         # self.togT = ToggleTemperaturePlot()
         self.togP = TogglePressurePlot()
         self.togBaratron = ToggleBaratronPlot()
+        self.togIGs = ToggleIGPlots()
+        self.togYLog = ToggleYLogScale()
         # [i.setChecked(True) for i in [self.togIp, self.togT, self.togP]]
         # self.Tmax = QtWidgets.QSpinBox()
         # self.Tmax.setMinimum(50)
@@ -23,6 +25,8 @@ class PlotScaleDock(Dock):
 
         self.Pmax = QtWidgets.QSpinBox()
         self.Pmin = QtWidgets.QSpinBox()
+        self.Pmax.setToolTip("Pmax")
+        self.Pmin.setToolTip("Pmin")
         self.Pmax.setMinimum(-8)
         self.Pmax.setMaximum(2)
         self.Pmin.setMinimum(-9)
@@ -32,6 +36,8 @@ class PlotScaleDock(Dock):
 
         self.Imax = QtWidgets.QSpinBox()
         self.Imin = QtWidgets.QSpinBox()
+        self.Imax.setToolTip("Imax")
+        self.Imin.setToolTip("Imin")
         self.Imax.setMinimum(-29)
         self.Imax.setMaximum(30)
         self.Imin.setMinimum(-30)
@@ -53,15 +59,17 @@ class PlotScaleDock(Dock):
     def __setLayout(self):
         self.addWidget(self.widget)
 
-        self.widget.addWidget(self.Imax, 0, 1)
-        self.widget.addWidget(self.Imin, 0, 0)
+        self.widget.addWidget(self.Pmax, 0, 0)
+        self.widget.addWidget(self.Pmin, 0, 1)
+        self.widget.addWidget(self.Imin, 0, 2)
+        self.widget.addWidget(self.Imax, 0, 3)
+        self.widget.addWidget(self.togIp, 1, 0)
+        self.widget.addWidget(self.togP, 1, 1)
+        self.widget.addWidget(self.togBaratron, 1, 2)
+        self.widget.addWidget(self.togIGs, 1, 3)
+        self.widget.addWidget(self.autoscale, 2, 1)
+        self.widget.addWidget(self.togYLog,2,0)
         # self.widget.addWidget(self.Tmax, 1, 0)
-        self.widget.addWidget(self.Pmax, 1, 1)
-        self.widget.addWidget(self.Pmin, 1, 0)
-        self.widget.addWidget(self.togIp, 2, 0)
-        self.widget.addWidget(self.togBaratron, 2, 1)
-        self.widget.addWidget(self.togP, 3, 0)
-        self.widget.addWidget(self.autoscale, 3, 1)
 
         self.verticalSpacer = QtWidgets.QSpacerItem(
             0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding

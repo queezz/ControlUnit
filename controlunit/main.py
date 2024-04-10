@@ -12,6 +12,7 @@ from striphtmltags import strip_tags
 import qmsSignal
 
 import time
+
 # from channels import TCCOLUMNS, ADCCOLUMNS, ADCCONVERTED, ADCSIGNALS, CHNLSADC
 # from channels import CHHEATER, CHLED
 
@@ -46,9 +47,6 @@ class MainWidget(QtCore.QObject, UIWindow):
         # self.tempcontrolDock.set_heating_goal(self.DEFAULT_TEMPERATURE, "---")
         self.mfccontrolDock.set_output1_goal(self.DEFALT_VOLTAGE, "---")
         self.mfccontrolDock.set_output2_goal(self.DEFALT_VOLTAGE, "---")
-
-
-
 
         QtCore.QThread.currentThread().setObjectName("main")
 
@@ -105,9 +103,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.dacWorker = None
         self.calibrating = False
 
-        self.plot_Baratron = True
-
         self.update_plot_timewindow()
+        self.set_scales_switches()
 
         self.showMain()
         self.log_to_file(f"App started: {os.path.abspath(__file__)}")
@@ -135,7 +132,9 @@ class MainWidget(QtCore.QObject, UIWindow):
         # print(f"ADC gain = {val}")
 
     def connections(self):
-        self.controlDock.scaleBtn.currentIndexChanged.connect(self.update_plot_timewindow)
+        self.controlDock.scaleBtn.currentIndexChanged.connect(
+            self.update_plot_timewindow
+        )
         self.ADCGainDock.gain_box.currentIndexChanged.connect(self.update_baratron_gain)
         self.ADCGainDock.set_gain_btn.clicked.connect(self.__set_gain)
 
@@ -144,7 +143,9 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.mfccontrolDock.registerBtn2.clicked.connect(self.set_mfc2_goal)
         self.mfccontrolDock.resetBtn1.clicked.connect(self.resetSpinBoxes1)
         self.mfccontrolDock.resetBtn2.clicked.connect(self.resetSpinBoxes2)
-        self.mfccontrolDock.scaleBtn.currentIndexChanged.connect(self.update_calibration_waiting_time)
+        self.mfccontrolDock.scaleBtn.currentIndexChanged.connect(
+            self.update_calibration_waiting_time
+        )
         self.mfccontrolDock.calibrationBtn.clicked.connect(self.calibration)
         self.mfccontrolDock.stopBtn.clicked.connect(self.stop_mfc)
 
@@ -156,11 +157,12 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.controlDock.quitBtn.clicked.connect(self.__quit)
         self.controlDock.qmsSigSw.clicked.connect(self.sync_signal_switch)
 
-        #self.controlDock.currentsetBtn.clicked.connect(self.set_currentcontrol_voltage)
+        # self.controlDock.currentsetBtn.clicked.connect(self.set_currentcontrol_voltage)
 
         # Toggle plots for Current, Temperature, and Pressure
         self.scaleDock.togIp.clicked.connect(self.toggle_plots)
         self.scaleDock.togBaratron.clicked.connect(self.toggle_plots_baratron)
+        self.scaleDock.togIGs.clicked.connect(self.toggle_plots_igs)
         self.scaleDock.togP.clicked.connect(self.toggle_plots)
 
         self.scaleDock.Pmin.valueChanged.connect(self.__updatePScale)
@@ -171,10 +173,18 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         self.scaleDock.autoscale.clicked.connect(self.__auto_or_levels)
         self.SettingsDock.setSamplingBtn.clicked.connect(self.__set_sampling)
+        self.scaleDock.togYLog.clicked.connect(self.__toggleYLogScale)
 
-
-
-
+    def set_scales_switches(self):
+        """Set default checks for swithces in Scales"""
+        self.scaleDock.togP.setChecked(True)
+        self.scaleDock.togBaratron.setChecked(False)
+        self.scaleDock.togIp.setChecked(False)
+        self.scaleDock.togYLog.setChecked(True)
+        self.scaleDock.togIGs.setChecked(True)
+        self.toggle_plots_baratron()
+        self.toggle_plots_igs()
+        self.toggle_plots()
 
     def __quit(self):
         """terminate app"""
@@ -190,7 +200,11 @@ class MainWidget(QtCore.QObject, UIWindow):
         else:
             quit_msg = "Are you sure you want to stop data acquisition?"
             reply = QtWidgets.QMessageBox.warning(
-                self.MainWindow, "Message", quit_msg, QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No,
+                self.MainWindow,
+                "Message",
+                quit_msg,
+                QtWidgets.QMessageBox.Yes,
+                QtWidgets.QMessageBox.No,
             )
             if reply == QtWidgets.QMessageBox.Yes:
                 self.abort_all_threads()
@@ -205,10 +219,12 @@ class MainWidget(QtCore.QObject, UIWindow):
             else:
                 self.controlDock.OnOffSW.setChecked(True)
 
-
-
-
-
+    def __toggleYLogScale(self):
+        """Toggle Y Scale between Log and Lin for Pressure plots"""
+        if self.scaleDock.togYLog.isChecked():
+            self.graph.presPl.setLogMode(y=True)
+        else:
+            self.graph.presPl.setLogMode(y=False)
 
     def __updatePScale(self):
         """Updated plot limits for the Pressure viewgraph"""
@@ -259,7 +275,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
     def toggle_plots(self):
         """
-        Toggle plots
+        Toggle plots - pyqtgraph GraphViews
         self.scaleDock.togIp
         self.graph.plaPl
         """
@@ -279,31 +295,27 @@ class MainWidget(QtCore.QObject, UIWindow):
         items = {
             "Ip": [self.scaleDock.togIp, self.graph.plaPl, 0, 0],
             # "T": [self.scaleDock.togT, self.graph.tempPl, 1, 0],
-            "P": [self.scaleDock.togP, self.graph.presPl, 1, 0],
+            "P": [self.scaleDock.togP, self.graph.presPl, 1, 0],            
         }
 
-        [toggleplot(*items[jj]) for jj in ["Ip",  "P"]]
-    
+        [toggleplot(*items[jj]) for jj in ["Ip", "P"]]
+
     def toggle_plots_baratron(self):
         if self.scaleDock.togBaratron.isChecked():
-            self.plot_Baratron = True
-            # self.valueB1Plot = self.graph.presPl.plot(pen=self.pens["Bu"])
-            # self.valueB2Plot = self.graph.presPl.plot(pen=self.pens["Bd"])
-            # self.graph.presPl.removeItem(self.valueB1Plot)
-            # try:
-            #     self.graph.presPl.removeItem(self.valueB1Plot)
-            # except:
-            #     pass
+            self.valueB1Plot.setVisible(True)
+            self.valueB2Plot.setVisible(True)
         else:
-            self.plot_Baratron = False
-            # self.valueB1Plot = self.graph.presPl.plot(pen={"color": "transparent", "width": 2})
-            # self.valueB2Plot = self.graph.presPl.plot(pen={"color": "transparent", "width": 2})
-            # try:
-            #     self.graph.presPl.removeItem(self.valueB1Plot)
-            # except:
-            #     pass
-
-
+            self.valueB1Plot.setVisible(False) 
+            self.valueB2Plot.setVisible(False) 
+            
+    def toggle_plots_igs(self):
+        """ Toggle IG and Pfeiffer lines """
+        if self.scaleDock.togIGs.isChecked():
+            self.valueP1Plot.setVisible(True)
+            self.valueP2Plot.setVisible(True)
+        else:
+            self.valueP1Plot.setVisible(False)
+            self.valueP2Plot.setVisible(False)
 
     def sync_signal_switch(self):
         """
@@ -332,7 +344,6 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.qmsSigThread.start()
             self.adcWorker.setQmsSignal(0)
 
-
     def qmsSignalTerminate(self):
         self.qmsSigThread.quit()
         self.qmsSigThread.wait()
@@ -343,7 +354,9 @@ class MainWidget(QtCore.QObject, UIWindow):
         2020/03/05: two sensors: ADC and temperatures, hence
         2 threds to read a) temperature, and b) analog signals (P1,P2, Ip)
         """
-        self.log_message("<font color='#1cad47'>Starting</font> acquisition", htmltag="h2")
+        self.log_message(
+            "<font color='#1cad47'>Starting</font> acquisition", htmltag="h2"
+        )
         self.savepaths = {}
         self.datadict = {
             # "MAX6675": pd.DataFrame(columns=self.config["Temperature Columns"]),
@@ -376,7 +389,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         sensor_name = "MCP4725"
         threads[sensor_name] = QtCore.QThread()
         threads[sensor_name].setObjectName(f"{sensor_name}")
-        self.mcpWorker = MCP4725(sensor_name, self.__app,now, self.config)
+        self.mcpWorker = MCP4725(sensor_name, self.__app, now, self.config)
         self.mcpWorker.mcp_init()
 
         # MAX6675 thermocouple sensor for Membrane temperature with PID
@@ -397,7 +410,10 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.adcWorker.init_adc_worker(mode, scale)
 
         # workers = {worker.sensor_name: worker for worker in [self.tWorker, self.adcWorker]}
-        workers = {worker.sensor_name: worker for worker in [self.dacWorker,self.mcpWorker, self.adcWorker]}
+        workers = {
+            worker.sensor_name: worker
+            for worker in [self.dacWorker, self.mcpWorker, self.adcWorker]
+        }
         self.sensor_names = list(workers)
 
         [self.start_thread(workers[s], threads[s]) for s in self.sensor_names]
@@ -467,7 +483,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         #         f.writelines(self.generate_header_temperature())
         if sensor_name == "ADC":
             self.savepaths[sensor_name] = os.path.join(
-                os.path.abspath(self.datapath), f"cu_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                os.path.abspath(self.datapath),
+                f"cu_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
             )
             with open(self.savepaths[sensor_name], "w") as f:
                 f.writelines(self.generate_header_adc())
@@ -518,8 +535,12 @@ class MainWidget(QtCore.QObject, UIWindow):
         # TODO: updated dislpayed valuves from dataframes
 
         # self.tempcontrolDock.update_displayed_temperatures(self.__temp, f"{self.currentvalues['T']:.0f}")
-        self.mfccontrolDock.update_display(self.__mfc1,f"{self.currentvalues['MFC1']*1000:.0f}",1)
-        self.mfccontrolDock.update_display(self.__mfc2,f"{self.currentvalues['MFC2']*1000:.0f}",2)
+        self.mfccontrolDock.update_display(
+            self.__mfc1, f"{self.currentvalues['MFC1']*1000:.0f}", 1
+        )
+        self.mfccontrolDock.update_display(
+            self.__mfc2, f"{self.currentvalues['MFC2']*1000:.0f}", 2
+        )
         # self.controlDock.gaugeT.update_value(self.currentvalues["T"])
         font_size = 5
         txt = f"""
@@ -586,8 +607,12 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.newdata[sensor_name] = result[0]
             self.append_data(sensor_name)
             self.save_data(sensor_name)
-            for plotname, name in zip(self.config["ADC Signal Names"], self.config["ADC Converted Names"]):
-                self.currentvalues[plotname] = self.datadict["ADC"].iloc[-3:][name].mean()
+            for plotname, name in zip(
+                self.config["ADC Signal Names"], self.config["ADC Converted Names"]
+            ):
+                self.currentvalues[plotname] = (
+                    self.datadict["ADC"].iloc[-3:][name].mean()
+                )
             # to debug mV signal from Baratron, ouptut it directly.
             self.baratronsignal1 = self.datadict["ADC"].iloc[-3:]["Bu"].mean()
             self.baratronsignal2 = self.datadict["ADC"].iloc[-3:]["Bd"].mean()
@@ -604,8 +629,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         #     df = self.select_data_to_plot(sensor_name)
         #     time = df["time"].values.astype(float)
         #     # temperature = df["T"].values.astype(float)
-            # skip = self.calculate_skip_points(time.shape[0])
-            # self.valueTPlot.setData(time[::skip], temperature[::skip])
+        # skip = self.calculate_skip_points(time.shape[0])
+        # self.valueTPlot.setData(time[::skip], temperature[::skip])
 
         if sensor_name == "ADC":
             df = self.select_data_to_plot(sensor_name)
@@ -615,17 +640,12 @@ class MainWidget(QtCore.QObject, UIWindow):
             p2 = df["Pd_c"].values.astype(float)
             b1 = df["Bu_c"].values.astype(float)
             b2 = df["Bd_c"].values.astype(float)
-            skip = self.calculate_skip_points(time.shape[0])
-            if self.plot_Baratron:
-                self.valueB1Plot.setData(time[::skip], b1[::skip])
-                self.valueB2Plot.setData(time[::skip], b2[::skip])
-            else:
-                self.valueB1Plot.setData(time[::skip], b1[::skip]*0)
-                self.valueB2Plot.setData(time[::skip], b2[::skip]*0)
+            skip = self.calculate_skip_points(time.shape[0])        
+            self.valueB1Plot.setData(time[::skip], b1[::skip])
+            self.valueB2Plot.setData(time[::skip], b2[::skip])
             self.valuePlaPlot.setData(time[::skip], ip[::skip])
             self.valueP1Plot.setData(time[::skip], p1[::skip])
             self.valueP2Plot.setData(time[::skip], p2[::skip])
-
 
     def append_data(self, sensor_name):
         """
@@ -690,38 +710,35 @@ class MainWidget(QtCore.QObject, UIWindow):
 
     @QtCore.pyqtSlot()
     def set_mfc1_goal(self):
-        value=0
+        value = 0
         for i, spin_box in enumerate(self.mfccontrolDock.masflowcontrolerSB1):
             voltage = spin_box.value()
-            value += (voltage * pow(10, 3-i))
+            value += voltage * pow(10, 3 - i)
         if value > 5000:
             value = 5000
         self.__mfc1 = value
         voltage_now = self.currentvalues["MFC1"]
-        self.mfccontrolDock.set_output1_goal(self.__mfc1,f"{voltage_now*1000:.0f}")
+        self.mfccontrolDock.set_output1_goal(self.__mfc1, f"{voltage_now*1000:.0f}")
         if self.dacWorker is not None:
-            self.dacWorker.output_voltage(1,self.__mfc1)
+            self.dacWorker.output_voltage(1, self.__mfc1)
         if self.adcWorker is not None:
             self.adcWorker.setPresetV_mfc1(self.__mfc1)
 
-    
-
     @QtCore.pyqtSlot()
     def set_mfc2_goal(self):
-        value=0
+        value = 0
         for i, spin_box in enumerate(self.mfccontrolDock.masflowcontrolerSB2):
             voltage = spin_box.value()
-            value += (voltage * pow(10, 3-i))
+            value += voltage * pow(10, 3 - i)
         if value > 5000:
             value = 5000
         self.__mfc2 = value
         voltage_now = self.currentvalues["MFC2"]
-        self.mfccontrolDock.set_output2_goal(self.__mfc2,f"{voltage_now*1000:.0f}")
+        self.mfccontrolDock.set_output2_goal(self.__mfc2, f"{voltage_now*1000:.0f}")
         if self.dacWorker is not None:
             self.dacWorker.output_voltage(2, self.__mfc2)
         if self.adcWorker is not None:
             self.adcWorker.setPresetV_mfc2(self.__mfc2)
-
 
     @QtCore.pyqtSlot()
     def resetSpinBoxes1(self):
@@ -745,7 +762,11 @@ class MainWidget(QtCore.QObject, UIWindow):
         if not self.dacWorker.calibrating:
             stating_msg = "Are you sure you want to start calibration?"
             reply = QtWidgets.QMessageBox.warning(
-                self.MainWindow, "Message", stating_msg, QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No,
+                self.MainWindow,
+                "Message",
+                stating_msg,
+                QtWidgets.QMessageBox.Yes,
+                QtWidgets.QMessageBox.No,
             )
             if reply == QtWidgets.QMessageBox.Yes:
                 # self.dacWorker.calibration(self.__mfc1,step=10,waiting_time=1)
@@ -754,19 +775,31 @@ class MainWidget(QtCore.QObject, UIWindow):
                 except:
                     print("pigpio is not defined")
                     return
-                self.calibration_thread = Calibrator(self.__app, self.dacWorker,self.adcWorker,self.__mfc1,10,self.calibration_waiting_time)
-                self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 2, self.adcWorker)
+                self.calibration_thread = Calibrator(
+                    self.__app,
+                    self.dacWorker,
+                    self.adcWorker,
+                    self.__mfc1,
+                    10,
+                    self.calibration_waiting_time,
+                )
+                self.qmsSigThread = qmsSignal.SyncSignal(
+                    pi, self.__app, 2, self.adcWorker
+                )
                 self.calibration_thread.finished.connect(self.calibration_terminated)
                 self.calibration_thread.start()
                 self.qmsSigThread.start()
-
 
             else:
                 pass
         else:
             ending_msg = "Are you sure you want to stop calibration?"
             reply = QtWidgets.QMessageBox.warning(
-                self.MainWindow, "Message", ending_msg, QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No,
+                self.MainWindow,
+                "Message",
+                ending_msg,
+                QtWidgets.QMessageBox.Yes,
+                QtWidgets.QMessageBox.No,
             )
             if reply == QtWidgets.QMessageBox.Yes:
                 self.dacWorker.calibrating = False
@@ -794,15 +827,14 @@ class MainWidget(QtCore.QObject, UIWindow):
         voltage_now1 = self.currentvalues["MFC1"]
         voltage_now2 = self.currentvalues["MFC2"]
 
-        self.mfccontrolDock.set_output1_goal(self.__mfc1,f"{voltage_now1*1000:.0f}")
-        self.mfccontrolDock.set_output2_goal(self.__mfc2,f"{voltage_now2*1000:.0f}")
+        self.mfccontrolDock.set_output1_goal(self.__mfc1, f"{voltage_now1*1000:.0f}")
+        self.mfccontrolDock.set_output2_goal(self.__mfc2, f"{voltage_now2*1000:.0f}")
         if self.dacWorker is not None:
-            self.dacWorker.output_voltage(1,self.__mfc1)
-            self.dacWorker.output_voltage(2,self.__mfc2)
+            self.dacWorker.output_voltage(1, self.__mfc1)
+            self.dacWorker.output_voltage(2, self.__mfc2)
         if self.adcWorker is not None:
             self.adcWorker.setPresetV_mfc1(self.__mfc1)
             self.adcWorker.setPresetV_mfc2(self.__mfc2)
-
 
     @QtCore.pyqtSlot()
     def set_currentcontrol_voltage(self):
@@ -814,9 +846,6 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.mcpWorker.output_voltage(value)
         if self.adcWorker is not None:
             self.adcWorker.setPresetV_cathode(value)
-    
-
-
 
     @QtCore.pyqtSlot()
     def update_ig_mode(self):
@@ -863,10 +892,11 @@ class MainWidget(QtCore.QObject, UIWindow):
         #         value = 0.25
         #     self.tWorker.setSampling(value)
         #     self.log_message(f"MAX6675 sampling set to {value}")
-# 
-        # if self.dacWorker is not None:
-        #     self.dacWorker.setSampling(value)
-        #     self.log_message(f"DAC sampling set to {value}")
+
+    #
+    # if self.dacWorker is not None:
+    #     self.dacWorker.setSampling(value)
+    #     self.log_message(f"DAC sampling set to {value}")
 
     @QtCore.pyqtSlot()
     def update_ig_range(self):

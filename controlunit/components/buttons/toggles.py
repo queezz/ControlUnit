@@ -1,5 +1,5 @@
 from PyQt5 import QtGui, QtWidgets
-from PyQt5.QtCore import Qt, QRect
+from PyQt5.QtCore import Qt, QRect, QPoint
 
 
 class MySwitch(QtWidgets.QPushButton):
@@ -46,6 +46,14 @@ class MySwitch(QtWidgets.QPushButton):
         painter.drawRoundedRect(sw_rect, radius, radius)
         painter.drawText(sw_rect, Qt.AlignCenter, label)
 
+    def hitButton(self, pos: QPoint):
+        radius = self.radius
+        width = self.width
+        center = self.rect().center()
+        x = center.x() - width
+        y = center.y() - radius
+        hit_rect = QRect(x, y, 2 * width, 2 * radius)
+        return hit_rect.contains(pos)
 
 class OnOffSwitch(MySwitch):
     radius = 15
@@ -57,7 +65,7 @@ class OnOffSwitch(MySwitch):
 
 class ToggleCurrentPlot(MySwitch):
     radius = 15
-    width = 40
+    width = 30
     # 0 - On, 1 - Off
     labels = ["Ip", "no Ip"]
     colors = [QtGui.QColor("#8df01d"), QtGui.QColor("#b89c76")]
@@ -65,7 +73,7 @@ class ToggleCurrentPlot(MySwitch):
 
 class ToggleTemperaturePlot(MySwitch):
     radius = 15
-    width = 40
+    width = 30
     # 0 - On, 1 - Off
     labels = ["T", "no T"]
     colors = [QtGui.QColor("#8df01d"), QtGui.QColor("#b89c76")]
@@ -73,7 +81,7 @@ class ToggleTemperaturePlot(MySwitch):
 
 class TogglePressurePlot(MySwitch):
     radius = 15
-    width = 40
+    width = 30
     # 0 - On, 1 - Off
     labels = ["P", "no P"]
     colors = [QtGui.QColor("#8df01d"), QtGui.QColor("#b89c76")]
@@ -81,7 +89,7 @@ class TogglePressurePlot(MySwitch):
 
 class changeScale(MySwitch):
     radius = 15
-    width = 40
+    width = 30
     # 0 - On, 1 - Off
     labels = ["auto", "levels"]
     colors = [QtGui.QColor("#8df01d"), QtGui.QColor("#b89c76")]
@@ -96,11 +104,25 @@ class QmsSwitch(MySwitch):
 
 class ToggleBaratronPlot(MySwitch):
     radius = 15
-    width = 40
+    width = 36
     # 0 - On, 1 - Off
-    labels = ["Baratron", "no Baratron"]
+    labels = ["Bartrn", "no B"]
     colors = [QtGui.QColor("#8df01d"), QtGui.QColor("#b89c76")]
 
+class ToggleIGPlots(MySwitch):
+    """Toggle lines with IG and Pfeiffer """
+    radius = 15
+    width = 36
+    # 0 - On, 1 - Off
+    labels = ["IGs", "no IGs"]
+    colors = [QtGui.QColor("#8df01d"), QtGui.QColor("#b89c76")]
+
+class ToggleYLogScale(MySwitch):
+    radius = 15
+    width = 30
+    # 0 - On, 1 - Off
+    labels = ["Log Y", "Lin Y"]
+    colors = [QtGui.QColor("#8df01d"), QtGui.QColor("#b89c76")]
 
 if __name__ == "__main__":
     pass
