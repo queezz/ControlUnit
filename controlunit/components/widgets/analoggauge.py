@@ -54,9 +54,9 @@ try:
     # QtCore -> Qt.NoPen, QTime, QTimer, QPoint, QPointF, QRect, QSize
 
     used_Qt_Version = 4
-    print("end trying to import Qt4 @ analoggaugewidget.py")
+    #print("end trying to import Qt4 @ analoggaugewidget.py")
     # Antialysing may be problem with Qt4
-    print("ToDo: Fix error output QPainter.Antialiasing")
+    #print("ToDo: Fix error output QPainter.Antialiasing")
 
 except:
     try:
@@ -80,7 +80,7 @@ except:
         # QtCore -> Qt.NoPen ,QTime, QTimer, QPoint, QPointF, QRect, QSize
 
         used_Qt_Version = 5
-        print("end trying to import Qt5 @ analoggaugewidget.py")
+        #print("end trying to import Qt5 @ analoggaugewidget.py")
     except Exception as e:
         print("Error Import Qt 4 & 5 @ analoggaugewidget.py", f"{e}")
         exit()

@@ -1,7 +1,7 @@
 import sys, datetime, os
-import numpy as np
+from datetime import timedelta
 import pandas as pd
-from PyQt5 import QtGui, QtCore, QtWidgets
+from PyQt5 import QtCore, QtWidgets
 
 from mainView import UIWindow
 from worker import DAC8532, MCP4725, ADC, Worker, Calibrator
@@ -39,7 +39,7 @@ class MainWidget(QtCore.QObject, UIWindow):
     STEP = 3
 
     sigAbortWorkers = QtCore.pyqtSignal()
-
+    # MARK: init
     def __init__(self, app: QtWidgets.QApplication):
         super(self.__class__, self).__init__()
         self.__app = app
@@ -68,6 +68,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.datapath = self.config["Data Folder"]
         self.sampling = self.config["Sampling Time"]
 
+        # MARK: define Plots
         # Plot line colors
         # self.currentvalues = {"Ip": 0, "P1": 0, "P2": 0, "T": 0}
         # self.currentvalues = {i: 0 for i in self.config["ADC Signal Names"] + ["T"]}
@@ -83,19 +84,19 @@ class MainWidget(QtCore.QObject, UIWindow):
             # "T": {"color": "#5999ff", "width": 2},
             "trigger": {"color": "#edbc34", "width": 2},
         }
-        self.valuePlaPlot = self.graph.plaPl.plot(pen=self.pens["Ip"])
-        self.triggerPlot = self.graph.plaPl.plot(pen=self.pens["trigger"])
+        self.plasma_cruve_data = self.graph.plasma_plot.plot(pen=self.pens["Ip"])
+        self.trigger_curve_data = self.graph.plasma_plot.plot(pen=self.pens["trigger"])
         # self.valueTPlot = self.graph.tempPl.plot(pen=self.pens["T"])
-        self.valueB1Plot = self.graph.presPl.plot(pen=self.pens["Bu"])
-        self.valueB2Plot = self.graph.presPl.plot(pen=self.pens["Bd"])
-        self.valueP1Plot = self.graph.presPl.plot(pen=self.pens["Pu"])
-        self.valueP2Plot = self.graph.presPl.plot(pen=self.pens["Pd"])
+        self.baratron_up_curve_data = self.graph.pressure_plot.plot(pen=self.pens["Bu"])
+        self.baratron_up_curve_data = self.graph.pressure_plot.plot(pen=self.pens["Bd"])
+        self.pressure_up_curve_data = self.graph.pressure_plot.plot(pen=self.pens["Pu"])
+        self.pressure_down_plot_data = self.graph.pressure_plot.plot(pen=self.pens["Pd"])
 
         # self.graph.tempPl.setXLink(self.graph.presPl)
-        self.graph.plaPl.setXLink(self.graph.presPl)
+        self.graph.plasma_plot.setXLink(self.graph.pressure_plot)
 
-        self.graph.presPl.setLogMode(y=True)
-        self.graph.presPl.setYRange(-8, 3, 0)
+        self.graph.pressure_plot.setLogMode(y=True)
+        self.graph.pressure_plot.setYRange(-8, 3, 0)
         # self.graph.tempPl.setYRange(0, 320, 0)
 
         self.tWorker = None
@@ -130,7 +131,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         val = self.ADCGainDock.gains[txt]
         self.baratrongain = val
         # print(f"ADC gain = {val}")
-
+    # MARK: connections
     def connections(self):
         self.controlDock.scaleBtn.currentIndexChanged.connect(
             self.update_plot_timewindow
@@ -222,21 +223,21 @@ class MainWidget(QtCore.QObject, UIWindow):
     def __toggleYLogScale(self):
         """Toggle Y Scale between Log and Lin for Pressure plots"""
         if self.scaleDock.togYLog.isChecked():
-            self.graph.presPl.setLogMode(y=True)
+            self.graph.pressure_plot.setLogMode(y=True)
         else:
-            self.graph.presPl.setLogMode(y=False)
+            self.graph.pressure_plot.setLogMode(y=False)
 
     def __updatePScale(self):
         """Updated plot limits for the Pressure viewgraph"""
         pmin, pmax = [self.scaleDock.Pmin.value(), self.scaleDock.Pmax.value()]
 
         # self.graph.presPl.setLogMode(y=True)
-        self.graph.presPl.setYRange(pmin, pmax, 0)
+        self.graph.pressure_plot.setYRange(pmin, pmax, 0)
 
     def __updateIScale(self):
         """Updated plot limits for the plasma current viewgraph"""
         imin, imax = [self.scaleDock.Imin.value(), self.scaleDock.Imax.value()]
-        self.graph.plaPl.setYRange(imin, imax, 0)
+        self.graph.plasma_plot.setYRange(imin, imax, 0)
 
     # def __updateTScale(self):
     #     """Updated plot limits for the Temperature viewgraph"""
@@ -252,7 +253,7 @@ class MainWidget(QtCore.QObject, UIWindow):
     def __autoscale(self):
         """Set all plots to autoscale"""
         # enableAutoRange
-        plots = [self.graph.plaPl, self.graph.tempPl, self.graph.presPl]
+        plots = [self.graph.plasma_plot, self.graph.tempPl, self.graph.pressure_plot]
 
         # [i.autoRange() for i in plots]
         [i.enableAutoRange() for i in plots]
@@ -293,29 +294,29 @@ class MainWidget(QtCore.QObject, UIWindow):
                     pass
 
         items = {
-            "Ip": [self.scaleDock.togIp, self.graph.plaPl, 0, 0],
+            "Ip": [self.scaleDock.togIp, self.graph.plasma_plot, 0, 0],
             # "T": [self.scaleDock.togT, self.graph.tempPl, 1, 0],
-            "P": [self.scaleDock.togP, self.graph.presPl, 1, 0],            
+            "P": [self.scaleDock.togP, self.graph.pressure_plot, 1, 0],            
         }
 
         [toggleplot(*items[jj]) for jj in ["Ip", "P"]]
 
     def toggle_plots_baratron(self):
         if self.scaleDock.togBaratron.isChecked():
-            self.valueB1Plot.setVisible(True)
-            self.valueB2Plot.setVisible(True)
+            self.baratron_up_curve_data.setVisible(True)
+            self.baratron_up_curve_data.setVisible(True)
         else:
-            self.valueB1Plot.setVisible(False) 
-            self.valueB2Plot.setVisible(False) 
+            self.baratron_up_curve_data.setVisible(False) 
+            self.baratron_up_curve_data.setVisible(False) 
             
     def toggle_plots_igs(self):
         """ Toggle IG and Pfeiffer lines """
         if self.scaleDock.togIGs.isChecked():
-            self.valueP1Plot.setVisible(True)
-            self.valueP2Plot.setVisible(True)
+            self.pressure_up_curve_data.setVisible(True)
+            self.pressure_down_plot_data.setVisible(True)
         else:
-            self.valueP1Plot.setVisible(False)
-            self.valueP2Plot.setVisible(False)
+            self.pressure_up_curve_data.setVisible(False)
+            self.pressure_down_plot_data.setVisible(False)
 
     def sync_signal_switch(self):
         """
@@ -622,31 +623,56 @@ class MainWidget(QtCore.QObject, UIWindow):
 
     def calculate_skip_points(self, l, noskip=5000):
         return 1 if l < noskip else l // noskip + 1
+    
+
+    # MARK: Update Plots
 
     def update_plots(self, sensor_name):
-        """"""
-        # if sensor_name == "MAX6675":
-        #     df = self.select_data_to_plot(sensor_name)
-        #     time = df["time"].values.astype(float)
-        #     # temperature = df["T"].values.astype(float)
-        # skip = self.calculate_skip_points(time.shape[0])
-        # self.valueTPlot.setData(time[::skip], temperature[::skip])
-
+        """
+        Update plots
+        """
+        if sensor_name == "MAX6675":
+            self.update_plots_max6675()
         if sensor_name == "ADC":
-            df = self.select_data_to_plot(sensor_name)
-            time = df["time"].values.astype(float)
-            ip = df["Ip_c"].values.astype(float)
-            p1 = df["Pu_c"].values.astype(float)
-            p2 = df["Pd_c"].values.astype(float)
-            b1 = df["Bu_c"].values.astype(float)
-            b2 = df["Bd_c"].values.astype(float)
-            skip = self.calculate_skip_points(time.shape[0])        
-            self.valueB1Plot.setData(time[::skip], b1[::skip])
-            self.valueB2Plot.setData(time[::skip], b2[::skip])
-            self.valuePlaPlot.setData(time[::skip], ip[::skip])
-            self.valueP1Plot.setData(time[::skip], p1[::skip])
-            self.valueP2Plot.setData(time[::skip], p2[::skip])
+            self.update_plots_adc()
 
+
+    def update_plots_max6675(self):
+        """
+        MAX6675 data: update plots
+        """
+        df = self.select_data_to_plot("MAX6675")
+        time = df["time"].values.astype(float)
+        temperature = df["T"].values.astype(float)
+        skip = self.calculate_skip_points(time.shape[0])
+        self.valueTPlot.setData(time[::skip], temperature[::skip])
+
+    def update_plots_adc(self):
+        """
+        Update plots for ADC dataframe
+        """
+        df = self.select_data_to_plot("ADC")
+        #time = df["time"].values.astype(float)
+        utc_offset = 9
+        time = (
+            df["date"]
+            .apply(lambda x: (x - timedelta(hours=utc_offset)).timestamp())
+            .values
+        )
+
+        ip = df["Ip_c"].values.astype(float)
+        p1 = df["Pu_c"].values.astype(float)
+        p2 = df["Pd_c"].values.astype(float)
+        b1 = df["Bu_c"].values.astype(float)
+        b2 = df["Bd_c"].values.astype(float)
+        skip = self.calculate_skip_points(time.shape[0])        
+        self.baratron_up_curve_data.setData(time[::skip], b1[::skip])
+        self.baratron_up_curve_data.setData(time[::skip], b2[::skip])
+        self.plasma_cruve_data.setData(time[::skip], ip[::skip])
+        self.pressure_up_curve_data.setData(time[::skip], p1[::skip])
+        self.pressure_down_plot_data.setData(time[::skip], p2[::skip])
+
+    # MARK: append data
     def append_data(self, sensor_name):
         """
         Append new data to dataframe
