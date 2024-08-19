@@ -10,31 +10,51 @@ class Graph(pg.GraphicsLayoutWidget):
         self.setObjectName("graph")
         self.setBackground(background='#25272b')
 
-        labelStyle = {'color': '#FFF', 'font-size': '14pt'}
-        font = QtGui.QFont('serif',14)
+        self.labelStyle = {'color': '#FFF', 'font-size': '14pt'}
+        self.font = QtGui.QFont('serif',14)
 
-        self.plasma_plot = self.addPlot(row=0, col=0)    
-        self.plasma_plot.setLabel('left', "Ip", units='A',**labelStyle)
-        self.plasma_plot.getAxis('left').setWidth(70)
-        self.plasma_plot.getAxis('left').tickFont = font
+        self.prep_adc_plots()
 
-        # self.tempPl = self.addPlot(row=1, col=0)
-        # self.tempPl.setLabel('left', "T", units=DEGREE_SMB+'C',**labelStyle)
-        # # Adjust the label offset
-        # self.tempPl.getAxis('left').setWidth(100)
-        # self.tempPl.getAxis('left').setPen('#fcfcc7')
-        # self.tempPl.getAxis('left').tickFont = font
+
+    def prep_adc_plots(self):
+        """Prep ADC plots"""
+        self.plasma_plot = self.addPlot(row=0, col=0)
+        self.plasma_plot.setLabel('left', "Ip", units='A',**self.labelStyle)
+        left_axis = self.plasma_plot.getAxis('left') 
+        left_axis.setWidth(70)
+        left_axis.tickFont = self.font
+        left_axis.setTextPen("#ff7878")
+        axis = pg.DateAxisItem()
+        self.plasma_plot.setAxisItems({"bottom": axis})
 
         self.pressure_plot = self.addPlot(row=1, col=0)
-        self.pressure_plot.setLabel('left', "P", units='Torr',**labelStyle)
-        self.pressure_plot.getAxis('left').setWidth(70)
-        self.pressure_plot.setLabel('bottom', "time", units='sec',**labelStyle)
+        self.pressure_plot.setLabel('left', "P", units='Torr',**self.labelStyle)
+        self.pressure_plot.setLabel('bottom', "time", units='sec',**self.labelStyle)
+
+        left_axis = self.pressure_plot.getAxis('left')
+        left_axis.setWidth(70)
+        left_axis.setTextPen("#ff7878")
+    
 
         axis = pg.DateAxisItem()
         self.pressure_plot.setAxisItems({"bottom": axis})
 
-        self.pressure_plot.getAxis('bottom').tickFont = font
-        self.pressure_plot.getAxis('bottom').setStyle(tickTextOffset = 10)
+        bottom_axis = self.pressure_plot.getAxis('bottom')
+        bottom_axis.tickFont = self.font
+        bottom_axis.setStyle(tickTextOffset = 10)
+        bottom_axis.setTextPen("#ff7878")
+
+    def prep_max6675_plots(self):
+        """
+        Prep MAX6675 plots
+        Currently moved thermocouples to National Instruments on Windows.
+        """
+        self.temperature_plot = self.addPlot(row=1, col=0)
+        self.temperature_plot.setLabel('left', "T", units=DEGREE_SMB+'C',**self.labelStyle)
+        # Adjust the label offset
+        self.temperature_plot.getAxis('left').setWidth(100)
+        self.temperature_plot.getAxis('left').setPen('#fcfcc7')
+        self.temperature_plot.getAxis('left').tickFont = self.font
 
 if __name__ == '__main__':
     pass

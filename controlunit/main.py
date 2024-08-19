@@ -88,7 +88,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.trigger_curve_data = self.graph.plasma_plot.plot(pen=self.pens["trigger"])
         # self.valueTPlot = self.graph.tempPl.plot(pen=self.pens["T"])
         self.baratron_up_curve_data = self.graph.pressure_plot.plot(pen=self.pens["Bu"])
-        self.baratron_up_curve_data = self.graph.pressure_plot.plot(pen=self.pens["Bd"])
+        self.baratron_down_curve_data = self.graph.pressure_plot.plot(pen=self.pens["Bd"])
         self.pressure_up_curve_data = self.graph.pressure_plot.plot(pen=self.pens["Pu"])
         self.pressure_down_plot_data = self.graph.pressure_plot.plot(pen=self.pens["Pd"])
 
@@ -104,6 +104,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.dacWorker = None
         self.calibrating = False
 
+        self.controlDock.scaleBtn.setCurrentIndex(2)
         self.update_plot_timewindow()
         self.set_scales_switches()
 
@@ -253,7 +254,8 @@ class MainWidget(QtCore.QObject, UIWindow):
     def __autoscale(self):
         """Set all plots to autoscale"""
         # enableAutoRange
-        plots = [self.graph.plasma_plot, self.graph.tempPl, self.graph.pressure_plot]
+        #plots = [self.graph.plasma_plot, self.graph.temperature_plot, self.graph.pressure_plot]
+        plots = [self.graph.plasma_plot, self.graph.pressure_plot]
 
         # [i.autoRange() for i in plots]
         [i.enableAutoRange() for i in plots]
@@ -304,10 +306,10 @@ class MainWidget(QtCore.QObject, UIWindow):
     def toggle_plots_baratron(self):
         if self.scaleDock.togBaratron.isChecked():
             self.baratron_up_curve_data.setVisible(True)
-            self.baratron_up_curve_data.setVisible(True)
+            self.baratron_down_curve_data.setVisible(True)
         else:
             self.baratron_up_curve_data.setVisible(False) 
-            self.baratron_up_curve_data.setVisible(False) 
+            self.baratron_down_curve_data.setVisible(False) 
             
     def toggle_plots_igs(self):
         """ Toggle IG and Pfeiffer lines """
@@ -667,7 +669,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         b2 = df["Bd_c"].values.astype(float)
         skip = self.calculate_skip_points(time.shape[0])        
         self.baratron_up_curve_data.setData(time[::skip], b1[::skip])
-        self.baratron_up_curve_data.setData(time[::skip], b2[::skip])
+        self.baratron_down_curve_data.setData(time[::skip], b2[::skip])
         self.plasma_cruve_data.setData(time[::skip], ip[::skip])
         self.pressure_up_curve_data.setData(time[::skip], p1[::skip])
         self.pressure_down_plot_data.setData(time[::skip], p2[::skip])

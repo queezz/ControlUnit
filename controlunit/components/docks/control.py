@@ -38,8 +38,8 @@ class ControlDock(Dock):
 
         self.scaleBtn = QtWidgets.QComboBox()
         self.scaleBtn.setFont(QtGui.QFont("serif", 18))
-        items = ["20 s", "60 sec", "5 min", "15 min", "30 min", "1 hr", "Full"]
-        sizes = [20, 60, 5 * 60, 15 * 60, 30 * 60, 60 * 60, -1]
+        items = ["20 s", "60 sec", "5 min", "15 min", "30 min", "1 hr","1.5 hr", "2 hr", "Full"]
+        sizes = [20, 60, 5 * 60, 15 * 60, 30 * 60, 60 * 60, 90*60, 120*60, -1]
         [self.scaleBtn.addItem(i) for i in items]
         self.sampling_windows = {i: j for i, j in zip(items, sizes)}
 
