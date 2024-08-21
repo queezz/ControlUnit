@@ -157,6 +157,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.SettingsDock.setSamplingBtn.clicked.connect(self.__set_sampling)
         self.scaleDock.togYLog.clicked.connect(self.__toggleYLogScale)
 
+    # MARK: GUI setup
     def set_scales_switches(self):
         """Set default checks for swithces in Scales"""
         self.scaleDock.togP.setChecked(True)
@@ -300,6 +301,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.graph.pressure_up_curve.setVisible(False)
             self.graph.pressure_down_curve.setVisible(False)
 
+    # MARK: Trigger
     def sync_signal_switch(self):
         """
         Experiment indicator, analog output is sent to QMS to sync
@@ -331,13 +333,13 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.qmsSigThread.quit()
         self.qmsSigThread.wait()
 
-
+    # MARK: Prep Threads
     def prep_max_thread(self, sensor_name,start_time):
         """
         MAX6675 thermocouple sensor for Membrane temperature with PID
         TODO: wrap other sensor thread creation in methods for clarity
         """
-        from worker_max6675 import MAX6675
+        from sensors.worker_max6675 import MAX6675
         thisthread = QtCore.QThread()
         thisthread.setObjectName(f"{sensor_name}")
         self.tWorker = MAX6675(sensor_name, self.__app, start_time, self.config)
@@ -354,6 +356,26 @@ class MainWidget(QtCore.QObject, UIWindow):
         mode = self.controlDock.IGmode.currentIndex()
         scale = self.controlDock.IGrange.value()
         self.adcWorker.init_adc_worker(mode, scale)
+        return thisthread
+    
+    def prep_dac_thread(self,sensor_name, start_time):
+        """
+        Prep DAC MCP4725 thread
+        """
+        thisthread = QtCore.QThread()
+        thisthread.setObjectName(f"{sensor_name}")
+        self.mcpWorker = MCP4725(sensor_name, self.__app, start_time, self.config)
+        self.mcpWorker.mcp_init()
+        return thisthread
+    
+    def prep_dac_mf_thread(self,sensor_name, start_time):
+        """
+        Prep thread for DAC8532 (output signal for Mass Flow Controllers)
+        """
+        thisthread = QtCore.QThread()
+        thisthread.setObjectName(f"{sensor_name}")
+        self.dacWorker = DAC8532(sensor_name, self.__app, start_time, self.config)
+        self.dacWorker.dac_init()
         return thisthread
 
     def prep_threads(self):
@@ -386,24 +408,14 @@ class MainWidget(QtCore.QObject, UIWindow):
         now = datetime.datetime.now()
         threads = {}
 
-        # DAC8532 for mfc control
         sensor_name = "DAC8532"
-        threads[sensor_name] = QtCore.QThread()
-        threads[sensor_name].setObjectName(f"{sensor_name}")
-        self.dacWorker = DAC8532(sensor_name, self.__app, now, self.config)
-        self.dacWorker.dac_init()
-
-        # DAC
+        threads[sensor_name] = self.prep_dac_mf_thread(sensor_name,now)
         sensor_name = "MCP4725"
-        threads[sensor_name] = QtCore.QThread()
-        threads[sensor_name].setObjectName(f"{sensor_name}")
-        self.mcpWorker = MCP4725(sensor_name, self.__app, now, self.config)
-        self.mcpWorker.mcp_init()
-
-        # sensor_name = "MAX6675"
-        # threads[sensor_name] = self.prep_max_thread(sensor_name,now)
+        threads[sensor_name] = self.prep_dac_thread(sensor_name,now)
         sensor_name = "ADC"
         threads[sensor_name] = self.prep_adc_thread(sensor_name,now)
+        # sensor_name = "MAX6675"
+        # threads[sensor_name] = self.prep_max_thread(sensor_name,now)
 
         # workers = {worker.sensor_name: worker for worker in [self.tWorker, self.adcWorker]}
         workers = {
@@ -413,33 +425,6 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.sensor_names = list(workers)
 
         [self.start_thread(workers[s], threads[s]) for s in self.sensor_names]
-
-    def generate_time_stamp(self):
-        return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    def log_to_file(self, message):
-        filepath = self.config["Log File Path"]
-        time_stamp = self.generate_time_stamp()
-        new_line = f"{time_stamp}, {message}\n"
-        with open(filepath, "a") as f:
-            f.write(new_line)
-
-    def log_message(self, message, htmltag="p"):
-        """
-        Append a message to the log browser with a timestamp.
-        """
-        time_stamp = self.generate_time_stamp()
-        self.log_to_file(strip_tags(message))
-        new_line = f"<{htmltag}>{time_stamp}: {message}</{htmltag}>"
-        if not self.logDock.log.toPlainText():
-            self.logDock.log.setHtml(new_line)
-        else:
-            current_text = self.logDock.log.toHtml()
-            current_text += new_line
-            self.logDock.log.setHtml(current_text)
-
-        self.logDock.log.moveCursor(self.logDock.log.textCursor().End)
-        # self.logDock.log.append(f"<{htmltag}>{nowstamp}: {message}</{htmltag}>")
 
     def start_thread(self, worker: Worker, thread: QtCore.QThread):
         """
@@ -465,6 +450,34 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         thread.started.connect(worker.start)
         thread.start()
+        
+    # MARK: logging
+    def generate_time_stamp(self):
+        return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    def log_to_file(self, message):
+        filepath = self.config["Log File Path"]
+        time_stamp = self.generate_time_stamp()
+        new_line = f"{time_stamp}, {message}\n"
+        with open(filepath, "a") as f:
+            f.write(new_line)
+
+    def log_message(self, message, htmltag="p"):
+        """
+        Append a message to the log browser with a timestamp.
+        """
+        time_stamp = self.generate_time_stamp()
+        self.log_to_file(strip_tags(message))
+        new_line = f"<{htmltag}>{time_stamp}: {message}</{htmltag}>"
+        if not self.logDock.log.toPlainText():
+            self.logDock.log.setHtml(new_line)
+        else:
+            current_text = self.logDock.log.toHtml()
+            current_text += new_line
+            self.logDock.log.setHtml(current_text)
+
+        self.logDock.log.moveCursor(self.logDock.log.textCursor().End)
+        # self.logDock.log.append(f"<{htmltag}>{nowstamp}: {message}</{htmltag}>")        
 
     def create_file(self, sensor_name):
         """
@@ -614,9 +627,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         self.update_current_values()
 
-
     # MARK: Update Plots
-
     def update_plots(self, sensor_name):
         """
         Update plots
@@ -625,7 +636,6 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.update_plots_max6675()
         if sensor_name == "ADC":
             self.update_plots_adc()
-
 
     def update_plots_max6675(self):
         """
