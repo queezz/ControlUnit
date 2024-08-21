@@ -4,14 +4,16 @@ import pandas as pd
 from PyQt5 import QtCore, QtWidgets
 
 from mainView import UIWindow
-from worker import DAC8532, MCP4725, ADC, Worker, Calibrator
+from sensors.worker import Worker
+from sensors.worker_adc import ADC
+from sensors.worker_dac8532 import DAC8532
+from sensors.worker_mcp4725 import MCP4725 
+from calibrator import Calibrator
 
 # from readsettings import make_datafolders, read_settings
 import readsettings
 from striphtmltags import strip_tags
 import qmsSignal
-
-import time
 
 # from channels import TCCOLUMNS, ADCCOLUMNS, ADCCONVERTED, ADCSIGNALS, CHNLSADC
 # from channels import CHHEATER, CHLED
@@ -69,35 +71,13 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.sampling = self.config["Sampling Time"]
 
         # MARK: define Plots
-        # Plot line colors
         # self.currentvalues = {"Ip": 0, "P1": 0, "P2": 0, "T": 0}
         # self.currentvalues = {i: 0 for i in self.config["ADC Signal Names"] + ["T"]}
         self.currentvalues = {i: 0 for i in self.config["ADC Signal Names"]}
         self.baratronsignal1 = 0
         self.baratronsignal2 = 0
-        self.pens = {
-            "Ip": {"color": "#8d3de3", "width": 2},
-            "Pu": {"color": "#c9004d", "width": 2},
-            "Pd": {"color": "#6ac600", "width": 2},
-            "Bu": {"color": "#ffb405", "width": 2},
-            "Bd": {"color": "#00a3af", "width": 2},
-            # "T": {"color": "#5999ff", "width": 2},
-            "trigger": {"color": "#edbc34", "width": 2},
-        }
-        self.plasma_cruve_data = self.graph.plasma_plot.plot(pen=self.pens["Ip"])
-        self.trigger_curve_data = self.graph.plasma_plot.plot(pen=self.pens["trigger"])
-        # self.valueTPlot = self.graph.tempPl.plot(pen=self.pens["T"])
-        self.baratron_up_curve_data = self.graph.pressure_plot.plot(pen=self.pens["Bu"])
-        self.baratron_down_curve_data = self.graph.pressure_plot.plot(pen=self.pens["Bd"])
-        self.pressure_up_curve_data = self.graph.pressure_plot.plot(pen=self.pens["Pu"])
-        self.pressure_down_plot_data = self.graph.pressure_plot.plot(pen=self.pens["Pd"])
-
-        # self.graph.tempPl.setXLink(self.graph.presPl)
-        self.graph.plasma_plot.setXLink(self.graph.pressure_plot)
-
-        self.graph.pressure_plot.setLogMode(y=True)
-        self.graph.pressure_plot.setYRange(-8, 3, 0)
-        # self.graph.tempPl.setYRange(0, 320, 0)
+        
+        ## GRAPHS definitions moved to graph.py
 
         self.tWorker = None
         self.adcWorker = None
@@ -305,20 +285,20 @@ class MainWidget(QtCore.QObject, UIWindow):
 
     def toggle_plots_baratron(self):
         if self.scaleDock.togBaratron.isChecked():
-            self.baratron_up_curve_data.setVisible(True)
-            self.baratron_down_curve_data.setVisible(True)
+            self.graph.baratron_up_curve.setVisible(True)
+            self.graph.baratron_down_curve.setVisible(True)
         else:
-            self.baratron_up_curve_data.setVisible(False) 
-            self.baratron_down_curve_data.setVisible(False) 
+            self.graph.baratron_up_curve.setVisible(False) 
+            self.graph.baratron_down_curve.setVisible(False) 
             
     def toggle_plots_igs(self):
         """ Toggle IG and Pfeiffer lines """
         if self.scaleDock.togIGs.isChecked():
-            self.pressure_up_curve_data.setVisible(True)
-            self.pressure_down_plot_data.setVisible(True)
+            self.graph.pressure_up_curve.setVisible(True)
+            self.graph.pressure_down_curve.setVisible(True)
         else:
-            self.pressure_up_curve_data.setVisible(False)
-            self.pressure_down_plot_data.setVisible(False)
+            self.graph.pressure_up_curve.setVisible(False)
+            self.graph.pressure_down_curve.setVisible(False)
 
     def sync_signal_switch(self):
         """
@@ -350,6 +330,31 @@ class MainWidget(QtCore.QObject, UIWindow):
     def qmsSignalTerminate(self):
         self.qmsSigThread.quit()
         self.qmsSigThread.wait()
+
+
+    def prep_max_thread(self, sensor_name,start_time):
+        """
+        MAX6675 thermocouple sensor for Membrane temperature with PID
+        TODO: wrap other sensor thread creation in methods for clarity
+        """
+        from worker_max6675 import MAX6675
+        thisthread = QtCore.QThread()
+        thisthread.setObjectName(f"{sensor_name}")
+        self.tWorker = MAX6675(sensor_name, self.__app, start_time, self.config)
+        self.tWorker.setTempWorker(self.__temp)
+        return thisthread
+    
+    def prep_adc_thread(self,sensor_name,start_time):
+        """
+        Prep multichannel ADC thread
+        """
+        thisthread = QtCore.QThread()
+        thisthread.setObjectName(f"{sensor_name}")
+        self.adcWorker = ADC(sensor_name, self.__app, start_time, self.config)
+        mode = self.controlDock.IGmode.currentIndex()
+        scale = self.controlDock.IGrange.value()
+        self.adcWorker.init_adc_worker(mode, scale)
+        return thisthread
 
     def prep_threads(self):
         """
@@ -395,22 +400,10 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.mcpWorker = MCP4725(sensor_name, self.__app, now, self.config)
         self.mcpWorker.mcp_init()
 
-        # MAX6675 thermocouple sensor for Membrane temperature with PID
         # sensor_name = "MAX6675"
-        # threads[sensor_name] = QtCore.QThread()
-        # threads[sensor_name].setObjectName(f"{sensor_name}")
-        # self.tWorker = MAX6675(sensor_name, self.__app, now, self.config)
-        # self.tWorker.setTempWorker(self.__temp)
-
-        # Multichannel ADC
+        # threads[sensor_name] = self.prep_max_thread(sensor_name,now)
         sensor_name = "ADC"
-        threads[sensor_name] = QtCore.QThread()
-        threads[sensor_name].setObjectName(f"{sensor_name}")
-        self.adcWorker = ADC(sensor_name, self.__app, now, self.config)
-
-        mode = self.controlDock.IGmode.currentIndex()
-        scale = self.controlDock.IGrange.value()
-        self.adcWorker.init_adc_worker(mode, scale)
+        threads[sensor_name] = self.prep_adc_thread(sensor_name,now)
 
         # workers = {worker.sensor_name: worker for worker in [self.tWorker, self.adcWorker]}
         workers = {
@@ -530,13 +523,11 @@ class MainWidget(QtCore.QObject, UIWindow):
         worker.send_message.connect(self.log_message)
         self.sigAbortWorkers.connect(worker.abort)
 
+    # MARK: update values
     def update_current_values(self):
         """
         update current values when new signal comes
         """
-
-        # TODO: updated dislpayed valuves from dataframes
-
         # self.tempcontrolDock.update_displayed_temperatures(self.__temp, f"{self.currentvalues['T']:.0f}")
         self.mfccontrolDock.update_display(
             self.__mfc1, f"{self.currentvalues['MFC1']*1000:.0f}", 1
@@ -550,29 +541,29 @@ class MainWidget(QtCore.QObject, UIWindow):
               <table>
                  <tr>
                   <td>
-                   <font size={font_size} color={self.pens['Pu']['color']}>
+                   <font size={font_size} color={self.graph.pens['Pu']['color']}>
                     Pu = {self.currentvalues['Pu']:.2e}                    
                   </font>
                   </td>
                   <td>
-                  <font size={font_size} color={self.pens['Pd']['color']}>
+                  <font size={font_size} color={self.graph.pens['Pd']['color']}>
                     Pd = {self.currentvalues['Pd']:.2e}
                    </font>
                   </td>
                   <td>
-                   <font size={font_size} color={self.pens['Ip']['color']}>
+                   <font size={font_size} color={self.graph.pens['Ip']['color']}>
                     I = {self.currentvalues['Ip']:.2f}
                    </font>
                   </td>
                  </tr>
                  <tr>
                   <td>
-                   <font size={font_size} color={self.pens['Bu']['color']}>
+                   <font size={font_size} color={self.graph.pens['Bu']['color']}>
                     Bu = {self.currentvalues['Bu']:.2e}
                    </font>
                   </td>
                   <td>
-                   <font size={font_size} color={self.pens['Bd']['color']}>
+                   <font size={font_size} color={self.graph.pens['Bd']['color']}>
                     Bd = {self.currentvalues['Bd']:.2e}
                    </font>
                   </td>   
@@ -582,7 +573,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         # Update current values
         self.controlDock.valueBw.setText(txt)
 
-    # Mark: connecting slots with threads
+    # MARK: Worker Step
     @QtCore.pyqtSlot(list)
     def on_worker_step(self, result):
         """
@@ -623,9 +614,6 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         self.update_current_values()
 
-    def calculate_skip_points(self, l, noskip=5000):
-        return 1 if l < noskip else l // noskip + 1
-    
 
     # MARK: Update Plots
 
@@ -647,7 +635,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         time = df["time"].values.astype(float)
         temperature = df["T"].values.astype(float)
         skip = self.calculate_skip_points(time.shape[0])
-        self.valueTPlot.setData(time[::skip], temperature[::skip])
+        self.graph.valueTPlot.setData(time[::skip], temperature[::skip])
 
     def update_plots_adc(self):
         """
@@ -668,11 +656,11 @@ class MainWidget(QtCore.QObject, UIWindow):
         b1 = df["Bu_c"].values.astype(float)
         b2 = df["Bd_c"].values.astype(float)
         skip = self.calculate_skip_points(time.shape[0])        
-        self.baratron_up_curve_data.setData(time[::skip], b1[::skip])
-        self.baratron_down_curve_data.setData(time[::skip], b2[::skip])
-        self.plasma_cruve_data.setData(time[::skip], ip[::skip])
-        self.pressure_up_curve_data.setData(time[::skip], p1[::skip])
-        self.pressure_down_plot_data.setData(time[::skip], p2[::skip])
+        self.graph.baratron_up_curve.setData(time[::skip], b1[::skip])
+        self.graph.baratron_down_curve.setData(time[::skip], b2[::skip])
+        self.graph.plasma_cruve.setData(time[::skip], ip[::skip])
+        self.graph.pressure_up_curve.setData(time[::skip], p1[::skip])
+        self.graph.pressure_down_curve.setData(time[::skip], p2[::skip])
 
     # MARK: append data
     def append_data(self, sensor_name):
@@ -692,8 +680,17 @@ class MainWidget(QtCore.QObject, UIWindow):
             last_ts = df["date"].iloc[-1]
             timewindow = last_ts - pd.Timedelta(self.time_window, "seconds")
             df = df[df["date"] > timewindow]
+        return self.downsample_data(df)
+    
+    def downsample_data(self, df, noskip=3000):
+        """downsample data"""
+        if df.shape[0] > noskip:
+            return df.iloc[::df.shape[0] // noskip + 1]
         return df
 
+    def calculate_skip_points(self, l, noskip=5000):
+        return 1 if l < noskip else l // noskip + 1
+    
     def save_data(self, sensor_name):
         """
         Save sensor data
@@ -702,6 +699,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         data = self.newdata[sensor_name]
         data.to_csv(savepath, mode="a", header=False, index=False)
 
+    # MARK: worker done
     @QtCore.pyqtSlot(str)
     def on_worker_done(self, sensor_name):
         self.log_message(
@@ -783,6 +781,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         value = self.mfccontrolDock.sampling_windows[txt]
         self.calibration_waiting_time = value
 
+    # MARK: QMS Calibration
     def calibration(self):
         """
         Start and stop calibration
