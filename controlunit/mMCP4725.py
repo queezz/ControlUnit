@@ -1,5 +1,8 @@
 import time
-import pigpio
+try:
+    import pigpio
+except ImportError:
+    from sensors.dummy import pigpio
  
 class MCP4725(object):
     DEFAULT_ADDRESS  = 0x60
@@ -41,4 +44,4 @@ if __name__ == "__main__":
         i += 1
          
     dac.cancel()
-    pi.stop()      
+    pi.stop()

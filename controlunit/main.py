@@ -18,20 +18,31 @@ import qmsSignal
 # from channels import TCCOLUMNS, ADCCOLUMNS, ADCCONVERTED, ADCSIGNALS, CHNLSADC
 # from channels import CHHEATER, CHLED
 
+RED = "\033[1;31m"
+GREEN = "\033[1;32m"
+BLUE = "\033[1;34m"
+RESET = "\033[0m"
+GOOD = "\U00002705"
+BAD = "\U0000274C"
+
 
 try:
-    from AIO import AIO_32_0RA_IRC as adc
     import pigpio
-except:
-    print("no pigpio or AIO")
+except ImportError as e:
+    print(RED + "main.py Error: " + RESET + f"{e}")
     TEST = True
+    from sensors.dummy import pigpio
 
-    class pigpio:
-        def __init__(self) -> None:
-            pass
-
-        def pi(self):
-            return 0
+    print(
+        BLUE
+        + "main.py WARNING:"
+        + RESET
+        + " importing"
+        + BLUE
+        + " DUMMY"
+        + RESET
+        + " sensros.dummy.pigpio"
+    )
 
 
 # must inherit QtCore.QObject in order to use 'connect'
@@ -311,11 +322,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         if not self.controlDock.OnOffSW.isChecked():
             return
 
-        try:
-            pi = pigpio.pi()
-        except:
-            print("pigpio is not defined")
-            return
+        pi = pigpio.pi()
+
 
         if self.controlDock.qmsSigSw.isChecked():
             self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 1)

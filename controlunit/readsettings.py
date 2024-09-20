@@ -3,6 +3,7 @@ import os
 from os.path import join, expanduser
 import adcchannels
 
+GOOD = "\U00002705"
 
 def load_settings(path_to_file):
     """
@@ -31,14 +32,17 @@ def select_settings(path_to_file="settings.yml", verbose=False):
         if local_config["Settings Version"] == config["Settings Version"]:
             config = local_config
             if verbose:
-                print(f"configuration file loaded:\n{local_settings}")
+                print(GOOD + f" Configuration file loaded:\n{local_settings}")
             return config
     except FileNotFoundError as ex:
         pass
 
-    config = load_settings(path_to_file)
+    script_directory = os.path.dirname(os.path.abspath(__file__))
+    absolute_path_to_file = os.path.join(script_directory, path_to_file)
+    config = load_settings(absolute_path_to_file)
+
     if verbose:
-        print(f"configuration file loaded:\n{os.path.abspath(path_to_file)}")
+        print(GOOD + f" Configuration file loaded:\n{os.path.abspath(path_to_file)}")
 
     return config
 
@@ -68,7 +72,6 @@ def init_configuration(settings="settings.yml", verbose=False):
     a = config["ADC Channels"]
     config["ADC Channel Numbers"] = [a[i]["Channel"] for i in list(a)]
 
-    print("controlunit configuration loaded successfully.")
     return config
 
 
@@ -93,13 +96,12 @@ def init_datafolder(config):
         foldername = home + foldername[1:]
 
     foldername = os.path.abspath(foldername)
-    print(f"I'll try to create datafolder: {foldername}")
 
     try:
         os.makedirs(foldername)
-        print(f"created {foldername}")
+        print(GOOD+f" Created new datafolder: {foldername}")
     except FileExistsError:
-        print("Already exists.")
+        print(GOOD+f" Using existing datafolder: {foldername}")
         pass
 
     return foldername

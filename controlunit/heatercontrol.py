@@ -2,9 +2,8 @@ import time
 
 try:
     import pigpio
-except:
-    print("no pigpio module, continue for a test")
-    import pigpioplug as pigpio
+except ImportError as e:
+    from sensors.dummy import pigpio
 
 
 from pyqtgraph.Qt import QtCore

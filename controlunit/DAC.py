@@ -1,6 +1,15 @@
-import RPi.GPIO as GPIO
 import time
-import spidev
+
+
+try:
+    import RPi.GPIO as GPIO
+except ImportError:
+    from sensors.dummy import GPIO
+
+try: 
+    import spidev
+except ImportError:
+    from sensors.dummy import spidev
 
 
 channel_A   = 0x30

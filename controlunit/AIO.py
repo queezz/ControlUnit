@@ -6,10 +6,7 @@ try:
     import smbus
 except ModuleNotFoundError:
     pass
-    import controlunit.smbusplug as smbus
-
-    # if on Windows, and smbus is not installed
-
+    from sensors.dummy import smbus
 
 class PCA9554:
     class Register:

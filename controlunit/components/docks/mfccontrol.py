@@ -5,7 +5,7 @@ from pyqtgraph.dockarea import Dock
 from readsettings import select_settings
 
 config = select_settings(verbose=False)
-MAXVOLTAGE = config["Max Voltage"]
+MAXVOLTAGE = int(config["Max Voltage"])
 
 class MassFlowControllerControl(Dock):
     def __init__(self):

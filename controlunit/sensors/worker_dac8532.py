@@ -6,7 +6,10 @@ from PyQt5 import QtCore
 
 from .worker import Worker
 from DAC import DAC8532 as dac
-import RPi.GPIO as GPIO
+try:
+    import RPi.GPIO as GPIO
+except ImportError:
+    from sensors.dummy import GPIO
 
 TEST = False
 STEP = 3

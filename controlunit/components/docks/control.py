@@ -12,10 +12,7 @@ from readsettings import select_settings
 # from QLed import QLed
 
 config = select_settings(verbose=False)
-print("GET CONFIG: control.py")
-print(f'config["Max Voltage"] {config["Max Voltage"]}')
 MAXTEMP = config["Max Voltage"]
-
 
 class ControlDock(Dock):
     def __init__(self):

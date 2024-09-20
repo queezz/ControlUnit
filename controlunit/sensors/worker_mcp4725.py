@@ -7,13 +7,19 @@ from PyQt5 import QtCore
 from .worker import Worker
 from mMCP4725 import MCP4725 as mcp
 
-TEST = False
-try: 
-    import pigpio
-except ImportError:
-    TEST = True
-    import pigpioplug as pigpio
 
+RED = "\033[1;31m"
+GREEN = "\033[1;32m"
+BLUE = "\033[1;34m"
+RESET = "\033[0m"
+GOOD = "\U00002705"
+BAD = "\U0000274C"
+
+
+try:
+    import pigpio
+except ImportError as e:
+    from sensors.dummy import pigpio
 
 STEP = 3
 

@@ -9,13 +9,21 @@ from PyQt5 import QtCore
 from .worker import Worker
 from heatercontrol import HeaterContol
 
-TEST = False
 STEP = 3
+
+RED = "\033[1;31m"
+GREEN = "\033[1;32m"
+BLUE = "\033[1;34m"
+RESET = "\033[0m"
+GOOD = "\U00002705"
+BAD = "\U0000274C"
+
 
 try:
     import pigpio
-except:
-    TEST = True
+except ImportError as e:
+    print(RED + "worker_max6675.py Error: " + RESET + f"{e}")
+    from sensors.dummy import pigpio
 
 
 # MARK: MAX6675
@@ -49,9 +57,6 @@ class MAX6675(Worker):
         if self.sampling < 0.25:
             self.sampling = 0.25
 
-        if TEST:
-            print("needs pigpio to access SPI")
-            return
 
         self.pi = pigpio.pi()
         self.__sumE = 0
