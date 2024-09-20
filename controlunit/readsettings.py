@@ -3,6 +3,7 @@ import os
 from os.path import join, expanduser
 import adcchannels
 
+# not working on RasPi, encoding error.
 GOOD = "\U00002705"
 
 def load_settings(path_to_file):
@@ -32,7 +33,7 @@ def select_settings(path_to_file="settings.yml", verbose=False):
         if local_config["Settings Version"] == config["Settings Version"]:
             config = local_config
             if verbose:
-                print(GOOD + f" Configuration file loaded:\n{local_settings}")
+                print( f" Configuration file loaded:\n{local_settings}")
             return config
     except FileNotFoundError as ex:
         pass
@@ -42,7 +43,7 @@ def select_settings(path_to_file="settings.yml", verbose=False):
     config = load_settings(absolute_path_to_file)
 
     if verbose:
-        print(GOOD + f" Configuration file loaded:\n{os.path.abspath(path_to_file)}")
+        print(f" Configuration file loaded:\n{os.path.abspath(path_to_file)}")
 
     return config
 
@@ -99,9 +100,9 @@ def init_datafolder(config):
 
     try:
         os.makedirs(foldername)
-        print(GOOD+f" Created new datafolder: {foldername}")
+        print(f" Created new datafolder: {foldername}")
     except FileExistsError:
-        print(GOOD+f" Using existing datafolder: {foldername}")
+        print(f" Using existing datafolder: {foldername}")
         pass
 
     return foldername
