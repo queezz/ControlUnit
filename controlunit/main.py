@@ -4,10 +4,10 @@ import pandas as pd
 from PyQt5 import QtCore, QtWidgets
 
 from mainView import UIWindow
-from sensors.worker import Worker
-from sensors.worker_adc import ADC
-from sensors.worker_dac8532 import DAC8532
-from sensors.worker_mcp4725 import MCP4725 
+from controlunit.sensors.device import Sensor
+from controlunit.sensors.adc import ADC
+from controlunit.sensors.dac8532 import DAC8532
+from controlunit.sensors.mcp4725 import MCP4725 
 from calibrator import Calibrator
 
 # from readsettings import make_datafolders, read_settings
@@ -347,7 +347,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         MAX6675 thermocouple sensor for Membrane temperature with PID
         TODO: wrap other sensor thread creation in methods for clarity
         """
-        from sensors.worker_max6675 import MAX6675
+        from controlunit.sensors.max6675 import MAX6675
         thisthread = QtCore.QThread()
         thisthread.setObjectName(f"{sensor_name}")
         self.tWorker = MAX6675(sensor_name, self.__app, start_time, self.config)
@@ -434,7 +434,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         [self.start_thread(workers[s], threads[s]) for s in self.sensor_names]
 
-    def start_thread(self, worker: Worker, thread: QtCore.QThread):
+    def start_thread(self, worker: Sensor, thread: QtCore.QThread):
         """
         Setup workers [Dataframe creation]
         - Creates instances of worker
@@ -685,9 +685,12 @@ class MainWidget(QtCore.QObject, UIWindow):
         """
         Append new data to dataframe
         """
+        #self.datadict[sensor_name] = pd.concat([self.datadict[sensor_name], self.newdata[sensor_name]], ignore_index=True)
+        # Fix FutureWarning
         self.datadict[sensor_name] = pd.concat(
-            [self.datadict[sensor_name], self.newdata[sensor_name]], ignore_index=True
+            [self.datadict[sensor_name], self.newdata[sensor_name].astype(self.datadict[sensor_name].dtypes)], ignore_index=True
         )
+        # self.data = pd.concat([self.adc_values, new_data_row.astype(self.adc_values.dtypes)], ignore_index=True)        
 
     def select_data_to_plot(self, sensor_name):
         """

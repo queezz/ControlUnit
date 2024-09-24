@@ -1,5 +1,8 @@
 """
-ADC worker
+ADC communication
+
+I2C アナログ入力ボード AIO-32/0RA-IRC
+https://www.y2c.co.jp/i2c-r/aio-32-0ra-irc/
 """
 import numpy as np
 import pandas as pd
@@ -7,12 +10,10 @@ import time, datetime
 from PyQt5 import QtCore
 
 from AIO import AIO_32_0RA_IRC as adc
-from .worker import Worker
-
-STEP = 3
+from .device import Sensor
 
 # MARK: ADC
-class ADC(Worker):
+class ADC(Sensor):
     def __init__(self, sensor_name, app, startTime, config):
         super().__init__(sensor_name, app, startTime, config)
         self.__app = app
@@ -180,7 +181,10 @@ class ADC(Worker):
             ),
             columns=self.adc_values_columns,
         )
-        self.adc_values = pd.concat([self.adc_values, new_data_row], ignore_index=True)
+        
+        # self.adc_values = pd.concat([self.adc_values, new_data_row], ignore_index=True)
+         # adjusting the dtypes to remove it FutureWarning
+        self.adc_values = pd.concat([self.adc_values.astype(new_data_row.dtypes), new_data_row], ignore_index=True)
 
     def update_processed_signals_dataframe(self):
         """
@@ -198,7 +202,9 @@ class ADC(Worker):
             np.atleast_2d(converted_values), columns=self.config["ADC Converted Names"]
         )
 
-        self.converted_values = pd.concat([self.converted_values, converted_values], ignore_index=True)
+        #self.converted_values = pd.concat([self.converted_values, converted_values], ignore_index=True)
+        # Fixing FutureError
+        self.converted_values = pd.concat([self.converted_values.astype(converted_values.dtypes), converted_values], ignore_index=True)
 
     def calculate_averaged_signals(self):
         """
@@ -238,7 +244,7 @@ class ADC(Worker):
             self.put_new_data_in_dataframe()
             self.update_processed_signals_dataframe()
 
-            if step % (STEP - 1) == 0 and step != 0:
+            if step % (self.STEP - 1) == 0 and step != 0:
                 # self.calculate_averaged_signals()
                 self.send_processed_data_to_main_thread()
                 step = 0

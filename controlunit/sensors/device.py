@@ -5,16 +5,14 @@ from PyQt5 import QtCore
 
 TEST = False
 PRINTTHREADINFO = False
-# Number of data points for collection, steps%STEP == 0
-STEP = 3
 
 # MARK: Worker
-class Worker(QtCore.QObject):
+class Sensor(QtCore.QObject):
     """
     send_message usage:
     self.send_message.emit(f"Your Message Here to pass to main.py")
     """
-
+    STEP = 3
     send_step_data = QtCore.pyqtSignal(list)
     sigDone = QtCore.pyqtSignal(str)
     send_message = QtCore.pyqtSignal(str)

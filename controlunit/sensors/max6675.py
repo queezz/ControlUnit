@@ -1,15 +1,16 @@
 """
-MAX6675 worker
+MAX6675 communication
+
+Thermocouple sensor with a thermistor.
+https://www.analog.com/media/en/technical-documentation/data-sheets/max6675.pdf
 """
 import numpy as np
 import pandas as pd
 import time, datetime
 from PyQt5 import QtCore
 
-from .worker import Worker
+from .device import Sensor
 from heatercontrol import HeaterContol
-
-STEP = 3
 
 RED = "\033[1;31m"
 GREEN = "\033[1;32m"
@@ -27,7 +28,7 @@ except ImportError as e:
 
 
 # MARK: MAX6675
-class MAX6675(Worker):
+class MAX6675(Sensor):
 
     sigAbortHeater = QtCore.pyqtSignal()
 
@@ -148,7 +149,7 @@ class MAX6675(Worker):
             self.read_thermocouple()
             self.update_dataframe()
 
-            if step % (STEP - 1) == 0 and step != 0:
+            if step % (self.STEP - 1) == 0 and step != 0:
                 self.calculate_average()
                 self.temperature_control()
                 self.send_processed_data_to_main_thread()

@@ -1,10 +1,13 @@
 """
-DAC8532 worker
+DAC8532 communication
+
+High-Precision AD/DA Expansion Module Onboard ADS1256 DAC8532 for Raspberry Pi
+https://www.amazon.com/High-Precision-Expansion-Raspberry-Pi-XYGStudy/dp/B017GUVPAK
 """
 import time
 from PyQt5 import QtCore
 
-from .worker import Worker
+from .device import Sensor
 from DAC import DAC8532 as dac
 try:
     import RPi.GPIO as GPIO
@@ -12,10 +15,9 @@ except ImportError:
     from sensors.dummy import GPIO
 
 TEST = False
-STEP = 3
 
 # MARK: DAC8532
-class DAC8532(Worker):
+class DAC8532(Sensor):
 
     sigAbortHeater = QtCore.pyqtSignal()
 

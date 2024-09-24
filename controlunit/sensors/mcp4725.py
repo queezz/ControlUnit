@@ -1,10 +1,14 @@
 """
-MCP4725 worker
+MCP4725 communication
+
+12 bit DAC
+
+https://www.microchip.com/en-us/product/mcp4725
 """
 import time
 from PyQt5 import QtCore
 
-from .worker import Worker
+from .device import Sensor
 from mMCP4725 import MCP4725 as mcp
 
 
@@ -24,7 +28,7 @@ except ImportError as e:
 STEP = 3
 
 # MARK: MCP4725
-class MCP4725(Worker):
+class MCP4725(Sensor):
 
     # sigAbortHeater = QtCore.pyqtSignal()
 
