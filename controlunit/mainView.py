@@ -2,14 +2,15 @@ import pyqtgraph as pg
 from PyQt5 import QtWidgets
 from pyqtgraph.dockarea import DockArea, Dock
 
-from components.docks.log import LogDock
-from components.docks.plots import PlotScaleDock
-from components.docks.control import ControlDock
-from components.docks.adcgain import ADCGain
-from components.docks.settings import SettingsDock
+from ui.docks.log import LogDock
+from ui.docks.plots import PlotScaleDock
+from ui.docks.control import ControlDock
+from ui.docks.adcgain import ADCGain
+from ui.docks.settings import SettingsDock
+
 # from components.docks.tempcontrol import HeaterControl
-from components.docks.mfccontrol import MassFlowControllerControl as MFCControl
-from components.widgets.graph import Graph
+from ui.docks.mfccontrol import MassFlowControllerControl as MFCControl
+from ui.widgets.graph import Graph
 
 
 class UIWindow(object):
@@ -25,7 +26,10 @@ class UIWindow(object):
         self.logDock = LogDock()
         # self.tempcontrolDock = HeaterControl()
         self.mfccontrolDock = MFCControl()
-        [i.setStretch(*(10, 20)) for i in [self.controlDock, self.logDock, self.mfccontrolDock]]
+        [
+            i.setStretch(*(10, 20))
+            for i in [self.controlDock, self.logDock, self.mfccontrolDock]
+        ]
         self.controlDock.setStretch(*(10, 300))
         self.graph = Graph()
         self.scaleDock = PlotScaleDock()
@@ -54,12 +58,11 @@ class UIWindow(object):
     def __setLayout(self):
         self.MainWindow.setCentralWidget(self.tabwidg)
         self.tabwidg.addTab(self.area, "Data")
-        
+
         self.area.addDock(self.controlDock)
         self.area.addDock(self.plotDock)
-        self.area.addDock(self.mfccontrolDock,'right')
-        self.area.addDock(self.scaleDock,'bottom',self.mfccontrolDock)
-    
+        self.area.addDock(self.mfccontrolDock, "right")
+        self.area.addDock(self.scaleDock, "bottom", self.mfccontrolDock)
 
         self.plotDock.addWidget(self.graph)
 
