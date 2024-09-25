@@ -7,6 +7,7 @@ from ui.docks.plots import PlotScaleDock
 from ui.docks.control import ControlDock
 from ui.docks.adcgain import ADCGain
 from ui.docks.settings import SettingsDock
+from ui.docks.currentcontrol import CurrentControlDock
 
 # from components.docks.tempcontrol import HeaterControl
 from ui.docks.mfccontrol import MassFlowControllerControl as MFCControl
@@ -39,6 +40,9 @@ class UIWindow(object):
         self.logDock.setStretch(*(200, 100))
         self.SettingsDock.setStretch(*(80, 100))
 
+        self.test_area = DockArea()
+        self.CurrentControlDock = CurrentControlDock()
+
         self.ADCGainDock = ADCGain()
 
         self.MainWindow.setGeometry(20, 50, 800, 400)
@@ -70,6 +74,9 @@ class UIWindow(object):
         self.settings_area.addDock(self.SettingsDock)
         self.area.addDock(self.ADCGainDock, "bottom", self.SettingsDock)
         self.settings_area.addDock(self.logDock, "right")
+
+        self.tabwidg.addTab(self.test_area, "Tests")
+        self.test_area.addDock(self.CurrentControlDock)
 
     def showMain(self):
         self.MainWindow.show()
