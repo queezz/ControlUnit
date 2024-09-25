@@ -33,6 +33,7 @@ class ADC(DeviceThread):
         # print(message)
         self.__abort = True
 
+    # MARK: init
     def init_adc_worker(self, IGmode: int, IGrange: int):
         """
         Initiate ADC thread parameters
@@ -61,6 +62,7 @@ class ADC(DeviceThread):
         self.__PresetV_cathode = 0
         self.sampling = self.config["Sampling Time"]
 
+    # MARK: IG mode
     def setIGmode(self, IGmode: int):
         """
         Sets Ionization Gauge mode from GUI
@@ -111,6 +113,7 @@ class ADC(DeviceThread):
         self.__PresetV_cathode = voltage / 1000
         return
 
+    # MARK: start
     @QtCore.pyqtSlot()
     def start(self):
         """
@@ -162,6 +165,7 @@ class ADC(DeviceThread):
         """
         self.adc_datarate = [self.aio.DataRate.DR_860SPS]
 
+    # MARK: read voltages
     def read_adc_voltages(self):
         """
         Read ADC voltages for selected channels

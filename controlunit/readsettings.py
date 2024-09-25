@@ -1,7 +1,7 @@
 import csv
 import os
 from os.path import join, expanduser
-from controlunit.devices.adcchannels import AdcChannelProps
+from controlunit.devices.adc_channels import AdcChannelProps
 
 # not working on RasPi, encoding error.
 GOOD = "\U00002705"

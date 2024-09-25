@@ -40,7 +40,7 @@ class DAC8532(DeviceThread):
         # self.send_message.emit(message)
         # print(message)
         self.__abort = True
-        self.dac_init()
+        self.dac_reset_voltage()
 
     @QtCore.pyqtSlot()
     def start(self):
@@ -56,12 +56,12 @@ class DAC8532(DeviceThread):
             self.DAC.DAC8532_Out_Voltage(self.DAC.channel_B, 0)
             print("High-Precision AD/DA initialised")
         except:
-            self.DAC = DAC8532Setter()
-            self.DAC.DAC8532_Out_Voltage(self.DAC.channel_A, 0)
-            self.DAC.DAC8532_Out_Voltage(self.DAC.channel_B, 0)
             GPIO.cleanup()
-            print("\r\nProgram end     ")
-            exit()
+
+    def dac_reset_voltage(self):
+        """Reset voltage"""
+        self.DAC.DAC8532_Out_Voltage(self.DAC.channel_A, 0)
+        self.DAC.DAC8532_Out_Voltage(self.DAC.channel_B, 0)
 
     def output_voltage(self, channel, voltage):
         if channel == 1:
