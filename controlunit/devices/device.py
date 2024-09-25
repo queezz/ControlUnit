@@ -20,12 +20,12 @@ class DeviceThread(QtCore.QObject):
     sigDone = QtCore.pyqtSignal(str)
     send_message = QtCore.pyqtSignal(str)
 
-    def __init__(self, device_descriptor, app, startTime, config):
+    def __init__(self, device_name, app, startTime, config):
         super().__init__()
 
         self.__id = id
         self.__app = app
-        self.device_descriptor = device_descriptor
+        self.device_name = device_name
         self.__startTime = startTime
         self.config = config
 
@@ -44,6 +44,14 @@ class DeviceThread(QtCore.QObject):
     def setSampling(self, sampling):
         """Set sampling time"""
         self.sampling = sampling
+
+    def start(self):
+        """
+        This start does nothing,
+        it's for unifing thread creation syntax in
+        main.py MainWidget.start_thread()
+        """
+        pass
 
 
 if __name__ == "__main__":

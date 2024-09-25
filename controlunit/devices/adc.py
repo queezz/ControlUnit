@@ -17,24 +17,28 @@ from .device import DeviceThread
 
 # MARK: ADC
 class ADC(DeviceThread):
-    def __init__(self, device_descriptor, app, startTime, config):
-        super().__init__(device_descriptor, app, startTime, config)
+    __IGmode = 0  # Torr
+    __IGrange = -3
+
+    def __init__(self, device_name, app, startTime, config):
+        super().__init__(device_name, app, startTime, config)
         self.__app = app
-        self.device_descriptor = device_descriptor
+        self.device_name = device_name
         self.__startTime = startTime
         self.__abort = False
         self.config = config
-        self.adc_init()
+        self.prep_adc_board()
+        self.init()
 
     @QtCore.pyqtSlot()
     def abort(self):
-        message = "Worker thread {} aborting acquisition".format(self.device_descriptor)
+        message = "Worker thread {} aborting acquisition".format(self.device_name)
         # self.send_message.emit(message)
         # print(message)
         self.__abort = True
 
     # MARK: init
-    def init_adc_worker(self, IGmode: int, IGrange: int):
+    def init(self):
         """
         Initiate ADC thread parameters
 
@@ -54,8 +58,6 @@ class ADC(DeviceThread):
 
         self.adc_values = pd.DataFrame(columns=self.adc_values_columns)
         self.converted_values = pd.DataFrame(columns=self.config["ADC Converted Names"])
-        self.__IGmode = IGmode
-        self.__IGrange = IGrange
         self.__qmsSignal = 0
         self.__PresetV_mfc1 = 0
         self.__PresetV_mfc2 = 0
@@ -140,7 +142,7 @@ class ADC(DeviceThread):
         # self.adc_channels[CHB1] = self.gain_definitions[gain]
         # self.adc_channels[CHB2] = self.gain_definitions[gain]
 
-    def adc_init(self):
+    def prep_adc_board(self):
         """
         Initiates an instance of AIO_32_0RA_IRC from AIO.py
         Address: 0x49, 0x3E
@@ -243,7 +245,7 @@ class ADC(DeviceThread):
         Clears temporary dataframes to reset memory consumption.
         """
         newdata = self.adc_values.join(self.converted_values)
-        self.send_step_data.emit([newdata, self.device_descriptor])
+        self.send_step_data.emit([newdata, self.device_name])
         self.clear_datasets()
 
     def clear_datasets(self):
@@ -281,7 +283,7 @@ class ADC(DeviceThread):
             # self.calculate_averaged_signals()
             self.send_processed_data_to_main_thread()
 
-        self.sigDone.emit(self.device_descriptor)
+        self.sigDone.emit(self.device_name)
         return
 
 

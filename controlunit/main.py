@@ -4,7 +4,6 @@ import pandas as pd
 from PyQt5 import QtCore, QtWidgets
 
 from mainView import UIWindow
-from controlunit.devices.device import DeviceThread
 from controlunit.devices.adc import ADC
 from controlunit.devices.dac8532 import DAC8532
 from controlunit.devices.mcp4725 import MCP4725
@@ -54,7 +53,7 @@ class MainWidget(QtCore.QObject, UIWindow):
     sigAbortWorkers = QtCore.pyqtSignal()
 
     plaData = trigData = tData = p1Data = p2Data = None
-    membrane_temperature_control = signal_acquisition = mfcs_control = None
+    # membrane_temperature_control = adc_signals = mfcs_control = None
     calibrating = False
 
     # MARK: init
@@ -107,7 +106,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.time_window = val
         # self.log_message(f"Timewindow = {val}")
         try:
-            [self.update_plots(device) for device in self.device_descriptor]
+            [self.update_plots(device) for device in self.device_name]
         except AttributeError:
             pass
             # print("can't update plots, no workers yet")
@@ -204,7 +203,7 @@ class MainWidget(QtCore.QObject, UIWindow):
                     self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 0)
                     self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
                     self.qmsSigThread.start()
-                    self.signal_acquisition.setQmsSignal(0)
+                    self.adc_signals.setQmsSignal(0)
                     self.controlDock.qmsSigSw.setChecked(False)
             else:
                 self.controlDock.OnOffSW.setChecked(True)
@@ -324,150 +323,98 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 1)
             self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
             self.qmsSigThread.start()
-            self.signal_acquisition.setQmsSignal(1)
+            self.adc_signals.setQmsSignal(1)
         else:
 
             self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 0)
             self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
             self.qmsSigThread.start()
-            self.signal_acquisition.setQmsSignal(0)
+            self.adc_signals.setQmsSignal(0)
 
     def qmsSignalTerminate(self):
         self.qmsSigThread.quit()
         self.qmsSigThread.wait()
 
-    # MARK: Prep Threads
-    def prep_max_thread(self, device_descriptor, start_time):
+    def define_devices(self):
         """
-        MAX6675 thermocouple sensor.
-        Membrane temperature with PID.
-        Currently moved out to separate windows machine
-        wiht NI insulated thermocouples.
+        Define devices and data structure
         """
-        from controlunit.devices.max6675 import MAX6675
+        devices = {
+            "MFCs": DAC8532,
+            "PlasmaCurrent": MCP4725,
+            "ADC": ADC,
+        }
+        # devices['MembraneTemperature'] = MAX6675
 
-        thisthread = QtCore.QThread()
-        thisthread.setObjectName(f"{device_descriptor}")
-        self.membrane_temperature_control = MAX6675(
-            device_descriptor, self.__app, start_time, self.config
-        )
-        self.membrane_temperature_control.setTempWorker(self.__temp)
-        return thisthread
+        self.devices = devices
 
-    def prep_adc_thread(self, device_descriptor, start_time):
-        """
-        Prep multichannel ADC thread
-        """
-        thisthread = QtCore.QThread()
-        thisthread.setObjectName(f"{device_descriptor}")
-        self.signal_acquisition = ADC(
-            device_descriptor, self.__app, start_time, self.config
-        )
-        mode = self.controlDock.IGmode.currentIndex()
-        scale = self.controlDock.IGrange.value()
-        self.signal_acquisition.init_adc_worker(mode, scale)
-        return thisthread
+        self.savepaths = {}
+        self.datadict = {
+            # "MembraneTemperature": pd.DataFrame(columns=self.config["Temperature Columns"]),
+            "ADC": pd.DataFrame(columns=self.config["ADC Column Names"]),
+        }
+        self.newdata = {
+            # "MembraneTemperature": pd.DataFrame(columns=self.config["Temperature Columns"]),
+            "ADC": pd.DataFrame(columns=self.config["ADC Column Names"]),
+        }
 
-    def prep_dac_thread(self, device_descriptor, start_time):
-        """
-        Prep DAC MCP4725 thread.
-        Currently unused, planned for plasma current control.
-        """
-        thisthread = QtCore.QThread()
-        thisthread.setObjectName(f"{device_descriptor}")
-        self.plasma_current_control = MCP4725(
-            device_descriptor, self.__app, start_time, self.config
-        )
-        self.plasma_current_control.mcp_init()
-        return thisthread
+        self.create_file("ADC")
 
-    def prep_massflow_dac(self, device_descriptor, start_time):
-        """
-        Prep thread for DAC8532.
-        Output signals for Mass Flow Controllers.
-        """
-        thisthread = QtCore.QThread()
-        thisthread.setObjectName(f"{device_descriptor}")
-        self.mfcs_control = DAC8532(
-            device_descriptor, self.__app, start_time, self.config
-        )
-        self.mfcs_control.dac_init()
-        return thisthread
-
+    # MARK: Threads
     def prep_threads(self):
         """
-        Define Workers to run in separate threads.
-        2020/03/05: two sensors: ADC and temperatures, hence
-        2 threds to read a) temperature, and b) analog signals (P1,P2, Ip)
+        Define Workers for Devices to run in separate threads.
         """
         self.log_message(
             "<font color='#1cad47'>Starting</font> acquisition", htmltag="h2"
         )
-        self.savepaths = {}
-        self.datadict = {
-            # "MAX6675": pd.DataFrame(columns=self.config["Temperature Columns"]),
-            "ADC": pd.DataFrame(columns=self.config["ADC Column Names"]),
-        }
-        self.newdata = {
-            # "MAX6675": pd.DataFrame(columns=self.config["Temperature Columns"]),
-            "ADC": pd.DataFrame(columns=self.config["ADC Column Names"]),
-        }
-
         self.__workers_done = 0
+        self.terminate_existing_threads()
+        self.define_devices()
+        now = datetime.datetime.now()
 
+        self.workers = {
+            device_name: self.prep_worker(worker_class, device_name, now)
+            for device_name, worker_class in self.devices.items()
+        }
+
+        self.start_all_threads()
+
+    def prep_worker(self, device_class, device_name, start_time):
+        """
+        Generalized worker preparation method for different device types.
+        """
+        thread = QtCore.QThread()
+        thread.setObjectName(f"{device_name}")
+
+        worker = device_class(device_name, self.__app, start_time, self.config)
+
+        return worker, thread
+
+    def start_all_threads(self):
+        """
+        Start all threads by assigning workers to threads and initiating them.
+        """
+        for device_name, (worker, thread) in self.workers.items():
+            self.start_thread(worker, thread)
+
+    def terminate_existing_threads(self):
+        """
+        Gracefully quits and waits for all currently running threads.
+        """
         for thread, worker in self.__threads:
             thread.quit()
             thread.wait()
 
         self.__threads = []
 
-        now = datetime.datetime.now()
-        threads = {}
-        device_descriptor = "MFCs"
-        threads[device_descriptor] = self.prep_massflow_dac(device_descriptor, now)
-        device_descriptor = "PlasmaCurrent"
-        threads[device_descriptor] = self.prep_dac_thread(device_descriptor, now)
-        # Signal acquisition
-        device_descriptor = "ADC"
-        threads[device_descriptor] = self.prep_adc_thread(device_descriptor, now)
-        # device_descriptor = "MembraneTemperature"
-        # threads[device_descriptor] = self.prep_max_thread(device_descriptor,now)
-
-        # workers = {worker.device_descriptor: worker for worker in [self.tWorker, self.adcWorker]}
-        workers = {
-            worker.device_descriptor: worker
-            for worker in [
-                self.mfcs_control,
-                self.plasma_current_control,
-                self.signal_acquisition,
-            ]
-        }
-        self.device_descriptor = list(workers)
-
-        [self.start_thread(workers[s], threads[s]) for s in self.device_descriptor]
-
-    def start_thread(self, worker: DeviceThread, thread: QtCore.QThread):
+    def start_thread(self, worker, thread):
         """
-        Setup workers [Dataframe creation]
-        - Creates instances of worker
-        - Creates connections
-        - Creates Pandas Dataframes for data logging
-        - Saves empty dataframes to local csv. File name based on date and time
-        - starts threads
-        - sets initial values for all parameters (zeros)
+        Starts Device Worker thread
         """
-
         self.__threads.append((thread, worker))
         worker.moveToThread(thread)
         self.connect_worker_signals(worker)
-
-        # if worker.device_descriptor != "MFCs" or worker.device_descriptor != "PlasmaCurrent":
-        if worker.device_descriptor == "ADC":
-            self.create_file(worker.device_descriptor)
-            self.log_message(
-                f"<font size=4 color='blue'>{worker.device_descriptor}</font> savepath:<br> {self.savepaths[worker.device_descriptor]}",
-            )
-
         thread.started.connect(worker.start)
         thread.start()
 
@@ -499,24 +446,34 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.logDock.log.moveCursor(self.logDock.log.textCursor().End)
         # self.logDock.log.append(f"<{htmltag}>{nowstamp}: {message}</{htmltag}>")
 
-    def create_file(self, device_descriptor):
+    def create_file(self, device_name):
         """
         Create file for saving sensor data
         """
-        # if device_descriptor == "MAX6675":
-        #     self.savepaths[device_descriptor] = os.path.join(
+        # if device_name == "MAX6675":
+        #     self.savepaths[device_name] = os.path.join(
         #         os.path.abspath(self.datapath),
         #         f"cu_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_temp.csv",
         #     )
-        #     with open(self.savepaths[device_descriptor], "w") as f:
+        #     with open(self.savepaths[device_name], "w") as f:
         #         f.writelines(self.generate_header_temperature())
-        if device_descriptor == "ADC":
-            self.savepaths[device_descriptor] = os.path.join(
+        if device_name == "ADC":
+            self.savepaths[device_name] = os.path.join(
                 os.path.abspath(self.datapath),
                 f"cu_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
             )
-            with open(self.savepaths[device_descriptor], "w") as f:
+            with open(self.savepaths[device_name], "w") as f:
                 f.writelines(self.generate_header_adc())
+
+        self.log_datafile_name(device_name)
+
+    def log_datafile_name(self, device_name):
+        """Log filename of a datafile created"""
+        message = (
+            f"<font size=4 color='blue'>{device_name}</font>"
+            f" savepath:<br> {self.savepaths[device_name]}"
+        )
+        self.log_message(message)
 
     def generate_header_adc(self):
         """
@@ -617,25 +574,23 @@ class MainWidget(QtCore.QObject, UIWindow):
         - Updates data in plots (skips points if data is too big)
         """
 
-        device_descriptor = result[-1]
+        device_name = result[-1]
 
-        if device_descriptor == "MAX6675":
-            # [self.data, self.device_descriptor]
-            self.newdata[device_descriptor] = result[0]
-            self.append_data(device_descriptor)
-            self.save_data(device_descriptor)
+        if device_name == "MAX6675":
+            # [self.data, self.device_name]
+            self.newdata[device_name] = result[0]
+            self.append_data(device_name)
+            self.save_data(device_name)
             # here 3 is number of data points recieved from worker.
-            # TODO: update to self.newdata[device_descriptor]['T'].mean()
-            self.currentvalues["T"] = (
-                self.datadict[device_descriptor].iloc[-3:]["T"].mean()
-            )
-            self.update_plots(device_descriptor)
+            # TODO: update to self.newdata[device_name]['T'].mean()
+            self.currentvalues["T"] = self.datadict[device_name].iloc[-3:]["T"].mean()
+            self.update_plots(device_name)
 
-        if device_descriptor == "ADC":
-            #  self.send_step_data.emit([newdata, self.device_descriptor])
-            self.newdata[device_descriptor] = result[0]
-            self.append_data(device_descriptor)
-            self.save_data(device_descriptor)
+        if device_name == "ADC":
+            #  self.send_step_data.emit([newdata, self.device_name])
+            self.newdata[device_name] = result[0]
+            self.append_data(device_name)
+            self.save_data(device_name)
             for plotname, name in zip(
                 self.config["ADC Signal Names"], self.config["ADC Converted Names"]
             ):
@@ -645,18 +600,18 @@ class MainWidget(QtCore.QObject, UIWindow):
             # to debug mV signal from Baratron, ouptut it directly.
             self.baratronsignal1 = self.datadict["ADC"].iloc[-3:]["Bu"].mean()
             self.baratronsignal2 = self.datadict["ADC"].iloc[-3:]["Bd"].mean()
-            self.update_plots(device_descriptor)
+            self.update_plots(device_name)
 
         self.update_current_values()
 
     # MARK: Update Plots
-    def update_plots(self, device_descriptor):
+    def update_plots(self, device_name):
         """
         Update plots
         """
-        if device_descriptor == "MAX6675":
+        if device_name == "MAX6675":
             self.update_plots_max6675()
-        if device_descriptor == "ADC":
+        if device_name == "ADC":
             self.update_plots_adc()
 
     def update_plots_max6675(self):
@@ -695,28 +650,26 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.graph.pressure_down_curve.setData(time[::skip], p2[::skip])
 
     # MARK: append data
-    def append_data(self, device_descriptor):
+    def append_data(self, device_name):
         """
         Append new data to dataframe
         """
-        # self.datadict[device_descriptor] = pd.concat([self.datadict[device_descriptor], self.newdata[device_descriptor]], ignore_index=True)
+        # self.datadict[device_name] = pd.concat([self.datadict[device_name], self.newdata[device_name]], ignore_index=True)
         # Fix FutureWarning
-        self.datadict[device_descriptor] = pd.concat(
+        self.datadict[device_name] = pd.concat(
             [
-                self.datadict[device_descriptor],
-                self.newdata[device_descriptor].astype(
-                    self.datadict[device_descriptor].dtypes
-                ),
+                self.datadict[device_name],
+                self.newdata[device_name].astype(self.datadict[device_name].dtypes),
             ],
             ignore_index=True,
         )
         # self.data = pd.concat([self.adc_values, new_data_row.astype(self.adc_values.dtypes)], ignore_index=True)
 
-    def select_data_to_plot(self, device_descriptor):
+    def select_data_to_plot(self, device_name):
         """
         Select data based on self.time_window
         """
-        df = self.datadict[device_descriptor]
+        df = self.datadict[device_name]
         if self.time_window > 0:
             last_ts = df["date"].iloc[-1]
             timewindow = last_ts - pd.Timedelta(self.time_window, "seconds")
@@ -732,23 +685,23 @@ class MainWidget(QtCore.QObject, UIWindow):
     def calculate_skip_points(self, l, noskip=5000):
         return 1 if l < noskip else l // noskip + 1
 
-    def save_data(self, device_descriptor):
+    def save_data(self, device_name):
         """
         Save sensor data
         """
-        savepath = self.savepaths[device_descriptor]
-        data = self.newdata[device_descriptor]
+        savepath = self.savepaths[device_name]
+        data = self.newdata[device_name]
         data.to_csv(savepath, mode="a", header=False, index=False)
 
     # MARK: worker done
     @QtCore.pyqtSlot(str)
-    def on_worker_done(self, device_descriptor):
+    def on_worker_done(self, device_name):
         self.log_message(
-            f"Sensor thread <font size=4 color='blue'> {device_descriptor}</font> <font size=4 color={'red'}>stopped</font>",
+            f"Sensor thread <font size=4 color='blue'> {device_name}</font> <font size=4 color={'red'}>stopped</font>",
             htmltag="div",
         )
         self.__workers_done += 1
-        self.reset_data(device_descriptor)
+        self.reset_data(device_name)
 
         if self.__workers_done == 2:
             self.abort_all_threads()
@@ -762,9 +715,9 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         self.__threads = []
 
-    def reset_data(self, device_descriptor):
-        self.datadict[device_descriptor] = self.datadict[device_descriptor].iloc[0:0]
-        self.newdata[device_descriptor] = self.newdata[device_descriptor].iloc[0:0]
+    def reset_data(self, device_name):
+        self.datadict[device_name] = self.datadict[device_name].iloc[0:0]
+        self.newdata[device_name] = self.newdata[device_name].iloc[0:0]
 
     @QtCore.pyqtSlot()
     def set_heater_goal(self):
@@ -788,8 +741,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.mfccontrolDock.set_output1_goal(self.__mfc1, f"{voltage_now*1000:.0f}")
         if self.mfcs_control is not None:
             self.mfcs_control.output_voltage(1, self.__mfc1)
-        if self.signal_acquisition is not None:
-            self.signal_acquisition.setPresetV_mfc1(self.__mfc1)
+        if self.adc_signals is not None:
+            self.adc_signals.setPresetV_mfc1(self.__mfc1)
 
     @QtCore.pyqtSlot()
     def set_mfc2_goal(self):
@@ -804,8 +757,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.mfccontrolDock.set_output2_goal(self.__mfc2, f"{voltage_now*1000:.0f}")
         if self.mfcs_control is not None:
             self.mfcs_control.output_voltage(2, self.__mfc2)
-        if self.signal_acquisition is not None:
-            self.signal_acquisition.setPresetV_mfc2(self.__mfc2)
+        if self.adc_signals is not None:
+            self.adc_signals.setPresetV_mfc2(self.__mfc2)
 
     @QtCore.pyqtSlot()
     def resetSpinBoxes1(self):
@@ -846,13 +799,13 @@ class MainWidget(QtCore.QObject, UIWindow):
                 self.calibration_thread = Calibrator(
                     self.__app,
                     self.mfcs_control,
-                    self.signal_acquisition,
+                    self.adc_signals,
                     self.__mfc1,
                     10,
                     self.calibration_waiting_time,
                 )
                 self.qmsSigThread = qmsSignal.SyncSignal(
-                    pi, self.__app, 2, self.signal_acquisition
+                    pi, self.__app, 2, self.adc_signals
                 )
                 self.calibration_thread.finished.connect(self.calibration_terminated)
                 self.calibration_thread.start()
@@ -884,9 +837,10 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 0)
         self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
         self.qmsSigThread.start()
-        self.signal_acquisition.setQmsSignal(0)
+        self.adc_signals.setQmsSignal(0)
         self.controlDock.qmsSigSw.setChecked(False)
 
+    # MARK: control signals
     @QtCore.pyqtSlot()
     def stop_mfc(self):
         value = 0
@@ -900,9 +854,9 @@ class MainWidget(QtCore.QObject, UIWindow):
         if self.mfcs_control is not None:
             self.mfcs_control.output_voltage(1, self.__mfc1)
             self.mfcs_control.output_voltage(2, self.__mfc2)
-        if self.signal_acquisition is not None:
-            self.signal_acquisition.setPresetV_mfc1(self.__mfc1)
-            self.signal_acquisition.setPresetV_mfc2(self.__mfc2)
+        if self.adc_signals is not None:
+            self.adc_signals.setPresetV_mfc1(self.__mfc1)
+            self.adc_signals.setPresetV_mfc2(self.__mfc2)
 
     @QtCore.pyqtSlot()
     def set_currentcontrol_voltage(self):
@@ -912,19 +866,30 @@ class MainWidget(QtCore.QObject, UIWindow):
         value = self.controlDock.currentcontrolerSB.value()
         if self.plasma_current_control is not None:
             self.plasma_current_control.output_voltage(value)
-        if self.signal_acquisition is not None:
-            self.signal_acquisition.setPresetV_cathode(value)
+        if self.adc_signals is not None:
+            self.adc_signals.setPresetV_cathode(value)
 
     @QtCore.pyqtSlot()
     def update_ig_mode(self):
-        """Update mode of the IG controller:
+        """
+        Update mode of the IG controller:
         Torr and linear
         or
         Pa and log
         """
         value = self.controlDock.IGmode.currentIndex()
-        if self.signal_acquisition is not None:
-            self.signal_acquisition.setIGmode(value)
+        if self.adc_signals is not None:
+            self.adc_signals.setIGmode(value)
+
+    @QtCore.pyqtSlot()
+    def update_ig_range(self):
+        """
+        Update range of the IG controller:
+        10^{-3} - 10^{-8} multiplier when in linear mode (Torr)
+        """
+        value = self.controlDock.IGrange.value()
+        self.workers["ADC"][0].setIGrange(value)
+        print(f"Ionization Gauge Range = {value}")
 
     @QtCore.pyqtSlot()
     def __set_gain(self):
@@ -938,8 +903,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         txt = self.ADCGainDock.gain_box.currentText()
         gain = self.ADCGainDock.gains[txt]
 
-        if self.signal_acquisition is not None:
-            self.signal_acquisition.setGain(gain)
+        if self.adc_signals is not None:
+            self.adc_signals.setGain(gain)
 
     @QtCore.pyqtSlot()
     def __set_sampling(self):
@@ -950,31 +915,9 @@ class MainWidget(QtCore.QObject, UIWindow):
         value = float(txt.split(" ")[0])
         self.sampling = value
         self.update_plot_timewindow()
-        if self.signal_acquisition is not None:
-            self.signal_acquisition.setSampling(value)
+        if self.adc_signals is not None:
+            self.adc_signals.setSampling(value)
             self.log_message(f"ADC sampling set to {value}")
-
-        # For MAX6675 min read time is 0.25s
-        # if self.tWorker is not None:
-        #     if value < 0.25:
-        #         value = 0.25
-        #     self.tWorker.setSampling(value)
-        #     self.log_message(f"MAX6675 sampling set to {value}")
-
-    #
-    # if self.dacWorker is not None:
-    #     self.dacWorker.setSampling(value)
-    #     self.log_message(f"DAC sampling set to {value}")
-
-    @QtCore.pyqtSlot()
-    def update_ig_range(self):
-        """Update range of the IG controller:
-        10^{-3} - 10^{-8} multiplier when in linear mode (Torr)
-        """
-        value = self.controlDock.IGrange.value()
-        if self.signal_acquisition is not None:
-            self.signal_acquisition.setIGrange(value)
-            print(f"Ionization Gauge Range = {value}")
 
 
 def main():

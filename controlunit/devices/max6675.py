@@ -34,28 +34,22 @@ class MAX6675(DeviceThread):
 
     sigAbortHeater = QtCore.pyqtSignal()
 
-    def __init__(self, device_descriptor, app, startTime, config):
-        super().__init__(device_descriptor, app, startTime, config)
+    def __init__(self, device_name, app, startTime, config):
+        super().__init__(device_name, app, startTime, config)
         self.__app = app
-        self.device_descriptor = device_descriptor
+        self.device_name = device_name
         self.__startTime = startTime
         self.config = config
         self.__abort = False
+        self.init()
 
-    @QtCore.pyqtSlot()
-    def abort(self):
-        message = "Worker thread {} aborting acquisition".format(self.device_descriptor)
-        # self.send_message.emit(message)
-        # print(message)
-        self.__abort = True
-
-    def setTempWorker(self, presetTemp: int):
+    def init(self):
         """
         needs pigpio daemon
         """
         self.columns = ["date", "time", "T", "PresetT"]
         self.data = pd.DataFrame(columns=self.columns)
-        self.temperature_setpoint = presetTemp
+        self.temperature_setpoint = 0
         self.sampling = self.config["Sampling Time"]
         if self.sampling < 0.25:
             self.sampling = 0.25
@@ -63,6 +57,13 @@ class MAX6675(DeviceThread):
         self.pi = pigpio.pi()
         self.__sumE = 0
         self.__exE = 0
+
+    @QtCore.pyqtSlot()
+    def abort(self):
+        message = "Worker thread {} aborting acquisition".format(self.device_name)
+        # self.send_message.emit(message)
+        # print(message)
+        self.__abort = True
 
     def setPresetTemp(self, newTemp: int):
         self.temperature_setpoint = newTemp
@@ -109,7 +110,7 @@ class MAX6675(DeviceThread):
         """
         Send processed data to main.py
         """
-        self.send_step_data.emit([self.data, self.device_descriptor])
+        self.send_step_data.emit([self.data, self.device_name])
 
     def clear_datasets(self):
         """
@@ -172,7 +173,7 @@ class MAX6675(DeviceThread):
             self.pi.stop()
 
         self.thread = None
-        self.sigDone.emit(self.device_descriptor)
+        self.sigDone.emit(self.device_name)
 
     def temperature_control(self):
         """

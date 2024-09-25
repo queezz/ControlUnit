@@ -25,31 +25,17 @@ class DAC8532(DeviceThread):
 
     sigAbortHeater = QtCore.pyqtSignal()
 
-    def __init__(self, device_descriptor, app, startTime, config):
-        super().__init__(device_descriptor, app, startTime, config)
+    def __init__(self, device_name, app, startTime, config):
+        super().__init__(device_name, app, startTime, config)
         self.__app = app
-        self.device_descriptor = device_descriptor
+        self.device_name = device_name
         self.__startTime = startTime
         self.config = config
         self.__abort = False
         self.calibrating = False
+        self.init()
 
-    @QtCore.pyqtSlot()
-    def abort(self):
-        message = "Worker thread {} aborting acquisition".format(self.device_descriptor)
-        # self.send_message.emit(message)
-        # print(message)
-        self.__abort = True
-        self.dac_reset_voltage()
-
-    @QtCore.pyqtSlot()
-    def start(self):
-        pass
-
-    def init_dac_worker(self, presetVoltage: int):
-        pass
-
-    def dac_init(self):
+    def init(self):
         try:
             self.DAC = DAC8532Setter()
             self.DAC.DAC8532_Out_Voltage(self.DAC.channel_A, 0)
@@ -57,6 +43,17 @@ class DAC8532(DeviceThread):
             print("High-Precision AD/DA initialised")
         except:
             GPIO.cleanup()
+
+    @QtCore.pyqtSlot()
+    def abort(self):
+        message = "Worker thread {} aborting acquisition".format(self.device_name)
+        # self.send_message.emit(message)
+        # print(message)
+        self.__abort = True
+        self.dac_reset_voltage()
+
+    def init_dac_worker(self, presetVoltage: int):
+        pass
 
     def dac_reset_voltage(self):
         """Reset voltage"""

@@ -34,33 +34,16 @@ class MCP4725(DeviceThread):
 
     # sigAbortHeater = QtCore.pyqtSignal()
 
-    def __init__(self, device_descriptor, app, startTime, config):
-        super().__init__(device_descriptor, app, startTime, config)
+    def __init__(self, device_name, app, startTime, config):
+        super().__init__(device_name, app, startTime, config)
         self.__app = app
-        self.device_descriptor = device_descriptor
+        self.device_name = device_name
         self.__startTime = startTime
         self.config = config
         self.__abort = False
+        self.init()
 
-    @QtCore.pyqtSlot()
-    def abort(self):
-        message = f"Device {self.device_descriptor} aborting"
-        # self.send_message.emit(message)
-        # print(message)
-        self.__abort = True
-        try:
-            self.mcp.set_voltage(0)
-        except:
-            pass
-
-    @QtCore.pyqtSlot()
-    def start(self):
-        pass
-
-    def init_mpc_worker(self, presetVoltage: int):
-        pass
-
-    def mcp_init(self):
+    def init(self):
         try:
             self.pi = pigpio.pi()
             self.mcp = MCP4725Setter(self.pi)
@@ -68,6 +51,17 @@ class MCP4725(DeviceThread):
             print("12 bit DAC MCP4725 initialised")
         except Exception as e:
             print(f"{e}")
+
+    @QtCore.pyqtSlot()
+    def abort(self):
+        message = f"Device {self.device_name} aborting"
+        # self.send_message.emit(message)
+        # print(message)
+        self.__abort = True
+        try:
+            self.mcp.set_voltage(0)
+        except:
+            pass
 
     def output_voltage(self, voltage):
         self.mcp.set_voltage(voltage / 1000)
