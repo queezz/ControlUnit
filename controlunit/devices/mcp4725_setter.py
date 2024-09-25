@@ -6,7 +6,7 @@ except ImportError:
     from devices.dummy import pigpio
 
 
-class MCP4725(object):
+class MCP4725Setter(object):
     DEFAULT_ADDRESS = 0x60
     CONSTANT = 5.0 / (2**12)
 
@@ -21,10 +21,9 @@ class MCP4725(object):
             value = 4095
         if value < 0:
             value = 0
-        print("Setting value to {0:04}".format(value))
         reg_data = [0x40, (value >> 4) & 0xFF, (value << 4) & 0xFF]
-
         self.pi.i2c_write_device(self._device, reg_data)
+        # print("Setting value to {0:04}".format(value))
 
     def cancel(self):
         if self._device is not None:
@@ -37,7 +36,7 @@ if __name__ == "__main__":
     if not pi.connected:
         exit(0)
 
-    dac = MCP4725(pi)
+    dac = MCP4725Setter(pi)
 
     i = 0
     while i < 50:

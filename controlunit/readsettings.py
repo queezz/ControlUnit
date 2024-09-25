@@ -1,14 +1,15 @@
 import csv
 import os
 from os.path import join, expanduser
-import adcchannels
+from controlunit.devices.adcchannels import AdcChannelProps
 
 # not working on RasPi, encoding error.
 GOOD = "\U00002705"
 
+
 def load_settings(path_to_file):
     """
-    UPDATE: change sattings from a csv file to 
+    UPDATE: change sattings from a csv file to
     fully defined settings in a yaml file.
     """
     import yaml
@@ -22,10 +23,12 @@ def load_settings(path_to_file):
 
 def select_settings(path_to_file="settings.yml", verbose=False):
     """
-    Check if there is local settings file and 
+    Check if there is local settings file and
     if its version is same as current, load local one.
     """
-    local_settings = os.path.join(os.path.expanduser("~"), ".controlunit", "settings.yml")
+    local_settings = os.path.join(
+        os.path.expanduser("~"), ".controlunit", "settings.yml"
+    )
 
     try:
         local_config = load_settings(local_settings)
@@ -33,7 +36,7 @@ def select_settings(path_to_file="settings.yml", verbose=False):
         if local_config["Settings Version"] == config["Settings Version"]:
             config = local_config
             if verbose:
-                print( f" Configuration file loaded:\n{local_settings}")
+                print(f" Configuration file loaded:\n{local_settings}")
             return config
     except FileNotFoundError as ex:
         pass
@@ -58,7 +61,7 @@ def init_configuration(settings="settings.yml", verbose=False):
     config["Log File Path"] = check_logfile(config)
 
     adc_channels = {
-        name: adcchannels.AdcChannelProps(name, **config["ADC Channels"][name])
+        name: AdcChannelProps(name, **config["ADC Channels"][name])
         for name in list(config["ADC Channels"])
     }
 
@@ -67,7 +70,9 @@ def init_configuration(settings="settings.yml", verbose=False):
     config["ADC Signal Names"] = list(config["ADC Channels"])
     config["ADC Converted Names"] = [i + "_c" for i in config["ADC Signal Names"]]
     config["ADC Column Names"] = (
-        config["ADC Additional Columns"] + config["ADC Signal Names"] + config["ADC Converted Names"]
+        config["ADC Additional Columns"]
+        + config["ADC Signal Names"]
+        + config["ADC Converted Names"]
     )
 
     a = config["ADC Channels"]

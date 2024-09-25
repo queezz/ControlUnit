@@ -10,7 +10,7 @@ import time
 from PyQt5 import QtCore
 
 from .device import DeviceThread
-from DAC import DAC8532 as dac
+from controlunit.devices.dac8532_setter import DAC8532Setter
 
 try:
     import RPi.GPIO as GPIO
@@ -51,14 +51,12 @@ class DAC8532(DeviceThread):
 
     def dac_init(self):
         try:
-            print("DAC started correctry\r\n")
-
-            self.DAC = dac()
+            self.DAC = DAC8532Setter()
             self.DAC.DAC8532_Out_Voltage(self.DAC.channel_A, 0)
             self.DAC.DAC8532_Out_Voltage(self.DAC.channel_B, 0)
-
+            print("High-Precision AD/DA initialised")
         except:
-            self.DAC = dac()
+            self.DAC = DAC8532Setter()
             self.DAC.DAC8532_Out_Voltage(self.DAC.channel_A, 0)
             self.DAC.DAC8532_Out_Voltage(self.DAC.channel_B, 0)
             GPIO.cleanup()

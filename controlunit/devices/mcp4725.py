@@ -1,16 +1,18 @@
 """
 MCP4725 communication
-
 12 bit DAC
 
+Currently unused, planned for plasma current control.
+
 https://www.microchip.com/en-us/product/mcp4725
+https://www.sparkfun.com/products/12918
 """
 
 import time
 from PyQt5 import QtCore
 
 from .device import DeviceThread
-from mMCP4725 import MCP4725 as mcp
+from controlunit.devices.mcp4725_setter import MCP4725Setter
 
 RED = "\033[1;31m"
 GREEN = "\033[1;32m"
@@ -42,11 +44,14 @@ class MCP4725(DeviceThread):
 
     @QtCore.pyqtSlot()
     def abort(self):
-        message = "Worker thread {} aborting acquisition".format(self.device_descriptor)
+        message = f"Device {self.device_descriptor} aborting"
         # self.send_message.emit(message)
         # print(message)
         self.__abort = True
-        self.mcp_init()
+        try:
+            self.mcp.set_voltage(0)
+        except:
+            pass
 
     @QtCore.pyqtSlot()
     def start(self):
@@ -57,22 +62,16 @@ class MCP4725(DeviceThread):
 
     def mcp_init(self):
         try:
-            print("mcp started correctry\r\n")
             self.pi = pigpio.pi()
-            self.mcp = mcp(self.pi)
+            self.mcp = MCP4725Setter(self.pi)
             self.mcp.set_voltage(0)
-
-        except:
-            print("error starting mcp")
-            self.pi = pigpio.pi()
-            self.mcp = mcp(self.pi)
-            self.mcp.set_voltage(0)
-            # exit()
+            print("12 bit DAC MCP4725 initialised")
+        except Exception as e:
+            print(f"{e}")
 
     def output_voltage(self, voltage):
         self.mcp.set_voltage(voltage / 1000)
         print(f"voltage output: {voltage/1000} V")
-        # self.pi.stop()
 
     def demo(self):
         i = 0

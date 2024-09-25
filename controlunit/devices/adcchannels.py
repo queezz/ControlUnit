@@ -2,7 +2,8 @@
 ADC channel properties class.
 """
 
-# Conversion of signals is done in worker.py line 405 in update_processed_signals_dataframe
+
+# Conversion of signals is done in devices/adc.py in update_processed_signals_dataframe
 class AdcChannelProps:
     """
     ADC channel properties
@@ -27,7 +28,7 @@ class AdcChannelProps:
         """
         Select conversion function from a dict by conversion_id
         """
-        from conversions import (
+        from controlunit.devices.conversions import (
             ionization_gauge,
             hall_current_sensor,
             pfeiffer_single_gauge,
@@ -43,7 +44,7 @@ class AdcChannelProps:
             "Hall Sensor": hall_current_sensor,
             "No Conversion": lambda v: v,
             "cathode current": cathode_current,
-            "cathode volt": cathode_volt
+            "cathode volt": cathode_volt,
         }
 
         if self.conversion_id == "Baratron":

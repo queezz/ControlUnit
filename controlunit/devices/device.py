@@ -38,12 +38,6 @@ class DeviceThread(QtCore.QObject):
             print("ID:", self.__id)
             print("End Thread Checks")
 
-    def set_thread_name(self):
-        """Set Thread name and ID, signal them to the log browser"""
-        threadName = QtCore.QThread.currentThread().objectName()
-        print(threadName)
-        return
-
     def getStartTime(self):
         return self.__startTime
 

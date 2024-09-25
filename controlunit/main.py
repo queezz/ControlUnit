@@ -53,9 +53,8 @@ class MainWidget(QtCore.QObject, UIWindow):
 
     sigAbortWorkers = QtCore.pyqtSignal()
 
-    plaData = trigData = tData = p1Data = p2Data = tWorker = adcWorker = dacWorker = (
-        None
-    )
+    plaData = trigData = tData = p1Data = p2Data = None
+    membrane_temperature_control = signal_acquisition = mfcs_control = None
     calibrating = False
 
     # MARK: init
@@ -205,7 +204,7 @@ class MainWidget(QtCore.QObject, UIWindow):
                     self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 0)
                     self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
                     self.qmsSigThread.start()
-                    self.adcWorker.setQmsSignal(0)
+                    self.signal_acquisition.setQmsSignal(0)
                     self.controlDock.qmsSigSw.setChecked(False)
             else:
                 self.controlDock.OnOffSW.setChecked(True)
@@ -325,13 +324,13 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 1)
             self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
             self.qmsSigThread.start()
-            self.adcWorker.setQmsSignal(1)
+            self.signal_acquisition.setQmsSignal(1)
         else:
 
             self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 0)
             self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
             self.qmsSigThread.start()
-            self.adcWorker.setQmsSignal(0)
+            self.signal_acquisition.setQmsSignal(0)
 
     def qmsSignalTerminate(self):
         self.qmsSigThread.quit()
@@ -349,8 +348,10 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         thisthread = QtCore.QThread()
         thisthread.setObjectName(f"{device_descriptor}")
-        self.tWorker = MAX6675(device_descriptor, self.__app, start_time, self.config)
-        self.tWorker.setTempWorker(self.__temp)
+        self.membrane_temperature_control = MAX6675(
+            device_descriptor, self.__app, start_time, self.config
+        )
+        self.membrane_temperature_control.setTempWorker(self.__temp)
         return thisthread
 
     def prep_adc_thread(self, device_descriptor, start_time):
@@ -359,10 +360,12 @@ class MainWidget(QtCore.QObject, UIWindow):
         """
         thisthread = QtCore.QThread()
         thisthread.setObjectName(f"{device_descriptor}")
-        self.adcWorker = ADC(device_descriptor, self.__app, start_time, self.config)
+        self.signal_acquisition = ADC(
+            device_descriptor, self.__app, start_time, self.config
+        )
         mode = self.controlDock.IGmode.currentIndex()
         scale = self.controlDock.IGrange.value()
-        self.adcWorker.init_adc_worker(mode, scale)
+        self.signal_acquisition.init_adc_worker(mode, scale)
         return thisthread
 
     def prep_dac_thread(self, device_descriptor, start_time):
@@ -372,8 +375,10 @@ class MainWidget(QtCore.QObject, UIWindow):
         """
         thisthread = QtCore.QThread()
         thisthread.setObjectName(f"{device_descriptor}")
-        self.mcpWorker = MCP4725(device_descriptor, self.__app, start_time, self.config)
-        self.mcpWorker.mcp_init()
+        self.plasma_current_control = MCP4725(
+            device_descriptor, self.__app, start_time, self.config
+        )
+        self.plasma_current_control.mcp_init()
         return thisthread
 
     def prep_massflow_dac(self, device_descriptor, start_time):
@@ -383,8 +388,10 @@ class MainWidget(QtCore.QObject, UIWindow):
         """
         thisthread = QtCore.QThread()
         thisthread.setObjectName(f"{device_descriptor}")
-        self.dacWorker = DAC8532(device_descriptor, self.__app, start_time, self.config)
-        self.dacWorker.dac_init()
+        self.mfcs_control = DAC8532(
+            device_descriptor, self.__app, start_time, self.config
+        )
+        self.mfcs_control.dac_init()
         return thisthread
 
     def prep_threads(self):
@@ -429,7 +436,11 @@ class MainWidget(QtCore.QObject, UIWindow):
         # workers = {worker.device_descriptor: worker for worker in [self.tWorker, self.adcWorker]}
         workers = {
             worker.device_descriptor: worker
-            for worker in [self.dacWorker, self.mcpWorker, self.adcWorker]
+            for worker in [
+                self.mfcs_control,
+                self.plasma_current_control,
+                self.signal_acquisition,
+            ]
         }
         self.device_descriptor = list(workers)
 
@@ -761,8 +772,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.__temp = value
         temp_now = self.currentvalues["T"]
         self.tempcontrolDock.set_heating_goal(self.__temp, f"{temp_now:.0f}")
-        if self.tWorker is not None:
-            self.tWorker.setPresetTemp(self.__temp)
+        if self.membrane_temperature_control is not None:
+            self.membrane_temperature_control.setPresetTemp(self.__temp)
 
     @QtCore.pyqtSlot()
     def set_mfc1_goal(self):
@@ -775,10 +786,10 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.__mfc1 = value
         voltage_now = self.currentvalues["MFC1"]
         self.mfccontrolDock.set_output1_goal(self.__mfc1, f"{voltage_now*1000:.0f}")
-        if self.dacWorker is not None:
-            self.dacWorker.output_voltage(1, self.__mfc1)
-        if self.adcWorker is not None:
-            self.adcWorker.setPresetV_mfc1(self.__mfc1)
+        if self.mfcs_control is not None:
+            self.mfcs_control.output_voltage(1, self.__mfc1)
+        if self.signal_acquisition is not None:
+            self.signal_acquisition.setPresetV_mfc1(self.__mfc1)
 
     @QtCore.pyqtSlot()
     def set_mfc2_goal(self):
@@ -791,10 +802,10 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.__mfc2 = value
         voltage_now = self.currentvalues["MFC2"]
         self.mfccontrolDock.set_output2_goal(self.__mfc2, f"{voltage_now*1000:.0f}")
-        if self.dacWorker is not None:
-            self.dacWorker.output_voltage(2, self.__mfc2)
-        if self.adcWorker is not None:
-            self.adcWorker.setPresetV_mfc2(self.__mfc2)
+        if self.mfcs_control is not None:
+            self.mfcs_control.output_voltage(2, self.__mfc2)
+        if self.signal_acquisition is not None:
+            self.signal_acquisition.setPresetV_mfc2(self.__mfc2)
 
     @QtCore.pyqtSlot()
     def resetSpinBoxes1(self):
@@ -816,7 +827,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         """
         Start and stop calibration
         """
-        if not self.dacWorker.calibrating:
+        if not self.mfcs_control.calibrating:
             stating_msg = "Are you sure you want to start calibration?"
             reply = QtWidgets.QMessageBox.warning(
                 self.MainWindow,
@@ -834,14 +845,14 @@ class MainWidget(QtCore.QObject, UIWindow):
                     return
                 self.calibration_thread = Calibrator(
                     self.__app,
-                    self.dacWorker,
-                    self.adcWorker,
+                    self.mfcs_control,
+                    self.signal_acquisition,
                     self.__mfc1,
                     10,
                     self.calibration_waiting_time,
                 )
                 self.qmsSigThread = qmsSignal.SyncSignal(
-                    pi, self.__app, 2, self.adcWorker
+                    pi, self.__app, 2, self.signal_acquisition
                 )
                 self.calibration_thread.finished.connect(self.calibration_terminated)
                 self.calibration_thread.start()
@@ -859,7 +870,7 @@ class MainWidget(QtCore.QObject, UIWindow):
                 QtWidgets.QMessageBox.No,
             )
             if reply == QtWidgets.QMessageBox.Yes:
-                self.dacWorker.calibrating = False
+                self.mfcs_control.calibrating = False
                 self.calibration_terminated()
             else:
                 pass
@@ -873,7 +884,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 0)
         self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
         self.qmsSigThread.start()
-        self.adcWorker.setQmsSignal(0)
+        self.signal_acquisition.setQmsSignal(0)
         self.controlDock.qmsSigSw.setChecked(False)
 
     @QtCore.pyqtSlot()
@@ -886,12 +897,12 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         self.mfccontrolDock.set_output1_goal(self.__mfc1, f"{voltage_now1*1000:.0f}")
         self.mfccontrolDock.set_output2_goal(self.__mfc2, f"{voltage_now2*1000:.0f}")
-        if self.dacWorker is not None:
-            self.dacWorker.output_voltage(1, self.__mfc1)
-            self.dacWorker.output_voltage(2, self.__mfc2)
-        if self.adcWorker is not None:
-            self.adcWorker.setPresetV_mfc1(self.__mfc1)
-            self.adcWorker.setPresetV_mfc2(self.__mfc2)
+        if self.mfcs_control is not None:
+            self.mfcs_control.output_voltage(1, self.__mfc1)
+            self.mfcs_control.output_voltage(2, self.__mfc2)
+        if self.signal_acquisition is not None:
+            self.signal_acquisition.setPresetV_mfc1(self.__mfc1)
+            self.signal_acquisition.setPresetV_mfc2(self.__mfc2)
 
     @QtCore.pyqtSlot()
     def set_currentcontrol_voltage(self):
@@ -899,10 +910,10 @@ class MainWidget(QtCore.QObject, UIWindow):
         Set voltage for current control
         """
         value = self.controlDock.currentcontrolerSB.value()
-        if self.mcpWorker is not None:
-            self.mcpWorker.output_voltage(value)
-        if self.adcWorker is not None:
-            self.adcWorker.setPresetV_cathode(value)
+        if self.plasma_current_control is not None:
+            self.plasma_current_control.output_voltage(value)
+        if self.signal_acquisition is not None:
+            self.signal_acquisition.setPresetV_cathode(value)
 
     @QtCore.pyqtSlot()
     def update_ig_mode(self):
@@ -912,8 +923,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         Pa and log
         """
         value = self.controlDock.IGmode.currentIndex()
-        if self.adcWorker is not None:
-            self.adcWorker.setIGmode(value)
+        if self.signal_acquisition is not None:
+            self.signal_acquisition.setIGmode(value)
 
     @QtCore.pyqtSlot()
     def __set_gain(self):
@@ -927,8 +938,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         txt = self.ADCGainDock.gain_box.currentText()
         gain = self.ADCGainDock.gains[txt]
 
-        if self.adcWorker is not None:
-            self.adcWorker.setGain(gain)
+        if self.signal_acquisition is not None:
+            self.signal_acquisition.setGain(gain)
 
     @QtCore.pyqtSlot()
     def __set_sampling(self):
@@ -939,8 +950,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         value = float(txt.split(" ")[0])
         self.sampling = value
         self.update_plot_timewindow()
-        if self.adcWorker is not None:
-            self.adcWorker.setSampling(value)
+        if self.signal_acquisition is not None:
+            self.signal_acquisition.setSampling(value)
             self.log_message(f"ADC sampling set to {value}")
 
         # For MAX6675 min read time is 0.25s
@@ -961,9 +972,9 @@ class MainWidget(QtCore.QObject, UIWindow):
         10^{-3} - 10^{-8} multiplier when in linear mode (Torr)
         """
         value = self.controlDock.IGrange.value()
-        if self.adcWorker is not None:
-            self.adcWorker.setIGrange(value)
-            print(f"pressed\ncurrent value = {value}")
+        if self.signal_acquisition is not None:
+            self.signal_acquisition.setIGrange(value)
+            print(f"Ionization Gauge Range = {value}")
 
 
 def main():

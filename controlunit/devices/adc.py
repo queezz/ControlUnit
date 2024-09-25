@@ -11,7 +11,7 @@ import pandas as pd
 import time, datetime
 from PyQt5 import QtCore
 
-from AIO import AIO_32_0RA_IRC as adc
+from controlunit.devices.adc_setter import AIO_32_0RA_IRC as adc
 from .device import DeviceThread
 
 
@@ -114,10 +114,8 @@ class ADC(DeviceThread):
     @QtCore.pyqtSlot()
     def start(self):
         """
-        Set Thread ID and name, then run corresponding "plot" function.
-        "plot" functions in the main.py are main data acquisition loops (threads).
+        Start acquisition loop
         """
-        self.set_thread_name()
         self.acquisition_loop()
 
     def setGain(self, gain):

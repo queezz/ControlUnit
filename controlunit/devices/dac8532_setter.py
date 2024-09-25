@@ -27,7 +27,7 @@ CS_PIN = 23
 SPI = spidev.SpiDev(0, 0)
 
 
-class DAC8532:
+class DAC8532Setter:
     def __init__(self):
         self.cs_pin = CS_PIN
         self.spi = SPI
