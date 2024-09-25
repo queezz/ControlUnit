@@ -17,10 +17,10 @@ from .device import DeviceThread
 
 # MARK: ADC
 class ADC(DeviceThread):
-    def __init__(self, sensor_name, app, startTime, config):
-        super().__init__(sensor_name, app, startTime, config)
+    def __init__(self, device_descriptor, app, startTime, config):
+        super().__init__(device_descriptor, app, startTime, config)
         self.__app = app
-        self.sensor_name = sensor_name
+        self.device_descriptor = device_descriptor
         self.__startTime = startTime
         self.__abort = False
         self.config = config
@@ -28,7 +28,7 @@ class ADC(DeviceThread):
 
     @QtCore.pyqtSlot()
     def abort(self):
-        message = "Worker thread {} aborting acquisition".format(self.sensor_name)
+        message = "Worker thread {} aborting acquisition".format(self.device_descriptor)
         # self.send_message.emit(message)
         # print(message)
         self.__abort = True
@@ -241,7 +241,7 @@ class ADC(DeviceThread):
         Clears temporary dataframes to reset memory consumption.
         """
         newdata = self.adc_values.join(self.converted_values)
-        self.send_step_data.emit([newdata, self.sensor_name])
+        self.send_step_data.emit([newdata, self.device_descriptor])
         self.clear_datasets()
 
     def clear_datasets(self):
@@ -279,7 +279,7 @@ class ADC(DeviceThread):
             # self.calculate_averaged_signals()
             self.send_processed_data_to_main_thread()
 
-        self.sigDone.emit(self.sensor_name)
+        self.sigDone.emit(self.device_descriptor)
         return
 
 

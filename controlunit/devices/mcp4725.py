@@ -42,7 +42,7 @@ class MCP4725(DeviceThread):
 
     @QtCore.pyqtSlot()
     def abort(self):
-        message = "Worker thread {} aborting acquisition".format(self.sensor_name)
+        message = "Worker thread {} aborting acquisition".format(self.device_descriptor)
         # self.send_message.emit(message)
         # print(message)
         self.__abort = True

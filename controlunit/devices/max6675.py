@@ -44,7 +44,7 @@ class MAX6675(DeviceThread):
 
     @QtCore.pyqtSlot()
     def abort(self):
-        message = "Worker thread {} aborting acquisition".format(self.sensor_name)
+        message = "Worker thread {} aborting acquisition".format(self.device_descriptor)
         # self.send_message.emit(message)
         # print(message)
         self.__abort = True
@@ -109,7 +109,7 @@ class MAX6675(DeviceThread):
         """
         Send processed data to main.py
         """
-        self.send_step_data.emit([self.data, self.sensor_name])
+        self.send_step_data.emit([self.data, self.device_descriptor])
 
     def clear_datasets(self):
         """
@@ -172,7 +172,7 @@ class MAX6675(DeviceThread):
             self.pi.stop()
 
         self.thread = None
-        self.sigDone.emit(self.sensor_name)
+        self.sigDone.emit(self.device_descriptor)
 
     def temperature_control(self):
         """

@@ -108,7 +108,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.time_window = val
         # self.log_message(f"Timewindow = {val}")
         try:
-            [self.update_plots(sensor_name) for sensor_name in self.device_descriptor]
+            [self.update_plots(device) for device in self.device_descriptor]
         except AttributeError:
             pass
             # print("can't update plots, no workers yet")
@@ -338,7 +338,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.qmsSigThread.wait()
 
     # MARK: Prep Threads
-    def prep_max_thread(self, sensor_name, start_time):
+    def prep_max_thread(self, device_descriptor, start_time):
         """
         MAX6675 thermocouple sensor.
         Membrane temperature with PID.
@@ -348,42 +348,42 @@ class MainWidget(QtCore.QObject, UIWindow):
         from controlunit.devices.max6675 import MAX6675
 
         thisthread = QtCore.QThread()
-        thisthread.setObjectName(f"{sensor_name}")
-        self.tWorker = MAX6675(sensor_name, self.__app, start_time, self.config)
+        thisthread.setObjectName(f"{device_descriptor}")
+        self.tWorker = MAX6675(device_descriptor, self.__app, start_time, self.config)
         self.tWorker.setTempWorker(self.__temp)
         return thisthread
 
-    def prep_adc_thread(self, sensor_name, start_time):
+    def prep_adc_thread(self, device_descriptor, start_time):
         """
         Prep multichannel ADC thread
         """
         thisthread = QtCore.QThread()
-        thisthread.setObjectName(f"{sensor_name}")
-        self.adcWorker = ADC(sensor_name, self.__app, start_time, self.config)
+        thisthread.setObjectName(f"{device_descriptor}")
+        self.adcWorker = ADC(device_descriptor, self.__app, start_time, self.config)
         mode = self.controlDock.IGmode.currentIndex()
         scale = self.controlDock.IGrange.value()
         self.adcWorker.init_adc_worker(mode, scale)
         return thisthread
 
-    def prep_dac_thread(self, sensor_name, start_time):
+    def prep_dac_thread(self, device_descriptor, start_time):
         """
         Prep DAC MCP4725 thread.
         Currently unused, planned for plasma current control.
         """
         thisthread = QtCore.QThread()
-        thisthread.setObjectName(f"{sensor_name}")
-        self.mcpWorker = MCP4725(sensor_name, self.__app, start_time, self.config)
+        thisthread.setObjectName(f"{device_descriptor}")
+        self.mcpWorker = MCP4725(device_descriptor, self.__app, start_time, self.config)
         self.mcpWorker.mcp_init()
         return thisthread
 
-    def prep_massflow_dac(self, sensor_name, start_time):
+    def prep_massflow_dac(self, device_descriptor, start_time):
         """
         Prep thread for DAC8532.
         Output signals for Mass Flow Controllers.
         """
         thisthread = QtCore.QThread()
-        thisthread.setObjectName(f"{sensor_name}")
-        self.dacWorker = DAC8532(sensor_name, self.__app, start_time, self.config)
+        thisthread.setObjectName(f"{device_descriptor}")
+        self.dacWorker = DAC8532(device_descriptor, self.__app, start_time, self.config)
         self.dacWorker.dac_init()
         return thisthread
 
@@ -452,9 +452,9 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         # if worker.device_descriptor != "MFCs" or worker.device_descriptor != "PlasmaCurrent":
         if worker.device_descriptor == "ADC":
-            self.create_file(worker.sensor_name)
+            self.create_file(worker.device_descriptor)
             self.log_message(
-                f"<font size=4 color='blue'>{worker.sensor_name}</font> savepath:<br> {self.savepaths[worker.sensor_name]}",
+                f"<font size=4 color='blue'>{worker.device_descriptor}</font> savepath:<br> {self.savepaths[worker.device_descriptor]}",
             )
 
         thread.started.connect(worker.start)
@@ -488,23 +488,23 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.logDock.log.moveCursor(self.logDock.log.textCursor().End)
         # self.logDock.log.append(f"<{htmltag}>{nowstamp}: {message}</{htmltag}>")
 
-    def create_file(self, sensor_name):
+    def create_file(self, device_descriptor):
         """
         Create file for saving sensor data
         """
-        # if sensor_name == "MAX6675":
-        #     self.savepaths[sensor_name] = os.path.join(
+        # if device_descriptor == "MAX6675":
+        #     self.savepaths[device_descriptor] = os.path.join(
         #         os.path.abspath(self.datapath),
         #         f"cu_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_temp.csv",
         #     )
-        #     with open(self.savepaths[sensor_name], "w") as f:
+        #     with open(self.savepaths[device_descriptor], "w") as f:
         #         f.writelines(self.generate_header_temperature())
-        if sensor_name == "ADC":
-            self.savepaths[sensor_name] = os.path.join(
+        if device_descriptor == "ADC":
+            self.savepaths[device_descriptor] = os.path.join(
                 os.path.abspath(self.datapath),
                 f"cu_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
             )
-            with open(self.savepaths[sensor_name], "w") as f:
+            with open(self.savepaths[device_descriptor], "w") as f:
                 f.writelines(self.generate_header_adc())
 
     def generate_header_adc(self):
@@ -606,23 +606,25 @@ class MainWidget(QtCore.QObject, UIWindow):
         - Updates data in plots (skips points if data is too big)
         """
 
-        sensor_name = result[-1]
+        device_descriptor = result[-1]
 
-        if sensor_name == "MAX6675":
-            # [self.data, self.sensor_name]
-            self.newdata[sensor_name] = result[0]
-            self.append_data(sensor_name)
-            self.save_data(sensor_name)
+        if device_descriptor == "MAX6675":
+            # [self.data, self.device_descriptor]
+            self.newdata[device_descriptor] = result[0]
+            self.append_data(device_descriptor)
+            self.save_data(device_descriptor)
             # here 3 is number of data points recieved from worker.
-            # TODO: update to self.newdata[sensor_name]['T'].mean()
-            self.currentvalues["T"] = self.datadict[sensor_name].iloc[-3:]["T"].mean()
-            self.update_plots(sensor_name)
+            # TODO: update to self.newdata[device_descriptor]['T'].mean()
+            self.currentvalues["T"] = (
+                self.datadict[device_descriptor].iloc[-3:]["T"].mean()
+            )
+            self.update_plots(device_descriptor)
 
-        if sensor_name == "ADC":
-            #  self.send_step_data.emit([newdata, self.sensor_name])
-            self.newdata[sensor_name] = result[0]
-            self.append_data(sensor_name)
-            self.save_data(sensor_name)
+        if device_descriptor == "ADC":
+            #  self.send_step_data.emit([newdata, self.device_descriptor])
+            self.newdata[device_descriptor] = result[0]
+            self.append_data(device_descriptor)
+            self.save_data(device_descriptor)
             for plotname, name in zip(
                 self.config["ADC Signal Names"], self.config["ADC Converted Names"]
             ):
@@ -632,18 +634,18 @@ class MainWidget(QtCore.QObject, UIWindow):
             # to debug mV signal from Baratron, ouptut it directly.
             self.baratronsignal1 = self.datadict["ADC"].iloc[-3:]["Bu"].mean()
             self.baratronsignal2 = self.datadict["ADC"].iloc[-3:]["Bd"].mean()
-            self.update_plots(sensor_name)
+            self.update_plots(device_descriptor)
 
         self.update_current_values()
 
     # MARK: Update Plots
-    def update_plots(self, sensor_name):
+    def update_plots(self, device_descriptor):
         """
         Update plots
         """
-        if sensor_name == "MAX6675":
+        if device_descriptor == "MAX6675":
             self.update_plots_max6675()
-        if sensor_name == "ADC":
+        if device_descriptor == "ADC":
             self.update_plots_adc()
 
     def update_plots_max6675(self):
@@ -682,26 +684,28 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.graph.pressure_down_curve.setData(time[::skip], p2[::skip])
 
     # MARK: append data
-    def append_data(self, sensor_name):
+    def append_data(self, device_descriptor):
         """
         Append new data to dataframe
         """
-        # self.datadict[sensor_name] = pd.concat([self.datadict[sensor_name], self.newdata[sensor_name]], ignore_index=True)
+        # self.datadict[device_descriptor] = pd.concat([self.datadict[device_descriptor], self.newdata[device_descriptor]], ignore_index=True)
         # Fix FutureWarning
-        self.datadict[sensor_name] = pd.concat(
+        self.datadict[device_descriptor] = pd.concat(
             [
-                self.datadict[sensor_name],
-                self.newdata[sensor_name].astype(self.datadict[sensor_name].dtypes),
+                self.datadict[device_descriptor],
+                self.newdata[device_descriptor].astype(
+                    self.datadict[device_descriptor].dtypes
+                ),
             ],
             ignore_index=True,
         )
         # self.data = pd.concat([self.adc_values, new_data_row.astype(self.adc_values.dtypes)], ignore_index=True)
 
-    def select_data_to_plot(self, sensor_name):
+    def select_data_to_plot(self, device_descriptor):
         """
         Select data based on self.time_window
         """
-        df = self.datadict[sensor_name]
+        df = self.datadict[device_descriptor]
         if self.time_window > 0:
             last_ts = df["date"].iloc[-1]
             timewindow = last_ts - pd.Timedelta(self.time_window, "seconds")
@@ -717,23 +721,23 @@ class MainWidget(QtCore.QObject, UIWindow):
     def calculate_skip_points(self, l, noskip=5000):
         return 1 if l < noskip else l // noskip + 1
 
-    def save_data(self, sensor_name):
+    def save_data(self, device_descriptor):
         """
         Save sensor data
         """
-        savepath = self.savepaths[sensor_name]
-        data = self.newdata[sensor_name]
+        savepath = self.savepaths[device_descriptor]
+        data = self.newdata[device_descriptor]
         data.to_csv(savepath, mode="a", header=False, index=False)
 
     # MARK: worker done
     @QtCore.pyqtSlot(str)
-    def on_worker_done(self, sensor_name):
+    def on_worker_done(self, device_descriptor):
         self.log_message(
-            f"Sensor thread <font size=4 color='blue'> {sensor_name}</font> <font size=4 color={'red'}>stopped</font>",
+            f"Sensor thread <font size=4 color='blue'> {device_descriptor}</font> <font size=4 color={'red'}>stopped</font>",
             htmltag="div",
         )
         self.__workers_done += 1
-        self.reset_data(sensor_name)
+        self.reset_data(device_descriptor)
 
         if self.__workers_done == 2:
             self.abort_all_threads()
@@ -747,9 +751,9 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         self.__threads = []
 
-    def reset_data(self, sensor_name):
-        self.datadict[sensor_name] = self.datadict[sensor_name].iloc[0:0]
-        self.newdata[sensor_name] = self.newdata[sensor_name].iloc[0:0]
+    def reset_data(self, device_descriptor):
+        self.datadict[device_descriptor] = self.datadict[device_descriptor].iloc[0:0]
+        self.newdata[device_descriptor] = self.newdata[device_descriptor].iloc[0:0]
 
     @QtCore.pyqtSlot()
     def set_heater_goal(self):
