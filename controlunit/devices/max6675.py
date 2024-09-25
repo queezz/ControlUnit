@@ -2,14 +2,16 @@
 MAX6675 communication
 
 Thermocouple sensor with a thermistor.
+
 https://www.analog.com/media/en/technical-documentation/data-sheets/max6675.pdf
 """
+
 import numpy as np
 import pandas as pd
 import time, datetime
 from PyQt5 import QtCore
 
-from .device import Sensor
+from .device import DeviceThread
 from heatercontrol import HeaterContol
 
 RED = "\033[1;31m"
@@ -24,18 +26,18 @@ try:
     import pigpio
 except ImportError as e:
     print(RED + "worker_max6675.py Error: " + RESET + f"{e}")
-    from sensors.dummy import pigpio
+    from devices.dummy import pigpio
 
 
 # MARK: MAX6675
-class MAX6675(Sensor):
+class MAX6675(DeviceThread):
 
     sigAbortHeater = QtCore.pyqtSignal()
 
-    def __init__(self, sensor_name, app, startTime, config):
-        super().__init__(sensor_name, app, startTime, config)
+    def __init__(self, device_descriptor, app, startTime, config):
+        super().__init__(device_descriptor, app, startTime, config)
         self.__app = app
-        self.sensor_name = sensor_name
+        self.device_descriptor = device_descriptor
         self.__startTime = startTime
         self.config = config
         self.__abort = False
@@ -57,7 +59,6 @@ class MAX6675(Sensor):
         self.sampling = self.config["Sampling Time"]
         if self.sampling < 0.25:
             self.sampling = 0.25
-
 
         self.pi = pigpio.pi()
         self.__sumE = 0
@@ -124,7 +125,8 @@ class MAX6675(Sensor):
         dSec = (now - self.__startTime).total_seconds()
         # ["date", "time", "T", "PresetT"]
         new_row = pd.DataFrame(
-            np.atleast_2d([now, dSec, self.temperature, self.temperature_setpoint]), columns=self.columns
+            np.atleast_2d([now, dSec, self.temperature, self.temperature_setpoint]),
+            columns=self.columns,
         )
         self.data = pd.concat([self.data, new_row], ignore_index=True)
 
@@ -175,7 +177,7 @@ class MAX6675(Sensor):
     def temperature_control(self):
         """
         Shouldn't the self.sampling here be 0.25, not the one for ADC?
-        TODO: update to simple-pid as in TemperatureControl 
+        TODO: update to simple-pid as in TemperatureControl
         https://github.com/queezz/TemperatureControl
         """
         e = self.temperature_setpoint - self.average
@@ -211,6 +213,7 @@ class MAX6675(Sensor):
                 return int(d + 1)
         else:
             return steps
-    
+
+
 if __name__ == "__main__":
     pass

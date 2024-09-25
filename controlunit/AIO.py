@@ -2,11 +2,13 @@
 Source:
 https://www.y2c.co.jp/i2c-r/aio-32-0ra-irc/raspberrypi-python/
 """
+
 try:
     import smbus
 except ModuleNotFoundError:
     pass
-    from sensors.dummy import smbus
+    from devices.dummy import smbus
+
 
 class PCA9554:
     class Register:
@@ -154,15 +156,25 @@ class AIO_32_0RA_IRC:
 
         return self.ads1115.analog_read(adcMux, data_rate, pga)
 
-    def analog_read_volt(self, channel, data_rate=DataRate.DR_128SPS, pga=PGA.PGA_10_0352V):
+    def analog_read_volt(
+        self, channel, data_rate=DataRate.DR_128SPS, pga=PGA.PGA_10_0352V
+    ):
         if pga == self.PGA.PGA_1_2544V:
-            return float(0.256 * 49 / 10 / 32767 * self.analog_read(channel, data_rate, pga))
+            return float(
+                0.256 * 49 / 10 / 32767 * self.analog_read(channel, data_rate, pga)
+            )
         elif pga == self.PGA.PGA_2_5088V:
-            return float(0.512 * 49 / 10 / 32767 * self.analog_read(channel, data_rate, pga))
+            return float(
+                0.512 * 49 / 10 / 32767 * self.analog_read(channel, data_rate, pga)
+            )
         elif pga == self.PGA.PGA_5_0176V:
-            return float(1.024 * 49 / 10 / 32767 * self.analog_read(channel, data_rate, pga))
+            return float(
+                1.024 * 49 / 10 / 32767 * self.analog_read(channel, data_rate, pga)
+            )
         else:
-            return float(2.048 * 49 / 10 / 32767 * self.analog_read(channel, data_rate, pga))
+            return float(
+                2.048 * 49 / 10 / 32767 * self.analog_read(channel, data_rate, pga)
+            )
 
 
 def main():
@@ -171,7 +183,11 @@ def main():
     # アナログ入力値の読み出し（電圧値）（860SPS）
 
     for channel in range(32):
-        print("CH{:d}: {:2.3f}V".format(channel, aio.analog_read_volt(channel, aio.DataRate.DR_860SPS)))
+        print(
+            "CH{:d}: {:2.3f}V".format(
+                channel, aio.analog_read_volt(channel, aio.DataRate.DR_860SPS)
+            )
+        )
 
 
 if __name__ == "__main__":

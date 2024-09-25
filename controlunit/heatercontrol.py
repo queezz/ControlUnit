@@ -3,7 +3,7 @@ import time
 try:
     import pigpio
 except ImportError as e:
-    from sensors.dummy import pigpio
+    from devices.dummy import pigpio
 
 
 from pyqtgraph.Qt import QtCore

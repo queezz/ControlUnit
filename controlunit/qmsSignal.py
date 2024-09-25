@@ -3,7 +3,7 @@ import time
 try:
     import pigpio
 except ImportError as e:
-    from sensors.dummy import pigpio
+    from devices.dummy import pigpio
 
 from pyqtgraph.Qt import QtCore
 from readsettings import select_settings
@@ -11,16 +11,17 @@ from readsettings import select_settings
 config = select_settings(verbose=False)
 CHLED = config["LED GPIO"]
 
+
 # must inherit QtCore.QObject in order to use 'connect'
 class SyncSignal(QtCore.QThread):
     """
     Emit signal for syncronization. Also connected to LED indicator.
     TODO: hardware: use GPIO as a switching signal, don't keep this on
     When this is kept on for too long, the APP crashes.
-    TODO: when turn on and off LED so many times (10 or more), the signal is not stable. 
+    TODO: when turn on and off LED so many times (10 or more), the signal is not stable.
     """
 
-    def __init__(self, pi, app, mode,worker=None):
+    def __init__(self, pi, app, mode, worker=None):
         super().__init__()
         self.pi = pi  # pigpio.pi() - access local GPIO
         self.app = app
@@ -70,7 +71,6 @@ class SyncSignal(QtCore.QThread):
         self.pi.write(self.pinNum, 0)
         self.pi.stop()
         self.worker.setQmsSignal(0)
-
 
     def blink_led(self):
         """turn led on and off, "onoff" times"""

@@ -4,10 +4,10 @@ import pandas as pd
 from PyQt5 import QtCore, QtWidgets
 
 from mainView import UIWindow
-from controlunit.sensors.device import Sensor
-from controlunit.sensors.adc import ADC
-from controlunit.sensors.dac8532 import DAC8532
-from controlunit.sensors.mcp4725 import MCP4725 
+from controlunit.devices.device import DeviceThread
+from controlunit.devices.adc import ADC
+from controlunit.devices.dac8532 import DAC8532
+from controlunit.devices.mcp4725 import MCP4725
 from calibrator import Calibrator
 
 # from readsettings import make_datafolders, read_settings
@@ -31,7 +31,7 @@ try:
 except ImportError as e:
     print(RED + "main.py Error: " + RESET + f"{e}")
     TEST = True
-    from sensors.dummy import pigpio
+    from devices.dummy import pigpio
 
     print(
         BLUE
@@ -48,52 +48,48 @@ except ImportError as e:
 # must inherit QtCore.QObject in order to use 'connect'
 class MainWidget(QtCore.QObject, UIWindow):
     # DEFAULT_TEMPERATURE = 0
-    DEFALT_VOLTAGE = 0
+    DEFAULT_VOLTAGE = 0
     STEP = 3
 
     sigAbortWorkers = QtCore.pyqtSignal()
+
+    plaData = trigData = tData = p1Data = p2Data = tWorker = adcWorker = dacWorker = (
+        None
+    )
+    calibrating = False
+
     # MARK: init
     def __init__(self, app: QtWidgets.QApplication):
         super(self.__class__, self).__init__()
         self.__app = app
         self.connections()
         # self.tempcontrolDock.set_heating_goal(self.DEFAULT_TEMPERATURE, "---")
-        self.mfccontrolDock.set_output1_goal(self.DEFALT_VOLTAGE, "---")
-        self.mfccontrolDock.set_output2_goal(self.DEFALT_VOLTAGE, "---")
+        self.mfccontrolDock.set_output1_goal(self.DEFAULT_VOLTAGE, "---")
+        self.mfccontrolDock.set_output2_goal(self.DEFAULT_VOLTAGE, "---")
 
         QtCore.QThread.currentThread().setObjectName("main")
 
         self.__workers_done = 0
         self.__threads = []
         # self.__temp = self.DEFAULT_TEMPERATURE
-        self.__mfc1 = self.DEFALT_VOLTAGE
-        self.__mfc2 = self.DEFALT_VOLTAGE
+        self.__mfc1 = self.DEFAULT_VOLTAGE
+        self.__mfc2 = self.DEFAULT_VOLTAGE
 
         self.calibration_waiting_time = self.mfccontrolDock.scaleBtn.currentText()
-
-        self.plaData = None
-        self.trigData = None
-        self.tData = None
-        self.p1Data = None
-        self.p2Data = None
 
         self.config = readsettings.init_configuration(verbose=True)
         self.datapath = self.config["Data Folder"]
         self.sampling = self.config["Sampling Time"]
 
-        # MARK: define Plots
+        # MARK: Current Values
+        # To display in text browser
         # self.currentvalues = {"Ip": 0, "P1": 0, "P2": 0, "T": 0}
         # self.currentvalues = {i: 0 for i in self.config["ADC Signal Names"] + ["T"]}
         self.currentvalues = {i: 0 for i in self.config["ADC Signal Names"]}
         self.baratronsignal1 = 0
         self.baratronsignal2 = 0
-        
-        ## GRAPHS definitions moved to graph.py
 
-        self.tWorker = None
-        self.adcWorker = None
-        self.dacWorker = None
-        self.calibrating = False
+        ## GRAPHS definitions moved to graph.py
 
         self.controlDock.scaleBtn.setCurrentIndex(2)
         self.update_plot_timewindow()
@@ -112,7 +108,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.time_window = val
         # self.log_message(f"Timewindow = {val}")
         try:
-            [self.update_plots(sensor_name) for sensor_name in self.sensor_names]
+            [self.update_plots(sensor_name) for sensor_name in self.device_descriptor]
         except AttributeError:
             pass
             # print("can't update plots, no workers yet")
@@ -123,6 +119,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         val = self.ADCGainDock.gains[txt]
         self.baratrongain = val
         # print(f"ADC gain = {val}")
+
     # MARK: connections
     def connections(self):
         self.controlDock.scaleBtn.currentIndexChanged.connect(
@@ -246,7 +243,7 @@ class MainWidget(QtCore.QObject, UIWindow):
     def __autoscale(self):
         """Set all plots to autoscale"""
         # enableAutoRange
-        #plots = [self.graph.plasma_plot, self.graph.temperature_plot, self.graph.pressure_plot]
+        # plots = [self.graph.plasma_plot, self.graph.temperature_plot, self.graph.pressure_plot]
         plots = [self.graph.plasma_plot, self.graph.pressure_plot]
 
         # [i.autoRange() for i in plots]
@@ -290,7 +287,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         items = {
             "Ip": [self.scaleDock.togIp, self.graph.plasma_plot, 0, 0],
             # "T": [self.scaleDock.togT, self.graph.tempPl, 1, 0],
-            "P": [self.scaleDock.togP, self.graph.pressure_plot, 1, 0],            
+            "P": [self.scaleDock.togP, self.graph.pressure_plot, 1, 0],
         }
 
         [toggleplot(*items[jj]) for jj in ["Ip", "P"]]
@@ -300,11 +297,11 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.graph.baratron_up_curve.setVisible(True)
             self.graph.baratron_down_curve.setVisible(True)
         else:
-            self.graph.baratron_up_curve.setVisible(False) 
-            self.graph.baratron_down_curve.setVisible(False) 
-            
+            self.graph.baratron_up_curve.setVisible(False)
+            self.graph.baratron_down_curve.setVisible(False)
+
     def toggle_plots_igs(self):
-        """ Toggle IG and Pfeiffer lines """
+        """Toggle IG and Pfeiffer lines"""
         if self.scaleDock.togIGs.isChecked():
             self.graph.pressure_up_curve.setVisible(True)
             self.graph.pressure_down_curve.setVisible(True)
@@ -324,7 +321,6 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         pi = pigpio.pi()
 
-
         if self.controlDock.qmsSigSw.isChecked():
             self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 1)
             self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
@@ -342,19 +338,22 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.qmsSigThread.wait()
 
     # MARK: Prep Threads
-    def prep_max_thread(self, sensor_name,start_time):
+    def prep_max_thread(self, sensor_name, start_time):
         """
-        MAX6675 thermocouple sensor for Membrane temperature with PID
-        TODO: wrap other sensor thread creation in methods for clarity
+        MAX6675 thermocouple sensor.
+        Membrane temperature with PID.
+        Currently moved out to separate windows machine
+        wiht NI insulated thermocouples.
         """
-        from controlunit.sensors.max6675 import MAX6675
+        from controlunit.devices.max6675 import MAX6675
+
         thisthread = QtCore.QThread()
         thisthread.setObjectName(f"{sensor_name}")
         self.tWorker = MAX6675(sensor_name, self.__app, start_time, self.config)
         self.tWorker.setTempWorker(self.__temp)
         return thisthread
-    
-    def prep_adc_thread(self,sensor_name,start_time):
+
+    def prep_adc_thread(self, sensor_name, start_time):
         """
         Prep multichannel ADC thread
         """
@@ -365,20 +364,22 @@ class MainWidget(QtCore.QObject, UIWindow):
         scale = self.controlDock.IGrange.value()
         self.adcWorker.init_adc_worker(mode, scale)
         return thisthread
-    
-    def prep_dac_thread(self,sensor_name, start_time):
+
+    def prep_dac_thread(self, sensor_name, start_time):
         """
-        Prep DAC MCP4725 thread
+        Prep DAC MCP4725 thread.
+        Currently unused, planned for plasma current control.
         """
         thisthread = QtCore.QThread()
         thisthread.setObjectName(f"{sensor_name}")
         self.mcpWorker = MCP4725(sensor_name, self.__app, start_time, self.config)
         self.mcpWorker.mcp_init()
         return thisthread
-    
-    def prep_dac_mf_thread(self,sensor_name, start_time):
+
+    def prep_massflow_dac(self, sensor_name, start_time):
         """
-        Prep thread for DAC8532 (output signal for Mass Flow Controllers)
+        Prep thread for DAC8532.
+        Output signals for Mass Flow Controllers.
         """
         thisthread = QtCore.QThread()
         thisthread.setObjectName(f"{sensor_name}")
@@ -415,26 +416,26 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         now = datetime.datetime.now()
         threads = {}
+        device_descriptor = "MFCs"
+        threads[device_descriptor] = self.prep_massflow_dac(device_descriptor, now)
+        device_descriptor = "PlasmaCurrent"
+        threads[device_descriptor] = self.prep_dac_thread(device_descriptor, now)
+        # Signal acquisition
+        device_descriptor = "ADC"
+        threads[device_descriptor] = self.prep_adc_thread(device_descriptor, now)
+        # device_descriptor = "MembraneTemperature"
+        # threads[device_descriptor] = self.prep_max_thread(device_descriptor,now)
 
-        sensor_name = "DAC8532"
-        threads[sensor_name] = self.prep_dac_mf_thread(sensor_name,now)
-        sensor_name = "MCP4725"
-        threads[sensor_name] = self.prep_dac_thread(sensor_name,now)
-        sensor_name = "ADC"
-        threads[sensor_name] = self.prep_adc_thread(sensor_name,now)
-        # sensor_name = "MAX6675"
-        # threads[sensor_name] = self.prep_max_thread(sensor_name,now)
-
-        # workers = {worker.sensor_name: worker for worker in [self.tWorker, self.adcWorker]}
+        # workers = {worker.device_descriptor: worker for worker in [self.tWorker, self.adcWorker]}
         workers = {
-            worker.sensor_name: worker
+            worker.device_descriptor: worker
             for worker in [self.dacWorker, self.mcpWorker, self.adcWorker]
         }
-        self.sensor_names = list(workers)
+        self.device_descriptor = list(workers)
 
-        [self.start_thread(workers[s], threads[s]) for s in self.sensor_names]
+        [self.start_thread(workers[s], threads[s]) for s in self.device_descriptor]
 
-    def start_thread(self, worker: Sensor, thread: QtCore.QThread):
+    def start_thread(self, worker: DeviceThread, thread: QtCore.QThread):
         """
         Setup workers [Dataframe creation]
         - Creates instances of worker
@@ -449,8 +450,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         worker.moveToThread(thread)
         self.connect_worker_signals(worker)
 
-        # if worker.sensor_name != "DAC8532" or worker.sensor_name != "MCP4725":
-        if worker.sensor_name == "ADC":
+        # if worker.device_descriptor != "MFCs" or worker.device_descriptor != "PlasmaCurrent":
+        if worker.device_descriptor == "ADC":
             self.create_file(worker.sensor_name)
             self.log_message(
                 f"<font size=4 color='blue'>{worker.sensor_name}</font> savepath:<br> {self.savepaths[worker.sensor_name]}",
@@ -458,7 +459,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         thread.started.connect(worker.start)
         thread.start()
-        
+
     # MARK: logging
     def generate_time_stamp(self):
         return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -485,7 +486,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.logDock.log.setHtml(current_text)
 
         self.logDock.log.moveCursor(self.logDock.log.textCursor().End)
-        # self.logDock.log.append(f"<{htmltag}>{nowstamp}: {message}</{htmltag}>")        
+        # self.logDock.log.append(f"<{htmltag}>{nowstamp}: {message}</{htmltag}>")
 
     def create_file(self, sensor_name):
         """
@@ -660,7 +661,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         Update plots for ADC dataframe
         """
         df = self.select_data_to_plot("ADC")
-        #time = df["time"].values.astype(float)
+        # time = df["time"].values.astype(float)
         utc_offset = 9
         time = (
             df["date"]
@@ -673,7 +674,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         p2 = df["Pd_c"].values.astype(float)
         b1 = df["Bu_c"].values.astype(float)
         b2 = df["Bd_c"].values.astype(float)
-        skip = self.calculate_skip_points(time.shape[0])        
+        skip = self.calculate_skip_points(time.shape[0])
         self.graph.baratron_up_curve.setData(time[::skip], b1[::skip])
         self.graph.baratron_down_curve.setData(time[::skip], b2[::skip])
         self.graph.plasma_cruve.setData(time[::skip], ip[::skip])
@@ -685,12 +686,16 @@ class MainWidget(QtCore.QObject, UIWindow):
         """
         Append new data to dataframe
         """
-        #self.datadict[sensor_name] = pd.concat([self.datadict[sensor_name], self.newdata[sensor_name]], ignore_index=True)
+        # self.datadict[sensor_name] = pd.concat([self.datadict[sensor_name], self.newdata[sensor_name]], ignore_index=True)
         # Fix FutureWarning
         self.datadict[sensor_name] = pd.concat(
-            [self.datadict[sensor_name], self.newdata[sensor_name].astype(self.datadict[sensor_name].dtypes)], ignore_index=True
+            [
+                self.datadict[sensor_name],
+                self.newdata[sensor_name].astype(self.datadict[sensor_name].dtypes),
+            ],
+            ignore_index=True,
         )
-        # self.data = pd.concat([self.adc_values, new_data_row.astype(self.adc_values.dtypes)], ignore_index=True)        
+        # self.data = pd.concat([self.adc_values, new_data_row.astype(self.adc_values.dtypes)], ignore_index=True)
 
     def select_data_to_plot(self, sensor_name):
         """
@@ -702,16 +707,16 @@ class MainWidget(QtCore.QObject, UIWindow):
             timewindow = last_ts - pd.Timedelta(self.time_window, "seconds")
             df = df[df["date"] > timewindow]
         return self.downsample_data(df)
-    
+
     def downsample_data(self, df, noskip=3000):
         """downsample data"""
         if df.shape[0] > noskip:
-            return df.iloc[::df.shape[0] // noskip + 1]
+            return df.iloc[:: df.shape[0] // noskip + 1]
         return df
 
     def calculate_skip_points(self, l, noskip=5000):
         return 1 if l < noskip else l // noskip + 1
-    
+
     def save_data(self, sensor_name):
         """
         Save sensor data

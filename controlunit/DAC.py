@@ -4,16 +4,16 @@ import time
 try:
     import RPi.GPIO as GPIO
 except ImportError:
-    from sensors.dummy import GPIO
+    from devices.dummy import GPIO
 
-try: 
+try:
     import spidev
 except ImportError:
-    from sensors.dummy import spidev
+    from devices.dummy import spidev
 
 
-channel_A   = 0x30
-channel_B   = 0x34
+channel_A = 0x30
+channel_B = 0x34
 
 DAC_Value_MAX = 65535
 
@@ -39,24 +39,21 @@ class DAC8532:
         self.DAC_VREF = DAC_VREF
 
         self.module_init()
-        
-    
+
     def DAC8532_Write_Data(self, Channel, Data):
-        self.digital_write(self.cs_pin, GPIO.LOW)#cs  0
-        self.spi_writebyte([Channel, Data >> 8, Data & 0xff])
-        self.digital_write(self.cs_pin, GPIO.HIGH)#cs  0
-        
+        self.digital_write(self.cs_pin, GPIO.LOW)  # cs  0
+        self.spi_writebyte([Channel, Data >> 8, Data & 0xFF])
+        self.digital_write(self.cs_pin, GPIO.HIGH)  # cs  0
+
     def DAC8532_Out_Voltage(self, Channel, Voltage):
-        if((Voltage <= DAC_VREF) and (Voltage >= 0)):
+        if (Voltage <= DAC_VREF) and (Voltage >= 0):
             temp = int(Voltage * DAC_Value_MAX / DAC_VREF)
             self.DAC8532_Write_Data(Channel, temp)
-
-
 
     def digital_write(self, pin, value):
         GPIO.output(pin, value)
 
-    def digital_read(self,pin):
+    def digital_read(self, pin):
         return GPIO.input(pin)
 
     def delay_ms(self, delaytime):
@@ -64,19 +61,17 @@ class DAC8532:
 
     def spi_writebyte(self, data):
         self.spi.writebytes(data)
-        
+
     def spi_readbytes(self, reg):
         return self.spi.readbytes(reg)
-        
 
     def module_init(self):
         GPIO.setmode(GPIO.BCM)
         GPIO.setwarnings(False)
-        #GPIO.setup(RST_PIN, GPIO.OUT)
+        # GPIO.setup(RST_PIN, GPIO.OUT)
         GPIO.setup(CS_PIN, GPIO.OUT)
-        #GPIO.setup(DRDY_PIN, GPIO.IN)
-        #GPIO.setup(DRDY_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        # GPIO.setup(DRDY_PIN, GPIO.IN)
+        # GPIO.setup(DRDY_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
         self.spi.max_speed_hz = 20000
         self.spi.mode = 0b01
         return 0
-

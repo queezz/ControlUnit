@@ -2,18 +2,21 @@
 ADC communication
 
 I2C アナログ入力ボード AIO-32/0RA-IRC
+
 https://www.y2c.co.jp/i2c-r/aio-32-0ra-irc/
 """
+
 import numpy as np
 import pandas as pd
 import time, datetime
 from PyQt5 import QtCore
 
 from AIO import AIO_32_0RA_IRC as adc
-from .device import Sensor
+from .device import DeviceThread
+
 
 # MARK: ADC
-class ADC(Sensor):
+class ADC(DeviceThread):
     def __init__(self, sensor_name, app, startTime, config):
         super().__init__(sensor_name, app, startTime, config)
         self.__app = app
@@ -44,7 +47,9 @@ class ADC(Sensor):
         QMS_signal: int, "trigger" on or off. When on emits a signal from GPIO
         """
         self.adc_signals_columns = self.config["ADC Signal Names"]
-        self.adc_values_columns = self.config["ADC Additional Columns"] + self.config["ADC Signal Names"]
+        self.adc_values_columns = (
+            self.config["ADC Additional Columns"] + self.config["ADC Signal Names"]
+        )
 
         self.adc_values = pd.DataFrame(columns=self.adc_values_columns)
         self.converted_values = pd.DataFrame(columns=self.config["ADC Converted Names"])
@@ -81,29 +86,29 @@ class ADC(Sensor):
         """
         self.__qmsSignal = signal
         return
-    
+
     def setPresetV_mfc1(self, voltage: int):
         """
         Sets Preset Voltage of Mas Flow Control for H2 from GUI
         range: 0 ~ 5000 mV
         """
-        self.__PresetV_mfc1 = voltage/1000
+        self.__PresetV_mfc1 = voltage / 1000
         return
-    
+
     def setPresetV_mfc2(self, voltage: int):
         """
         Sets Preset Voltage of Mas Flow Control for H2 from GUI
         range: 0 ~ 5000 mV
         """
-        self.__PresetV_mfc2 = voltage/1000
+        self.__PresetV_mfc2 = voltage / 1000
         return
-    
+
     def setPresetV_cathode(self, voltage: int):
         """
         Sets Preset Voltage of Power Supplier for Cathode from GUI
         range: 0 ~ 500 mV
         """
-        self.__PresetV_cathode = voltage/1000
+        self.__PresetV_cathode = voltage / 1000
         return
 
     @QtCore.pyqtSlot()
@@ -177,24 +182,39 @@ class ADC(Sensor):
         dSec = (now - self.__startTime).total_seconds()
         new_data_row = pd.DataFrame(
             np.atleast_2d(
-                [now, dSec, self.__IGmode, self.__IGrange, self.__qmsSignal,self.__PresetV_mfc1, self.__PresetV_mfc2,self.__PresetV_cathode, *self.adc_voltages.values()]
+                [
+                    now,
+                    dSec,
+                    self.__IGmode,
+                    self.__IGrange,
+                    self.__qmsSignal,
+                    self.__PresetV_mfc1,
+                    self.__PresetV_mfc2,
+                    self.__PresetV_cathode,
+                    *self.adc_voltages.values(),
+                ]
             ),
             columns=self.adc_values_columns,
         )
-        
+
         # self.adc_values = pd.concat([self.adc_values, new_data_row], ignore_index=True)
-         # adjusting the dtypes to remove it FutureWarning
-        self.adc_values = pd.concat([self.adc_values.astype(new_data_row.dtypes), new_data_row], ignore_index=True)
+        # adjusting the dtypes to remove it FutureWarning
+        self.adc_values = pd.concat(
+            [self.adc_values.astype(new_data_row.dtypes), new_data_row],
+            ignore_index=True,
+        )
 
     def update_processed_signals_dataframe(self):
         """
-        Update processed dataframe with new values        
+        Update processed dataframe with new values
         """
         converted_values = []
         for name, value in self.adc_voltages.items():
             conversion = self.adc_channels[name].conversion
             if conversion.__name__ == "ionization_gauge":
-                converted_values.append(conversion(value, self.__IGmode, self.__IGrange))
+                converted_values.append(
+                    conversion(value, self.__IGmode, self.__IGrange)
+                )
             else:
                 converted_values.append(conversion(value))
 
@@ -202,9 +222,12 @@ class ADC(Sensor):
             np.atleast_2d(converted_values), columns=self.config["ADC Converted Names"]
         )
 
-        #self.converted_values = pd.concat([self.converted_values, converted_values], ignore_index=True)
+        # self.converted_values = pd.concat([self.converted_values, converted_values], ignore_index=True)
         # Fixing FutureError
-        self.converted_values = pd.concat([self.converted_values.astype(converted_values.dtypes), converted_values], ignore_index=True)
+        self.converted_values = pd.concat(
+            [self.converted_values.astype(converted_values.dtypes), converted_values],
+            ignore_index=True,
+        )
 
     def calculate_averaged_signals(self):
         """
