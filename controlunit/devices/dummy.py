@@ -3,6 +3,8 @@ Dummy classes to test the code not on RasPi
 smbus
 RPi
 """
+
+
 class smbus:
     def __init__(self):
         pass
@@ -23,43 +25,52 @@ class smbus:
 
         def read_word_data(self, i2c_addr, register):
             return 0x1234
-        
+
+
 class GPIO:
     BCM = None
     OUT = None
     LOW = 0
     HIGH = 1
+
     def __init__(self):
         pass
 
     def setup(CS_PIN, OUT):
         return
+
     def setmode(BCM):
         return
+
     def setwarnings(val):
         return
+
     def output(pin, value):
         return
+
     def input(pin):
         return
+
 
 class SpiDev:
     max_speed_hz = 0
     mode = 0b01
 
-    def __init__(self,a,b):
+    def __init__(self, a, b):
         pass
 
-    def writebytes(self,data):
+    def writebytes(self, data):
         return
+
     def readbytes(self):
         return
 
+
 class spidev:
     SpiDev = SpiDev
+
     def __init__(self):
         pass
-
 
 
 class pi:
@@ -67,13 +78,22 @@ class pi:
 
     def stop(self):
         return
-    def i2c_open(self,val, address):
+
+    def write(self, pinNum, val):
         return
-    
+
+    def i2c_open(self, val, address):
+        return
+
     def i2c_write_device(self, device, reg_data):
         return
 
-class pigpio:
-    """ pigpio dummy """
-    pi = pi
+    def set_mode(self, pinNum, OUTPUT):
+        return
 
+
+class pigpio:
+    """pigpio dummy"""
+
+    pi = pi
+    OUTPUT = None

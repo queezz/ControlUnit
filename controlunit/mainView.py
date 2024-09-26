@@ -7,7 +7,7 @@ from ui.docks.plots import PlotScaleDock
 from ui.docks.control import ControlDock
 from ui.docks.adcgain import ADCGain
 from ui.docks.settings import SettingsDock
-from ui.docks.currentcontrol import CurrentControlDock
+from controlunit.ui.docks.plasma_current import CurrentControlDock
 
 # from components.docks.tempcontrol import HeaterControl
 from ui.docks.mfccontrol import MassFlowControllerControl as MFCControl
@@ -19,64 +19,79 @@ class UIWindow(object):
         super().__init__()
         pg.setConfigOptions(imageAxisOrder="row-major")
 
+        self._init_main_window()
+        self._initialize_layout()
+
+    def _init_main_window(self):
+        """Initializes the main window settings."""
         self.MainWindow = QtWidgets.QMainWindow()
         self.tabwidg = QtWidgets.QTabWidget()
-        self.area = DockArea()
-        self.plotDock = Dock("Plots", size=(300, 400))
-        self.controlDock = ControlDock()
-        self.logDock = LogDock()
-        # self.tempcontrolDock = HeaterControl()
-        self.mfccontrolDock = MFCControl()
-        [
-            i.setStretch(*(10, 20))
-            for i in [self.controlDock, self.logDock, self.mfccontrolDock]
-        ]
-        self.controlDock.setStretch(*(10, 300))
-        self.graph = Graph()
-        self.scaleDock = PlotScaleDock()
-
-        self.settings_area = DockArea()
-        self.SettingsDock = SettingsDock()
-        self.logDock.setStretch(*(200, 100))
-        self.SettingsDock.setStretch(*(80, 100))
-
-        self.test_area = DockArea()
-        self.CurrentControlDock = CurrentControlDock()
-
-        self.ADCGainDock = ADCGain()
-
+        self.MainWindow.setCentralWidget(self.tabwidg)
         self.MainWindow.setGeometry(20, 50, 800, 400)
+
         sizeObject = QtWidgets.QDesktopWidget().screenGeometry(-1)
-        # print(" Screen size : " + str(sizeObject.height()) + "x" + str(sizeObject.width()))
         if sizeObject.height() < 1000:
             self.MainWindow.showMaximized()
 
-        # self.MainWindow.showFullScreen()
         self.MainWindow.setObjectName("Monitor")
         self.MainWindow.setWindowTitle("Data Logger")
-        # self.MainWindow.statusBar().showMessage("")
         self.MainWindow.setAcceptDrops(True)
 
-        self.__setLayout()
+    def _initialize_layout(self):
+        """Sets up the layout by creating tabs and docks."""
+        self._setup_main_tab()
+        self._setup_settings_tab()
+        # self._setup_test_tab()  # Un-comment if needed
 
-    def __setLayout(self):
-        self.MainWindow.setCentralWidget(self.tabwidg)
+    def _setup_main_tab(self):
+        """Sets up the main tab with control, plot, and log docks."""
+        self.area = DockArea()
+        self.plot_dock = Dock("Plots", size=(300, 400))
+        self.control_dock = ControlDock()
+        self.mfccontrol_dock = MFCControl()
+
+        # Set stretching for docks
+        self._set_dock_stretch([self.control_dock, self.mfccontrol_dock], 10, 20)
+        self.control_dock.setStretch(10, 300)
+
+        # Graph widget
+        self.graph = Graph()
+        self.scale_dock = PlotScaleDock()
+
+        # Arrange the elements in the dock area
         self.tabwidg.addTab(self.area, "Data")
+        self.area.addDock(self.control_dock)
+        self.area.addDock(self.plot_dock)
+        self.area.addDock(self.mfccontrol_dock, "right")
+        self.area.addDock(self.scale_dock, "bottom", self.mfccontrol_dock)
+        self.plot_dock.addWidget(self.graph)
 
-        self.area.addDock(self.controlDock)
-        self.area.addDock(self.plotDock)
-        self.area.addDock(self.mfccontrolDock, "right")
-        self.area.addDock(self.scaleDock, "bottom", self.mfccontrolDock)
+    def _setup_test_tab(self):
+        """Extra tab for UI and other tests"""
+        self.test_area = DockArea()
+        self.current_control_dock = CurrentControlDock()
+        self.tabwidg.addTab(self.test_area, "Tests")
+        self.test_area.addDock(self.current_control_dock)
 
-        self.plotDock.addWidget(self.graph)
+    def _setup_settings_tab(self):
+        """Configures the settings tab with its components."""
+        self.settings_area = DockArea()
+        self.settings_dock = SettingsDock()
+        self.settings_dock.setStretch(80, 100)
+        self.adcgain_dock = ADCGain()
+        self.logDock = LogDock()
 
         self.tabwidg.addTab(self.settings_area, "Settings")
-        self.settings_area.addDock(self.SettingsDock)
-        self.area.addDock(self.ADCGainDock, "bottom", self.SettingsDock)
+        self.settings_area.addDock(self.settings_dock)
+        self.settings_area.addDock(self.adcgain_dock, "bottom", self.settings_dock)
         self.settings_area.addDock(self.logDock, "right")
+        self.logDock.setStretch(300, 20)
 
-        self.tabwidg.addTab(self.test_area, "Tests")
-        self.test_area.addDock(self.CurrentControlDock)
+    @staticmethod
+    def _set_dock_stretch(docks, stretch_x, stretch_y):
+        """Sets stretch values for multiple docks."""
+        for dock in docks:
+            dock.setStretch(stretch_x, stretch_y)
 
     def showMain(self):
         self.MainWindow.show()
