@@ -65,7 +65,7 @@ class MCP4725(DeviceThread):
 
     def output_voltage(self, voltage):
         self.mcp.set_voltage(voltage / 1000)
-        print(f"voltage output: {voltage/1000} V")
+        print(f"MCP4725 Ip DAC: {voltage/1000} V")
 
     def demo(self):
         i = 0

@@ -9,21 +9,11 @@ from controlunit.devices.dac8532 import DAC8532
 from controlunit.devices.mcp4725 import MCP4725
 from calibrator import Calibrator
 
-# from readsettings import make_datafolders, read_settings
 import readsettings
 from striphtmltags import strip_tags
 import qmsSignal
 
-# from channels import TCCOLUMNS, ADCCOLUMNS, ADCCONVERTED, ADCSIGNALS, CHNLSADC
-# from channels import CHHEATER, CHLED
-
-RED = "\033[1;31m"
-GREEN = "\033[1;32m"
-BLUE = "\033[1;34m"
-RESET = "\033[0m"
-GOOD = "\U00002705"
-BAD = "\U0000274C"
-
+from controlunit.ui.textcolor import RED, BLUE, RESET
 
 try:
     import pigpio
@@ -68,7 +58,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         QtCore.QThread.currentThread().setObjectName("main")
 
         self.__workers_done = 0
-        self.__threads = []
+        self.workers = {}
         # self.__temp = self.DEFAULT_TEMPERATURE
         self.__mfc1 = self.DEFAULT_VOLTAGE
         self.__mfc2 = self.DEFAULT_VOLTAGE
@@ -203,7 +193,7 @@ class MainWidget(QtCore.QObject, UIWindow):
                     self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 0)
                     self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
                     self.qmsSigThread.start()
-                    self.adc_signals.setQmsSignal(0)
+                    self.workers["ADC"]["worker"].setQmsSignal(0)
                     self.controlDock.qmsSigSw.setChecked(False)
             else:
                 self.controlDock.OnOffSW.setChecked(True)
@@ -329,12 +319,13 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 0)
             self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
             self.qmsSigThread.start()
-            self.adc_signals.setQmsSignal(0)
+            self.workers["ADC"]["worker"].setQmsSignal(0)
 
     def qmsSignalTerminate(self):
         self.qmsSigThread.quit()
         self.qmsSigThread.wait()
 
+    # MARK: Devices
     def define_devices(self):
         """
         Define devices and data structure
@@ -360,7 +351,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         self.create_file("ADC")
 
-    # MARK: Threads
+    # MARK: Prep Threads
     def prep_threads(self):
         """
         Define Workers for Devices to run in separate threads.
@@ -389,34 +380,46 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         worker = device_class(device_name, self.__app, start_time, self.config)
 
-        return worker, thread
+        return {"worker": worker, "thread": thread}
 
     def start_all_threads(self):
         """
         Start all threads by assigning workers to threads and initiating them.
         """
-        for device_name, (worker, thread) in self.workers.items():
-            self.start_thread(worker, thread)
+        for device_name, worthre in self.workers.items():
+            self.start_thread(worthre)
 
     def terminate_existing_threads(self):
         """
         Gracefully quits and waits for all currently running threads.
         """
-        for thread, worker in self.__threads:
-            thread.quit()
-            thread.wait()
+        for device_name, worthre in self.workers.items():
+            worthre["thread"].quit()
+            worthre["thread"].wait()
 
-        self.__threads = []
+        self.workers = {}
 
-    def start_thread(self, worker, thread):
+    @QtCore.pyqtSlot()
+    def abort_all_threads(self):
+        """
+        Do we need two terminators?
+        This one signals to workers to stop.
+        """
+        self.sigAbortWorkers.emit()
+        self.terminate_existing_threads()
+
+    def start_thread(self, worthre):
         """
         Starts Device Worker thread
         """
-        self.__threads.append((thread, worker))
-        worker.moveToThread(thread)
-        self.connect_worker_signals(worker)
-        thread.started.connect(worker.start)
-        thread.start()
+        # self.__threads.append((devicedict["thread"], devicedict["worker"]))
+        # We already have self.workers wich holds on to the threads and workers.
+        # But in a dictionary, so it's easy to access.
+        # TODO: Delete this comments when all works.
+        worthre["worker"].moveToThread(worthre["thread"])
+        self.connect_worker_signals(worthre["worker"])
+        worthre["thread"].started.connect(worthre["worker"].start)
+        worthre["thread"].start()
 
     # MARK: logging
     def generate_time_stamp(self):
@@ -706,15 +709,6 @@ class MainWidget(QtCore.QObject, UIWindow):
         if self.__workers_done == 2:
             self.abort_all_threads()
 
-    @QtCore.pyqtSlot()
-    def abort_all_threads(self):
-        self.sigAbortWorkers.emit()
-        for thread, worker in self.__threads:
-            thread.quit()
-            thread.wait()
-
-        self.__threads = []
-
     def reset_data(self, device_name):
         self.datadict[device_name] = self.datadict[device_name].iloc[0:0]
         self.newdata[device_name] = self.newdata[device_name].iloc[0:0]
@@ -725,8 +719,10 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.__temp = value
         temp_now = self.currentvalues["T"]
         self.tempcontrolDock.set_heating_goal(self.__temp, f"{temp_now:.0f}")
-        if self.membrane_temperature_control is not None:
-            self.membrane_temperature_control.setPresetTemp(self.__temp)
+        try:
+            self.workers["MembraneTemperature"]["worker"].setPresetTemp(self.__temp)
+        except Exception as e:
+            print(f"{e}\nError setting membrane heater goal")
 
     @QtCore.pyqtSlot()
     def set_mfc1_goal(self):
@@ -739,10 +735,9 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.__mfc1 = value
         voltage_now = self.currentvalues["MFC1"]
         self.mfccontrolDock.set_output1_goal(self.__mfc1, f"{voltage_now*1000:.0f}")
-        if self.mfcs_control is not None:
-            self.mfcs_control.output_voltage(1, self.__mfc1)
-        if self.adc_signals is not None:
-            self.adc_signals.setPresetV_mfc1(self.__mfc1)
+
+        self.workers["MFCs"]["worker"].output_voltage(1, self.__mfc1)
+        self.workers["ADC"]["worker"].setPresetV_mfc1(self.__mfc1)
 
     @QtCore.pyqtSlot()
     def set_mfc2_goal(self):
@@ -755,10 +750,10 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.__mfc2 = value
         voltage_now = self.currentvalues["MFC2"]
         self.mfccontrolDock.set_output2_goal(self.__mfc2, f"{voltage_now*1000:.0f}")
-        if self.mfcs_control is not None:
-            self.mfcs_control.output_voltage(2, self.__mfc2)
-        if self.adc_signals is not None:
-            self.adc_signals.setPresetV_mfc2(self.__mfc2)
+        if self.workers["MFCs"]["worker"] is not None:
+            self.workers["MFCs"]["worker"].output_voltage(2, self.__mfc2)
+        if self.workers["ADC"]["worker"] is not None:
+            self.workers["ADC"]["worker"].setPresetV_mfc2(self.__mfc2)
 
     @QtCore.pyqtSlot()
     def resetSpinBoxes1(self):
@@ -780,7 +775,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         """
         Start and stop calibration
         """
-        if not self.mfcs_control.calibrating:
+        if not self.workers["MFCs"]["worker"].calibrating:
             stating_msg = "Are you sure you want to start calibration?"
             reply = QtWidgets.QMessageBox.warning(
                 self.MainWindow,
@@ -798,14 +793,14 @@ class MainWidget(QtCore.QObject, UIWindow):
                     return
                 self.calibration_thread = Calibrator(
                     self.__app,
-                    self.mfcs_control,
-                    self.adc_signals,
+                    self.workers["MFCs"]["worker"],
+                    self.workers["ADC"]["worker"],
                     self.__mfc1,
                     10,
                     self.calibration_waiting_time,
                 )
                 self.qmsSigThread = qmsSignal.SyncSignal(
-                    pi, self.__app, 2, self.adc_signals
+                    pi, self.__app, 2, self.workers["ADC"]["worker"]
                 )
                 self.calibration_thread.finished.connect(self.calibration_terminated)
                 self.calibration_thread.start()
@@ -823,7 +818,7 @@ class MainWidget(QtCore.QObject, UIWindow):
                 QtWidgets.QMessageBox.No,
             )
             if reply == QtWidgets.QMessageBox.Yes:
-                self.mfcs_control.calibrating = False
+                self.workers["MFCs"]["worker"].calibrating = False
                 self.calibration_terminated()
             else:
                 pass
@@ -837,7 +832,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 0)
         self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
         self.qmsSigThread.start()
-        self.adc_signals.setQmsSignal(0)
+        self.workers["ADC"]["worker"].setQmsSignal(0)
         self.controlDock.qmsSigSw.setChecked(False)
 
     # MARK: control signals
@@ -851,12 +846,12 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         self.mfccontrolDock.set_output1_goal(self.__mfc1, f"{voltage_now1*1000:.0f}")
         self.mfccontrolDock.set_output2_goal(self.__mfc2, f"{voltage_now2*1000:.0f}")
-        if self.mfcs_control is not None:
-            self.mfcs_control.output_voltage(1, self.__mfc1)
-            self.mfcs_control.output_voltage(2, self.__mfc2)
-        if self.adc_signals is not None:
-            self.adc_signals.setPresetV_mfc1(self.__mfc1)
-            self.adc_signals.setPresetV_mfc2(self.__mfc2)
+        if self.workers["MFCs"]["worker"] is not None:
+            self.workers["MFCs"]["worker"].output_voltage(1, self.__mfc1)
+            self.workers["MFCs"]["worker"].output_voltage(2, self.__mfc2)
+        if self.workers["ADC"]["worker"] is not None:
+            self.workers["ADC"]["worker"].setPresetV_mfc1(self.__mfc1)
+            self.workers["ADC"]["worker"].setPresetV_mfc2(self.__mfc2)
 
     @QtCore.pyqtSlot()
     def set_currentcontrol_voltage(self):
@@ -864,10 +859,14 @@ class MainWidget(QtCore.QObject, UIWindow):
         Set voltage for current control
         """
         value = self.controlDock.currentcontrolerSB.value()
-        if self.plasma_current_control is not None:
-            self.plasma_current_control.output_voltage(value)
-        if self.adc_signals is not None:
-            self.adc_signals.setPresetV_cathode(value)
+        try:
+            self.workers["PlasmaCurrent"]["worker"].output_voltage(value)
+        except Exception as e:
+            print(f"{e}\nError updating sampling")
+        try:
+            self.workers["ADC"]["worker"].setPresetV_cathode(value)
+        except Exception as e:
+            print(f"{e}\nError updating sampling")
 
     @QtCore.pyqtSlot()
     def update_ig_mode(self):
@@ -878,8 +877,10 @@ class MainWidget(QtCore.QObject, UIWindow):
         Pa and log
         """
         value = self.controlDock.IGmode.currentIndex()
-        if self.adc_signals is not None:
-            self.adc_signals.setIGmode(value)
+        try:
+            self.workers["ADC"]["worker"].setIGmode(value)
+        except Exception as e:
+            print(f"{e}\nError updating IG mode")
 
     @QtCore.pyqtSlot()
     def update_ig_range(self):
@@ -888,7 +889,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         10^{-3} - 10^{-8} multiplier when in linear mode (Torr)
         """
         value = self.controlDock.IGrange.value()
-        self.workers["ADC"][0].setIGrange(value)
+        self.workers["ADC"]["worker"].setIGrange(value)
         print(f"Ionization Gauge Range = {value}")
 
     @QtCore.pyqtSlot()
@@ -902,22 +903,25 @@ class MainWidget(QtCore.QObject, UIWindow):
         """
         txt = self.ADCGainDock.gain_box.currentText()
         gain = self.ADCGainDock.gains[txt]
-
-        if self.adc_signals is not None:
-            self.adc_signals.setGain(gain)
+        try:
+            self.workers["ADC"]["worker"].setGain(gain)
+        except Exception as e:
+            print(f"{e}\nError updating ADC gain")
 
     @QtCore.pyqtSlot()
     def __set_sampling(self):
-        """Set sampling time for all threads"""
-        if not len(self.__threads):
-            return
+        """
+        Set sampling time for all threads
+        """
         txt = self.SettingsDock.samplingCb.currentText()
         value = float(txt.split(" ")[0])
         self.sampling = value
-        self.update_plot_timewindow()
-        if self.adc_signals is not None:
-            self.adc_signals.setSampling(value)
+        try:
+            self.update_plot_timewindow()
+            self.workers["ADC"]["worker"].setSampling(value)
             self.log_message(f"ADC sampling set to {value}")
+        except Exception as e:
+            print(f"{e}\nError updating sampling")
 
 
 def main():

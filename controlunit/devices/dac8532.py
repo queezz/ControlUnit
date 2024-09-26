@@ -17,7 +17,7 @@ try:
 except ImportError:
     from devices.dummy import GPIO
 
-TEST = False
+from controlunit.ui.textcolor import RED, BLUE, RESET
 
 
 # MARK: DAC8532
@@ -60,16 +60,18 @@ class DAC8532(DeviceThread):
         self.DAC.DAC8532_Out_Voltage(self.DAC.channel_A, 0)
         self.DAC.DAC8532_Out_Voltage(self.DAC.channel_B, 0)
 
+    # MARK: Output Voltage
     def output_voltage(self, channel, voltage):
         if channel == 1:
             self.DAC.DAC8532_Out_Voltage(self.DAC.channel_A, voltage / 1000)
-            print(f"voltage output: {voltage/1000} V")
+            print("DAC8532 MF1 (" + BLUE + "H2" + RESET + f"): {voltage/1000} V")
         elif channel == 2:
             self.DAC.DAC8532_Out_Voltage(self.DAC.channel_B, voltage / 1000)
-            print(f"voltage output: {voltage/1000} V")
+            print("DAC8532 MF2 (" + RED + "O2" + RESET + f"): {voltage/1000} V")
         else:
-            print("wrong channel")
+            print(f"DAC8532 MFCs: channel {channel} not registered")
 
+    # MARK: Calibration
     @QtCore.pyqtSlot()
     def calibration(self, max_voltage, step, waiting_time, adc_object):
         self.calibrating = True
