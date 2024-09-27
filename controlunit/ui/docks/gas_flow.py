@@ -8,34 +8,47 @@ config = select_settings(verbose=False)
 MAXVOLTAGE = int(config["Max Voltage"])
 
 
-class MassFlowControllerControl(Dock):
+class GasFlowDock(Dock):
     def __init__(self):
         super().__init__("Mass Flow Control")
-        self.widget = pg.LayoutWidget()
+        self._set_layout()
 
-        # Browser Widgets
+    def _set_layout(self):
+        self.widget = pg.LayoutWidget()
+        self.addWidget(self.widget)
+
+        self._init_mfc_ui()
+        self._add_mfc_ui()
+
+        # self._init_calibration_ui()
+        # self._add_caclibration_ui()
+
+        self._add_vertical_spacer()
+
+    def _init_mfc_ui(self):
         self.mfcBw1 = self._init_text_browser()
         self.mfcBw2 = self._init_text_browser()
-
-        # Spin Boxes for Mass Flow Controller 1 and 2
-        self.masflowcontrolerSB1 = self._init_spin_boxes(MAXVOLTAGE)
-        self.masflowcontrolerSB2 = self._init_spin_boxes(MAXVOLTAGE)
+        self.masflowcontrolerSB1 = self._init_mfc_spin_boxes(MAXVOLTAGE)
+        self.masflowcontrolerSB2 = self._init_mfc_spin_boxes(MAXVOLTAGE)
 
         # Control Buttons
-        self.registerBtn1 = self._init_button("set")
-        self.registerBtn2 = self._init_button("set")
-        self.resetBtn1 = self._init_button("reset")
-        self.resetBtn2 = self._init_button("reset")
-        self.calibrationBtn = self._init_button("calib", size=(60, 50))
-        self.stopBtn = self._init_button("stop both", size=(120, 50))
+        self.registerBtn1 = self._create_button("set")
+        self.registerBtn2 = self._create_button("set")
+        self.resetBtn1 = self._create_button("reset")
+        self.resetBtn2 = self._create_button("reset")
 
-        # Scale Selection
-        self.scaleBtn = self._init_combo_box(
-            ["1 s", "5 s", "10 s", "30 s", "1 min"], [1, 5, 10, 30, 60]
-        )
+    def _add_mfc_ui(self):
+        self.widget.addWidget(self.mfcBw1, 0, 0, 1, 2)
+        for i, spin_box in enumerate(self.masflowcontrolerSB1):
+            self.widget.addWidget(spin_box, 1, i)
+        self.widget.addWidget(self.registerBtn1, 0, 2)
+        self.widget.addWidget(self.resetBtn1, 0, 3)
 
-        # Set layout
-        self.set_layout()
+        self.widget.addWidget(self.mfcBw2, 2, 0, 1, 2)
+        for i, spin_box in enumerate(self.masflowcontrolerSB2):
+            self.widget.addWidget(spin_box, 3, i)
+        self.widget.addWidget(self.registerBtn2, 2, 2)
+        self.widget.addWidget(self.resetBtn2, 2, 3)
 
     def _init_text_browser(self):
         browser = QtWidgets.QTextBrowser()
@@ -43,7 +56,8 @@ class MassFlowControllerControl(Dock):
         browser.setMaximumHeight(60)
         return browser
 
-    def _init_spin_boxes(self, max_voltage):
+    def _init_mfc_spin_boxes(self, max_voltage):
+        """MFC voltage control spin boxes"""
         spin_boxes = []
         for i in range(4):
             spin_box = QtWidgets.QSpinBox()
@@ -61,47 +75,39 @@ class MassFlowControllerControl(Dock):
             spin_boxes.append(spin_box)
         return spin_boxes
 
-    def _init_button(self, label, size=(80, 50)):
+    def _create_button(self, label, size=(80, 50)):
         button = QtWidgets.QPushButton(label)
         button.setMinimumSize(QtCore.QSize(*size))
         button.setStyleSheet("font: 20pt")
         return button
 
-    def _init_combo_box(self, items, sizes):
-        combo_box = QtWidgets.QComboBox()
-        combo_box.setFont(QtGui.QFont("serif", 18))
-        [combo_box.addItem(i) for i in items]
-        self.sampling_windows = {i: j for i, j in zip(items, sizes)}
-        return combo_box
-
-    def set_layout(self):
-        self.addWidget(self.widget)
-
-        # Layout for the first set of controls
-        self.widget.addWidget(self.mfcBw1, 0, 0, 1, 2)
-        for i, spin_box in enumerate(self.masflowcontrolerSB1):
-            self.widget.addWidget(spin_box, 1, i)
-        self.widget.addWidget(self.registerBtn1, 0, 2)
-        self.widget.addWidget(self.resetBtn1, 0, 3)
-
-        # Layout for the second set of controls
-        self.widget.addWidget(self.mfcBw2, 2, 0, 1, 2)
-        for i, spin_box in enumerate(self.masflowcontrolerSB2):
-            self.widget.addWidget(spin_box, 3, i)
-        self.widget.addWidget(self.registerBtn2, 2, 2)
-        self.widget.addWidget(self.resetBtn2, 2, 3)
-
-        # Bottom row of controls
-        self.widget.addWidget(self.scaleBtn, 4, 0)
-        self.widget.addWidget(self.calibrationBtn, 4, 1)
-        self.widget.addWidget(self.stopBtn, 4, 2, 1, 2)
-
+    def _add_vertical_spacer(self):
         # Spacer to adjust layout
         self.verticalSpacer = QtWidgets.QSpacerItem(
             0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
         )
         self.widget.layout.addItem(self.verticalSpacer)
 
+    # MARK: Calibration UI
+    def _init_calibration_ui(self):
+        self.calibrationBtn = self._create_button("calib", size=(60, 50))
+        self.stopBtn = self._create_button("stop both", size=(120, 50))
+
+        items = ["1 s", "5 s", "10 s", "30 s", "1 min"]
+        durations = [1, 5, 10, 30, 60]
+        self.calibration_durations = {i: j for i, j in zip(items, durations)}
+        combo_box = QtWidgets.QComboBox()
+        combo_box.setFont(QtGui.QFont("serif", 18))
+        [combo_box.addItem(i) for i in items]
+
+        self.scaleBtn = combo_box
+
+    def _add_caclibration_ui(self):
+        self.widget.addWidget(self.scaleBtn, 4, 0)
+        self.widget.addWidget(self.calibrationBtn, 4, 1)
+        self.widget.addWidget(self.stopBtn, 4, 2, 1, 2)
+
+    # MARK: Update Values
     def update_current_values(self, set_voltage, signal_voltage, mfc_num):
         """
         Set Mass Flow Controllers signal values in the browsers.

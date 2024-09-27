@@ -7,10 +7,11 @@ from ui.docks.plots import PlotScaleDock
 from ui.docks.control import ControlDock
 from ui.docks.adcgain import ADCGain
 from ui.docks.settings import SettingsDock
+from ui.docks.calibration import CalibrationDock
 from controlunit.ui.docks.plasma_current import PlasmaCurrentDock
 
 # from components.docks.tempcontrol import HeaterControl
-from ui.docks.mfccontrol import MassFlowControllerControl as MFCControl
+from controlunit.ui.docks.gas_flow import GasFlowDock
 from ui.widgets.graph import Graph
 
 
@@ -48,30 +49,33 @@ class UIWindow(object):
         self.area = DockArea()
         self.plot_dock = Dock("Plots", size=(300, 400))
         self.control_dock = ControlDock()
-        self.mfccontrol_dock = MFCControl()
+        self.gasflow_dock = GasFlowDock()
+        self.calibration_dock = CalibrationDock()
+        self.plasma_control_dock = PlasmaCurrentDock()
+        self.scale_dock = PlotScaleDock()
 
         # Set stretching for docks
-        self._set_dock_stretch([self.control_dock, self.mfccontrol_dock], 10, 20)
+        self._set_dock_stretch([self.control_dock, self.gasflow_dock], 10, 20)
         self.control_dock.setStretch(10, 300)
-
-        # Graph widget
-        self.graph = Graph()
-        self.scale_dock = PlotScaleDock()
 
         # Arrange the elements in the dock area
         self.tabwidg.addTab(self.area, "Data")
         self.area.addDock(self.control_dock)
         self.area.addDock(self.plot_dock)
-        self.area.addDock(self.mfccontrol_dock, "right")
-        self.area.addDock(self.scale_dock, "bottom", self.mfccontrol_dock)
+        self.area.addDock(self.gasflow_dock, "right")
+        self.area.addDock(self.calibration_dock, "bottom", self.gasflow_dock)
+        self.area.addDock(self.plasma_control_dock, "below", self.calibration_dock)
+        self.area.addDock(self.scale_dock, "bottom", self.calibration_dock)
+
+        self.graph = Graph()
         self.plot_dock.addWidget(self.graph)
 
     def _setup_test_tab(self):
         """Extra tab for UI and other tests"""
         self.test_area = DockArea()
-        self.plasma_control_dock = PlasmaCurrentDock()
-        self.tabwidg.addTab(self.test_area, "Tests")
-        self.test_area.addDock(self.plasma_control_dock)
+        # self.plasma_control_dock = PlasmaCurrentDock()
+        # self.tabwidg.addTab(self.test_area, "Tests")
+        # self.test_area.addDock(self.plasma_control_dock)
 
     def _setup_settings_tab(self):
         """Configures the settings tab with its components."""

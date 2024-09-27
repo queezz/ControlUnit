@@ -20,16 +20,16 @@ class ControlDock(Dock):
         """Set the layout of the ControlDock."""
         self.addWidget(self.widget)
 
-        self.__init_buttons()
-        self.__init_text_browsers()
-        self.__init_comboboxes()
-        self.__init_spinboxes()
-        self.__init_switches()
+        self._init_buttons()
+        self._init_text_browsers()
+        self._init_comboboxes()
+        self._init_spinboxes()
+        self._init_switches()
 
-        self.__add_main_widgets()
-        self.__add_vertical_spacer()
+        self._add_main_widgets()
+        self._add_vertical_spacer()
 
-    def __add_vertical_spacer(self):
+    def _add_vertical_spacer(self):
         """Add vertical spacer"""
         self.verticalSpacer = QtWidgets.QSpacerItem(
             0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
@@ -37,7 +37,7 @@ class ControlDock(Dock):
         self.widget.layout.setVerticalSpacing(3)
         self.widget.layout.addItem(self.verticalSpacer)
 
-    def __init_buttons(self):
+    def _init_buttons(self):
         """Initialize buttons."""
         self.quitBtn = QtWidgets.QPushButton("quit")
         self.quitBtn.setStyleSheet(
@@ -47,14 +47,14 @@ class ControlDock(Dock):
         self.quitBtn.setFont(QtGui.QFont("serif", 16))
 
     # MARK: browser
-    def __init_text_browsers(self):
+    def _init_text_browsers(self):
         """Initialize text browsers."""
         self.valueBw = QtWidgets.QTextBrowser()
         self.valueBw.setMaximumHeight(100)
         self.valueBw.setMinimumWidth(400)
         self.valueBw.setCurrentFont(QtGui.QFont("Courier New"))
 
-    def __init_comboboxes(self):
+    def _init_comboboxes(self):
         """Initialize comboboxes."""
         # Scale buttons
         self.scaleBtn = QtWidgets.QComboBox()
@@ -80,7 +80,7 @@ class ControlDock(Dock):
         [self.IGmode.addItem(i) for i in items]
         self.IGmode.setFont(QtGui.QFont("serif", 18))
 
-    def __init_spinboxes(self):
+    def _init_spinboxes(self):
         """Initialize spinboxes."""
         self.IGrange = QtWidgets.QSpinBox()
         self.IGrange.setMinimum(-8)
@@ -93,14 +93,14 @@ class ControlDock(Dock):
             "QSpinBox {font: 26pt;}"
         )
 
-    def __init_switches(self):
+    def _init_switches(self):
         """Initialize switches."""
         self.qmsSigSw = QmsSwitch()
         self.FullNormSW = MySwitch()
         self.OnOffSW = OnOffSwitch()
         self.OnOffSW.setFont(QtGui.QFont("serif", 16))
 
-    def __add_main_widgets(self):
+    def _add_main_widgets(self):
         """Add widgets to the layout"""
         self.widget.addWidget(self.OnOffSW, 0, 0, 1, 2)
         self.widget.addWidget(self.qmsSigSw, 0, 2, 1, 2)
@@ -162,13 +162,12 @@ class ControlDock(Dock):
         """
         font_size = 5
         padding = "1px"  # Set your desired padding here
-        cell_width = "100px"  # Set your desired cell width here
+        cell_width = "10px"  # Set your desired cell width here
 
         # Generate table cells with padding and fixed width
         table_cells = [
-            f"""
-            <td style="padding:{padding};width:{cell_width};"><font size="{font_size}" color="{pen}">{label} = {val:.2e}</font></td>
-            """
+            f'<td style="padding:{padding};width:{cell_width};">'
+            f'<font size="{font_size}" color="{pen}">{label} = {val:.2e}</font></td>'
             for pen, label, val in values
         ]
 

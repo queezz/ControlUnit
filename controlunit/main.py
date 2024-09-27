@@ -51,8 +51,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.__app = app
         self.connections()
         # self.tempcontrolDock.set_heating_goal(self.DEFAULT_TEMPERATURE, "---")
-        self.mfccontrol_dock.set_output1_goal(self.DEFAULT_VOLTAGE, "---")
-        self.mfccontrol_dock.set_output2_goal(self.DEFAULT_VOLTAGE, "---")
+        self.gasflow_dock.set_output1_goal(self.DEFAULT_VOLTAGE, "---")
+        self.gasflow_dock.set_output2_goal(self.DEFAULT_VOLTAGE, "---")
 
         QtCore.QThread.currentThread().setObjectName("main")
 
@@ -61,8 +61,6 @@ class MainWidget(QtCore.QObject, UIWindow):
         # self.__temp = self.DEFAULT_TEMPERATURE
         self.__mfc1 = self.DEFAULT_VOLTAGE
         self.__mfc2 = self.DEFAULT_VOLTAGE
-
-        self.calibration_waiting_time = self.mfccontrol_dock.scaleBtn.currentText()
 
         self.config = readsettings.init_configuration(verbose=True)
         self.datapath = self.config["Data Folder"]
@@ -109,36 +107,44 @@ class MainWidget(QtCore.QObject, UIWindow):
 
     # MARK: connections
     def connections(self):
+        self._init_controldock_connections()
+        self._init_adcgain_connections()
+        self._init_mfc_connections()
+        self._init_plot_control_connections()
+        self._init_calibration_connections()
+
+        # self.tempcontrolDock.registerBtn.clicked.connect(self.set_heater_goal)
+
+    def _init_calibration_connections(self):
+        self.calibration_dock.calibrationBtn.clicked.connect(self.calibration)
+        self.calibration_dock.stopBtn.clicked.connect(self.stop_mfc)
+
+    def _init_mfc_connections(self):
+        self.gasflow_dock.registerBtn1.clicked.connect(self.set_mfc1_goal)
+        self.gasflow_dock.registerBtn2.clicked.connect(self.set_mfc2_goal)
+        self.gasflow_dock.resetBtn1.clicked.connect(self.resetSpinBoxes1)
+        self.gasflow_dock.resetBtn2.clicked.connect(self.resetSpinBoxes2)
+
+    def _init_controldock_connections(self):
+        self.control_dock.IGmode.currentIndexChanged.connect(self.update_ig_mode)
+        self.control_dock.IGrange.valueChanged.connect(self.update_ig_range)
+        self.control_dock.FullNormSW.clicked.connect(self.fulltonormal)
+        self.control_dock.OnOffSW.clicked.connect(self.__onoff)
+        self.control_dock.quitBtn.clicked.connect(self.__quit)
+        self.control_dock.qmsSigSw.clicked.connect(self.sync_signal_switch)
         self.control_dock.scaleBtn.currentIndexChanged.connect(
             self.update_plot_timewindow
         )
+        # self.control_dock.currentsetBtn.clicked.connect(self.set_currentcontrol_voltage)
+
+    def _init_adcgain_connections(self):
         self.adcgain_dock.gain_box.currentIndexChanged.connect(
             self.update_baratron_gain
         )
         self.adcgain_dock.set_gain_btn.clicked.connect(self.__set_gain)
 
-        # self.tempcontrolDock.registerBtn.clicked.connect(self.set_heater_goal)
-        self.mfccontrol_dock.registerBtn1.clicked.connect(self.set_mfc1_goal)
-        self.mfccontrol_dock.registerBtn2.clicked.connect(self.set_mfc2_goal)
-        self.mfccontrol_dock.resetBtn1.clicked.connect(self.resetSpinBoxes1)
-        self.mfccontrol_dock.resetBtn2.clicked.connect(self.resetSpinBoxes2)
-        self.mfccontrol_dock.scaleBtn.currentIndexChanged.connect(
-            self.update_calibration_waiting_time
-        )
-        self.mfccontrol_dock.calibrationBtn.clicked.connect(self.calibration)
-        self.mfccontrol_dock.stopBtn.clicked.connect(self.stop_mfc)
-
-        self.control_dock.IGmode.currentIndexChanged.connect(self.update_ig_mode)
-        self.control_dock.IGrange.valueChanged.connect(self.update_ig_range)
-
-        self.control_dock.FullNormSW.clicked.connect(self.fulltonormal)
-        self.control_dock.OnOffSW.clicked.connect(self.__onoff)
-        self.control_dock.quitBtn.clicked.connect(self.__quit)
-        self.control_dock.qmsSigSw.clicked.connect(self.sync_signal_switch)
-
-        # self.control_dock.currentsetBtn.clicked.connect(self.set_currentcontrol_voltage)
-
-        # Toggle plots for Current, Temperature, and Pressure
+    def _init_plot_control_connections(self):
+        """Toggle plots for Current, Temperature, and Pressure"""
         self.scale_dock.togIp.clicked.connect(self.toggle_plots)
         self.scale_dock.togBaratron.clicked.connect(self.toggle_plots_baratron)
         self.scale_dock.togIGs.clicked.connect(self.toggle_plots_igs)
@@ -523,10 +529,10 @@ class MainWidget(QtCore.QObject, UIWindow):
         update current values when new signal comes
         """
         # self.tempcontrolDock.update_current_values(self.__temp, f"{self.currentvalues['T']:.0f}")
-        self.mfccontrol_dock.update_current_values(
+        self.gasflow_dock.update_current_values(
             self.__mfc1, f"{self.currentvalues['MFC1']*1000:.0f}", 1
         )
-        self.mfccontrol_dock.update_current_values(
+        self.gasflow_dock.update_current_values(
             self.__mfc2, f"{self.currentvalues['MFC2']*1000:.0f}", 2
         )
         # self.control_dock.gaugeT.update_value(self.currentvalues["T"])
@@ -700,54 +706,66 @@ class MainWidget(QtCore.QObject, UIWindow):
     @QtCore.pyqtSlot()
     def set_mfc1_goal(self):
         value = 0
-        for i, spin_box in enumerate(self.mfccontrol_dock.masflowcontrolerSB1):
+        for i, spin_box in enumerate(self.gasflow_dock.masflowcontrolerSB1):
             voltage = spin_box.value()
             value += voltage * pow(10, 3 - i)
         if value > 5000:
             value = 5000
         self.__mfc1 = value
         voltage_now = self.currentvalues["MFC1"]
-        self.mfccontrol_dock.set_output1_goal(self.__mfc1, f"{voltage_now*1000:.0f}")
+        self.gasflow_dock.set_output1_goal(self.__mfc1, f"{voltage_now*1000:.0f}")
 
-        self.workers["MFCs"]["worker"].output_voltage(1, self.__mfc1)
-        self.workers["ADC"]["worker"].setPresetV_mfc1(self.__mfc1)
+        try:
+            self.workers["MFCs"]["worker"].output_voltage(1, self.__mfc1)
+            self.workers["ADC"]["worker"].setPresetV_mfc1(self.__mfc1)
+        except KeyError as e:
+            print(f"{e}\n set_mfc1_goal: Try starting acquisition.")
 
     @QtCore.pyqtSlot()
     def set_mfc2_goal(self):
         value = 0
-        for i, spin_box in enumerate(self.mfccontrol_dock.masflowcontrolerSB2):
+        for i, spin_box in enumerate(self.gasflow_dock.masflowcontrolerSB2):
             voltage = spin_box.value()
             value += voltage * pow(10, 3 - i)
         if value > 5000:
             value = 5000
         self.__mfc2 = value
         voltage_now = self.currentvalues["MFC2"]
-        self.mfccontrol_dock.set_output2_goal(self.__mfc2, f"{voltage_now*1000:.0f}")
-        if self.workers["MFCs"]["worker"] is not None:
+        self.gasflow_dock.set_output2_goal(self.__mfc2, f"{voltage_now*1000:.0f}")
+        try:
             self.workers["MFCs"]["worker"].output_voltage(2, self.__mfc2)
-        if self.workers["ADC"]["worker"] is not None:
             self.workers["ADC"]["worker"].setPresetV_mfc2(self.__mfc2)
+        except KeyError as e:
+            print(f"{e}\n set_mfc2_goal: Try starting acquisition.")
 
     @QtCore.pyqtSlot()
     def resetSpinBoxes1(self):
-        for spin_box in self.mfccontrol_dock.masflowcontrolerSB1:
+        for spin_box in self.gasflow_dock.masflowcontrolerSB1:
             spin_box.setValue(0)
 
     @QtCore.pyqtSlot()
     def resetSpinBoxes2(self):
-        for spin_box in self.mfccontrol_dock.masflowcontrolerSB2:
+        for spin_box in self.gasflow_dock.masflowcontrolerSB2:
             spin_box.setValue(0)
 
     def update_calibration_waiting_time(self):
-        txt = self.mfccontrol_dock.scaleBtn.currentText()
-        value = self.mfccontrol_dock.sampling_windows[txt]
-        self.calibration_waiting_time = value
+        txt = self.calibration_dock.scaleBtn.currentText()
+        val = self.calibration_dock.calibration_durations[txt]
+        self.calibration_waiting_time = val
 
     # MARK: QMS Calibration
     def calibration(self):
         """
         Start and stop calibration
         """
+        try:
+            self.workers["MFCs"]
+        except KeyError as e:
+            print(f"{e}\n calibration: Try starting acquisition.")
+            return
+
+        self.update_calibration_waiting_time()
+
         if not self.workers["MFCs"]["worker"].calibrating:
             stating_msg = "Are you sure you want to start calibration?"
             reply = QtWidgets.QMessageBox.warning(
@@ -811,20 +829,31 @@ class MainWidget(QtCore.QObject, UIWindow):
     # MARK: control signals
     @QtCore.pyqtSlot()
     def stop_mfc(self):
+        """
+        Just sets 0V output for both Flow Controllers.
+        Dosen't stop calibration.
+        TODO: add abort calibration.
+        TODO: move to MFC? Or to main control..
+        Maybe combine MFC browsers into one
+        Then there would be enough space for everything.
+        """
         value = 0
         self.__mfc1 = value
         self.__mfc2 = value
         voltage_now1 = self.currentvalues["MFC1"]
         voltage_now2 = self.currentvalues["MFC2"]
 
-        self.mfccontrol_dock.set_output1_goal(self.__mfc1, f"{voltage_now1*1000:.0f}")
-        self.mfccontrol_dock.set_output2_goal(self.__mfc2, f"{voltage_now2*1000:.0f}")
-        if self.workers["MFCs"]["worker"] is not None:
+        self.gasflow_dock.set_output1_goal(self.__mfc1, f"{voltage_now1*1000:.0f}")
+        self.gasflow_dock.set_output2_goal(self.__mfc2, f"{voltage_now2*1000:.0f}")
+        try:
             self.workers["MFCs"]["worker"].output_voltage(1, self.__mfc1)
             self.workers["MFCs"]["worker"].output_voltage(2, self.__mfc2)
-        if self.workers["ADC"]["worker"] is not None:
+
             self.workers["ADC"]["worker"].setPresetV_mfc1(self.__mfc1)
             self.workers["ADC"]["worker"].setPresetV_mfc2(self.__mfc2)
+
+        except KeyError as e:
+            print(f"{e}\n stop_mfc: Try starting acquisition.")
 
     @QtCore.pyqtSlot()
     def set_currentcontrol_voltage(self):
@@ -834,11 +863,11 @@ class MainWidget(QtCore.QObject, UIWindow):
         value = self.control_dock.currentcontrolerSB.value()
         try:
             self.workers["PlasmaCurrent"]["worker"].output_voltage(value)
-        except Exception as e:
+        except KeyError as e:
             print(f"{e}\nError updating sampling")
         try:
             self.workers["ADC"]["worker"].setPresetV_cathode(value)
-        except Exception as e:
+        except KeyError as e:
             print(f"{e}\nError updating sampling. Try starting acquisition.")
 
     @QtCore.pyqtSlot()
@@ -852,7 +881,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         value = self.control_dock.IGmode.currentIndex()
         try:
             self.workers["ADC"]["worker"].setIGmode(value)
-        except Exception as e:
+        except KeyError as e:
             print(f"{e}\nError updating IG mode. Try starting acquisition.")
 
     @QtCore.pyqtSlot()
@@ -878,7 +907,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         gain = self.adcgain_dock.gains[txt]
         try:
             self.workers["ADC"]["worker"].setGain(gain)
-        except Exception as e:
+        except KeyError as e:
             print(f"{e}\nError updating ADC gain. Try starting acquisition.")
 
     @QtCore.pyqtSlot()
@@ -893,7 +922,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.update_plot_timewindow()
             self.workers["ADC"]["worker"].setSampling(value)
             self.log_message(f"ADC sampling set to {value}")
-        except Exception as e:
+        except KeyError as e:
             print(f"{e}\nError updating sampling. Try starting acquisition.")
 
 
