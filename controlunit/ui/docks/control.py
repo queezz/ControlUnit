@@ -46,6 +46,7 @@ class ControlDock(Dock):
         )
         self.quitBtn.setFont(QtGui.QFont("serif", 16))
 
+    # MARK: browser
     def __init_text_browsers(self):
         """Initialize text browsers."""
         self.valueBw = QtWidgets.QTextBrowser()
@@ -119,6 +120,7 @@ class ControlDock(Dock):
         self.gaugeT.set_start_scale_angle(180)
         self.gaugeT.set_enable_value_text(False)
 
+    # MARK: suppimentary
     def __add_analouge_gauge(self):
         """Temperature analouge gauge"""
         self.widget.addWidget(self.gaugeT, 5, 0, 10, 1)
@@ -159,12 +161,13 @@ class ControlDock(Dock):
                     Example: [("red", 1.23), ("green", 2.34), ("blue", 3.45)]
         """
         font_size = 5
-        padding = "2px"  # Set your desired padding here
+        padding = "1px"  # Set your desired padding here
+        cell_width = "100px"  # Set your desired cell width here
 
-        # Generate table cells with padding
+        # Generate table cells with padding and fixed width
         table_cells = [
             f"""
-            <td style="padding:{padding};"><font size="{font_size}" color="{pen}">{label} = {val:.2e}</font></td>
+            <td style="padding:{padding};width:{cell_width};"><font size="{font_size}" color="{pen}">{label} = {val:.2e}</font></td>
             """
             for pen, label, val in values
         ]
