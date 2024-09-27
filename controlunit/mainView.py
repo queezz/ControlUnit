@@ -42,7 +42,7 @@ class UIWindow(object):
         """Sets up the layout by creating tabs and docks."""
         self._setup_main_tab()
         self._setup_settings_tab()
-        self._setup_test_tab()  # Un-comment if needed
+        # self._setup_test_tab()  # Un-comment if needed
 
     def _setup_main_tab(self):
         """Sets up the main tab with control, plot, and log docks."""
@@ -73,9 +73,7 @@ class UIWindow(object):
     def _setup_test_tab(self):
         """Extra tab for UI and other tests"""
         self.test_area = DockArea()
-        # self.plasma_control_dock = PlasmaCurrentDock()
-        # self.tabwidg.addTab(self.test_area, "Tests")
-        # self.test_area.addDock(self.plasma_control_dock)
+        self.tabwidg.addTab(self.test_area, "Tests")
 
     def _setup_settings_tab(self):
         """Configures the settings tab with its components."""

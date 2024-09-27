@@ -14,19 +14,11 @@ from PyQt5 import QtCore
 from .device import DeviceThread
 from controlunit.devices.mcp4725_setter import MCP4725Setter
 
-RED = "\033[1;31m"
-GREEN = "\033[1;32m"
-BLUE = "\033[1;34m"
-RESET = "\033[0m"
-GOOD = "\U00002705"
-BAD = "\U0000274C"
 
 try:
     import pigpio
 except ImportError as e:
     from devices.dummy import pigpio
-
-STEP = 3
 
 
 # MARK: MCP4725
@@ -64,8 +56,10 @@ class MCP4725(DeviceThread):
             pass
 
     def output_voltage(self, voltage):
-        self.mcp.set_voltage(voltage / 1000)
-        print(f"MCP4725 Ip DAC: {voltage/1000} V")
+        """voltage in milli Volts"""
+        voltage = voltage / 1000  # convert to volts
+        self.mcp.set_voltage(voltage)
+        print(f"MCP4725 Ip DAC: {voltage} V")
 
     def demo(self):
         i = 0

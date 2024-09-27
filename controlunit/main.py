@@ -112,8 +112,14 @@ class MainWidget(QtCore.QObject, UIWindow):
         self._init_mfc_connections()
         self._init_plot_control_connections()
         self._init_calibration_connections()
+        self._init_plasmacontrol_connections()
 
         # self.tempcontrolDock.registerBtn.clicked.connect(self.set_heater_goal)
+
+    def _init_plasmacontrol_connections(self):
+        self.plasma_control_dock.set_dac_voltage.clicked.connect(
+            self.set_currentcontrol_voltage
+        )
 
     def _init_calibration_connections(self):
         self.calibration_dock.calibrationBtn.clicked.connect(self.calibration)
@@ -135,7 +141,6 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.control_dock.scaleBtn.currentIndexChanged.connect(
             self.update_plot_timewindow
         )
-        # self.control_dock.currentsetBtn.clicked.connect(self.set_currentcontrol_voltage)
 
     def _init_adcgain_connections(self):
         self.adcgain_dock.gain_box.currentIndexChanged.connect(
@@ -826,7 +831,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.workers["ADC"]["worker"].setQmsSignal(0)
         self.control_dock.qmsSigSw.setChecked(False)
 
-    # MARK: control signals
+    # MARK: MFC signal
     @QtCore.pyqtSlot()
     def stop_mfc(self):
         """
@@ -855,20 +860,18 @@ class MainWidget(QtCore.QObject, UIWindow):
         except KeyError as e:
             print(f"{e}\n stop_mfc: Try starting acquisition.")
 
+    # MARK: I Plasma Signal
     @QtCore.pyqtSlot()
     def set_currentcontrol_voltage(self):
         """
         Set voltage for current control
         """
-        value = self.control_dock.currentcontrolerSB.value()
+        value = self.plasma_control_dock.voltage_spin_box.value()
         try:
             self.workers["PlasmaCurrent"]["worker"].output_voltage(value)
-        except KeyError as e:
-            print(f"{e}\nError updating sampling")
-        try:
             self.workers["ADC"]["worker"].setPresetV_cathode(value)
         except KeyError as e:
-            print(f"{e}\nError updating sampling. Try starting acquisition.")
+            print(f"{e}\nset_currentcontrol_voltage: Try starting acquisition.")
 
     @QtCore.pyqtSlot()
     def update_ig_mode(self):
@@ -890,6 +893,10 @@ class MainWidget(QtCore.QObject, UIWindow):
         Update range of the IG controller:
         10^{-3} - 10^{-8} multiplier when in linear mode (Torr)
         """
+        try:
+            self.workers["ADC"]
+        except:
+            return
         value = self.control_dock.IGrange.value()
         self.workers["ADC"]["worker"].setIGrange(value)
         print(f"Ionization Gauge Range = {value}")

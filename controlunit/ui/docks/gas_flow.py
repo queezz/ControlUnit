@@ -20,6 +20,7 @@ class GasFlowDock(Dock):
         self._init_mfc_ui()
         self._add_mfc_ui()
 
+        # Moved to separate widget, commenting out for now.
         # self._init_calibration_ui()
         # self._add_caclibration_ui()
 
