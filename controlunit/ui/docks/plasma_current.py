@@ -3,7 +3,7 @@ from PyQt5 import QtWidgets
 from pyqtgraph.dockarea import Dock
 
 
-class CurrentControlDock(Dock):
+class PlasmaCurrentDock(Dock):
     def __init__(self):
         super().__init__("Ip PID")
         self.widget = pg.LayoutWidget()

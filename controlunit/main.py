@@ -522,50 +522,22 @@ class MainWidget(QtCore.QObject, UIWindow):
         """
         update current values when new signal comes
         """
-        # self.tempcontrolDock.update_displayed_temperatures(self.__temp, f"{self.currentvalues['T']:.0f}")
-        self.mfccontrol_dock.update_display(
+        # self.tempcontrolDock.update_current_values(self.__temp, f"{self.currentvalues['T']:.0f}")
+        self.mfccontrol_dock.update_current_values(
             self.__mfc1, f"{self.currentvalues['MFC1']*1000:.0f}", 1
         )
-        self.mfccontrol_dock.update_display(
+        self.mfccontrol_dock.update_current_values(
             self.__mfc2, f"{self.currentvalues['MFC2']*1000:.0f}", 2
         )
         # self.control_dock.gaugeT.update_value(self.currentvalues["T"])
-        font_size = 5
-        txt = f"""
-              <table>
-                 <tr>
-                  <td>
-                   <font size={font_size} color={self.graph.pens['Pu']['color']}>
-                    Pu = {self.currentvalues['Pu']:.2e}                    
-                  </font>
-                  </td>
-                  <td>
-                  <font size={font_size} color={self.graph.pens['Pd']['color']}>
-                    Pd = {self.currentvalues['Pd']:.2e}
-                   </font>
-                  </td>
-                  <td>
-                   <font size={font_size} color={self.graph.pens['Ip']['color']}>
-                    I = {self.currentvalues['Ip']:.2f}
-                   </font>
-                  </td>
-                 </tr>
-                 <tr>
-                  <td>
-                   <font size={font_size} color={self.graph.pens['Bu']['color']}>
-                    Bu = {self.currentvalues['Bu']:.2e}
-                   </font>
-                  </td>
-                  <td>
-                   <font size={font_size} color={self.graph.pens['Bd']['color']}>
-                    Bd = {self.currentvalues['Bd']:.2e}
-                   </font>
-                  </td>   
-                 </tr>
-                </table>
-        """
-        # Update current values
-        self.control_dock.valueBw.setText(txt)
+
+        labels = ["Pu", "Pd", "Ip", "Bu", "Bd"]
+        values = [
+            (self.graph.pens[label]["color"], label, self.currentvalues[label])
+            for label in labels
+        ]
+
+        self.control_dock.update_current_values(values)
 
     # MARK: Worker Step
     @QtCore.pyqtSlot(list)

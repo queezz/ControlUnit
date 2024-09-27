@@ -7,7 +7,7 @@ from ui.docks.plots import PlotScaleDock
 from ui.docks.control import ControlDock
 from ui.docks.adcgain import ADCGain
 from ui.docks.settings import SettingsDock
-from controlunit.ui.docks.plasma_current import CurrentControlDock
+from controlunit.ui.docks.plasma_current import PlasmaCurrentDock
 
 # from components.docks.tempcontrol import HeaterControl
 from ui.docks.mfccontrol import MassFlowControllerControl as MFCControl
@@ -41,7 +41,7 @@ class UIWindow(object):
         """Sets up the layout by creating tabs and docks."""
         self._setup_main_tab()
         self._setup_settings_tab()
-        # self._setup_test_tab()  # Un-comment if needed
+        self._setup_test_tab()  # Un-comment if needed
 
     def _setup_main_tab(self):
         """Sets up the main tab with control, plot, and log docks."""
@@ -69,9 +69,9 @@ class UIWindow(object):
     def _setup_test_tab(self):
         """Extra tab for UI and other tests"""
         self.test_area = DockArea()
-        self.current_control_dock = CurrentControlDock()
+        self.plasma_control_dock = PlasmaCurrentDock()
         self.tabwidg.addTab(self.test_area, "Tests")
-        self.test_area.addDock(self.current_control_dock)
+        self.test_area.addDock(self.plasma_control_dock)
 
     def _setup_settings_tab(self):
         """Configures the settings tab with its components."""
