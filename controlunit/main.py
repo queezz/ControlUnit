@@ -863,21 +863,22 @@ class MainWidget(QtCore.QObject, UIWindow):
             print(f"{e}\n stop_mfc: Try starting acquisition.")
 
     # MARK: I Plasma Signal
-    @QtCore.pyqtSlot()
     def set_currentcontrol_voltage(self):
         """
-        Set voltage for current control
+        Set voltage for current control DIRECTLY
         """
         value = self.plasma_control_dock.voltage_spin_box.value()
         try:
             self.workers["PlasmaCurrent"]["worker"].output_voltage(value)
-            self.workers["ADC"]["worker"].set_cathode_current(value)
         except KeyError as e:
             print(f"{e}\nset_currentcontrol_voltage: Try starting acquisition.")
 
     @QtCore.pyqtSlot(float)
     def _set_cathode_current(self, control_voltage):
-        """Set voltage, recived from ADC worker in PlasmaCurrent worker"""
+        """
+        Set voltage, recived from ADC worker in PlasmaCurrent worker
+        For PID control
+        """
         self.workers["PlasmaCurrent"]["worker"].output_voltage(control_voltage)
 
     @QtCore.pyqtSlot()

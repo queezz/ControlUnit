@@ -63,7 +63,7 @@ class ADC(DeviceThread):
         self.__qmsSignal = 0
         self.__PresetV_mfc1 = 0
         self.__PresetV_mfc2 = 0
-        self.__PresetV_cathode = 0
+        self.cathode_control_setpoint = 0
         self.plasma_current_setpopint = 0
         self.sampling_time = self.config["Sampling Time"]
 
@@ -189,7 +189,7 @@ class ADC(DeviceThread):
                     self.__qmsSignal,
                     self.__PresetV_mfc1,
                     self.__PresetV_mfc2,
-                    self.__PresetV_cathode,
+                    self.cathode_control_setpoint,
                     *self.adc_voltages.values(),
                 ]
             ),
@@ -254,6 +254,7 @@ class ADC(DeviceThread):
     # MARK: plasma current
     def set_cathode_current(self, control_voltage):
         """Send cathode control voltage to main thread"""
+        self.cathode_control_setpoint = control_voltage
         self.send_control_voltage.emit(control_voltage)
 
     def set_plasma_current(self, plasma_current_setpopint: int):
@@ -289,7 +290,7 @@ class ADC(DeviceThread):
         step = 0
 
         self.prep_pid()
-        # self.set_cathode_current(325)
+        self.set_cathode_current(325)
 
         while not (self.__abort):
             time.sleep(self.sampling_time)
