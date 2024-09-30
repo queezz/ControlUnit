@@ -13,13 +13,7 @@ from PyQt5 import QtCore
 
 from .device import DeviceThread
 from heatercontrol import HeaterContol
-
-RED = "\033[1;31m"
-GREEN = "\033[1;32m"
-BLUE = "\033[1;34m"
-RESET = "\033[0m"
-GOOD = "\U00002705"
-BAD = "\U0000274C"
+from controlunit.ui.textcolor import RED, RESET
 
 
 try:

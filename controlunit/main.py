@@ -1,7 +1,7 @@
 import sys, datetime, os
 from datetime import timedelta
 import pandas as pd
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore, QtWidgets, QtGui
 
 from mainView import UIWindow
 from controlunit.devices.adc import ADC
@@ -943,7 +943,11 @@ def main():
 
 
 if __name__ == "__main__":
+    from __init__ import _echelle_base
+
+    pth = str(_echelle_base / "icons/controlunit.png")
     app = QtWidgets.QApplication([])
+    app.setWindowIcon(QtGui.QIcon(pth))
     widget = MainWidget(app)
 
     sys.exit(app.exec_())

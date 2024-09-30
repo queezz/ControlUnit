@@ -55,6 +55,7 @@ class MySwitch(QtWidgets.QPushButton):
         hit_rect = QRect(x, y, 2 * width, 2 * radius)
         return hit_rect.contains(pos)
 
+
 class OnOffSwitch(MySwitch):
     radius = 15
     width = 40
@@ -102,6 +103,7 @@ class QmsSwitch(MySwitch):
     labels = ["Exp ON", "Exp OFF"]
     colors = [QtGui.QColor("#33CCFF"), QtGui.QColor("#b89c76")]
 
+
 class ToggleBaratronPlot(MySwitch):
     radius = 15
     width = 36
@@ -109,13 +111,16 @@ class ToggleBaratronPlot(MySwitch):
     labels = ["Bartrn", "no B"]
     colors = [QtGui.QColor("#8df01d"), QtGui.QColor("#b89c76")]
 
+
 class ToggleIGPlots(MySwitch):
-    """Toggle lines with IG and Pfeiffer """
+    """Toggle lines with IG and Pfeiffer"""
+
     radius = 15
     width = 36
     # 0 - On, 1 - Off
     labels = ["IGs", "no IGs"]
     colors = [QtGui.QColor("#8df01d"), QtGui.QColor("#b89c76")]
+
 
 class ToggleYLogScale(MySwitch):
     radius = 15
@@ -123,6 +128,7 @@ class ToggleYLogScale(MySwitch):
     # 0 - On, 1 - Off
     labels = ["Log Y", "Lin Y"]
     colors = [QtGui.QColor("#8df01d"), QtGui.QColor("#b89c76")]
+
 
 if __name__ == "__main__":
     pass

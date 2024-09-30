@@ -13,10 +13,11 @@
 # limitations under the License.
 
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 __about__ = """
 In this version we use two devices:
 - I2C ADC for signal records
-- AD/DA board for MFCs control
+- DAC8532 AD/DA board for MFCs control
+- MCP4725 DAC for plasma current control
 """
