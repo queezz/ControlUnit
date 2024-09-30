@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import time, datetime
 from PyQt5 import QtCore
+from simple_pid import PID
 
 from controlunit.devices.adc_setter import AIO_32_0RA_IRC as adc
 from .device import DeviceThread
@@ -19,6 +20,7 @@ from .device import DeviceThread
 class ADC(DeviceThread):
     __IGmode = 0  # Torr
     __IGrange = -3
+    send_control_voltage = QtCore.pyqtSignal(float)
 
     def __init__(self, device_name, app, startTime, config):
         super().__init__(device_name, app, startTime, config)
@@ -62,7 +64,8 @@ class ADC(DeviceThread):
         self.__PresetV_mfc1 = 0
         self.__PresetV_mfc2 = 0
         self.__PresetV_cathode = 0
-        self.sampling = self.config["Sampling Time"]
+        self.plasma_current_setpopint = 0
+        self.sampling_time = self.config["Sampling Time"]
 
     # MARK: IG mode
     def setIGmode(self, IGmode: int):
@@ -105,14 +108,6 @@ class ADC(DeviceThread):
         range: 0 ~ 5000 mV
         """
         self.__PresetV_mfc2 = voltage / 1000
-        return
-
-    def setPresetV_cathode(self, voltage: int):
-        """
-        Sets Preset Voltage of Power Supplier for Cathode from GUI
-        range: 0 ~ 500 mV
-        """
-        self.__PresetV_cathode = voltage / 1000
         return
 
     # MARK: start
@@ -239,6 +234,7 @@ class ADC(DeviceThread):
         """
         self.averages = self.converted_values.mean().values
 
+    # MARK: send data
     def send_processed_data_to_main_thread(self):
         """
         Sends processed data to main thread in main.py
@@ -255,6 +251,34 @@ class ADC(DeviceThread):
         self.adc_values = self.adc_values.iloc[0:0]
         self.converted_values = self.converted_values.iloc[0:0]
 
+    # MARK: plasma current
+    def set_cathode_current(self, control_voltage):
+        """Send cathode control voltage to main thread"""
+        self.send_control_voltage.emit(control_voltage)
+
+    def set_plasma_current(self, plasma_current_setpopint: int):
+        self.plasma_current_setpopint = plasma_current_setpopint
+        self.pid.setpoint = self.plasma_current_setpopint
+        return
+
+    def update_pid_coefficients(self, pid_coefficients):
+        """update pid"""
+        # self.pid.Ki = 1.0
+        self.pid.tunings = pid_coefficients
+        # self.signal_send_pid.emit(self.pid.tunings)
+
+    def prep_pid(self):
+        """
+        Set PID parameters
+        ouptput is control voltage, from 0 to 5 V.
+        """
+        p, i, d = 1e-4, 0, 0
+        self.pid = PID(p, i, d, setpoint=self.plasma_current_setpopint)
+        self.pid.output_limits = (0, 5)
+        self.pid.sample_time = self.sampling_time * self.STEP
+        # self.signal_send_pid.emit(self.pid.tunings)
+
+    # MARK: main loop
     def acquisition_loop(self):
         """
         Reads ADC raw signals in a loop.
@@ -264,8 +288,11 @@ class ADC(DeviceThread):
         totalStep = 0
         step = 0
 
+        self.prep_pid()
+        # self.set_cathode_current(325)
+
         while not (self.__abort):
-            time.sleep(self.sampling)
+            time.sleep(self.sampling_time)
             self.set_adc_datarate()
             self.read_adc_voltages()
             self.put_new_data_in_dataframe()

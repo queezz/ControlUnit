@@ -340,7 +340,7 @@ class MainWidget(QtCore.QObject, UIWindow):
     # MARK: Devices
     def define_devices(self):
         """
-        Define devices and data structure
+        Define devices, data structure, and step methods
         """
         devices = {
             "MFCs": DAC8532,
@@ -348,6 +348,10 @@ class MainWidget(QtCore.QObject, UIWindow):
             "ADC": ADC,
         }
         # devices['MembraneTemperature'] = MAX6675
+        self.step_methods = {
+            "MembraneTemperature": self._membrane_heater_step,
+            "ADC": self._adc_step,
+        }
 
         self.devices = devices
 
@@ -424,14 +428,22 @@ class MainWidget(QtCore.QObject, UIWindow):
         """
         Starts Device Worker thread
         """
-        # self.__threads.append((devicedict["thread"], devicedict["worker"]))
-        # We already have self.workers wich holds on to the threads and workers.
-        # But in a dictionary, so it's easy to access.
-        # TODO: Delete this comments when all works.
         worthre["worker"].moveToThread(worthre["thread"])
         self.connect_worker_signals(worthre["worker"])
         worthre["thread"].started.connect(worthre["worker"].start)
         worthre["thread"].start()
+
+    def connect_worker_signals(self, worker):
+        """
+        Connects worker signals to the main thread
+        """
+        worker.send_step_data.connect(self.on_worker_step)
+        worker.sigDone.connect(self.on_worker_done)
+        worker.send_message.connect(self.log_message)
+        self.sigAbortWorkers.connect(worker.abort)
+
+        if worker.device_name == "ADC":
+            worker.send_control_voltage.connect(self._set_cathode_current)
 
     # MARK: logging
     def generate_time_stamp(self):
@@ -519,15 +531,6 @@ class MainWidget(QtCore.QObject, UIWindow):
             "# [Data]\n",
         ]
 
-    def connect_worker_signals(self, worker):
-        """
-        Connects worker signals to the main thread
-        """
-        worker.send_step_data.connect(self.on_worker_step)
-        worker.sigDone.connect(self.on_worker_done)
-        worker.send_message.connect(self.log_message)
-        self.sigAbortWorkers.connect(worker.abort)
-
     # MARK: update values
     def update_current_values(self):
         """
@@ -560,36 +563,35 @@ class MainWidget(QtCore.QObject, UIWindow):
         - Appends recived data to dataframes (call to self.__setStepData)
         - Updates data in plots (skips points if data is too big)
         """
-
         device_name = result[-1]
-
-        if device_name == "MAX6675":
-            # [self.data, self.device_name]
-            self.newdata[device_name] = result[0]
-            self.append_data(device_name)
-            self.save_data(device_name)
-            # here 3 is number of data points recieved from worker.
-            # TODO: update to self.newdata[device_name]['T'].mean()
-            self.currentvalues["T"] = self.datadict[device_name].iloc[-3:]["T"].mean()
-            self.update_plots(device_name)
-
-        if device_name == "ADC":
-            #  self.send_step_data.emit([newdata, self.device_name])
-            self.newdata[device_name] = result[0]
-            self.append_data(device_name)
-            self.save_data(device_name)
-            for plotname, name in zip(
-                self.config["ADC Signal Names"], self.config["ADC Converted Names"]
-            ):
-                self.currentvalues[plotname] = (
-                    self.datadict["ADC"].iloc[-3:][name].mean()
-                )
-            # to debug mV signal from Baratron, ouptut it directly.
-            self.baratronsignal1 = self.datadict["ADC"].iloc[-3:]["Bu"].mean()
-            self.baratronsignal2 = self.datadict["ADC"].iloc[-3:]["Bd"].mean()
-            self.update_plots(device_name)
-
+        self.step_methods[device_name](result)
         self.update_current_values()
+
+    def _adc_step(self, result):
+        device_name = result[-1]
+        #  self.send_step_data.emit([newdata, self.device_name])
+        self.newdata[device_name] = result[0]
+        self.append_data(device_name)
+        self.save_data(device_name)
+        for plotname, name in zip(
+            self.config["ADC Signal Names"], self.config["ADC Converted Names"]
+        ):
+            self.currentvalues[plotname] = self.datadict["ADC"].iloc[-3:][name].mean()
+        # to debug mV signal from Baratron, ouptut it directly.
+        self.baratronsignal1 = self.datadict["ADC"].iloc[-3:]["Bu"].mean()
+        self.baratronsignal2 = self.datadict["ADC"].iloc[-3:]["Bd"].mean()
+        self.update_plots(device_name)
+
+    def _membrane_heater_step(self, result):
+        device_name = result[-1]
+        # [self.data, self.device_name]
+        self.newdata[device_name] = result[0]
+        self.append_data(device_name)
+        self.save_data(device_name)
+        # here 3 is number of data points recieved from worker.
+        # TODO: update to self.newdata[device_name]['T'].mean()
+        self.currentvalues["T"] = self.datadict[device_name].iloc[-3:]["T"].mean()
+        self.update_plots(device_name)
 
     # MARK: Update Plots
     def update_plots(self, device_name):
@@ -869,9 +871,14 @@ class MainWidget(QtCore.QObject, UIWindow):
         value = self.plasma_control_dock.voltage_spin_box.value()
         try:
             self.workers["PlasmaCurrent"]["worker"].output_voltage(value)
-            self.workers["ADC"]["worker"].setPresetV_cathode(value)
+            self.workers["ADC"]["worker"].set_cathode_current(value)
         except KeyError as e:
             print(f"{e}\nset_currentcontrol_voltage: Try starting acquisition.")
+
+    @QtCore.pyqtSlot(float)
+    def _set_cathode_current(self, control_voltage):
+        """Set voltage, recived from ADC worker in PlasmaCurrent worker"""
+        self.workers["PlasmaCurrent"]["worker"].output_voltage(control_voltage)
 
     @QtCore.pyqtSlot()
     def update_ig_mode(self):
