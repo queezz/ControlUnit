@@ -935,7 +935,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.sampling = value
         try:
             self.update_plot_timewindow()
-            self.workers["ADC"]["worker"].setSampling(value)
+            self.workers["ADC"]["worker"].set_sampling_time(value)
             self.log_message(f"ADC sampling set to {value}")
         except KeyError as e:
             print(f"{e}\nError updating sampling. Try starting acquisition.")

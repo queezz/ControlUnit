@@ -44,9 +44,9 @@ class MAX6675(DeviceThread):
         self.columns = ["date", "time", "T", "PresetT"]
         self.data = pd.DataFrame(columns=self.columns)
         self.temperature_setpoint = 0
-        self.sampling = self.config["Sampling Time"]
-        if self.sampling < 0.25:
-            self.sampling = 0.25
+        self.sampling_time = self.config["Sampling Time"]
+        if self.sampling_time < 0.25:
+            self.sampling_time = 0.25
 
         self.pi = pigpio.pi()
         self.__sumE = 0
@@ -142,7 +142,7 @@ class MAX6675(DeviceThread):
         step = 0
 
         while not (self.__abort):
-            time.sleep(self.sampling)
+            time.sleep(self.sampling_time)
             self.read_thermocouple()
             self.update_dataframe()
 
@@ -171,13 +171,13 @@ class MAX6675(DeviceThread):
 
     def temperature_control(self):
         """
-        Shouldn't the self.sampling here be 0.25, not the one for ADC?
+        Shouldn't the self.sampling_time here be 0.25, not the one for ADC?
         TODO: update to simple-pid as in TemperatureControl
         https://github.com/queezz/TemperatureControl
         """
         e = self.temperature_setpoint - self.average
-        integral = self.__sumE + e * self.sampling
-        derivative = (e - self.__exE) / self.sampling
+        integral = self.__sumE + e * self.sampling_time
+        derivative = (e - self.__exE) / self.sampling_time
 
         # TODO: 調整 (Adjustment)
         Kp = 3.5

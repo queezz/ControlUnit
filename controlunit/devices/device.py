@@ -41,9 +41,15 @@ class DeviceThread(QtCore.QObject):
     def getStartTime(self):
         return self.__startTime
 
-    def setSampling(self, sampling):
+    def set_sampling_time(self, sampling_time):
         """Set sampling time"""
-        self.sampling = sampling
+        self.sampling_time = sampling_time
+        if sampling_time >= 0.9:
+            self.STEP = 1
+        if sampling_time < 0.9:
+            self.STEP = 3
+        if sampling_time < 0.1:
+            self.STEP = 5
 
     def start(self):
         """

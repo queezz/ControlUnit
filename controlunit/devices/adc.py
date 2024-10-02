@@ -298,6 +298,9 @@ class ADC(DeviceThread):
             self.read_adc_voltages()
             self.put_new_data_in_dataframe()
             self.update_processed_signals_dataframe()
+            if self.STEP == 1:
+                self.send_processed_data_to_main_thread()
+                continue
 
             if step % (self.STEP - 1) == 0 and step != 0:
                 # self.calculate_averaged_signals()
