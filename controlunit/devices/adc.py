@@ -63,8 +63,8 @@ class ADC(DeviceThread):
         self.__qmsSignal = 0
         self.__PresetV_mfc1 = 0
         self.__PresetV_mfc2 = 0
-        self.cathode_control_setpoint = 0
         self.plasma_current_setpopint = 0
+        self.plasma_current = 0
         self.sampling_time = self.config["Sampling Time"]
 
     # MARK: IG mode
@@ -172,7 +172,9 @@ class ADC(DeviceThread):
             ch.name: self.aio.analog_read_volt(ch.channel, *self.adc_datarate, ch.gain)
             for _, ch in self.adc_channels.items()
         }
+        self.plasma_current = self.adc_voltages["Ip"]
 
+    # MARK: Data
     def put_new_data_in_dataframe(self):
         """
         Put new data from ADC and GUI into pandas dataframe
@@ -189,7 +191,7 @@ class ADC(DeviceThread):
                     self.__qmsSignal,
                     self.__PresetV_mfc1,
                     self.__PresetV_mfc2,
-                    self.cathode_control_setpoint,
+                    self.plasma_current_setpopint,
                     *self.adc_voltages.values(),
                 ]
             ),
@@ -244,6 +246,7 @@ class ADC(DeviceThread):
         self.send_step_data.emit([newdata, self.device_name])
         self.clear_datasets()
 
+    # MARK: Clear Data
     def clear_datasets(self):
         """
         Remove data from temporary dataframes
@@ -254,7 +257,7 @@ class ADC(DeviceThread):
     # MARK: plasma current
     def set_cathode_current(self, control_voltage):
         """Send cathode control voltage to main thread"""
-        self.cathode_control_setpoint = control_voltage
+        self.plasma_current_setpopint = control_voltage
         self.send_control_voltage.emit(control_voltage)
 
     def set_plasma_current(self, plasma_current_setpopint: int):
@@ -279,6 +282,15 @@ class ADC(DeviceThread):
         self.pid.sample_time = self.sampling_time * self.STEP
         # self.signal_send_pid.emit(self.pid.tunings)
 
+    def plasma_current_control(self):
+        """
+        PID control plasma current
+        TODO: add zero subtraction, add some averaging
+        TODO: add plasma current dataframe with ~100 points
+        TODO: Fix the df size.
+        """
+        self.set_cathode_current(self.pid(self.plasma_current))
+
     # MARK: main loop
     def acquisition_loop(self):
         """
@@ -290,7 +302,7 @@ class ADC(DeviceThread):
         step = 0
 
         self.prep_pid()
-        self.set_cathode_current(325)
+        # self.set_cathode_current(325)
 
         while not (self.__abort):
             time.sleep(self.sampling_time)
@@ -298,6 +310,10 @@ class ADC(DeviceThread):
             self.read_adc_voltages()
             self.put_new_data_in_dataframe()
             self.update_processed_signals_dataframe()
+
+            if self.plasma_current_setpopint:
+                self.plasma_current_control()
+
             if self.STEP == 1:
                 self.send_processed_data_to_main_thread()
                 continue

@@ -4,7 +4,7 @@ Conversion functions for various senseors.
 
 
 def pfeiffer_single_gauge(voltage):
-    """ 
+    r"""
     Calculate pressure for Pfeiffer single gauge.
     $Pressure = 10^{1.667 * voltage -11.46}\; Torr$
 
@@ -15,12 +15,12 @@ def pfeiffer_single_gauge(voltage):
     """
     # V → Torr
     exponent = 1.6801381 * voltage - 11.35925447
-    pres = 10 ** exponent
+    pres = 10**exponent
     return pres
 
 
 def ionization_gauge(voltage, mode: int, scale: float):
-    """
+    r"""
      convert 0-10 V output into Torr
 
     Parameters
@@ -34,7 +34,7 @@ def ionization_gauge(voltage, mode: int, scale: float):
         multiplier for linear mode, must be entered manually
     """
     if mode == 0:
-        return voltage * (10 ** scale)
+        return voltage * (10**scale)
     elif mode == 1:
         return 10 ** (-5 + voltage / 2)
     else:
@@ -42,7 +42,7 @@ def ionization_gauge(voltage, mode: int, scale: float):
 
 
 def hall_current_sensor(v, type=5):
-    """
+    r"""
     Convert voltage from the Hall effect current sensor into current.
     There are several sensors, with ranges 5A, 10 A, and 30 A
     $Current = 5 / 1 \cdot (v - 2.52) \; A$
@@ -59,18 +59,21 @@ def hall_current_sensor(v, type=5):
 
 
 def baratron(v, fullscale):
-    """
+    r"""
     Convert Baratron signal to pressure in Torr
     Full scale corresponds to 10 V.
     $Pressure = v/10 \cdot fullscale\; Torr$
     """
     return v / 10 * fullscale
 
+
 def mfc(v):
     return v
+
 
 def cathode_current(voltage):
     return voltage
 
+
 def cathode_volt(voltage):
-    return voltage /10 * 42
+    return voltage / 10 * 42

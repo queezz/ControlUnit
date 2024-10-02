@@ -367,6 +367,11 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         self.create_file("ADC")
 
+        self.plot_methods = {
+            "MAX6675": self.update_plots_max6675,
+            "ADC": self.update_plots_adc,
+        }
+
     # MARK: Prep Threads
     def prep_threads(self):
         """
@@ -404,6 +409,9 @@ class MainWidget(QtCore.QObject, UIWindow):
         """
         for device_name, worthre in self.workers.items():
             self.start_thread(worthre)
+
+        self.update_ig_range()
+        self.update_ig_mode()
 
     def terminate_existing_threads(self):
         """
@@ -595,13 +603,8 @@ class MainWidget(QtCore.QObject, UIWindow):
 
     # MARK: Update Plots
     def update_plots(self, device_name):
-        """
-        Update plots
-        """
-        if device_name == "MAX6675":
-            self.update_plots_max6675()
-        if device_name == "ADC":
-            self.update_plots_adc()
+        """plot updater abstraction"""
+        self.plot_methods[device_name]()
 
     def update_plots_max6675(self):
         """
@@ -862,14 +865,15 @@ class MainWidget(QtCore.QObject, UIWindow):
         except KeyError as e:
             print(f"{e}\n stop_mfc: Try starting acquisition.")
 
-    # MARK: I Plasma Signal
+    # MARK: Plasma Control
     def set_currentcontrol_voltage(self):
         """
-        Set voltage for current control DIRECTLY
+        Send control voltage to ADCs plasma current PID
         """
         value = self.plasma_control_dock.voltage_spin_box.value()
         try:
-            self.workers["PlasmaCurrent"]["worker"].output_voltage(value)
+            # self.workers["PlasmaCurrent"]["worker"].output_voltage(value)
+            self.workers["ADC"]["worker"].set_plasma_current(value)
         except KeyError as e:
             print(f"{e}\nset_currentcontrol_voltage: Try starting acquisition.")
 
