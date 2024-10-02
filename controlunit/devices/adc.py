@@ -21,23 +21,17 @@ class ADC(DeviceThread):
     __IGmode = 0  # Torr
     __IGrange = -3
     send_control_voltage = QtCore.pyqtSignal(float)
+    send_zero_adjustment = QtCore.pyqtSignal(dict)
 
     def __init__(self, device_name, app, startTime, config):
         super().__init__(device_name, app, startTime, config)
         self.__app = app
         self.device_name = device_name
         self.__startTime = startTime
-        self.__abort = False
+        self._abort = False
         self.config = config
         self.prep_adc_board()
         self.init()
-
-    @QtCore.pyqtSlot()
-    def abort(self):
-        message = "Worker thread {} aborting acquisition".format(self.device_name)
-        # self.send_message.emit(message)
-        # print(message)
-        self.__abort = True
 
     # MARK: init
     def init(self):
@@ -65,6 +59,8 @@ class ADC(DeviceThread):
         self.__PresetV_mfc2 = 0
         self.plasma_current_setpopint = 0
         self.plasma_current = 0
+        self.zero_ip = 0
+        self.zero_bu = 0
         self.sampling_time = self.config["Sampling Time"]
 
     # MARK: IG mode
@@ -255,6 +251,13 @@ class ADC(DeviceThread):
         self.converted_values = self.converted_values.iloc[0:0]
 
     # MARK: plasma current
+
+    def set_zero_ip(self):
+        """set zero Ip"""
+        if self.converted_values["Ip_c"].mean() is not np.nan:
+            self.zero_ip = self.converted_values["Ip_c"].mean()
+        self.send_zero_adjustment.emit({"Ip": self.zero_ip, "Bu": self.zero_bu})
+
     def set_cathode_current(self, control_voltage):
         """Send cathode control voltage to main thread"""
         self.plasma_current_setpopint = control_voltage
@@ -276,7 +279,7 @@ class ADC(DeviceThread):
         Set PID parameters
         ouptput is control voltage, from 0 to 5 V.
         """
-        p, i, d = 1e-4, 0, 0
+        p, i, d = 0.1, 0, 0
         self.pid = PID(p, i, d, setpoint=self.plasma_current_setpopint)
         self.pid.output_limits = (0, 5)
         self.pid.sample_time = self.sampling_time * self.STEP
@@ -285,11 +288,8 @@ class ADC(DeviceThread):
     def plasma_current_control(self):
         """
         PID control plasma current
-        TODO: add zero subtraction, add some averaging
-        TODO: add plasma current dataframe with ~100 points
-        TODO: Fix the df size.
         """
-        self.set_cathode_current(self.pid(self.plasma_current))
+        self.set_cathode_current(self.pid(self.plasma_current - self.zero_ip))
 
     # MARK: main loop
     def acquisition_loop(self):
@@ -304,7 +304,7 @@ class ADC(DeviceThread):
         self.prep_pid()
         # self.set_cathode_current(325)
 
-        while not (self.__abort):
+        while not (self._abort):
             time.sleep(self.sampling_time)
             self.set_adc_datarate()
             self.read_adc_voltages()

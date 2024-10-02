@@ -165,6 +165,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.settings_dock.setSamplingBtn.clicked.connect(self.__set_sampling)
         self.scale_dock.togYLog.clicked.connect(self.__toggleYLogScale)
 
+        self.scale_dock.subzero_ip.clicked.connect(self._set_zero_ip)
+
     # MARK: GUI setup
     def set_scales_switches(self):
         """Set default checks for swithces in Scales"""
@@ -372,6 +374,8 @@ class MainWidget(QtCore.QObject, UIWindow):
             "ADC": self.update_plots_adc,
         }
 
+        self.zero_adjustment = {"Ip": 0, "Bu": 0}
+
     # MARK: Prep Threads
     def prep_threads(self):
         """
@@ -423,12 +427,28 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         self.workers = {}
 
+    # MARK: Abort
+    def turn_off_voltages(self):
+        """Safely turn off any DAC voltages"""
+        try:
+            self.workers["ADC"]
+        except KeyError:
+            return
+
+        self.workers["ADC"]["worker"].set_plasma_current(0)
+
+        self.workers["MFCs"]["worker"].output_voltage(1, self.__mfc1)
+        self.workers["ADC"]["worker"].setPresetV_mfc1(self.__mfc1)
+        self.workers["MFCs"]["worker"].output_voltage(1, self.__mfc2)
+        self.workers["ADC"]["worker"].setPresetV_mfc1(self.__mfc2)
+
     @QtCore.pyqtSlot()
     def abort_all_threads(self):
         """
         Do we need two terminators?
         This one signals to workers to stop.
         """
+        self.turn_off_voltages()
         self.sigAbortWorkers.emit()
         self.terminate_existing_threads()
 
@@ -452,6 +472,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         if worker.device_name == "ADC":
             worker.send_control_voltage.connect(self._set_cathode_current)
+            worker.send_zero_adjustment.connect(self._adjust_zeros)
 
     # MARK: logging
     def generate_time_stamp(self):
@@ -539,28 +560,6 @@ class MainWidget(QtCore.QObject, UIWindow):
             "# [Data]\n",
         ]
 
-    # MARK: update values
-    def update_current_values(self):
-        """
-        update current values when new signal comes
-        """
-        # self.tempcontrolDock.update_current_values(self.__temp, f"{self.currentvalues['T']:.0f}")
-        self.gasflow_dock.update_current_values(
-            self.__mfc1, f"{self.currentvalues['MFC1']*1000:.0f}", 1
-        )
-        self.gasflow_dock.update_current_values(
-            self.__mfc2, f"{self.currentvalues['MFC2']*1000:.0f}", 2
-        )
-        # self.control_dock.gaugeT.update_value(self.currentvalues["T"])
-
-        labels = ["Pu", "Pd", "Ip", "Bu", "Bd"]
-        values = [
-            (self.graph.pens[label]["color"], label, self.currentvalues[label])
-            for label in labels
-        ]
-
-        self.control_dock.update_current_values(values)
-
     # MARK: Worker Step
     @QtCore.pyqtSlot(list)
     def on_worker_step(self, result):
@@ -601,6 +600,33 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.currentvalues["T"] = self.datadict[device_name].iloc[-3:]["T"].mean()
         self.update_plots(device_name)
 
+    # MARK: update values
+    def update_current_values(self):
+        """
+        update current values when new signal comes
+        """
+        # self.tempcontrolDock.update_current_values(self.__temp, f"{self.currentvalues['T']:.0f}")
+        self.gasflow_dock.update_current_values(
+            self.__mfc1, f"{self.currentvalues['MFC1']*1000:.0f}", 1
+        )
+        self.gasflow_dock.update_current_values(
+            self.__mfc2, f"{self.currentvalues['MFC2']*1000:.0f}", 2
+        )
+        # self.control_dock.gaugeT.update_value(self.currentvalues["T"])
+
+        labels = ["Pu", "Pd", "Ip", "Bu", "Bd"]
+        values = [
+            (self.graph.pens[label]["color"], label, self.currentvalues[label])
+            for label in labels
+        ]
+
+        self.control_dock.update_current_values(values)
+
+    @QtCore.pyqtSlot(dict)
+    def _adjust_zeros(self, zero_adjustment):
+        """Set zero adjustment dict"""
+        self.zero_adjustment = zero_adjustment
+
     # MARK: Update Plots
     def update_plots(self, device_name):
         """plot updater abstraction"""
@@ -629,7 +655,7 @@ class MainWidget(QtCore.QObject, UIWindow):
             .values
         )
 
-        ip = df["Ip_c"].values.astype(float)
+        ip = df["Ip_c"].values.astype(float) - self.zero_adjustment["Ip"]
         p1 = df["Pu_c"].values.astype(float)
         p2 = df["Pd_c"].values.astype(float)
         b1 = df["Bu_c"].values.astype(float)
@@ -884,6 +910,14 @@ class MainWidget(QtCore.QObject, UIWindow):
         For PID control
         """
         self.workers["PlasmaCurrent"]["worker"].output_voltage(control_voltage)
+
+    # MARK: ADC controls
+    def _set_zero_ip(self):
+        """set current ip as 0"""
+        try:
+            self.workers["ADC"]["worker"].set_zero_ip()
+        except KeyError as e:
+            print(f"{e}\n _set_zero_ip. Try starting acquisition.")
 
     @QtCore.pyqtSlot()
     def update_ig_mode(self):

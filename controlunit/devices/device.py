@@ -28,6 +28,7 @@ class DeviceThread(QtCore.QObject):
         self.device_name = device_name
         self.__startTime = startTime
         self.config = config
+        self._abort = False
 
     def print_checks(self):
         attrs = vars(self)
@@ -58,6 +59,11 @@ class DeviceThread(QtCore.QObject):
         main.py MainWidget.start_thread()
         """
         pass
+
+    def abort(self):
+        message = f"<font color='blue'>{self.device_name}</font> aborting acquisition"
+        # self.send_message.emit(message)
+        self._abort = True
 
 
 if __name__ == "__main__":

@@ -9,6 +9,24 @@ class PlotScaleDock(Dock):
         super().__init__("Scales")
         self.widget = pg.LayoutWidget()
 
+        self._setLayout()
+
+    def _setLayout(self):
+        self.addWidget(self.widget)
+
+        self._init_switches()
+        self._init_spinboxes()
+
+        self._add_swithces_and_spinners()
+
+        self._init_buttons()
+        self._add_buttons()
+
+        # self._init_tmax_spinbox()
+        # self.widget.addWidget(self.Tmax, 1, 0)
+        self._add_vspacer()
+
+    def _init_switches(self):
         self.autoscale = changeScale()
         self.togIp = ToggleCurrentPlot()
         # self.togT = ToggleTemperaturePlot()
@@ -16,13 +34,20 @@ class PlotScaleDock(Dock):
         self.togBaratron = ToggleBaratronPlot()
         self.togIGs = ToggleIGPlots()
         self.togYLog = ToggleYLogScale()
-        # [i.setChecked(True) for i in [self.togIp, self.togT, self.togP]]
-        # self.Tmax = QtWidgets.QSpinBox()
-        # self.Tmax.setMinimum(50)
-        # self.Tmax.setMaximum(1000)
-        # self.Tmax.setMinimumSize(QtCore.QSize(60, 60))
-        # self.Tmax.setSingleStep(50)
 
+    def _init_buttons(self):
+        self.subzero_ip = QtWidgets.QPushButton("O Ip")
+        self.subzero_baratron = QtWidgets.QPushButton("O Bu")
+        [
+            btn.setStyleSheet("font: 20pt")
+            for btn in [self.subzero_ip, self.subzero_baratron]
+        ]
+
+    def _add_buttons(self):
+        self.widget.addWidget(self.subzero_ip, 2, 2)
+        self.widget.addWidget(self.subzero_baratron, 2, 3)
+
+    def _init_spinboxes(self):
         self.Pmax = QtWidgets.QSpinBox()
         self.Pmin = QtWidgets.QSpinBox()
         self.Pmax.setToolTip("Pmax")
@@ -46,19 +71,19 @@ class PlotScaleDock(Dock):
         self.Imin.setValue(-1)
 
         [
-            i.setStyleSheet(
-                "QSpinBox::up-button   { width: 30px; }\n"
-                "QSpinBox::down-button { width: 30px;}\n"
-                "QSpinBox {font: 16pt;}"
-            )
+            self._set_spinbox_style(i)
             for i in [self.Pmax, self.Pmin, self.Imax, self.Imin]
         ]
 
-        self.__setLayout()
+    @staticmethod
+    def _set_spinbox_style(spinbox):
+        spinbox.setStyleSheet(
+            "QSpinBox::up-button   { width: 30px; }\n"
+            "QSpinBox::down-button { width: 30px;}\n"
+            "QSpinBox {font: 16pt;}"
+        )
 
-    def __setLayout(self):
-        self.addWidget(self.widget)
-
+    def _add_swithces_and_spinners(self):
         self.widget.addWidget(self.Pmax, 0, 0)
         self.widget.addWidget(self.Pmin, 0, 1)
         self.widget.addWidget(self.Imin, 0, 2)
@@ -68,9 +93,16 @@ class PlotScaleDock(Dock):
         self.widget.addWidget(self.togBaratron, 1, 2)
         self.widget.addWidget(self.togIGs, 1, 3)
         self.widget.addWidget(self.autoscale, 2, 1)
-        self.widget.addWidget(self.togYLog,2,0)
-        # self.widget.addWidget(self.Tmax, 1, 0)
+        self.widget.addWidget(self.togYLog, 2, 0)
 
+    def _init_tmax_spinbox(self):
+        self.Tmax = QtWidgets.QSpinBox()
+        self.Tmax.setMinimum(50)
+        self.Tmax.setMaximum(1000)
+        self.Tmax.setMinimumSize(QtCore.QSize(60, 60))
+        self.Tmax.setSingleStep(50)
+
+    def _add_vspacer(self):
         self.verticalSpacer = QtWidgets.QSpacerItem(
             0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
         )

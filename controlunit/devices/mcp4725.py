@@ -32,7 +32,6 @@ class MCP4725(DeviceThread):
         self.device_name = device_name
         self.__startTime = startTime
         self.config = config
-        self.__abort = False
         self.init()
 
     def init(self):
@@ -44,22 +43,11 @@ class MCP4725(DeviceThread):
         except Exception as e:
             print(f"{e}")
 
-    @QtCore.pyqtSlot()
-    def abort(self):
-        message = f"Device {self.device_name} aborting"
-        # self.send_message.emit(message)
-        # print(message)
-        self.__abort = True
-        try:
-            self.mcp.set_voltage(0)
-        except:
-            pass
-
     def output_voltage(self, voltage):
         """voltage in milli Volts"""
         voltage = voltage / 1000  # convert to volts
         self.mcp.set_voltage(voltage)
-        print(f"MCP4725 Ip DAC: {voltage} V")
+        # print(f"MCP4725 Ip DAC: {voltage} V")
 
     def demo(self):
         i = 0

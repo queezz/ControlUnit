@@ -3,7 +3,7 @@ from PyQt5 import QtWidgets
 from pyqtgraph.dockarea import DockArea, Dock
 
 from ui.docks.log import LogDock
-from ui.docks.plots import PlotScaleDock
+from controlunit.ui.docks.scales import PlotScaleDock
 from ui.docks.control import ControlDock
 from ui.docks.adcgain import ADCGain
 from ui.docks.settings import SettingsDock
