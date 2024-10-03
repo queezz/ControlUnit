@@ -266,7 +266,13 @@ class ADC(DeviceThread):
     def set_plasma_current(self, plasma_current_setpopint: int):
         self.plasma_current_setpopint = plasma_current_setpopint
         self.pid.setpoint = self.plasma_current_setpopint
+        if plasma_current_setpopint == 0:
+            self.reset_current_control()
         return
+    
+    def reset_current_control(self):
+        self.prep_pid()
+        self.set_cathode_current(0)
 
     def update_pid_coefficients(self, pid_coefficients):
         """update pid"""
@@ -277,11 +283,11 @@ class ADC(DeviceThread):
     def prep_pid(self):
         """
         Set PID parameters
-        ouptput is control voltage, from 0 to 5 V.
+        ouptput is control voltage, from 0 to 5000 V.
         """
-        p, i, d = 0.1, 0, 0
+        p, i, d = 1, 0, 0
         self.pid = PID(p, i, d, setpoint=self.plasma_current_setpopint)
-        self.pid.output_limits = (0, 5)
+        self.pid.output_limits = (0, 5000)
         self.pid.sample_time = self.sampling_time * self.STEP
         # self.signal_send_pid.emit(self.pid.tunings)
 
@@ -289,7 +295,9 @@ class ADC(DeviceThread):
         """
         PID control plasma current
         """
-        self.set_cathode_current(self.pid(self.plasma_current - self.zero_ip))
+        output = self.pid(self.plasma_current - self.zero_ip)
+        self.set_cathode_current(output)
+        print(self.pid.components)
 
     # MARK: main loop
     def acquisition_loop(self):
