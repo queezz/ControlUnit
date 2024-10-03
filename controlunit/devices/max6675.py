@@ -13,7 +13,7 @@ from PyQt5 import QtCore
 
 from .device import DeviceThread
 from heatercontrol import HeaterContol
-from controlunit.ui.textcolor import RED, RESET
+from controlunit.ui.text_shortcuts import RED, RESET
 
 
 try:
@@ -104,7 +104,7 @@ class MAX6675(DeviceThread):
         """
         Send processed data to main.py
         """
-        self.send_step_data.emit([self.data, self.device_name])
+        self.data_ready.emit([self.data, self.device_name])
 
     def clear_datasets(self):
         """

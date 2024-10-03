@@ -13,7 +13,7 @@ CHLED = config["LED GPIO"]
 
 
 # must inherit QtCore.QObject in order to use 'connect'
-class SyncSignal(QtCore.QThread):
+class IndicatorLED(QtCore.QThread):
     """
     Emit signal for syncronization. Also connected to LED indicator.
     TODO: hardware: use GPIO as a switching signal, don't keep this on
@@ -21,39 +21,38 @@ class SyncSignal(QtCore.QThread):
     TODO: when turn on and off LED so many times (10 or more), the signal is not stable.
     """
 
-    def __init__(self, pi, app, mode, worker=None):
+    def __init__(self, app, adc_worker):
         super().__init__()
-        self.pi = pi  # pigpio.pi() - access local GPIO
+        self.pi = pigpio.pi()  # pigpio.pi() - access local GPIO
         self.app = app
-        # GPIO output count
-        self.mode = mode
         self.pinNum = CHLED
-        self.worker = worker
+        # to save the status
+        # Maybe it's better to create a separate file.
+        # That'll help save a bit of storage space.
+        # And this worker will not be necessary.
+        self.worker = adc_worker
 
     # MARK: - Methods
     def run(self):
+        pass
+
+    def on(self):
         self.pi.set_mode(self.pinNum, pigpio.OUTPUT)
-        self.led_on_off(self.mode)
+        self.pi.write(self.pinNum, 1)
+        self.pi.stop()
+        self.worker.setQmsSignal(1)
         self.app.processEvents()
-        self.finished.emit()
 
-    def led_on_off(self, mode):
-        """switch led:
-        ON:  self.mode == 1
-        OFF: self.mode == 0
-        calibration light : self.mode == 2
-        """
-        if mode == 1:
-            self.pi.write(self.pinNum, 1)
-            self.pi.stop()
-        elif mode == 0:
-            self.pi.write(self.pinNum, 0)
-            self.pi.stop()
-        elif (mode == 2) & (self.worker is not None):
-            self.calibration_light()
+    def off(self):
+        self.pi.set_mode(self.pinNum, pigpio.OUTPUT)
+        self.pi.write(self.pinNum, 0)
+        self.pi.stop()
+        self.worker.setQmsSignal(0)
+        self.app.processEvents()
 
-    def calibration_light(self):
+    def qms_calibration_indicator(self):
         """turn on and off LED for calibration"""
+        self.pi.set_mode(self.pinNum, pigpio.OUTPUT)
         i = 0
         while i < 3:
             self.pi.write(self.pinNum, 1)
@@ -66,6 +65,7 @@ class SyncSignal(QtCore.QThread):
         self.pi.write(self.pinNum, 1)
         self.worker.setQmsSignal(2)
         self.pi.stop()
+        self.worker.setQmsSignal(0)
 
     def abort_calibration(self):
         self.pi.write(self.pinNum, 0)
@@ -79,6 +79,10 @@ class SyncSignal(QtCore.QThread):
             time.sleep(6)
             self.pi.write(self.pinNum, 0)
             time.sleep(3)
+
+    def __del__(self):
+        """Cleanup when the object is destroyed"""
+        self.pi.stop()
 
 
 if __name__ == "__main__":

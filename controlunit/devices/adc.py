@@ -159,7 +159,7 @@ class ADC(DeviceThread):
         self.adc_datarate = [self.aio.DataRate.DR_860SPS]
 
     # MARK: read voltages
-    def read_adc_voltages(self):
+    def collect_data(self):
         """
         Read ADC voltages for selected channels
         Can change ADC gain at any time by updating self.adc_channels
@@ -239,7 +239,7 @@ class ADC(DeviceThread):
         Clears temporary dataframes to reset memory consumption.
         """
         newdata = self.adc_values.join(self.converted_values)
-        self.send_step_data.emit([newdata, self.device_name])
+        self.data_ready.emit([newdata, self.device_name])
         self.clear_datasets()
 
     # MARK: Clear Data
@@ -307,7 +307,7 @@ class ADC(DeviceThread):
         while not (self._abort):
             time.sleep(self.sampling_time)
             self.set_adc_datarate()
-            self.read_adc_voltages()
+            self.collect_data()
             self.put_new_data_in_dataframe()
             self.update_processed_signals_dataframe()
 

@@ -16,7 +16,7 @@ class DeviceThread(QtCore.QObject):
     """
 
     STEP = 3
-    send_step_data = QtCore.pyqtSignal(list)
+    data_ready = QtCore.pyqtSignal(list)
     sigDone = QtCore.pyqtSignal(str)
     send_message = QtCore.pyqtSignal(str)
 

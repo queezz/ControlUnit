@@ -1,6 +1,8 @@
 """
 DAC8532 communication
 
+Used for controlling two Mass Flow Controllers: H2 and O2.
+
 High-Precision AD/DA Expansion Module Onboard ADS1256 DAC8532 for Raspberry Pi
 
 https://www.amazon.com/High-Precision-Expansion-Raspberry-Pi-XYGStudy/dp/B017GUVPAK
@@ -17,7 +19,7 @@ try:
 except ImportError:
     from devices.dummy import GPIO
 
-from controlunit.ui.textcolor import RED, BLUE, RESET
+from controlunit.ui.text_shortcuts import RED, BLUE, RESET
 
 
 # MARK: DAC8532
@@ -54,6 +56,9 @@ class DAC8532(DeviceThread):
 
     def init_dac_worker(self, presetVoltage: int):
         pass
+
+    def stop(self):
+        self.dac_reset_voltage()
 
     def dac_reset_voltage(self):
         """Reset voltage"""

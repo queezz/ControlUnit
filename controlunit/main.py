@@ -11,9 +11,9 @@ from calibrator import Calibrator
 
 import readsettings
 from striphtmltags import strip_tags
-import qmsSignal
+from qmsSignal import IndicatorLED
 
-from controlunit.ui.textcolor import RED, BLUE, RESET
+from controlunit.ui.text_shortcuts import RED, BLUE, RESET
 
 try:
     import pigpio
@@ -35,7 +35,7 @@ except ImportError as e:
 
 
 # must inherit QtCore.QObject in order to use 'connect'
-class MainWidget(QtCore.QObject, UIWindow):
+class MainApp(QtCore.QObject, UIWindow):
     # DEFAULT_TEMPERATURE = 0
     DEFAULT_VOLTAGE = 0
     STEP = 3
@@ -58,6 +58,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
         self.__workers_done = 0
         self.workers = {}
+        # Define presets
         # self.__temp = self.DEFAULT_TEMPERATURE
         self.__mfc1 = self.DEFAULT_VOLTAGE
         self.__mfc2 = self.DEFAULT_VOLTAGE
@@ -74,9 +75,6 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.baratronsignal1 = 0
         self.baratronsignal2 = 0
 
-        ## GRAPHS definitions moved to graph.py
-
-        self.control_dock.scaleBtn.setCurrentIndex(2)
         self.update_plot_timewindow()
         self.set_scales_switches()
 
@@ -110,7 +108,8 @@ class MainWidget(QtCore.QObject, UIWindow):
         self._init_controldock_connections()
         self._init_adcgain_connections()
         self._init_mfc_connections()
-        self._init_plot_control_connections()
+        self._init_cocnnections()
+        self._init_plot_controls()
         self._init_calibration_connections()
         self._init_plasmacontrol_connections()
 
@@ -128,8 +127,6 @@ class MainWidget(QtCore.QObject, UIWindow):
     def _init_mfc_connections(self):
         self.gasflow_dock.registerBtn1.clicked.connect(self.set_mfc1_goal)
         self.gasflow_dock.registerBtn2.clicked.connect(self.set_mfc2_goal)
-        self.gasflow_dock.resetBtn1.clicked.connect(self.resetSpinBoxes1)
-        self.gasflow_dock.resetBtn2.clicked.connect(self.resetSpinBoxes2)
 
     def _init_controldock_connections(self):
         self.control_dock.IGmode.currentIndexChanged.connect(self.update_ig_mode)
@@ -137,7 +134,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.control_dock.FullNormSW.clicked.connect(self.fulltonormal)
         self.control_dock.OnOffSW.clicked.connect(self.__onoff)
         self.control_dock.quitBtn.clicked.connect(self.__quit)
-        self.control_dock.qmsSigSw.clicked.connect(self.sync_signal_switch)
+        self.control_dock.qmsSigSw.clicked.connect(self._toggle_led_status)
         self.control_dock.scaleBtn.currentIndexChanged.connect(
             self.update_plot_timewindow
         )
@@ -148,36 +145,12 @@ class MainWidget(QtCore.QObject, UIWindow):
         )
         self.adcgain_dock.set_gain_btn.clicked.connect(self.__set_gain)
 
-    def _init_plot_control_connections(self):
+    def _init_cocnnections(self):
         """Toggle plots for Current, Temperature, and Pressure"""
-        self.scale_dock.togIp.clicked.connect(self.toggle_plots)
-        self.scale_dock.togBaratron.clicked.connect(self.toggle_plots_baratron)
-        self.scale_dock.togIGs.clicked.connect(self.toggle_plots_igs)
-        self.scale_dock.togP.clicked.connect(self.toggle_plots)
-
-        self.scale_dock.Pmin.valueChanged.connect(self.__updatePScale)
-        self.scale_dock.Pmax.valueChanged.connect(self.__updatePScale)
-        self.scale_dock.Imin.valueChanged.connect(self.__updateIScale)
-        self.scale_dock.Imax.valueChanged.connect(self.__updateIScale)
-        # self.scale_dock.Tmax.valueChanged.connect(self.__updateTScale)
-
-        self.scale_dock.autoscale.clicked.connect(self.__auto_or_levels)
         self.settings_dock.setSamplingBtn.clicked.connect(self.__set_sampling)
-        self.scale_dock.togYLog.clicked.connect(self.__toggleYLogScale)
-
         self.scale_dock.subzero_ip.clicked.connect(self._set_zero_ip)
 
     # MARK: GUI setup
-    def set_scales_switches(self):
-        """Set default checks for swithces in Scales"""
-        self.scale_dock.togP.setChecked(True)
-        self.scale_dock.togBaratron.setChecked(False)
-        self.scale_dock.togIp.setChecked(False)
-        self.scale_dock.togYLog.setChecked(True)
-        self.scale_dock.togIGs.setChecked(True)
-        self.toggle_plots_baratron()
-        self.toggle_plots_igs()
-        self.toggle_plots()
 
     def __quit(self):
         """terminate app"""
@@ -190,73 +163,35 @@ class MainWidget(QtCore.QObject, UIWindow):
         if self.control_dock.OnOffSW.isChecked():
             self.prep_threads()
             self.control_dock.quitBtn.setEnabled(False)
+            return
+
+        if self.are_you_sure_to_quit():
+            self.abort_all_threads()
+            self.control_dock.quitBtn.setEnabled(True)
         else:
-            quit_msg = "Are you sure you want to stop data acquisition?"
-            reply = QtWidgets.QMessageBox.warning(
-                self.MainWindow,
-                "Message",
-                quit_msg,
-                QtWidgets.QMessageBox.Yes,
-                QtWidgets.QMessageBox.No,
-            )
-            if reply == QtWidgets.QMessageBox.Yes:
-                self.abort_all_threads()
-                self.control_dock.quitBtn.setEnabled(True)
-                if self.control_dock.qmsSigSw.isChecked():
-                    pi = pigpio.pi()
-                    self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 0)
-                    self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
-                    self.qmsSigThread.start()
-                    self.workers["ADC"]["worker"].setQmsSignal(0)
-                    self.control_dock.qmsSigSw.setChecked(False)
-            else:
-                self.control_dock.OnOffSW.setChecked(True)
+            self.control_dock.OnOffSW.setChecked(True)
 
-    def __toggleYLogScale(self):
-        """Toggle Y Scale between Log and Lin for Pressure plots"""
-        if self.scale_dock.togYLog.isChecked():
-            self.graph.pressure_plot.setLogMode(y=True)
+    def _toggle_led_status(self):
+        if not self.control_dock.OnOffSW.isChecked():
+            return
+        if self.control_dock.qmsSigSw.isChecked():
+            self.indicator_led.on()
         else:
-            self.graph.pressure_plot.setLogMode(y=False)
+            self.indicator_led.off()
 
-    def __updatePScale(self):
-        """Updated plot limits for the Pressure viewgraph"""
-        pmin, pmax = [self.scale_dock.Pmin.value(), self.scale_dock.Pmax.value()]
-
-        # self.graph.presPl.setLogMode(y=True)
-        self.graph.pressure_plot.setYRange(pmin, pmax, 0)
-
-    def __updateIScale(self):
-        """Updated plot limits for the plasma current viewgraph"""
-        imin, imax = [self.scale_dock.Imin.value(), self.scale_dock.Imax.value()]
-        self.graph.plasma_plot.setYRange(imin, imax, 0)
-
-    # def __updateTScale(self):
-    #     """Updated plot limits for the Temperature viewgraph"""
-    #     tmax = self.scale_dock.Tmax.value()
-    #     self.graph.tempPl.setYRange(0, tmax, 0)
-
-    def __updateScales(self):
-        """Update all scales according to spinboxes"""
-        self.__updateIScale()
-        # self.__updateTScale()
-        self.__updatePScale()
-
-    def __autoscale(self):
-        """Set all plots to autoscale"""
-        # enableAutoRange
-        # plots = [self.graph.plasma_plot, self.graph.temperature_plot, self.graph.pressure_plot]
-        plots = [self.graph.plasma_plot, self.graph.pressure_plot]
-
-        # [i.autoRange() for i in plots]
-        [i.enableAutoRange() for i in plots]
-
-    def __auto_or_levels(self):
-        """Change plot scales from full auto to Y axis from settings"""
-        if self.scale_dock.autoscale.isChecked():
-            self.__autoscale()
+    def are_you_sure_to_quit(self):
+        quit_msg = "Are you sure you want to stop data acquisition?"
+        reply = QtWidgets.QMessageBox.warning(
+            self.MainWindow,
+            "Message",
+            quit_msg,
+            QtWidgets.QMessageBox.Yes,
+            QtWidgets.QMessageBox.No,
+        )
+        if reply == QtWidgets.QMessageBox.Yes:
+            return True
         else:
-            self.__updateScales()
+            return False
 
     def fulltonormal(self):
         """Change from full screen to normal view on click"""
@@ -266,78 +201,6 @@ class MainWidget(QtCore.QObject, UIWindow):
         else:
             self.MainWindow.showNormal()
             self.control_dock.setStretch(*(10, 300))  # minimize control dock width
-
-    def toggle_plots(self):
-        """
-        Toggle plots - pyqtgraph GraphViews
-        self.scale_dock.togIp
-        self.graph.plaPl
-        """
-
-        def toggleplot(i, pl, row=0, col=0):
-            if i.isChecked():
-                try:
-                    self.graph.addItem(pl, row=row, col=col)
-                except:
-                    pass
-            else:
-                try:
-                    self.graph.removeItem(pl)  # remove plot
-                except:
-                    pass
-
-        items = {
-            "Ip": [self.scale_dock.togIp, self.graph.plasma_plot, 0, 0],
-            # "T": [self.scale_dock.togT, self.graph.tempPl, 1, 0],
-            "P": [self.scale_dock.togP, self.graph.pressure_plot, 1, 0],
-        }
-
-        [toggleplot(*items[jj]) for jj in ["Ip", "P"]]
-
-    def toggle_plots_baratron(self):
-        if self.scale_dock.togBaratron.isChecked():
-            self.graph.baratron_up_curve.setVisible(True)
-            self.graph.baratron_down_curve.setVisible(True)
-        else:
-            self.graph.baratron_up_curve.setVisible(False)
-            self.graph.baratron_down_curve.setVisible(False)
-
-    def toggle_plots_igs(self):
-        """Toggle IG and Pfeiffer lines"""
-        if self.scale_dock.togIGs.isChecked():
-            self.graph.pressure_up_curve.setVisible(True)
-            self.graph.pressure_down_curve.setVisible(True)
-        else:
-            self.graph.pressure_up_curve.setVisible(False)
-            self.graph.pressure_down_curve.setVisible(False)
-
-    # MARK: Trigger
-    def sync_signal_switch(self):
-        """
-        Experiment indicator, analog output is sent to QMS to sync
-        expermint time between recording devices.
-        This signal is helpfull to separate experiments (same as shot numbers in fusion)
-        """
-        if not self.control_dock.OnOffSW.isChecked():
-            return
-
-        pi = pigpio.pi()
-
-        if self.control_dock.qmsSigSw.isChecked():
-            self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 1)
-            self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
-            self.qmsSigThread.start()
-            self.workers["ADC"]["worker"].setQmsSignal(1)
-        else:
-
-            self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 0)
-            self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
-            self.qmsSigThread.start()
-            self.workers["ADC"]["worker"].setQmsSignal(0)
-
-    def qmsSignalTerminate(self):
-        self.qmsSigThread.quit()
-        self.qmsSigThread.wait()
 
     # MARK: Devices
     def define_devices(self):
@@ -395,6 +258,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         }
 
         self.start_all_threads()
+        self.indicator_led = IndicatorLED(self.__app, self.workers["ADC"]["worker"])
 
     def prep_worker(self, device_class, device_name, start_time):
         """
@@ -417,6 +281,29 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.update_ig_range()
         self.update_ig_mode()
 
+    def start_thread(self, worthre):
+        """
+        Starts Device Worker thread
+        """
+        worthre["worker"].moveToThread(worthre["thread"])
+        self.connect_worker_signals(worthre["worker"])
+        worthre["thread"].started.connect(worthre["worker"].start)
+        worthre["thread"].start()
+
+    def connect_worker_signals(self, worker):
+        """
+        Connects worker signals to the main thread
+        """
+        worker.data_ready.connect(self.on_worker_step)
+        worker.sigDone.connect(self.on_worker_done)
+        worker.send_message.connect(self.log_message)
+        self.sigAbortWorkers.connect(worker.abort)
+
+        if worker.device_name == "ADC":
+            worker.send_control_voltage.connect(self._set_cathode_current)
+            worker.send_zero_adjustment.connect(self._adjust_zeros)
+
+    # MARK: Abort
     def terminate_existing_threads(self):
         """
         Gracefully quits and waits for all currently running threads.
@@ -426,8 +313,15 @@ class MainWidget(QtCore.QObject, UIWindow):
             worthre["thread"].wait()
 
         self.workers = {}
+        try:
+            self.terminate_indicator_thread()
+        except AttributeError:
+            pass
 
-    # MARK: Abort
+    def terminate_indicator_thread(self):
+        self.indicator_led.quit()
+        self.indicator_led.wait()
+
     def turn_off_voltages(self):
         """Safely turn off any DAC voltages"""
         try:
@@ -451,28 +345,6 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.turn_off_voltages()
         self.sigAbortWorkers.emit()
         self.terminate_existing_threads()
-
-    def start_thread(self, worthre):
-        """
-        Starts Device Worker thread
-        """
-        worthre["worker"].moveToThread(worthre["thread"])
-        self.connect_worker_signals(worthre["worker"])
-        worthre["thread"].started.connect(worthre["worker"].start)
-        worthre["thread"].start()
-
-    def connect_worker_signals(self, worker):
-        """
-        Connects worker signals to the main thread
-        """
-        worker.send_step_data.connect(self.on_worker_step)
-        worker.sigDone.connect(self.on_worker_done)
-        worker.send_message.connect(self.log_message)
-        self.sigAbortWorkers.connect(worker.abort)
-
-        if worker.device_name == "ADC":
-            worker.send_control_voltage.connect(self._set_cathode_current)
-            worker.send_zero_adjustment.connect(self._adjust_zeros)
 
     # MARK: logging
     def generate_time_stamp(self):
@@ -502,6 +374,7 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.logDock.log.moveCursor(self.logDock.log.textCursor().End)
         # self.logDock.log.append(f"<{htmltag}>{nowstamp}: {message}</{htmltag}>")
 
+    # MARK: Data - handling
     def create_file(self, device_name):
         """
         Create file for saving sensor data
@@ -560,6 +433,50 @@ class MainWidget(QtCore.QObject, UIWindow):
             "# [Data]\n",
         ]
 
+    # MARK: Data - append
+    def append_data(self, device_name):
+        """
+        Append new data to dataframe
+        """
+        # self.datadict[device_name] = pd.concat([self.datadict[device_name], self.newdata[device_name]], ignore_index=True)
+        # Fix FutureWarning
+        self.datadict[device_name] = pd.concat(
+            [
+                self.datadict[device_name],
+                self.newdata[device_name].astype(self.datadict[device_name].dtypes),
+            ],
+            ignore_index=True,
+        )
+        # self.data = pd.concat([self.adc_values, new_data_row.astype(self.adc_values.dtypes)], ignore_index=True)
+
+    def select_data_to_plot(self, device_name):
+        """
+        Select data based on self.time_window
+        """
+        df = self.datadict[device_name]
+        if self.time_window > 0:
+            last_ts = df["date"].iloc[-1]
+            timewindow = last_ts - pd.Timedelta(self.time_window, "seconds")
+            df = df[df["date"] > timewindow]
+        return self.downsample_data(df)
+
+    def downsample_data(self, df, noskip=3000):
+        """downsample data"""
+        if df.shape[0] > noskip:
+            return df.iloc[:: df.shape[0] // noskip + 1]
+        return df
+
+    def calculate_skip_points(self, l, noskip=5000):
+        return 1 if l < noskip else l // noskip + 1
+
+    def save_data(self, device_name):
+        """
+        Save sensor data
+        """
+        savepath = self.savepaths[device_name]
+        data = self.newdata[device_name]
+        data.to_csv(savepath, mode="a", header=False, index=False)
+
     # MARK: Worker Step
     @QtCore.pyqtSlot(list)
     def on_worker_step(self, result):
@@ -576,7 +493,7 @@ class MainWidget(QtCore.QObject, UIWindow):
 
     def _adc_step(self, result):
         device_name = result[-1]
-        #  self.send_step_data.emit([newdata, self.device_name])
+        #  self.data_ready.emit([newdata, self.device_name])
         self.newdata[device_name] = result[0]
         self.append_data(device_name)
         self.save_data(device_name)
@@ -599,6 +516,23 @@ class MainWidget(QtCore.QObject, UIWindow):
         # TODO: update to self.newdata[device_name]['T'].mean()
         self.currentvalues["T"] = self.datadict[device_name].iloc[-3:]["T"].mean()
         self.update_plots(device_name)
+
+    # MARK: worker done
+    @QtCore.pyqtSlot(str)
+    def on_worker_done(self, device_name):
+        self.log_message(
+            f"Sensor thread <font size=4 color='blue'> {device_name}</font> <font size=4 color={'red'}>stopped</font>",
+            htmltag="div",
+        )
+        self.__workers_done += 1
+        self.reset_data(device_name)
+
+        if self.__workers_done == 2:
+            self.abort_all_threads()
+
+    def reset_data(self, device_name):
+        self.datadict[device_name] = self.datadict[device_name].iloc[0:0]
+        self.newdata[device_name] = self.newdata[device_name].iloc[0:0]
 
     # MARK: update values
     def update_current_values(self):
@@ -654,79 +588,18 @@ class MainWidget(QtCore.QObject, UIWindow):
             .apply(lambda x: (x - timedelta(hours=utc_offset)).timestamp())
             .values
         )
-
-        ip = df["Ip_c"].values.astype(float) - self.zero_adjustment["Ip"]
-        p1 = df["Pu_c"].values.astype(float)
-        p2 = df["Pd_c"].values.astype(float)
-        b1 = df["Bu_c"].values.astype(float)
-        b2 = df["Bd_c"].values.astype(float)
         skip = self.calculate_skip_points(time.shape[0])
-        self.graph.baratron_up_curve.setData(time[::skip], b1[::skip])
-        self.graph.baratron_down_curve.setData(time[::skip], b2[::skip])
-        self.graph.plasma_cruve.setData(time[::skip], ip[::skip])
-        self.graph.pressure_up_curve.setData(time[::skip], p1[::skip])
-        self.graph.pressure_down_curve.setData(time[::skip], p2[::skip])
 
-    # MARK: append data
-    def append_data(self, device_name):
-        """
-        Append new data to dataframe
-        """
-        # self.datadict[device_name] = pd.concat([self.datadict[device_name], self.newdata[device_name]], ignore_index=True)
-        # Fix FutureWarning
-        self.datadict[device_name] = pd.concat(
-            [
-                self.datadict[device_name],
-                self.newdata[device_name].astype(self.datadict[device_name].dtypes),
-            ],
-            ignore_index=True,
-        )
-        # self.data = pd.concat([self.adc_values, new_data_row.astype(self.adc_values.dtypes)], ignore_index=True)
+        what_to_plot = ["Ip", "Pu", "Pd", "Bu", "Bd"]
+        for name in what_to_plot:
+            if name == "Ip":
+                values = (
+                    df[name + "_c"].values.astype(float) - self.zero_adjustment["Ip"]
+                )
+            else:
+                values = df[name + "_c"].values.astype(float)
 
-    def select_data_to_plot(self, device_name):
-        """
-        Select data based on self.time_window
-        """
-        df = self.datadict[device_name]
-        if self.time_window > 0:
-            last_ts = df["date"].iloc[-1]
-            timewindow = last_ts - pd.Timedelta(self.time_window, "seconds")
-            df = df[df["date"] > timewindow]
-        return self.downsample_data(df)
-
-    def downsample_data(self, df, noskip=3000):
-        """downsample data"""
-        if df.shape[0] > noskip:
-            return df.iloc[:: df.shape[0] // noskip + 1]
-        return df
-
-    def calculate_skip_points(self, l, noskip=5000):
-        return 1 if l < noskip else l // noskip + 1
-
-    def save_data(self, device_name):
-        """
-        Save sensor data
-        """
-        savepath = self.savepaths[device_name]
-        data = self.newdata[device_name]
-        data.to_csv(savepath, mode="a", header=False, index=False)
-
-    # MARK: worker done
-    @QtCore.pyqtSlot(str)
-    def on_worker_done(self, device_name):
-        self.log_message(
-            f"Sensor thread <font size=4 color='blue'> {device_name}</font> <font size=4 color={'red'}>stopped</font>",
-            htmltag="div",
-        )
-        self.__workers_done += 1
-        self.reset_data(device_name)
-
-        if self.__workers_done == 2:
-            self.abort_all_threads()
-
-    def reset_data(self, device_name):
-        self.datadict[device_name] = self.datadict[device_name].iloc[0:0]
-        self.newdata[device_name] = self.newdata[device_name].iloc[0:0]
+            self.graph.plot_lines[name].setData(time[::skip], values[::skip])
 
     @QtCore.pyqtSlot()
     def set_heater_goal(self):
@@ -738,51 +611,6 @@ class MainWidget(QtCore.QObject, UIWindow):
             self.workers["MembraneTemperature"]["worker"].setPresetTemp(self.__temp)
         except Exception as e:
             print(f"{e}\nError setting membrane heater goal. Try starting acquisition.")
-
-    @QtCore.pyqtSlot()
-    def set_mfc1_goal(self):
-        value = 0
-        for i, spin_box in enumerate(self.gasflow_dock.masflowcontrolerSB1):
-            voltage = spin_box.value()
-            value += voltage * pow(10, 3 - i)
-        if value > 5000:
-            value = 5000
-        self.__mfc1 = value
-        voltage_now = self.currentvalues["MFC1"]
-        self.gasflow_dock.set_output1_goal(self.__mfc1, f"{voltage_now*1000:.0f}")
-
-        try:
-            self.workers["MFCs"]["worker"].output_voltage(1, self.__mfc1)
-            self.workers["ADC"]["worker"].setPresetV_mfc1(self.__mfc1)
-        except KeyError as e:
-            print(f"{e}\n set_mfc1_goal: Try starting acquisition.")
-
-    @QtCore.pyqtSlot()
-    def set_mfc2_goal(self):
-        value = 0
-        for i, spin_box in enumerate(self.gasflow_dock.masflowcontrolerSB2):
-            voltage = spin_box.value()
-            value += voltage * pow(10, 3 - i)
-        if value > 5000:
-            value = 5000
-        self.__mfc2 = value
-        voltage_now = self.currentvalues["MFC2"]
-        self.gasflow_dock.set_output2_goal(self.__mfc2, f"{voltage_now*1000:.0f}")
-        try:
-            self.workers["MFCs"]["worker"].output_voltage(2, self.__mfc2)
-            self.workers["ADC"]["worker"].setPresetV_mfc2(self.__mfc2)
-        except KeyError as e:
-            print(f"{e}\n set_mfc2_goal: Try starting acquisition.")
-
-    @QtCore.pyqtSlot()
-    def resetSpinBoxes1(self):
-        for spin_box in self.gasflow_dock.masflowcontrolerSB1:
-            spin_box.setValue(0)
-
-    @QtCore.pyqtSlot()
-    def resetSpinBoxes2(self):
-        for spin_box in self.gasflow_dock.masflowcontrolerSB2:
-            spin_box.setValue(0)
 
     def update_calibration_waiting_time(self):
         txt = self.calibration_dock.scaleBtn.currentText()
@@ -813,11 +641,6 @@ class MainWidget(QtCore.QObject, UIWindow):
             )
             if reply == QtWidgets.QMessageBox.Yes:
                 # self.dacWorker.calibration(self.__mfc1,step=10,waiting_time=1)
-                try:
-                    pi = pigpio.pi()
-                except:
-                    print("pigpio is not defined")
-                    return
                 self.calibration_thread = Calibrator(
                     self.__app,
                     self.workers["MFCs"]["worker"],
@@ -826,15 +649,10 @@ class MainWidget(QtCore.QObject, UIWindow):
                     10,
                     self.calibration_waiting_time,
                 )
-                self.qmsSigThread = qmsSignal.SyncSignal(
-                    pi, self.__app, 2, self.workers["ADC"]["worker"]
-                )
+
+                self.indicator_led.qms_calibration_indicator()
                 self.calibration_thread.finished.connect(self.calibration_terminated)
                 self.calibration_thread.start()
-                self.qmsSigThread.start()
-
-            else:
-                pass
         else:
             ending_msg = "Are you sure you want to stop calibration?"
             reply = QtWidgets.QMessageBox.warning(
@@ -851,15 +669,8 @@ class MainWidget(QtCore.QObject, UIWindow):
                 pass
 
     def calibration_terminated(self):
-        self.qmsSigThread.quit()
-        self.qmsSigThread.wait()
         self.calibration_thread.wait()
         self.calibration_thread.quit()
-        pi = pigpio.pi()
-        self.qmsSigThread = qmsSignal.SyncSignal(pi, self.__app, 0)
-        self.qmsSigThread.finished.connect(self.qmsSignalTerminate)
-        self.qmsSigThread.start()
-        self.workers["ADC"]["worker"].setQmsSignal(0)
         self.control_dock.qmsSigSw.setChecked(False)
 
     # MARK: MFC signal
@@ -882,14 +693,48 @@ class MainWidget(QtCore.QObject, UIWindow):
         self.gasflow_dock.set_output1_goal(self.__mfc1, f"{voltage_now1*1000:.0f}")
         self.gasflow_dock.set_output2_goal(self.__mfc2, f"{voltage_now2*1000:.0f}")
         try:
-            self.workers["MFCs"]["worker"].output_voltage(1, self.__mfc1)
-            self.workers["MFCs"]["worker"].output_voltage(2, self.__mfc2)
+            self.workers["MFCs"]["worker"].stop()
 
             self.workers["ADC"]["worker"].setPresetV_mfc1(self.__mfc1)
             self.workers["ADC"]["worker"].setPresetV_mfc2(self.__mfc2)
 
         except KeyError as e:
             print(f"{e}\n stop_mfc: Try starting acquisition.")
+
+    @QtCore.pyqtSlot()
+    def set_mfc1_goal(self):
+        value = 0
+        for i, spin_box in enumerate(self.gasflow_dock.mfc_spinboxes[1]):
+            voltage = spin_box.value()
+            value += voltage * pow(10, 3 - i)
+        if value > 5000:
+            value = 5000
+        self.__mfc1 = value
+        voltage_now = self.currentvalues["MFC1"]
+        self.gasflow_dock.set_output1_goal(self.__mfc1, f"{voltage_now*1000:.0f}")
+
+        try:
+            self.workers["MFCs"]["worker"].output_voltage(1, self.__mfc1)
+            self.workers["ADC"]["worker"].setPresetV_mfc1(self.__mfc1)
+        except KeyError as e:
+            print(f"{e}\n set_mfc1_goal: Try starting acquisition.")
+
+    @QtCore.pyqtSlot()
+    def set_mfc2_goal(self):
+        value = 0
+        for i, spin_box in enumerate(self.gasflow_dock.mfc_spinboxes[2]):
+            voltage = spin_box.value()
+            value += voltage * pow(10, 3 - i)
+        if value > 5000:
+            value = 5000
+        self.__mfc2 = value
+        voltage_now = self.currentvalues["MFC2"]
+        self.gasflow_dock.set_output2_goal(self.__mfc2, f"{voltage_now*1000:.0f}")
+        try:
+            self.workers["MFCs"]["worker"].output_voltage(2, self.__mfc2)
+            self.workers["ADC"]["worker"].setPresetV_mfc2(self.__mfc2)
+        except KeyError as e:
+            print(f"{e}\n set_mfc2_goal: Try starting acquisition.")
 
     # MARK: Plasma Control
     def set_currentcontrol_voltage(self):
@@ -979,12 +824,13 @@ class MainWidget(QtCore.QObject, UIWindow):
             print(f"{e}\nError updating sampling. Try starting acquisition.")
 
 
+# MARK: End
 def main():
     """
     for command line script using entrypoint
     """
     app = QtWidgets.QApplication([])
-    widget = MainWidget(app)
+    widget = MainApp(app)
     sys.exit(app.exec_())
 
 
@@ -994,6 +840,6 @@ if __name__ == "__main__":
     pth = str(_echelle_base / "icons/controlunit.png")
     app = QtWidgets.QApplication([])
     app.setWindowIcon(QtGui.QIcon(pth))
-    widget = MainWidget(app)
+    widget = MainApp(app)
 
     sys.exit(app.exec_())

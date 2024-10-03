@@ -73,6 +73,7 @@ class ControlDock(Dock):
         sizes = [20, 60, 5 * 60, 15 * 60, 30 * 60, 60 * 60, 90 * 60, 120 * 60, -1]
         [self.scaleBtn.addItem(i) for i in items]
         self.sampling_windows = {i: j for i, j in zip(items, sizes)}
+        self.scaleBtn.setCurrentIndex(2)
 
         # IG mode
         self.IGmode = QtWidgets.QComboBox()

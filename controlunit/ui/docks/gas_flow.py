@@ -12,6 +12,11 @@ class GasFlowDock(Dock):
     def __init__(self):
         super().__init__("Mass Flow Control")
         self._set_layout()
+        self.current_values = {
+            1: 0.0,
+            2: 0.0,
+        }
+        self._init_ui_logic()
 
     def _set_layout(self):
         self.widget = pg.LayoutWidget()
@@ -29,8 +34,10 @@ class GasFlowDock(Dock):
     def _init_mfc_ui(self):
         self.mfcBw1 = self._init_text_browser()
         self.mfcBw2 = self._init_text_browser()
-        self.masflowcontrolerSB1 = self._init_mfc_spin_boxes(MAXVOLTAGE)
-        self.masflowcontrolerSB2 = self._init_mfc_spin_boxes(MAXVOLTAGE)
+        self.mfc_spinboxes = {
+            1: self._init_mfc_spin_boxes(MAXVOLTAGE),
+            2: self._init_mfc_spin_boxes(MAXVOLTAGE),
+        }
 
         # Control Buttons
         self.registerBtn1 = self._create_button("set")
@@ -40,13 +47,13 @@ class GasFlowDock(Dock):
 
     def _add_mfc_ui(self):
         self.widget.addWidget(self.mfcBw1, 0, 0, 1, 2)
-        for i, spin_box in enumerate(self.masflowcontrolerSB1):
+        for i, spin_box in enumerate(self.mfc_spinboxes[1]):
             self.widget.addWidget(spin_box, 1, i)
         self.widget.addWidget(self.registerBtn1, 0, 2)
         self.widget.addWidget(self.resetBtn1, 0, 3)
 
         self.widget.addWidget(self.mfcBw2, 2, 0, 1, 2)
-        for i, spin_box in enumerate(self.masflowcontrolerSB2):
+        for i, spin_box in enumerate(self.mfc_spinboxes[2]):
             self.widget.addWidget(spin_box, 3, i)
         self.widget.addWidget(self.registerBtn2, 2, 2)
         self.widget.addWidget(self.resetBtn2, 2, 3)
@@ -109,6 +116,9 @@ class GasFlowDock(Dock):
         self.widget.addWidget(self.stopBtn, 4, 2, 1, 2)
 
     # MARK: Update Values
+    def update_display(self):
+        """"""
+
     def update_current_values(self, set_voltage, signal_voltage, mfc_num):
         """
         Set Mass Flow Controllers signal values in the browsers.
@@ -127,6 +137,22 @@ class GasFlowDock(Dock):
 
     def set_output2_goal(self, voltage, voltage_now):
         self.update_current_values(voltage, voltage_now, 2)
+
+    def get_massflow_from_gui(self, mfc_number):
+        value = 0
+        spinboxes = self.mfc_spinboxes[mfc_number]
+        for i, spin_box in enumerate(spinboxes):
+            voltage = spin_box.value()
+            value += voltage * pow(10, 3 - i)
+        return value
+
+    def _init_ui_logic(self):
+        self.resetBtn1.clicked.connect(lambda: self.resetSpinBoxes(1))
+        self.resetBtn2.clicked.connect(lambda: self.resetSpinBoxes(2))
+
+    def resetSpinBoxes(self, mfc_number):
+        for spin_box in self.mfc_spinboxes[mfc_number]:
+            spin_box.setValue(0)
 
 
 if __name__ == "__main__":
