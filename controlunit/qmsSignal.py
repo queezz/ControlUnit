@@ -39,14 +39,14 @@ class IndicatorLED(QtCore.QThread):
     def on(self):
         self.pi.set_mode(self.pinNum, pigpio.OUTPUT)
         self.pi.write(self.pinNum, 1)
-        self.pi.stop()
+        #self.pi.stop()
         self.worker.setQmsSignal(1)
         self.app.processEvents()
 
     def off(self):
         self.pi.set_mode(self.pinNum, pigpio.OUTPUT)
         self.pi.write(self.pinNum, 0)
-        self.pi.stop()
+        #self.pi.stop()
         self.worker.setQmsSignal(0)
         self.app.processEvents()
 
