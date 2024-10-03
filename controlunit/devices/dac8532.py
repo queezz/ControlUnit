@@ -27,8 +27,8 @@ class DAC8532(DeviceThread):
 
     sigAbortHeater = QtCore.pyqtSignal()
 
-    def __init__(self, device_name, app, startTime, config):
-        super().__init__(device_name, app, startTime, config)
+    def __init__(self, device_name, app, startTime, config, pi):
+        super().__init__(device_name, app, startTime, config, pi)
         self.__app = app
         self.device_name = device_name
         self.__startTime = startTime

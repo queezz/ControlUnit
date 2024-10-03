@@ -26,22 +26,21 @@ class MCP4725(DeviceThread):
 
     # sigAbortHeater = QtCore.pyqtSignal()
 
-    def __init__(self, device_name, app, startTime, config):
-        super().__init__(device_name, app, startTime, config)
+    def __init__(self, device_name, app, startTime, config, pi):
+        super().__init__(device_name, app, startTime, config, pi)
         self.__app = app
         self.device_name = device_name
         self.__startTime = startTime
         self.config = config
+        self.pi = pi
         self.init()
 
     def init(self):
-        try:
-            self.pi = pigpio.pi()
-            self.mcp = MCP4725Setter(self.pi)
-            self.mcp.set_voltage(0)
-            print("12 bit DAC MCP4725 initialised")
-        except Exception as e:
-            print(f"{e}")
+
+        self.pi = pigpio.pi()
+        self.mcp = MCP4725Setter(self.pi)
+        self.mcp.set_voltage(0)
+        print("12 bit DAC MCP4725 initialised")
 
     def output_voltage(self, voltage):
         """voltage in milli Volts"""

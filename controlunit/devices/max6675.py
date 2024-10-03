@@ -28,13 +28,14 @@ class MAX6675(DeviceThread):
 
     sigAbortHeater = QtCore.pyqtSignal()
 
-    def __init__(self, device_name, app, startTime, config):
+    def __init__(self, device_name, app, startTime, config, pi):
         super().__init__(device_name, app, startTime, config)
         self.__app = app
         self.device_name = device_name
         self.__startTime = startTime
         self.config = config
         self.__abort = False
+        self.pi = pi
         self.init()
 
     def init(self):
@@ -48,7 +49,7 @@ class MAX6675(DeviceThread):
         if self.sampling_time < 0.25:
             self.sampling_time = 0.25
 
-        self.pi = pigpio.pi()
+        # self.pi = pigpio.pi()
         self.__sumE = 0
         self.__exE = 0
 
@@ -164,7 +165,7 @@ class MAX6675(DeviceThread):
             self.thread.quit()
             self.thread.wait()
             self.pi.spi_close(self.sensor)
-            self.pi.stop()
+            # self.pi.stop()
 
         self.thread = None
         self.sigDone.emit(self.device_name)

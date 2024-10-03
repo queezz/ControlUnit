@@ -20,7 +20,7 @@ class DeviceThread(QtCore.QObject):
     sigDone = QtCore.pyqtSignal(str)
     send_message = QtCore.pyqtSignal(str)
 
-    def __init__(self, device_name, app, startTime, config):
+    def __init__(self, device_name, app, startTime, config, pi):
         super().__init__()
 
         self.__id = id
@@ -29,6 +29,7 @@ class DeviceThread(QtCore.QObject):
         self.__startTime = startTime
         self.config = config
         self._abort = False
+        self.pi = pi
 
     def print_checks(self):
         attrs = vars(self)

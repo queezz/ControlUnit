@@ -12,7 +12,7 @@ class MCP4725Setter(object):
 
     def __init__(self, pi):
         self.pi = pi
-        self._device = pi.i2c_open(3, self.DEFAULT_ADDRESS)
+        self._device = self.pi.i2c_open(3, self.DEFAULT_ADDRESS)
 
     def set_voltage(self, voltage):
         value = int(voltage / self.CONSTANT)

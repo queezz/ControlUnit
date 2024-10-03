@@ -16,16 +16,13 @@ CHLED = config["LED GPIO"]
 class IndicatorLED(QtCore.QThread):
     """
     Emit signal for syncronization. Also connected to LED indicator.
-    TODO: hardware: use GPIO as a switching signal, don't keep this on
-    When this is kept on for too long, the APP crashes.
-    TODO: when turn on and off LED so many times (10 or more), the signal is not stable.
     """
 
-    def __init__(self, app, adc_worker):
+    def __init__(self, app, pi, adc_worker):
         super().__init__()
-        self.pi = pigpio.pi()  # pigpio.pi() - access local GPIO
         self.app = app
         self.pinNum = CHLED
+        self.pi = pi
         # to save the status
         # Maybe it's better to create a separate file.
         # That'll help save a bit of storage space.
@@ -39,14 +36,14 @@ class IndicatorLED(QtCore.QThread):
     def on(self):
         self.pi.set_mode(self.pinNum, pigpio.OUTPUT)
         self.pi.write(self.pinNum, 1)
-        #self.pi.stop()
+        # self.pi.stop()
         self.worker.setQmsSignal(1)
         self.app.processEvents()
 
     def off(self):
         self.pi.set_mode(self.pinNum, pigpio.OUTPUT)
         self.pi.write(self.pinNum, 0)
-        #self.pi.stop()
+        # self.pi.stop()
         self.worker.setQmsSignal(0)
         self.app.processEvents()
 
@@ -64,12 +61,10 @@ class IndicatorLED(QtCore.QThread):
             i += 1
         self.pi.write(self.pinNum, 1)
         self.worker.setQmsSignal(2)
-        self.pi.stop()
         self.worker.setQmsSignal(0)
 
     def abort_calibration(self):
         self.pi.write(self.pinNum, 0)
-        self.pi.stop()
         self.worker.setQmsSignal(0)
 
     def blink_led(self):

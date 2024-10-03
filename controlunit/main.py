@@ -244,6 +244,7 @@ class MainApp(QtCore.QObject, UIWindow):
         """
         Define Workers for Devices to run in separate threads.
         """
+        self.pi = pigpio.pi()
         self.log_message(
             "<font color='#1cad47'>Starting</font> acquisition", htmltag="h2"
         )
@@ -258,7 +259,9 @@ class MainApp(QtCore.QObject, UIWindow):
         }
 
         self.start_all_threads()
-        self.indicator_led = IndicatorLED(self.__app, self.workers["ADC"]["worker"])
+        self.indicator_led = IndicatorLED(
+            self.__app, self.pi, self.workers["ADC"]["worker"]
+        )
 
     def prep_worker(self, device_class, device_name, start_time):
         """
@@ -267,7 +270,7 @@ class MainApp(QtCore.QObject, UIWindow):
         thread = QtCore.QThread()
         thread.setObjectName(f"{device_name}")
 
-        worker = device_class(device_name, self.__app, start_time, self.config)
+        worker = device_class(device_name, self.__app, start_time, self.config, self.pi)
 
         return {"worker": worker, "thread": thread}
 
@@ -317,6 +320,13 @@ class MainApp(QtCore.QObject, UIWindow):
             self.terminate_indicator_thread()
         except AttributeError:
             pass
+
+        try:
+            self.pi.stop()
+        except Exception as e:
+            print(
+                f"{e}: Error trying to stop pigpio.pi in main.py terminate_existing_threads"
+            )
 
     def terminate_indicator_thread(self):
         self.indicator_led.quit()
