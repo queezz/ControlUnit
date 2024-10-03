@@ -244,12 +244,12 @@ class MainApp(QtCore.QObject, UIWindow):
         """
         Define Workers for Devices to run in separate threads.
         """
-        self.pi = pigpio.pi()
         self.log_message(
             "<font color='#1cad47'>Starting</font> acquisition", htmltag="h2"
         )
         self.__workers_done = 0
         self.terminate_existing_threads()
+        self.pi = pigpio.pi()
         self.define_devices()
         now = datetime.datetime.now()
 

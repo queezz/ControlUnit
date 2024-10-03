@@ -36,14 +36,12 @@ class IndicatorLED(QtCore.QThread):
     def on(self):
         self.pi.set_mode(self.pinNum, pigpio.OUTPUT)
         self.pi.write(self.pinNum, 1)
-        # self.pi.stop()
         self.worker.setQmsSignal(1)
         self.app.processEvents()
 
     def off(self):
         self.pi.set_mode(self.pinNum, pigpio.OUTPUT)
         self.pi.write(self.pinNum, 0)
-        # self.pi.stop()
         self.worker.setQmsSignal(0)
         self.app.processEvents()
 
@@ -74,10 +72,6 @@ class IndicatorLED(QtCore.QThread):
             time.sleep(6)
             self.pi.write(self.pinNum, 0)
             time.sleep(3)
-
-    def __del__(self):
-        """Cleanup when the object is destroyed"""
-        self.pi.stop()
 
 
 if __name__ == "__main__":

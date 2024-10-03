@@ -55,4 +55,3 @@ class MCP4725(DeviceThread):
             time.sleep(2.0)
             i += 1
         self.mcp.cancel()
-        self.pi.stop()
