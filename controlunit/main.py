@@ -681,6 +681,7 @@ class MainApp(QtCore.QObject, UIWindow):
     def calibration_terminated(self):
         self.calibration_thread.wait()
         self.calibration_thread.quit()
+        self.indicator_led.off()
         self.control_dock.qmsSigSw.setChecked(False)
 
     # MARK: MFC signal
