@@ -7,11 +7,10 @@ from mainView import UIWindow
 from controlunit.devices.adc import ADC
 from controlunit.devices.dac8532 import DAC8532
 from controlunit.devices.mcp4725 import MCP4725
-from calibrator import Calibrator
 
 import readsettings
 from striphtmltags import strip_tags
-from qmsSignal import IndicatorLED
+from controlunit.trigger_signal import IndicatorLED
 
 from controlunit.ui.text_shortcuts import RED, BLUE, RESET
 
@@ -51,8 +50,8 @@ class MainApp(QtCore.QObject, UIWindow):
         self.__app = app
         self.connections()
         # self.tempcontrolDock.set_heating_goal(self.DEFAULT_TEMPERATURE, "---")
-        self.gasflow_dock.set_output1_goal(self.DEFAULT_VOLTAGE, "---")
-        self.gasflow_dock.set_output2_goal(self.DEFAULT_VOLTAGE, "---")
+        self.gasflow_dock.update_display(self.DEFAULT_VOLTAGE, "NaN", 1)
+        self.gasflow_dock.update_display(self.DEFAULT_VOLTAGE, "NaN", 2)
 
         QtCore.QThread.currentThread().setObjectName("main")
 
@@ -60,8 +59,7 @@ class MainApp(QtCore.QObject, UIWindow):
         self.workers = {}
         # Define presets
         # self.__temp = self.DEFAULT_TEMPERATURE
-        self.__mfc1 = self.DEFAULT_VOLTAGE
-        self.__mfc2 = self.DEFAULT_VOLTAGE
+        self._mfc_presets = {1: self.DEFAULT_VOLTAGE, 2: self.DEFAULT_VOLTAGE}
 
         self.config = readsettings.init_configuration(verbose=True)
         self.datapath = self.config["Data Folder"]
@@ -125,8 +123,8 @@ class MainApp(QtCore.QObject, UIWindow):
         self.calibration_dock.stopBtn.clicked.connect(self.stop_mfc)
 
     def _init_mfc_connections(self):
-        self.gasflow_dock.registerBtn1.clicked.connect(self.set_mfc1_goal)
-        self.gasflow_dock.registerBtn2.clicked.connect(self.set_mfc2_goal)
+        self.gasflow_dock.registerBtn1.clicked.connect(lambda: self.set_mfc_goal(1))
+        self.gasflow_dock.registerBtn2.clicked.connect(lambda: self.set_mfc_goal(2))
 
     def _init_controldock_connections(self):
         self.control_dock.IGmode.currentIndexChanged.connect(self.update_ig_mode)
@@ -165,7 +163,8 @@ class MainApp(QtCore.QObject, UIWindow):
             self.control_dock.quitBtn.setEnabled(False)
             return
 
-        if self.are_you_sure_to_quit():
+        question = "Are you sure you want to stop data acquisition?"
+        if self.popup_confirmation_window(question):
             self.abort_all_threads()
             self.control_dock.quitBtn.setEnabled(True)
         else:
@@ -178,20 +177,6 @@ class MainApp(QtCore.QObject, UIWindow):
             self.indicator_led.on()
         else:
             self.indicator_led.off()
-
-    def are_you_sure_to_quit(self):
-        quit_msg = "Are you sure you want to stop data acquisition?"
-        reply = QtWidgets.QMessageBox.warning(
-            self.MainWindow,
-            "Message",
-            quit_msg,
-            QtWidgets.QMessageBox.Yes,
-            QtWidgets.QMessageBox.No,
-        )
-        if reply == QtWidgets.QMessageBox.Yes:
-            return True
-        else:
-            return False
 
     def fulltonormal(self):
         """Change from full screen to normal view on click"""
@@ -284,6 +269,14 @@ class MainApp(QtCore.QObject, UIWindow):
         self.update_ig_range()
         self.update_ig_mode()
 
+        # Add cross-connections
+        # TODO: move to core_logic.py
+        # TODO: untangle threads from workers,
+        # create devices in core_logic.py
+        mfcs_worker = self.workers["MFCs"]["worker"]
+        adc_worker = self.workers["ADC"]["worker"]
+        mfcs_worker.send_presets_to_adc.connect(adc_worker.update_mfcs)
+
     def start_thread(self, worthre):
         """
         Starts Device Worker thread
@@ -321,12 +314,8 @@ class MainApp(QtCore.QObject, UIWindow):
         except AttributeError:
             pass
 
-        try:
+        if hasattr(self, "pi"):
             self.pi.stop()
-        except Exception as e:
-            print(
-                f"{e}: Error trying to stop pigpio.pi in main.py terminate_existing_threads"
-            )
 
     def terminate_indicator_thread(self):
         self.indicator_led.quit()
@@ -341,10 +330,10 @@ class MainApp(QtCore.QObject, UIWindow):
 
         self.workers["ADC"]["worker"].set_plasma_current(0)
 
-        self.workers["MFCs"]["worker"].output_voltage(1, self.__mfc1)
-        self.workers["ADC"]["worker"].setPresetV_mfc1(self.__mfc1)
-        self.workers["MFCs"]["worker"].output_voltage(1, self.__mfc2)
-        self.workers["ADC"]["worker"].setPresetV_mfc1(self.__mfc2)
+        self._mfc_presets = {1: 0, 2: 0}
+        self.update_current_values()
+        self.workers["MFCs"]["worker"].output_voltage(1, 0)
+        self.workers["MFCs"]["worker"].output_voltage(2, 0)
 
     @QtCore.pyqtSlot()
     def abort_all_threads(self):
@@ -550,11 +539,11 @@ class MainApp(QtCore.QObject, UIWindow):
         update current values when new signal comes
         """
         # self.tempcontrolDock.update_current_values(self.__temp, f"{self.currentvalues['T']:.0f}")
-        self.gasflow_dock.update_current_values(
-            self.__mfc1, f"{self.currentvalues['MFC1']*1000:.0f}", 1
+        self.gasflow_dock.update_display(
+            self._mfc_presets[1], f"{self.currentvalues['MFC1']*1000:.0f}", 1
         )
-        self.gasflow_dock.update_current_values(
-            self.__mfc2, f"{self.currentvalues['MFC2']*1000:.0f}", 2
+        self.gasflow_dock.update_display(
+            self._mfc_presets[2], f"{self.currentvalues['MFC2']*1000:.0f}", 2
         )
         # self.control_dock.gaugeT.update_value(self.currentvalues["T"])
 
@@ -622,10 +611,9 @@ class MainApp(QtCore.QObject, UIWindow):
         except Exception as e:
             print(f"{e}\nError setting membrane heater goal. Try starting acquisition.")
 
-    def update_calibration_waiting_time(self):
+    def get_calibration_time(self):
         txt = self.calibration_dock.scaleBtn.currentText()
-        val = self.calibration_dock.calibration_durations[txt]
-        self.calibration_waiting_time = val
+        return self.calibration_dock.calibration_durations[txt]
 
     # MARK: QMS Calibration
     def calibration(self):
@@ -638,111 +626,44 @@ class MainApp(QtCore.QObject, UIWindow):
             print(f"{e}\n calibration: Try starting acquisition.")
             return
 
-        self.update_calibration_waiting_time()
+        if self.workers["MFCs"]["worker"].calibrating:
+            question = "STOP calibration?"
 
-        if not self.workers["MFCs"]["worker"].calibrating:
-            stating_msg = "Are you sure you want to start calibration?"
-            reply = QtWidgets.QMessageBox.warning(
-                self.MainWindow,
-                "Message",
-                stating_msg,
-                QtWidgets.QMessageBox.Yes,
-                QtWidgets.QMessageBox.No,
-            )
-            if reply == QtWidgets.QMessageBox.Yes:
-                # self.dacWorker.calibration(self.__mfc1,step=10,waiting_time=1)
-                self.calibration_thread = Calibrator(
-                    self.__app,
-                    self.workers["MFCs"]["worker"],
-                    self.workers["ADC"]["worker"],
-                    self.__mfc1,
-                    10,
-                    self.calibration_waiting_time,
-                )
-
-                self.indicator_led.qms_calibration_indicator()
-                self.calibration_thread.finished.connect(self.calibration_terminated)
-                self.calibration_thread.start()
-        else:
-            ending_msg = "Are you sure you want to stop calibration?"
-            reply = QtWidgets.QMessageBox.warning(
-                self.MainWindow,
-                "Message",
-                ending_msg,
-                QtWidgets.QMessageBox.Yes,
-                QtWidgets.QMessageBox.No,
-            )
-            if reply == QtWidgets.QMessageBox.Yes:
+            if self.popup_confirmation_window(question):
                 self.workers["MFCs"]["worker"].calibrating = False
                 self.calibration_terminated()
-            else:
-                pass
 
-    def calibration_terminated(self):
-        self.calibration_thread.wait()
-        self.calibration_thread.quit()
-        self.control_dock.qmsSigSw.setChecked(False)
+            return
+
+        question = "START calibration?"
+        if self.popup_confirmation_window(question):
+            self.indicator_led.qms_calibration_indicator()
+            self.workers["MFCs"]["worker"].do_calibration(
+                self._mfc_presets[1], 10, self.get_calibration_time()
+            )
 
     # MARK: MFC signal
-    @QtCore.pyqtSlot()
     def stop_mfc(self):
         """
-        Just sets 0V output for both Flow Controllers.
-        Dosen't stop calibration.
-        TODO: add abort calibration.
-        TODO: move to MFC? Or to main control..
-        Maybe combine MFC browsers into one
-        Then there would be enough space for everything.
+        Sets 0V output for both Flow Controllers.
+        TODO: change to emitting signal
         """
-        value = 0
-        self.__mfc1 = value
-        self.__mfc2 = value
-        voltage_now1 = self.currentvalues["MFC1"]
-        voltage_now2 = self.currentvalues["MFC2"]
-
-        self.gasflow_dock.set_output1_goal(self.__mfc1, f"{voltage_now1*1000:.0f}")
-        self.gasflow_dock.set_output2_goal(self.__mfc2, f"{voltage_now2*1000:.0f}")
+        self._mfc_presets = {1: 0, 2: 0}
+        self.update_current_values()
         try:
             self.workers["MFCs"]["worker"].stop()
-
-            self.workers["ADC"]["worker"].setPresetV_mfc1(self.__mfc1)
-            self.workers["ADC"]["worker"].setPresetV_mfc2(self.__mfc2)
-
         except KeyError as e:
             print(f"{e}\n stop_mfc: Try starting acquisition.")
 
-    @QtCore.pyqtSlot()
-    def set_mfc1_goal(self):
-        value = 0
-        for i, spin_box in enumerate(self.gasflow_dock.mfc_spinboxes[1]):
-            voltage = spin_box.value()
-            value += voltage * pow(10, 3 - i)
-        if value > 5000:
-            value = 5000
-        self.__mfc1 = value
-        voltage_now = self.currentvalues["MFC1"]
-        self.gasflow_dock.set_output1_goal(self.__mfc1, f"{voltage_now*1000:.0f}")
-
+    def set_mfc_goal(self, mfc_num):
+        value = self.gasflow_dock.get_massflow_from_gui(mfc_num)
+        self._mfc_presets[mfc_num] = value
+        voltage_now = self.currentvalues[f"MFC{mfc_num}"]
+        self.update_current_values()
         try:
-            self.workers["MFCs"]["worker"].output_voltage(1, self.__mfc1)
-            self.workers["ADC"]["worker"].setPresetV_mfc1(self.__mfc1)
-        except KeyError as e:
-            print(f"{e}\n set_mfc1_goal: Try starting acquisition.")
-
-    @QtCore.pyqtSlot()
-    def set_mfc2_goal(self):
-        value = 0
-        for i, spin_box in enumerate(self.gasflow_dock.mfc_spinboxes[2]):
-            voltage = spin_box.value()
-            value += voltage * pow(10, 3 - i)
-        if value > 5000:
-            value = 5000
-        self.__mfc2 = value
-        voltage_now = self.currentvalues["MFC2"]
-        self.gasflow_dock.set_output2_goal(self.__mfc2, f"{voltage_now*1000:.0f}")
-        try:
-            self.workers["MFCs"]["worker"].output_voltage(2, self.__mfc2)
-            self.workers["ADC"]["worker"].setPresetV_mfc2(self.__mfc2)
+            self.workers["MFCs"]["worker"].output_voltage(
+                mfc_num, self._mfc_presets[mfc_num]
+            )
         except KeyError as e:
             print(f"{e}\n set_mfc2_goal: Try starting acquisition.")
 

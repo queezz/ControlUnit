@@ -55,8 +55,7 @@ class ADC(DeviceThread):
         self.adc_values = pd.DataFrame(columns=self.adc_values_columns)
         self.converted_values = pd.DataFrame(columns=self.config["ADC Converted Names"])
         self.__qmsSignal = 0
-        self.__PresetV_mfc1 = 0
-        self.__PresetV_mfc2 = 0
+        self._mfc_presets = {1: 0.0, 2: 0.0}
         self.plasma_current_setpopint = 0
         self.plasma_current = 0
         self.zero_ip = 0
@@ -90,21 +89,19 @@ class ADC(DeviceThread):
         self.__qmsSignal = signal
         return
 
-    def setPresetV_mfc1(self, voltage: int):
+    def set_mfc_preset(self, voltage_preset, mfc_num):
         """
         Sets Preset Voltage of Mas Flow Control for H2 from GUI
-        range: 0 ~ 5000 mV
+        range: 0 - 5000
+        unit: mV
         """
-        self.__PresetV_mfc1 = voltage / 1000
+        self._mfc_presets[mfc_num] = voltage_preset / 1000
         return
 
-    def setPresetV_mfc2(self, voltage: int):
-        """
-        Sets Preset Voltage of Mas Flow Control for H2 from GUI
-        range: 0 ~ 5000 mV
-        """
-        self.__PresetV_mfc2 = voltage / 1000
-        return
+    @QtCore.pyqtSlot(list)
+    def update_mfcs(self, arg):
+        mfc_num, voltage_preset = arg
+        self.set_mfc_preset(voltage_preset, mfc_num)
 
     # MARK: start
     @QtCore.pyqtSlot()
@@ -185,8 +182,8 @@ class ADC(DeviceThread):
                     self.__IGmode,
                     self.__IGrange,
                     self.__qmsSignal,
-                    self.__PresetV_mfc1,
-                    self.__PresetV_mfc2,
+                    self._mfc_presets[1],
+                    self._mfc_presets[2],
                     self.plasma_current_setpopint,
                     *self.adc_voltages.values(),
                 ]

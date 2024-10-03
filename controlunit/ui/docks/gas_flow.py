@@ -32,8 +32,10 @@ class GasFlowDock(Dock):
         self._add_vertical_spacer()
 
     def _init_mfc_ui(self):
-        self.mfcBw1 = self._init_text_browser()
-        self.mfcBw2 = self._init_text_browser()
+        self.displays = {
+            1: self._init_text_browser(),
+            2: self._init_text_browser(),
+        }
         self.mfc_spinboxes = {
             1: self._init_mfc_spin_boxes(MAXVOLTAGE),
             2: self._init_mfc_spin_boxes(MAXVOLTAGE),
@@ -46,13 +48,13 @@ class GasFlowDock(Dock):
         self.resetBtn2 = self._create_button("reset")
 
     def _add_mfc_ui(self):
-        self.widget.addWidget(self.mfcBw1, 0, 0, 1, 2)
+        self.widget.addWidget(self.displays[1], 0, 0, 1, 2)
         for i, spin_box in enumerate(self.mfc_spinboxes[1]):
             self.widget.addWidget(spin_box, 1, i)
         self.widget.addWidget(self.registerBtn1, 0, 2)
         self.widget.addWidget(self.resetBtn1, 0, 3)
 
-        self.widget.addWidget(self.mfcBw2, 2, 0, 1, 2)
+        self.widget.addWidget(self.displays[2], 2, 0, 1, 2)
         for i, spin_box in enumerate(self.mfc_spinboxes[2]):
             self.widget.addWidget(spin_box, 3, i)
         self.widget.addWidget(self.registerBtn2, 2, 2)
@@ -116,36 +118,27 @@ class GasFlowDock(Dock):
         self.widget.addWidget(self.stopBtn, 4, 2, 1, 2)
 
     # MARK: Update Values
-    def update_display(self):
-        """"""
-
-    def update_current_values(self, set_voltage, signal_voltage, mfc_num):
+    @QtCore.pyqtSlot()
+    def update_display(self, set_voltage, measured_voltage, mfc_num):
         """
         Set Mass Flow Controllers signal values in the browsers.
         """
         htag0 = '<font size=4 color="#d1451b">'
         htag1 = '<font size=4 color = "#4275f5">'
         cf = "</font>"
-        text = f"{htag0}{set_voltage} mV{cf}&nbsp;&nbsp;&nbsp;{htag1}{signal_voltage} mV{cf}"
-        if mfc_num == 1:
-            self.mfcBw1.setText(f"{text}&nbsp;H")
-        elif mfc_num == 2:
-            self.mfcBw2.setText(f"{text}&nbsp;O")
+        text = f"{htag0}{set_voltage} mV{cf}&nbsp;&nbsp;&nbsp;{htag1}{measured_voltage} mV{cf}"
+        mfc_names = {1: "H", 2: "O"}
+        self.displays[mfc_num].setText(f"{text}&nbsp;{mfc_names[mfc_num]}")
 
-    def set_output1_goal(self, voltage, voltage_now):
-        self.update_current_values(voltage, voltage_now, 1)
-
-    def set_output2_goal(self, voltage, voltage_now):
-        self.update_current_values(voltage, voltage_now, 2)
-
-    def get_massflow_from_gui(self, mfc_number):
+    def get_massflow_from_gui(self, mfc_num):
         value = 0
-        spinboxes = self.mfc_spinboxes[mfc_number]
+        spinboxes = self.mfc_spinboxes[mfc_num]
         for i, spin_box in enumerate(spinboxes):
             voltage = spin_box.value()
             value += voltage * pow(10, 3 - i)
         return value
 
+    # MARK: Ui logic
     def _init_ui_logic(self):
         self.resetBtn1.clicked.connect(lambda: self.resetSpinBoxes(1))
         self.resetBtn2.clicked.connect(lambda: self.resetSpinBoxes(2))

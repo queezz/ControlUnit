@@ -26,6 +26,7 @@ from controlunit.ui.text_shortcuts import RED, BLUE, RESET
 class DAC8532(DeviceThread):
 
     sigAbortHeater = QtCore.pyqtSignal()
+    send_presets_to_adc = QtCore.pyqtSignal(list)
 
     def __init__(self, device_name, app, startTime, config, pi):
         super().__init__(device_name, app, startTime, config, pi)
@@ -33,7 +34,6 @@ class DAC8532(DeviceThread):
         self.device_name = device_name
         self.__startTime = startTime
         self.config = config
-        self.__abort = False
         self.calibrating = False
         self.init()
 
@@ -58,43 +58,53 @@ class DAC8532(DeviceThread):
         pass
 
     def stop(self):
+        self.calibrating = False
         self.dac_reset_voltage()
 
     def dac_reset_voltage(self):
         """Reset voltage"""
-        self.DAC.DAC8532_Out_Voltage(self.DAC.channel_A, 0)
-        self.DAC.DAC8532_Out_Voltage(self.DAC.channel_B, 0)
+        self.output_voltage(1, 0)
+        self.output_voltage(2, 0)
 
     # MARK: Output Voltage
     def output_voltage(self, channel, voltage):
+        """Voltage in mV"""
+        if voltage > 5000:
+            voltage = 5000
+
         if channel == 1:
             self.DAC.DAC8532_Out_Voltage(self.DAC.channel_A, voltage / 1000)
             print("DAC8532 MF1 (" + BLUE + "H2" + RESET + f"): {voltage/1000} V")
+            self.send_presets_to_adc.emit([channel, voltage])
         elif channel == 2:
             self.DAC.DAC8532_Out_Voltage(self.DAC.channel_B, voltage / 1000)
             print("DAC8532 MF2 (" + RED + "O2" + RESET + f"): {voltage/1000} V")
+            self.send_presets_to_adc.emit([channel, voltage])
         else:
             print(f"DAC8532 MFCs: channel {channel} not registered")
 
     # MARK: Calibration
     @QtCore.pyqtSlot()
-    def calibration(self, max_voltage, step, waiting_time, adc_object):
+    def do_calibration(self, max_voltage, step, waiting_time):
         self.calibrating = True
         if max_voltage == 0:
             max_voltage = 5000
-        while self.calibrating:
 
-            for i in range(step + 1):
-                if self.calibrating == False:
-                    break
-                self.output_voltage(1, (max_voltage) / step * i)
-                adc_object.setPresetV_mfc1((max_voltage) / step * i)
-                time.sleep(waiting_time)
-            for i in range(step):
-                if self.calibrating == False:
-                    break
-                self.output_voltage(1, (max_voltage) / step * (step - i - 1))
-                adc_object.setPresetV_mfc1((max_voltage) / step * (step - i - 1))
-                time.sleep(waiting_time)
-            self.calibrating = False
+        for i in range(step + 1):
+            if self.calibrating == False:
+                break
+            voltage = (max_voltage) / step * i
+            self.output_voltage(1, voltage)
+            self.__app.processEvents()
+            time.sleep(waiting_time)
+
+        for i in range(step):
+            if self.calibrating == False:
+                break
+            self.output_voltage(1, (max_voltage) / step * (step - i - 1))
+            self.__app.processEvents()
+            time.sleep(waiting_time)
+
+        self.calibrating = False
+
         self.output_voltage(1, 0)

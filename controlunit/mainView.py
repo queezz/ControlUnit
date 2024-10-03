@@ -224,6 +224,21 @@ class UIWindow(object):
         self.toggle_plots_igs()
         self.toggle_plots()
 
+    # MARK: Popup question
+    def popup_confirmation_window(self, message):
+        """popup confirmation message"""
+        reply = QtWidgets.QMessageBox.warning(
+            self.MainWindow,
+            "Message",
+            message,
+            QtWidgets.QMessageBox.Yes,
+            QtWidgets.QMessageBox.No,
+        )
+        if reply == QtWidgets.QMessageBox.Yes:
+            return True
+        else:
+            return False
+
 
 if __name__ == "__main__":
     import sys
