@@ -280,6 +280,7 @@ class MainApp(QtCore.QObject, UIWindow):
         adc_worker = self.workers["ADC"]["worker"]
         mfcs_worker.send_presets_to_adc.connect(adc_worker.update_mfcs)
 
+
     # MARK: Abort
     def terminate_existing_threads(self):
         """
@@ -304,7 +305,6 @@ class MainApp(QtCore.QObject, UIWindow):
         if not self.workers:
             return
 
-        # TODO: make this a signal
         self.workers["ADC"]["worker"].set_plasma_current.emit(0)
 
         self._mfc_presets = {1: 0, 2: 0}
@@ -525,11 +525,13 @@ class MainApp(QtCore.QObject, UIWindow):
         # self.control_dock.gaugeT.update_value(self.currentvalues["T"])
 
         labels = ["Pu", "Pd", "Ip", "Bu", "Bd"]
-        values = [
-            (self.graph.pens[label]["color"], label, self.currentvalues[label])
-            for label in labels
-        ]
-
+        values = []
+        for label in labels:
+            v = self.currentvalues[label]
+            if label == 'Ip':
+                v -= self.zero_adjustment['Ip']
+            values.append([self.graph.pens[label]["color"], label, v])
+        
         self.control_dock.update_current_values(values)
 
     @QtCore.pyqtSlot(dict)

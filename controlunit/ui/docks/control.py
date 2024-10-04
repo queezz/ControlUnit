@@ -168,7 +168,8 @@ class ControlDock(Dock):
         # Generate table cells with padding and fixed width
         table_cells = [
             f'<td style="padding:{padding};width:{cell_width};">'
-            f'<font size="{font_size}" color="{pen}">{label} = {val:.2e}</font></td>'
+            f'<font size="{font_size}" color="{pen}">{label} = '
+            f'{val:{".2f" if label == "Ip" else ".2e"}}</font></td>'
             for pen, label, val in values
         ]
 

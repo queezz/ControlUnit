@@ -273,7 +273,7 @@ class ADC(DeviceThread):
         """
         p, i, d = 1, 0, 0
         self.pid = PID(p, i, d, setpoint=self.plasma_current_setpopint)
-        self.pid.output_limits = (0, 5000)
+        self.pid.output_limits = (0, 2600)
         self.pid.sample_time = self.sampling_time * self.STEP
         # self.signal_send_pid.emit(self.pid.tunings)
 
@@ -283,7 +283,7 @@ class ADC(DeviceThread):
         """
         output = self.pid(self.plasma_current - self.zero_ip)
         self.set_cathode_current(output)
-        print(self.pid.components)
+        #print(self.pid.components)
 
     # MARK: start
     @QtCore.pyqtSlot()
