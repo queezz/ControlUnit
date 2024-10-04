@@ -22,6 +22,7 @@ class ADC(DeviceThread):
     __IGrange = -3
     send_control_voltage = QtCore.pyqtSignal(float)
     send_zero_adjustment = QtCore.pyqtSignal(dict)
+    set_plasma_current = QtCore.pyqtSignal(float)
 
     def __init__(self, device_name, app, startTime, config, pi):
         super().__init__(device_name, app, startTime, config, pi)
@@ -61,6 +62,12 @@ class ADC(DeviceThread):
         self.zero_ip = 0
         self.zero_bu = 0
         self.sampling_time = self.config["Sampling Time"]
+
+        self.connect_signals()
+
+    def connect_signals(self):
+        """connect signals"""
+        self.set_plasma_current.connect(self._set_plasma_current)
 
     def prep_adc_board(self):
         """
@@ -240,7 +247,9 @@ class ADC(DeviceThread):
         self.plasma_current_setpopint = control_voltage
         self.send_control_voltage.emit(control_voltage)
 
-    def set_plasma_current(self, plasma_current_setpopint: int):
+    @QtCore.pyqtSlot(float)
+    def _set_plasma_current(self, plasma_current_setpopint):
+        """set dac voltage, controlling cathode current"""
         self.plasma_current_setpopint = plasma_current_setpopint
         self.pid.setpoint = self.plasma_current_setpopint
         if plasma_current_setpopint == 0:

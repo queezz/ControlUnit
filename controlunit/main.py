@@ -21,19 +21,10 @@ except ImportError as e:
     TEST = True
     from devices.dummy import pigpio
 
-    print(
-        BLUE
-        + "main.py WARNING:"
-        + RESET
-        + " importing"
-        + BLUE
-        + " DUMMY"
-        + RESET
-        + " sensros.dummy.pigpio"
-    )
+    txt = f"{BLUE}main.py WARNING:{RESET} importing {BLUE} DUMMY{RESET} sensors.dummy.pigpio"
+    print(txt)
 
 
-# must inherit QtCore.QObject in order to use 'connect'
 class MainApp(QtCore.QObject, UIWindow):
     # DEFAULT_TEMPERATURE = 0
     DEFAULT_VOLTAGE = 0
@@ -67,8 +58,6 @@ class MainApp(QtCore.QObject, UIWindow):
 
         # MARK: Current Values
         # To display in text browser
-        # self.currentvalues = {"Ip": 0, "P1": 0, "P2": 0, "T": 0}
-        # self.currentvalues = {i: 0 for i in self.config["ADC Signal Names"] + ["T"]}
         self.currentvalues = {i: 0 for i in self.config["ADC Signal Names"]}
         self.baratronsignal1 = 0
         self.baratronsignal2 = 0
@@ -83,23 +72,19 @@ class MainApp(QtCore.QObject, UIWindow):
         """
         adjust time window for data plots
         """
-        # index = self.control_dock.scaleBtn.currentIndex()
         txt = self.control_dock.scaleBtn.currentText()
         val = self.control_dock.sampling_windows[txt]
         self.time_window = val
-        # self.log_message(f"Timewindow = {val}")
         try:
             [self.update_plots(device) for device in self.device_name]
         except AttributeError:
             pass
-            # print("can't update plots, no workers yet")
 
     def update_baratron_gain(self):
         """"""
         txt = self.adcgain_dock.gain_box.currentText()
         val = self.adcgain_dock.gains[txt]
         self.baratrongain = val
-        # print(f"ADC gain = {val}")
 
     # MARK: connections
     def connections(self):
@@ -325,7 +310,8 @@ class MainApp(QtCore.QObject, UIWindow):
         if not self.workers:
             return
 
-        self.workers["ADC"]["worker"].set_plasma_current(0)
+        # TODO: make this a signal
+        self.workers["ADC"]["worker"].set_plasma_current.emit(0)
 
         self._mfc_presets = {1: 0, 2: 0}
         self.update_current_values()
@@ -630,7 +616,7 @@ class MainApp(QtCore.QObject, UIWindow):
             self.indicator_led.qms_calibration_indicator()
             mfc.start_calibration_signal.emit(
                 self._mfc_presets[1], 10, self.get_calibration_time()
-            )            
+            )
 
     # MARK: MFC signal
     def stop_mfc(self):
@@ -663,7 +649,7 @@ class MainApp(QtCore.QObject, UIWindow):
         if not self.workers:
             return
         value = self.plasma_control_dock.voltage_spin_box.value()
-        self.workers["ADC"]["worker"].set_plasma_current(value)
+        self.workers["ADC"]["worker"].set_plasma_current.emit(value)
 
     @QtCore.pyqtSlot(float)
     def _set_cathode_current(self, control_voltage):
@@ -671,6 +657,8 @@ class MainApp(QtCore.QObject, UIWindow):
         Set voltage, recived from ADC worker in PlasmaCurrent worker
         For PID control
         """
+        if not self.workers:
+            return
         self.workers["PlasmaCurrent"]["worker"].output_voltage(control_voltage)
 
     # MARK: ADC controls
