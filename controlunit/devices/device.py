@@ -2,6 +2,7 @@
 Worker super class
 """
 
+import time
 from PyQt5 import QtCore
 
 TEST = False

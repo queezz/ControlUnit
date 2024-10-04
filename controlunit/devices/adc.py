@@ -30,7 +30,6 @@ class ADC(DeviceThread):
         self.__startTime = startTime
         self._abort = False
         self.config = config
-        self.prep_adc_board()
         self.init()
 
     # MARK: init
@@ -47,6 +46,7 @@ class ADC(DeviceThread):
         IGscale: range (scale) of Ionization Gauge in linear mode
         QMS_signal: int, "trigger" on or off. When on emits a signal from GPIO
         """
+        self.prep_adc_board()
         self.adc_signals_columns = self.config["ADC Signal Names"]
         self.adc_values_columns = (
             self.config["ADC Additional Columns"] + self.config["ADC Signal Names"]
@@ -62,8 +62,27 @@ class ADC(DeviceThread):
         self.zero_bu = 0
         self.sampling_time = self.config["Sampling Time"]
 
-    # MARK: IG mode
-    def setIGmode(self, IGmode: int):
+    def prep_adc_board(self):
+        """
+        Initiates an instance of AIO_32_0RA_IRC from AIO.py
+        Address: 0x49, 0x3E
+        Why this addresses?
+        """
+        self.aio = adc(0x49, 0x3E)
+
+        self.gain_definitions = {
+            10: self.aio.PGA.PGA_10_0352V,
+            5: self.aio.PGA.PGA_5_0176V,
+            2: self.aio.PGA.PGA_2_5088V,
+            1: self.aio.PGA.PGA_1_2544V,
+        }
+
+        self.adc_channels = self.config["Adc Channel Properties"]
+        for _, j in self.adc_channels.items():
+            j.gain = self.gain_definitions[j.gainIndex]
+
+    # MARK: Setters
+    def set_ig_mode(self, IGmode: int):
         """
         Sets Ionization Gauge mode from GUI
         0: Torr
@@ -72,7 +91,7 @@ class ADC(DeviceThread):
         self.__IGmode = IGmode
         return
 
-    def setIGrange(self, IGrange: int):
+    def set_ig_range(self, IGrange: int):
         """
         Sets Ionization Gauge range (scale) from GUI
         range: -8 ~ -3
@@ -80,7 +99,7 @@ class ADC(DeviceThread):
         self.__IGrange = IGrange
         return
 
-    def setQmsSignal(self, signal: int):
+    def set_trigger_signal(self, signal: int):
         """
         Sets "trigger" signal from GUI for syncing QMS and RasPi data
         waiting: 0
@@ -103,15 +122,7 @@ class ADC(DeviceThread):
         mfc_num, voltage_preset = arg
         self.set_mfc_preset(voltage_preset, mfc_num)
 
-    # MARK: start
-    @QtCore.pyqtSlot()
-    def start(self):
-        """
-        Start acquisition loop
-        """
-        self.acquisition_loop()
-
-    def setGain(self, gain):
+    def set_adc_gain(self, gain):
         """
         Set gain for Baratron channel on ADC
         Parameters
@@ -130,44 +141,13 @@ class ADC(DeviceThread):
         # self.adc_channels[CHB1] = self.gain_definitions[gain]
         # self.adc_channels[CHB2] = self.gain_definitions[gain]
 
-    def prep_adc_board(self):
-        """
-        Initiates an instance of AIO_32_0RA_IRC from AIO.py
-        Address: 0x49, 0x3E
-        Why this addresses?
-        """
-        self.aio = adc(0x49, 0x3E)
-
-        self.gain_definitions = {
-            10: self.aio.PGA.PGA_10_0352V,
-            5: self.aio.PGA.PGA_5_0176V,
-            2: self.aio.PGA.PGA_2_5088V,
-            1: self.aio.PGA.PGA_1_2544V,
-        }
-
-        self.adc_channels = self.config["Adc Channel Properties"]
-        for _, j in self.adc_channels.items():
-            j.gain = self.gain_definitions[j.gainIndex]
-
     def set_adc_datarate(self):
         """
         Communicate with ADC
         """
         self.adc_datarate = [self.aio.DataRate.DR_860SPS]
 
-    # MARK: read voltages
-    def collect_data(self):
-        """
-        Read ADC voltages for selected channels
-        Can change ADC gain at any time by updating self.adc_channels
-        """
-        self.adc_voltages = {
-            ch.name: self.aio.analog_read_volt(ch.channel, *self.adc_datarate, ch.gain)
-            for _, ch in self.adc_channels.items()
-        }
-        self.plasma_current = self.adc_voltages["Ip"]
-
-    # MARK: Data
+    # MARK: Data append
     def put_new_data_in_dataframe(self):
         """
         Put new data from ADC and GUI into pandas dataframe
@@ -229,7 +209,7 @@ class ADC(DeviceThread):
         """
         self.averages = self.converted_values.mean().values
 
-    # MARK: send data
+    # MARK: Data send
     def send_processed_data_to_main_thread(self):
         """
         Sends processed data to main thread in main.py
@@ -239,7 +219,7 @@ class ADC(DeviceThread):
         self.data_ready.emit([newdata, self.device_name])
         self.clear_datasets()
 
-    # MARK: Clear Data
+    # MARK: Data clear
     def clear_datasets(self):
         """
         Remove data from temporary dataframes
@@ -266,7 +246,7 @@ class ADC(DeviceThread):
         if plasma_current_setpopint == 0:
             self.reset_current_control()
         return
-    
+
     def reset_current_control(self):
         self.prep_pid()
         self.set_cathode_current(0)
@@ -295,6 +275,26 @@ class ADC(DeviceThread):
         output = self.pid(self.plasma_current - self.zero_ip)
         self.set_cathode_current(output)
         print(self.pid.components)
+
+    # MARK: start
+    @QtCore.pyqtSlot()
+    def start(self):
+        """
+        Start acquisition loop
+        """
+        self.acquisition_loop()
+
+    # MARK: read voltages
+    def collect_data(self):
+        """
+        Read ADC voltages for selected channels
+        Can change ADC gain at any time by updating self.adc_channels
+        """
+        self.adc_voltages = {
+            ch.name: self.aio.analog_read_volt(ch.channel, *self.adc_datarate, ch.gain)
+            for _, ch in self.adc_channels.items()
+        }
+        self.plasma_current = self.adc_voltages["Ip"]
 
     # MARK: main loop
     def acquisition_loop(self):

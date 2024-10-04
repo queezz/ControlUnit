@@ -244,6 +244,7 @@ class MainApp(QtCore.QObject, UIWindow):
         }
 
         self.start_all_threads()
+        self.start_cross_connections()
         self.indicator_led = IndicatorLED(
             self.__app, self.pi, self.workers["ADC"]["worker"]
         )
@@ -269,14 +270,6 @@ class MainApp(QtCore.QObject, UIWindow):
         self.update_ig_range()
         self.update_ig_mode()
 
-        # Add cross-connections
-        # TODO: move to core_logic.py
-        # TODO: untangle threads from workers,
-        # create devices in core_logic.py
-        mfcs_worker = self.workers["MFCs"]["worker"]
-        adc_worker = self.workers["ADC"]["worker"]
-        mfcs_worker.send_presets_to_adc.connect(adc_worker.update_mfcs)
-
     def start_thread(self, worthre):
         """
         Starts Device Worker thread
@@ -298,6 +291,12 @@ class MainApp(QtCore.QObject, UIWindow):
         if worker.device_name == "ADC":
             worker.send_control_voltage.connect(self._set_cathode_current)
             worker.send_zero_adjustment.connect(self._adjust_zeros)
+
+    def start_cross_connections(self):
+        """Connect workers signals directly"""
+        mfcs_worker = self.workers["MFCs"]["worker"]
+        adc_worker = self.workers["ADC"]["worker"]
+        mfcs_worker.send_presets_to_adc.connect(adc_worker.update_mfcs)
 
     # MARK: Abort
     def terminate_existing_threads(self):
@@ -323,9 +322,7 @@ class MainApp(QtCore.QObject, UIWindow):
 
     def turn_off_voltages(self):
         """Safely turn off any DAC voltages"""
-        try:
-            self.workers["ADC"]
-        except KeyError:
+        if not self.workers:
             return
 
         self.workers["ADC"]["worker"].set_plasma_current(0)
@@ -602,14 +599,13 @@ class MainApp(QtCore.QObject, UIWindow):
 
     @QtCore.pyqtSlot()
     def set_heater_goal(self):
+        if not self.workers:
+            return
         value = self.tempcontrolDock.temperatureSB.value()
         self.__temp = value
         temp_now = self.currentvalues["T"]
         self.tempcontrolDock.set_heating_goal(self.__temp, f"{temp_now:.0f}")
-        try:
-            self.workers["MembraneTemperature"]["worker"].setPresetTemp(self.__temp)
-        except Exception as e:
-            print(f"{e}\nError setting membrane heater goal. Try starting acquisition.")
+        self.workers["MembraneTemperature"]["worker"].setPresetTemp(self.__temp)
 
     def get_calibration_time(self):
         txt = self.calibration_dock.scaleBtn.currentText()
@@ -620,27 +616,21 @@ class MainApp(QtCore.QObject, UIWindow):
         """
         Start and stop calibration
         """
-        try:
-            self.workers["MFCs"]
-        except KeyError as e:
-            print(f"{e}\n calibration: Try starting acquisition.")
+        if not self.workers:
             return
-
-        if self.workers["MFCs"]["worker"].calibrating:
+        mfc = self.workers["MFCs"]["worker"]
+        if mfc.calibrating:
             question = "STOP calibration?"
-
             if self.popup_confirmation_window(question):
-                self.workers["MFCs"]["worker"].calibrating = False
-                self.calibration_terminated()
-
+                mfc.calibrating = False
             return
 
         question = "START calibration?"
         if self.popup_confirmation_window(question):
             self.indicator_led.qms_calibration_indicator()
-            self.workers["MFCs"]["worker"].do_calibration(
+            mfc.start_calibration_signal.emit(
                 self._mfc_presets[1], 10, self.get_calibration_time()
-            )
+            )            
 
     # MARK: MFC signal
     def stop_mfc(self):
@@ -648,36 +638,32 @@ class MainApp(QtCore.QObject, UIWindow):
         Sets 0V output for both Flow Controllers.
         TODO: change to emitting signal
         """
+        if not self.workers:
+            return
         self._mfc_presets = {1: 0, 2: 0}
         self.update_current_values()
-        try:
-            self.workers["MFCs"]["worker"].stop()
-        except KeyError as e:
-            print(f"{e}\n stop_mfc: Try starting acquisition.")
+        self.workers["MFCs"]["worker"].stop()
 
     def set_mfc_goal(self, mfc_num):
+        if not self.workers:
+            return
         value = self.gasflow_dock.get_massflow_from_gui(mfc_num)
         self._mfc_presets[mfc_num] = value
         voltage_now = self.currentvalues[f"MFC{mfc_num}"]
         self.update_current_values()
-        try:
-            self.workers["MFCs"]["worker"].output_voltage(
-                mfc_num, self._mfc_presets[mfc_num]
-            )
-        except KeyError as e:
-            print(f"{e}\n set_mfc2_goal: Try starting acquisition.")
+        self.workers["MFCs"]["worker"].output_voltage(
+            mfc_num, self._mfc_presets[mfc_num]
+        )
 
     # MARK: Plasma Control
     def set_currentcontrol_voltage(self):
         """
         Send control voltage to ADCs plasma current PID
         """
+        if not self.workers:
+            return
         value = self.plasma_control_dock.voltage_spin_box.value()
-        try:
-            # self.workers["PlasmaCurrent"]["worker"].output_voltage(value)
-            self.workers["ADC"]["worker"].set_plasma_current(value)
-        except KeyError as e:
-            print(f"{e}\nset_currentcontrol_voltage: Try starting acquisition.")
+        self.workers["ADC"]["worker"].set_plasma_current(value)
 
     @QtCore.pyqtSlot(float)
     def _set_cathode_current(self, control_voltage):
@@ -690,10 +676,9 @@ class MainApp(QtCore.QObject, UIWindow):
     # MARK: ADC controls
     def _set_zero_ip(self):
         """set current ip as 0"""
-        try:
-            self.workers["ADC"]["worker"].set_zero_ip()
-        except KeyError as e:
-            print(f"{e}\n _set_zero_ip. Try starting acquisition.")
+        if not self.workers:
+            return
+        self.workers["ADC"]["worker"].set_zero_ip()
 
     @QtCore.pyqtSlot()
     def update_ig_mode(self):
@@ -703,11 +688,10 @@ class MainApp(QtCore.QObject, UIWindow):
         or
         Pa and log
         """
+        if not self.workers:
+            return
         value = self.control_dock.IGmode.currentIndex()
-        try:
-            self.workers["ADC"]["worker"].setIGmode(value)
-        except KeyError as e:
-            print(f"{e}\nError updating IG mode. Try starting acquisition.")
+        self.workers["ADC"]["worker"].set_ig_mode(value)
 
     @QtCore.pyqtSlot()
     def update_ig_range(self):
@@ -715,13 +699,10 @@ class MainApp(QtCore.QObject, UIWindow):
         Update range of the IG controller:
         10^{-3} - 10^{-8} multiplier when in linear mode (Torr)
         """
-        try:
-            self.workers["ADC"]
-        except:
+        if not self.workers:
             return
         value = self.control_dock.IGrange.value()
-        self.workers["ADC"]["worker"].setIGrange(value)
-        print(f"Ionization Gauge Range = {value}")
+        self.workers["ADC"]["worker"].set_ig_range(value)
 
     @QtCore.pyqtSlot()
     def __set_gain(self):
@@ -732,27 +713,25 @@ class MainApp(QtCore.QObject, UIWindow):
         value: int
             gain, values [1,2,5,10] (in V)
         """
+        if not self.workers:
+            return
         txt = self.adcgain_dock.gain_box.currentText()
         gain = self.adcgain_dock.gains[txt]
-        try:
-            self.workers["ADC"]["worker"].setGain(gain)
-        except KeyError as e:
-            print(f"{e}\nError updating ADC gain. Try starting acquisition.")
+        self.workers["ADC"]["worker"].set_adc_gain(gain)
 
     @QtCore.pyqtSlot()
     def __set_sampling(self):
         """
         Set sampling time for all threads
         """
+        if not self.workers:
+            return
         txt = self.settings_dock.samplingCb.currentText()
         value = float(txt.split(" ")[0])
         self.sampling = value
-        try:
-            self.update_plot_timewindow()
-            self.workers["ADC"]["worker"].set_sampling_time(value)
-            self.log_message(f"ADC sampling set to {value}")
-        except KeyError as e:
-            print(f"{e}\nError updating sampling. Try starting acquisition.")
+        self.update_plot_timewindow()
+        self.workers["ADC"]["worker"].set_sampling_time(value)
+        self.log_message(f"ADC sampling set to {value}")
 
 
 # MARK: End

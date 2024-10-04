@@ -27,6 +27,7 @@ class DAC8532(DeviceThread):
 
     sigAbortHeater = QtCore.pyqtSignal()
     send_presets_to_adc = QtCore.pyqtSignal(list)
+    start_calibration_signal = QtCore.pyqtSignal(float, int, float)
 
     def __init__(self, device_name, app, startTime, config, pi):
         super().__init__(device_name, app, startTime, config, pi)
@@ -45,6 +46,11 @@ class DAC8532(DeviceThread):
             print("High-Precision AD/DA initialised")
         except:
             GPIO.cleanup()
+
+        self.connect_slots()
+
+    def connect_slots(self):
+        self.start_calibration_signal.connect(self.do_calibration)
 
     @QtCore.pyqtSlot()
     def abort(self):
@@ -84,7 +90,7 @@ class DAC8532(DeviceThread):
             print(f"DAC8532 MFCs: channel {channel} not registered")
 
     # MARK: Calibration
-    @QtCore.pyqtSlot()
+    @QtCore.pyqtSlot(float, int, float)
     def do_calibration(self, max_voltage, step, waiting_time):
         self.calibrating = True
         if max_voltage == 0:
@@ -95,14 +101,12 @@ class DAC8532(DeviceThread):
                 break
             voltage = (max_voltage) / step * i
             self.output_voltage(1, voltage)
-            self.__app.processEvents()
             time.sleep(waiting_time)
 
         for i in range(step):
             if self.calibrating == False:
                 break
             self.output_voltage(1, (max_voltage) / step * (step - i - 1))
-            self.__app.processEvents()
             time.sleep(waiting_time)
 
         self.calibrating = False

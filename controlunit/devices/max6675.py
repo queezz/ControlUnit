@@ -132,6 +132,7 @@ class MAX6675(DeviceThread):
         """
         self.average = self.data["T"].mean()
 
+    # MARK: main loop
     @QtCore.pyqtSlot()
     def acquisition_loop(self):
         """
@@ -170,6 +171,7 @@ class MAX6675(DeviceThread):
         self.thread = None
         self.sigDone.emit(self.device_name)
 
+    # MARK: PID
     def temperature_control(self):
         """
         Shouldn't the self.sampling_time here be 0.25, not the one for ADC?
@@ -197,18 +199,6 @@ class MAX6675(DeviceThread):
             self.membrane_heater.setOnLight(0)
         self.__exE = e
         self.__sumE = integral
-
-    def __controlTemp1(self, aveTemp: float, steps: int):
-        if steps <= 0:
-            d = self.temperature_setpoint - aveTemp[0, 1]
-            if d <= 1.5:
-                return -1
-            elif d >= 15:
-                return int(d * 10)
-            else:
-                return int(d + 1)
-        else:
-            return steps
 
 
 if __name__ == "__main__":
