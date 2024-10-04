@@ -32,9 +32,6 @@ class MainApp(QtCore.QObject, UIWindow):
 
     sigAbortWorkers = QtCore.pyqtSignal()
 
-    plaData = trigData = tData = p1Data = p2Data = None
-    calibrating = False
-
     # MARK: init
     def __init__(self, app: QtWidgets.QApplication):
         super(self.__class__, self).__init__()
@@ -293,17 +290,14 @@ class MainApp(QtCore.QObject, UIWindow):
             worthre["thread"].wait()
 
         self.workers = {}
-        try:
-            self.terminate_indicator_thread()
-        except AttributeError:
-            pass
-
+        self.terminate_indicator_thread()
         if hasattr(self, "pi"):
             self.pi.stop()
 
     def terminate_indicator_thread(self):
-        self.indicator_led.quit()
-        self.indicator_led.wait()
+        if hasattr(self, "indicator_led"):
+            self.indicator_led.quit()
+            self.indicator_led.wait()
 
     def turn_off_voltages(self):
         """Safely turn off any DAC voltages"""
