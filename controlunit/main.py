@@ -24,6 +24,9 @@ except ImportError as e:
     txt = f"{BLUE}main.py WARNING:{RESET} importing {BLUE} DUMMY{RESET} sensors.dummy.pigpio"
     print(txt)
 
+from start_gpio import start_pigpiod
+start_pigpiod()    
+
 
 class MainApp(QtCore.QObject, UIWindow):
     # DEFAULT_TEMPERATURE = 0
