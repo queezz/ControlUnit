@@ -5,7 +5,7 @@ Conversion functions for various senseors.
 
 def pfeiffer_single_gauge(voltage):
     r"""
-    Calculate pressure for Pfeiffer single gauge.
+    Calculate pressure for Pfeiffer single gauge PKR251.
     $Pressure = 10^{1.667 * voltage -11.46}\; Torr$
 
     Parameters
@@ -15,6 +15,22 @@ def pfeiffer_single_gauge(voltage):
     """
     # V → Torr
     exponent = 1.6801381 * voltage - 11.35925447
+    pres = 10**exponent
+    return pres
+
+
+def pfeiffer_ikr251(voltage):
+    r"""
+    Calculate pressure for Pfeiffer IKR251 gauge.
+    $Pressure = 10^{1.667 * voltage -11.46}\; Torr$
+
+    Parameters
+    ----------
+    voltage: array
+        array of Pfeiffer Single Gauge values, V
+    """
+    # V → Torr
+    exponent = voltage - 10.625
     pres = 10**exponent
     return pres
 

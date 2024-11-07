@@ -74,7 +74,8 @@ ADC Channels:
     Channel: 1
     Gain: 10
     Description: "Pfeffer  Single Gauge (upstream)"
-    Conversion Function: "Pfeiffer Single Gauge"
+    #Conversion Function: "Pfeiffer Single Gauge"
+    Conversion Function: "Pfeiffer IKR251"
   Pd:
     Channel: 2
     Gain: 10

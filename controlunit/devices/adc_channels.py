@@ -32,6 +32,7 @@ class AdcChannelProps:
             ionization_gauge,
             hall_current_sensor,
             pfeiffer_single_gauge,
+            pfeiffer_ikr251,
             baratron,
             mfc,
             cathode_current,
@@ -41,6 +42,7 @@ class AdcChannelProps:
         conversions = {
             "Ionization Gauge": ionization_gauge,
             "Pfeiffer Single Gauge": pfeiffer_single_gauge,
+            "Pfeiffer IKR251": pfeiffer_ikr251,
             "Hall Sensor": hall_current_sensor,
             "No Conversion": lambda v: v,
             "cathode current": cathode_current,
