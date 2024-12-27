@@ -2,15 +2,13 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 # Control unit for plasma experiment.
+
+## 1. Overview
 [DOCS](https://queezz.github.io/ControlUnit/)
-# 0. Why bother?
 
-There are commercially available data loggers and temperature control units, however sometimes it is nice to have all things you need in one place, and with a tailored UI. A common practice in many experimental physics labs is to use a Windows machine and [Labview](https://en.wikipedia.org/wiki/LabVIEW) from [National Instruments](https://en.wikipedia.org/wiki/National_Instruments), which work fine and is quite easy to implement for simple set-ups. NI sells all sorts of scientific equipment which is easy to connect to the LabView program.
-
-
-
-However, the cheaper and more importantly, open source alternative would be to use  a [SBC](https://en.wikipedia.org/wiki/Single-board_computer).
-
+|                     Controls                     |                     Settings                     |
+| :--------------------------------------------: | :----------------------------------------------: |
+| ![UI](images/app_screenshot_v0.4.0.png) | ![UI](images/app_screenshot_v0.4.0_settings.png) |
 
 
 # 1. Introduction
@@ -50,43 +48,18 @@ Control unit box:
 
 
 
-## 1.2 Program summary
-
-The analog signals from vacuum gauges, 0 - 10 V, and the K-type thermocouple, 0 - 15 mV, are red by the DAC in the worker thread. The Raspi GPIO are used to control the solid state relay and turn on the halogen lamp. A Variac is used to power the lamp.
 
 
-![UI](images/app_screenshot_v0.2.0.png) 
-|                     Scales                     |                     Settings                     |
-| :--------------------------------------------: | :----------------------------------------------: |
-| ![UI](images/app_screenshot_v0.2.0_scales.png) | ![UI](images/app_screenshot_v0.2.0_settings.png) |
+# 2. How to run
 
-
-# 2. Usage
-
-## 2.1 How to run
 Make sure that `GPIO` pins are enabled:
 ```shell
 sudo pigpiod
 ```
-Then start the program.
+To start the program `cd ~/path/to/controlunit`
 ```shell
-cd ~/path/to/controlunit
-$ pyton3 main.py
+pyton -m controlunit.main
 ```
-
-## 2.2 Settings
-
-Settings file is in the project directory, [`.settings`](./controlunit/.settings):
-
-```
-datafolder, ~/work/cudata
-pathislocal, True
-sampling_rate, 0.1
-```
-## 2.3 Channel assignment
-Other useful settings, such as ADC channels and GPIO assignments are defined in [`channels.py`](./controlunit/channels.py).
-
-
 
 # 3. Requirements
 
