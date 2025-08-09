@@ -189,8 +189,6 @@ class MainApp(QtCore.QObject, UIWindow):
         }
 
         self.devices = devices
-
-        self.savepaths = {}
         self.datadict = {
             # "MembraneTemperature": pd.DataFrame(columns=self.config["Temperature Columns"]),
             "ADC": pd.DataFrame(columns=self.config["ADC Column Names"]),
@@ -200,7 +198,6 @@ class MainApp(QtCore.QObject, UIWindow):
             "ADC": pd.DataFrame(columns=self.config["ADC Column Names"]),
         }
 
-        self.create_file("ADC")
 
         self.plot_methods = {
             "MAX6675": self.update_plots_max6675,
@@ -289,6 +286,7 @@ class MainApp(QtCore.QObject, UIWindow):
         Gracefully quits and waits for all currently running threads.
         """
         for device_name, worthre in self.workers.items():
+            worthre["worker"].abort()
             worthre["thread"].quit()
             worthre["thread"].wait()
 
@@ -353,64 +351,6 @@ class MainApp(QtCore.QObject, UIWindow):
         # self.logDock.log.append(f"<{htmltag}>{nowstamp}: {message}</{htmltag}>")
 
     # MARK: Data - handling
-    def create_file(self, device_name):
-        """
-        Create file for saving sensor data
-        """
-        # if device_name == "MAX6675":
-        #     self.savepaths[device_name] = os.path.join(
-        #         os.path.abspath(self.datapath),
-        #         f"cu_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_temp.csv",
-        #     )
-        #     with open(self.savepaths[device_name], "w") as f:
-        #         f.writelines(self.generate_header_temperature())
-        if device_name == "ADC":
-            self.savepaths[device_name] = os.path.join(
-                os.path.abspath(self.datapath),
-                f"cu_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-            )
-            with open(self.savepaths[device_name], "w") as f:
-                f.writelines(self.generate_header_adc())
-
-        self.log_datafile_name(device_name)
-
-    def log_datafile_name(self, device_name):
-        """Log filename of a datafile created"""
-        message = (
-            f"<font size=4 color='blue'>{device_name}</font>"
-            f" savepath:<br> {self.savepaths[device_name]}"
-        )
-        self.log_message(message)
-
-    def generate_header_adc(self):
-        """
-        Generage ADC header
-        """
-        return [
-            "# Title , Control Unit ADC signals\n",
-            f"# Date , {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n",
-            f"# Columns , {', '.join(self.config['ADC Column Names'])}\n",
-            f"# Signals , {', '.join(self.config['ADC Signal Names'])}\n",
-            f"# Channels , {', '.join([str(i) for i in self.config['ADC Channel Numbers']])}\n",
-            "# For converted signals '_c' is added\n",
-            "#\n",
-            "# [Data]\n",
-        ]
-
-    def generate_header_temperature(self):
-        """
-        Generage Teperature header
-        """
-        return [
-            "# Control Unit Temperature Control signals\n",
-            f"# Date: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n",
-            f"# Columns: {', '.join(self.config['Temperature Columns'])}\n",
-            f"# Heater GPIO: {self.config['Heater GPIO']}\n",
-            f"# LED GPIO: {self.config['LED GPIO']}\n",
-            "#\n",
-            "# [Data]\n",
-        ]
-
     # MARK: Data - append
     def append_data(self, device_name):
         """
@@ -447,14 +387,6 @@ class MainApp(QtCore.QObject, UIWindow):
     def calculate_skip_points(self, l, noskip=5000):
         return 1 if l < noskip else l // noskip + 1
 
-    def save_data(self, device_name):
-        """
-        Save sensor data
-        """
-        savepath = self.savepaths[device_name]
-        data = self.newdata[device_name]
-        data.to_csv(savepath, mode="a", header=False, index=False)
-
     # MARK: Worker Step
     @QtCore.pyqtSlot(list)
     def on_worker_step(self, result):
@@ -474,7 +406,6 @@ class MainApp(QtCore.QObject, UIWindow):
         #  self.data_ready.emit([newdata, self.device_name])
         self.newdata[device_name] = result[0]
         self.append_data(device_name)
-        self.save_data(device_name)
         for plotname, name in zip(
             self.config["ADC Signal Names"], self.config["ADC Converted Names"]
         ):
@@ -489,7 +420,6 @@ class MainApp(QtCore.QObject, UIWindow):
         # [self.data, self.device_name]
         self.newdata[device_name] = result[0]
         self.append_data(device_name)
-        self.save_data(device_name)
         # here 3 is number of data points recieved from worker.
         # TODO: update to self.newdata[device_name]['T'].mean()
         self.currentvalues["T"] = self.datadict[device_name].iloc[-3:]["T"].mean()

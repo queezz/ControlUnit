@@ -6,6 +6,8 @@ I2C アナログ入力ボード AIO-32/0RA-IRC
 https://www.y2c.co.jp/i2c-r/aio-32-0ra-irc/
 """
 
+import os
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import time, datetime
@@ -64,6 +66,10 @@ class ADC(DeviceThread):
         self.sampling_time = self.config["Sampling Time"]
 
         self.connect_signals()
+
+        # handle data storage within this thread
+        self.datapath = Path(self.config["Data Folder"])
+        self.create_file()
 
     def connect_signals(self):
         """connect signals"""
@@ -154,6 +160,37 @@ class ADC(DeviceThread):
         """
         self.adc_datarate = [self.aio.DataRate.DR_860SPS]
 
+    # MARK: Data saving
+    def create_file(self):
+        """Create a file for ADC data"""
+        fname = f"cu_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        self.datapath.mkdir(parents=True, exist_ok=True)
+        self.savepath = self.datapath / fname
+        with open(self.savepath, "w") as f:
+            f.writelines(self.generate_header())
+        message = (
+            f"<font size=4 color='blue'>{self.device_name}</font>"
+            f" savepath:<br> {self.savepath}"
+        )
+        self.send_message.emit(message)
+
+    def generate_header(self):
+        """Generate header lines for ADC file"""
+        return [
+            "# Title , Control Unit ADC signals\n",
+            f"# Date , {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n",
+            f"# Columns , {', '.join(self.config['ADC Column Names'])}\n",
+            f"# Signals , {', '.join(self.config['ADC Signal Names'])}\n",
+            f"# Channels , {', '.join([str(i) for i in self.config['ADC Channel Numbers']])}\n",
+            "# For converted signals '_c' is added\n",
+            "#\n",
+            "# [Data]\n",
+        ]
+
+    def save_data(self, data):
+        """Append data to file"""
+        data.to_csv(self.savepath, mode="a", header=False, index=False)
+
     # MARK: Data append
     def put_new_data_in_dataframe(self):
         """
@@ -223,6 +260,7 @@ class ADC(DeviceThread):
         Clears temporary dataframes to reset memory consumption.
         """
         newdata = self.adc_values.join(self.converted_values)
+        self.save_data(newdata)
         self.data_ready.emit([newdata, self.device_name])
         self.clear_datasets()
 
