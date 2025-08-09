@@ -6,6 +6,8 @@ Thermocouple sensor with a thermistor.
 https://www.analog.com/media/en/technical-documentation/data-sheets/max6675.pdf
 """
 
+import os
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import time, datetime
@@ -29,7 +31,7 @@ class MAX6675(DeviceThread):
     sigAbortHeater = QtCore.pyqtSignal()
 
     def __init__(self, device_name, app, startTime, config, pi):
-        super().__init__(device_name, app, startTime, config)
+        super().__init__(device_name, app, startTime, config, pi)
         self.__app = app
         self.device_name = device_name
         self.__startTime = startTime
@@ -52,6 +54,9 @@ class MAX6675(DeviceThread):
         # self.pi = pigpio.pi()
         self.__sumE = 0
         self.__exE = 0
+
+        self.datapath = Path(self.config["Data Folder"])
+        self.create_file()
 
     @QtCore.pyqtSlot()
     def abort(self):
@@ -105,6 +110,7 @@ class MAX6675(DeviceThread):
         """
         Send processed data to main.py
         """
+        self.save_data(self.data)
         self.data_ready.emit([self.data, self.device_name])
 
     def clear_datasets(self):
@@ -112,6 +118,36 @@ class MAX6675(DeviceThread):
         Remove data from temporary dataframes
         """
         self.data = self.data.iloc[0:0]
+
+    # MARK: data saving
+    def create_file(self):
+        """Create file for temperature data"""
+        fname = f"cu_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_temp.csv"
+        self.datapath.mkdir(parents=True, exist_ok=True)
+        self.savepath = self.datapath / fname
+        with open(self.savepath, "w") as f:
+            f.writelines(self.generate_header())
+        message = (
+            f"<font size=4 color='blue'>{self.device_name}</font>"
+            f" savepath:<br> {self.savepath}"
+        )
+        self.send_message.emit(message)
+
+    def generate_header(self):
+        """Generate header for temperature data"""
+        return [
+            "# Control Unit Temperature Control signals\n",
+            f"# Date: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n",
+            f"# Columns: {', '.join(self.columns)}\n",
+            f"# Heater GPIO: {self.config['Heater GPIO']}\n",
+            f"# LED GPIO: {self.config['LED GPIO']}\n",
+            "#\n",
+            "# [Data]\n",
+        ]
+
+    def save_data(self, data):
+        """Append data to temperature file"""
+        data.to_csv(self.savepath, mode="a", header=False, index=False)
 
     def update_dataframe(self):
         """
