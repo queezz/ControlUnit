@@ -646,7 +646,8 @@ class MainApp(QtCore.QObject, UIWindow):
         """
         if not self.workers:
             return
-        value = self.plasma_control_dock.voltage_spin_box.value()
+        ampere = self.plasma_control_dock.ampere_spin_box.value()
+        value = (ampere / 5 + 2.52) * 1000
         self.workers["ADC"]["worker"].set_plasma_current.emit(value)
 
     @QtCore.pyqtSlot(float)

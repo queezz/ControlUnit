@@ -18,23 +18,35 @@ class PlasmaCurrentDock(Dock):
         self._add_vertical_spacer()
 
     def _init_ui(self):
-        self.voltage_spin_box = QtWidgets.QDoubleSpinBox()
+        # self.voltage_spin_box = QtWidgets.QDoubleSpinBox()
+        self.ampere_spin_box = QtWidgets.QDoubleSpinBox()
         self.set_dac_voltage = QtWidgets.QPushButton("set")
-        self.voltage_spin_box.setSuffix(f" mV")
+        # self.voltage_spin_box.setSuffix(f" mV")
+        self.ampere_spin_box.setSuffix(f" A")
 
-        self.voltage_spin_box.setMaximum(5000)
-        self.voltage_spin_box.setMinimum(0.0)
-        self.voltage_spin_box.setSingleStep(100)
+        # self.voltage_spin_box.setMaximum(5000)
+        # self.voltage_spin_box.setMinimum(0.0)
+        # self.voltage_spin_box.setSingleStep(100)
+
+        self.ampere_spin_box.setMaximum(3.0)
+        self.ampere_spin_box.setMinimum(0.0)
+        self.ampere_spin_box.setSingleStep(0.1)
 
         self.set_dac_voltage.setStyleSheet("font: 20pt")
-        self.voltage_spin_box.setStyleSheet(
+        # self.voltage_spin_box.setStyleSheet(
+        #     "QDoubleSpinBox::up-button   { width: 30px; }\n"
+        #     "QDoubleSpinBox::down-button { width: 30px;}\n"
+        #     "QDoubleSpinBox {font: 20pt;}"
+        # )
+        self.ampere_spin_box.setStyleSheet(
             "QDoubleSpinBox::up-button   { width: 30px; }\n"
             "QDoubleSpinBox::down-button { width: 30px;}\n"
             "QDoubleSpinBox {font: 20pt;}"
         )
 
     def _add_ui(self):
-        self.widget.addWidget(self.voltage_spin_box, 0, 0)
+        # self.widget.addWidget(self.voltage_spin_box, 0, 0)
+        self.widget.addWidget(self.ampere_spin_box, 0, 0)
         self.widget.addWidget(self.set_dac_voltage, 0, 1)
 
     def _add_vertical_spacer(self):
