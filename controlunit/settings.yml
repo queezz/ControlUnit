@@ -71,35 +71,35 @@ ADC Channels:
     Description: "Plasma Current"
     Conversion Function: "Hall Sensor"
   Pu:
-    Channel: 1
+    Channel: 26
     Gain: 10
     Description: "Pfeffer  Single Gauge (upstream)"
     Conversion Function: "Pfeiffer Single Gauge"
     #Conversion Function: "Pfeiffer IKR251"
   Pd:
-    Channel: 2
+    Channel: 24
     Gain: 10
     Description: "Ionization Gauge (downstream)"
     Conversion Function: "Ionization Gauge"
   Bu:
-    Channel: 3
+    Channel: 20
     Gain: 1
     Description: "Baratron MKS 627 FS = 1 Torr (upstream)"
     Conversion Function: "Baratron"
     Full Scale: 1.0
   Bd:
-    Channel: 4
+    Channel: 22
     Gain: 1
     Description: "Baratron MKS 628B.1TDF2b FS = 0.1 Torr (downstream)"
     Conversion Function: "Baratron"
     Full Scale: 0.1
   MFC1:
-    Channel: 5
+    Channel: 30
     Gain: 5
     Description: "MFC for Hydrogen, 20 SCCM"
     Conversion Function: "No Conversion"
   MFC2:
-    Channel: 6
+    Channel: 26
     Gain: 5
     Description: "MFC2 for Oxygen, 10 SCCM"
     Conversion Function: "No Conversion"
