@@ -271,9 +271,10 @@ class ADC(DeviceThread):
         Set PID parameters
         ouptput is control voltage, from 0 to 5000 V.
         """
-        p, i, d = 1, 0, 0
+        p, i, d = 0.3, 0.1, 0
         self.pid = PID(p, i, d, setpoint=self.plasma_current_setpopint)
-        self.pid.output_limits = (0, 2600)
+        self.pid.output_limits = (0, 4500)
+        # self.pid.integral_limits = (-1250, 1250)
         self.pid.sample_time = self.sampling_time * self.STEP
         # self.signal_send_pid.emit(self.pid.tunings)
 
@@ -281,9 +282,12 @@ class ADC(DeviceThread):
         """
         PID control plasma current
         """
-        output = self.pid(self.plasma_current - self.zero_ip)
+        baseline = 1000 #2000 #mV, corresponds to 16A
+        output = self.pid((self.plasma_current - self.zero_ip) * 1000)
+        output = output + baseline
         self.set_cathode_current(output)
         #print(self.pid.components)
+        print(self.pid.setpoint, output, (self.plasma_current - self.zero_ip)*1000)
 
     # MARK: start
     @QtCore.pyqtSlot()
