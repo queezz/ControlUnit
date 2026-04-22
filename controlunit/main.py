@@ -16,6 +16,9 @@ from controlunit.ui.text_shortcuts import RED, BLUE, RESET
 
 try:
     import pigpio
+    from start_gpio import start_pigpiod
+
+    start_pigpiod()
 except ImportError as e:
     print(RED + "main.py Error: " + RESET + f"{e}")
     TEST = True
@@ -23,9 +26,6 @@ except ImportError as e:
 
     txt = f"{BLUE}main.py WARNING:{RESET} importing {BLUE} DUMMY{RESET} sensors.dummy.pigpio"
     print(txt)
-
-from start_gpio import start_pigpiod
-start_pigpiod()    
 
 
 class MainApp(QtCore.QObject, UIWindow):
@@ -283,7 +283,6 @@ class MainApp(QtCore.QObject, UIWindow):
         adc_worker = self.workers["ADC"]["worker"]
         mfcs_worker.send_presets_to_adc.connect(adc_worker.update_mfcs)
 
-
     # MARK: Abort
     def terminate_existing_threads(self):
         """
@@ -531,10 +530,10 @@ class MainApp(QtCore.QObject, UIWindow):
         values = []
         for label in labels:
             v = self.currentvalues[label]
-            if label == 'Ip':
-                v -= self.zero_adjustment['Ip']
+            if label == "Ip":
+                v -= self.zero_adjustment["Ip"]
             values.append([self.graph.pens[label]["color"], label, v])
-        
+
         self.control_dock.update_current_values(values)
 
     @QtCore.pyqtSlot(dict)
