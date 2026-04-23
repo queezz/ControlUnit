@@ -23,6 +23,11 @@ class ADC(DeviceThread):
     send_control_voltage = QtCore.pyqtSignal(float)
     send_zero_adjustment = QtCore.pyqtSignal(dict)
     set_plasma_current = QtCore.pyqtSignal(float)
+    set_ig_mode_signal = QtCore.pyqtSignal(int)
+    set_ig_range_signal = QtCore.pyqtSignal(int)
+    set_trigger_signal_signal = QtCore.pyqtSignal(int)
+    set_adc_gain_signal = QtCore.pyqtSignal(int)
+    set_zero_ip_signal = QtCore.pyqtSignal()
 
     def __init__(self, device_name, app, startTime, config, pi):
         super().__init__(device_name, app, startTime, config, pi)
@@ -67,7 +72,24 @@ class ADC(DeviceThread):
 
     def connect_signals(self):
         """connect signals"""
-        self.set_plasma_current.connect(self._set_plasma_current)
+        self.set_plasma_current.connect(
+            self._set_plasma_current, type=QtCore.Qt.DirectConnection
+        )
+        self.set_ig_mode_signal.connect(
+            self.set_ig_mode, type=QtCore.Qt.DirectConnection
+        )
+        self.set_ig_range_signal.connect(
+            self.set_ig_range, type=QtCore.Qt.DirectConnection
+        )
+        self.set_trigger_signal_signal.connect(
+            self.set_trigger_signal, type=QtCore.Qt.DirectConnection
+        )
+        self.set_adc_gain_signal.connect(
+            self.set_adc_gain, type=QtCore.Qt.DirectConnection
+        )
+        self.set_zero_ip_signal.connect(
+            self.set_zero_ip, type=QtCore.Qt.DirectConnection
+        )
 
     def prep_adc_board(self):
         """
@@ -89,6 +111,7 @@ class ADC(DeviceThread):
             j.gain = self.gain_definitions[j.gainIndex]
 
     # MARK: Setters
+    @QtCore.pyqtSlot(int)
     def set_ig_mode(self, IGmode: int):
         """
         Sets Ionization Gauge mode from GUI
@@ -98,6 +121,7 @@ class ADC(DeviceThread):
         self.__IGmode = IGmode
         return
 
+    @QtCore.pyqtSlot(int)
     def set_ig_range(self, IGrange: int):
         """
         Sets Ionization Gauge range (scale) from GUI
@@ -106,6 +130,7 @@ class ADC(DeviceThread):
         self.__IGrange = IGrange
         return
 
+    @QtCore.pyqtSlot(int)
     def set_trigger_signal(self, signal: int):
         """
         Sets "trigger" signal from GUI for syncing QMS and RasPi data
@@ -129,6 +154,7 @@ class ADC(DeviceThread):
         mfc_num, voltage_preset = arg
         self.set_mfc_preset(voltage_preset, mfc_num)
 
+    @QtCore.pyqtSlot(int)
     def set_adc_gain(self, gain):
         """
         Set gain for Baratron channel on ADC
@@ -236,6 +262,7 @@ class ADC(DeviceThread):
 
     # MARK: plasma current
 
+    @QtCore.pyqtSlot()
     def set_zero_ip(self):
         """set zero Ip"""
         if self.converted_values["Ip_c"].mean() is not np.nan:
@@ -343,7 +370,6 @@ class ADC(DeviceThread):
             else:
                 step += 1
             totalStep += 1
-            self.__app.processEvents()
         else:
             # self.calculate_averaged_signals()
             self.send_processed_data_to_main_thread()

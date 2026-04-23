@@ -25,6 +25,7 @@ except ImportError as e:
 class MCP4725(DeviceThread):
 
     # sigAbortHeater = QtCore.pyqtSignal()
+    output_voltage_signal = QtCore.pyqtSignal(float)
 
     def __init__(self, device_name, app, startTime, config, pi):
         super().__init__(device_name, app, startTime, config, pi)
@@ -40,8 +41,15 @@ class MCP4725(DeviceThread):
         self.pi = pigpio.pi()
         self.mcp = MCP4725Setter(self.pi)
         self.mcp.set_voltage(0)
+        self.output_voltage_signal.connect(self.output_voltage)
         print("12 bit DAC MCP4725 initialised")
 
+    @QtCore.pyqtSlot()
+    def abort(self):
+        self._abort = True
+        self.output_voltage(0)
+
+    @QtCore.pyqtSlot(float)
     def output_voltage(self, voltage):
         """voltage in milli Volts"""
         voltage = voltage / 1000  # convert to volts

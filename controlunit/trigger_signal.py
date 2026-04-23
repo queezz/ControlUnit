@@ -36,14 +36,12 @@ class IndicatorLED(QtCore.QThread):
     def on(self):
         self.pi.set_mode(self.pinNum, pigpio.OUTPUT)
         self.pi.write(self.pinNum, 1)
-        self.worker.set_trigger_signal(1)
-        self.app.processEvents()
+        self.worker.set_trigger_signal_signal.emit(1)
 
     def off(self):
         self.pi.set_mode(self.pinNum, pigpio.OUTPUT)
         self.pi.write(self.pinNum, 0)
-        self.worker.set_trigger_signal(0)
-        self.app.processEvents()
+        self.worker.set_trigger_signal_signal.emit(0)
 
     def qms_calibration_indicator(self):
         """turn on and off LED for calibration"""
@@ -51,19 +49,19 @@ class IndicatorLED(QtCore.QThread):
         i = 0
         while i < 3:
             self.pi.write(self.pinNum, 1)
-            self.worker.set_trigger_signal(1)
+            self.worker.set_trigger_signal_signal.emit(1)
             time.sleep(0.1)
             self.pi.write(self.pinNum, 0)
-            self.worker.set_trigger_signal(0)
+            self.worker.set_trigger_signal_signal.emit(0)
             time.sleep(0.3)
             i += 1
         self.pi.write(self.pinNum, 1)
-        self.worker.set_trigger_signal(2)
-        self.worker.set_trigger_signal(0)
+        self.worker.set_trigger_signal_signal.emit(2)
+        self.worker.set_trigger_signal_signal.emit(0)
 
     def abort_calibration(self):
         self.pi.write(self.pinNum, 0)
-        self.worker.set_trigger_signal(0)
+        self.worker.set_trigger_signal_signal.emit(0)
 
     def blink_led(self):
         """turn led on and off, "onoff" times"""

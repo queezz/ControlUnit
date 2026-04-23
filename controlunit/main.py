@@ -271,7 +271,6 @@ class MainApp(QtCore.QObject, UIWindow):
         worker.data_ready.connect(self.on_worker_step)
         worker.sigDone.connect(self.on_worker_done)
         worker.send_message.connect(self.log_message)
-        self.sigAbortWorkers.connect(worker.abort)
 
         if worker.device_name == "ADC":
             worker.send_control_voltage.connect(self._set_cathode_current)
@@ -281,7 +280,9 @@ class MainApp(QtCore.QObject, UIWindow):
         """Connect workers signals directly"""
         mfcs_worker = self.workers["MFCs"]["worker"]
         adc_worker = self.workers["ADC"]["worker"]
-        mfcs_worker.send_presets_to_adc.connect(adc_worker.update_mfcs)
+        mfcs_worker.send_presets_to_adc.connect(
+            adc_worker.update_mfcs, type=QtCore.Qt.DirectConnection
+        )
 
     # MARK: Abort
     def terminate_existing_threads(self):
@@ -289,6 +290,7 @@ class MainApp(QtCore.QObject, UIWindow):
         Gracefully quits and waits for all currently running threads.
         """
         for device_name, worthre in self.workers.items():
+            worthre["worker"].abort()
             worthre["thread"].quit()
             worthre["thread"].wait()
 
@@ -311,8 +313,8 @@ class MainApp(QtCore.QObject, UIWindow):
 
         self._mfc_presets = {1: 0, 2: 0}
         self.update_current_values()
-        self.workers["MFCs"]["worker"].output_voltage(1, 0)
-        self.workers["MFCs"]["worker"].output_voltage(2, 0)
+        self.workers["MFCs"]["worker"].output_voltage_signal.emit(1, 0)
+        self.workers["MFCs"]["worker"].output_voltage_signal.emit(2, 0)
 
     @QtCore.pyqtSlot()
     def abort_all_threads(self):
@@ -321,7 +323,6 @@ class MainApp(QtCore.QObject, UIWindow):
         This one signals to workers to stop.
         """
         self.turn_off_voltages()
-        self.sigAbortWorkers.emit()
         self.terminate_existing_threads()
 
     # MARK: logging
@@ -620,13 +621,12 @@ class MainApp(QtCore.QObject, UIWindow):
     def stop_mfc(self):
         """
         Sets 0V output for both Flow Controllers.
-        TODO: change to emitting signal
         """
         if not self.workers:
             return
         self._mfc_presets = {1: 0, 2: 0}
         self.update_current_values()
-        self.workers["MFCs"]["worker"].stop()
+        self.workers["MFCs"]["worker"].stop_signal.emit()
 
     def set_mfc_goal(self, mfc_num):
         if not self.workers:
@@ -635,7 +635,7 @@ class MainApp(QtCore.QObject, UIWindow):
         self._mfc_presets[mfc_num] = value
         voltage_now = self.currentvalues[f"MFC{mfc_num}"]
         self.update_current_values()
-        self.workers["MFCs"]["worker"].output_voltage(
+        self.workers["MFCs"]["worker"].output_voltage_signal.emit(
             mfc_num, self._mfc_presets[mfc_num]
         )
 
@@ -658,14 +658,16 @@ class MainApp(QtCore.QObject, UIWindow):
         """
         if not self.workers:
             return
-        self.workers["PlasmaCurrent"]["worker"].output_voltage(control_voltage)
+        self.workers["PlasmaCurrent"]["worker"].output_voltage_signal.emit(
+            control_voltage
+        )
 
     # MARK: ADC controls
     def _set_zero_ip(self):
         """set current ip as 0"""
         if not self.workers:
             return
-        self.workers["ADC"]["worker"].set_zero_ip()
+        self.workers["ADC"]["worker"].set_zero_ip_signal.emit()
 
     @QtCore.pyqtSlot()
     def update_ig_mode(self):
@@ -678,7 +680,7 @@ class MainApp(QtCore.QObject, UIWindow):
         if not self.workers:
             return
         value = self.control_dock.IGmode.currentIndex()
-        self.workers["ADC"]["worker"].set_ig_mode(value)
+        self.workers["ADC"]["worker"].set_ig_mode_signal.emit(value)
 
     @QtCore.pyqtSlot()
     def update_ig_range(self):
@@ -689,7 +691,7 @@ class MainApp(QtCore.QObject, UIWindow):
         if not self.workers:
             return
         value = self.control_dock.IGrange.value()
-        self.workers["ADC"]["worker"].set_ig_range(value)
+        self.workers["ADC"]["worker"].set_ig_range_signal.emit(value)
 
     @QtCore.pyqtSlot()
     def __set_gain(self):
@@ -704,7 +706,7 @@ class MainApp(QtCore.QObject, UIWindow):
             return
         txt = self.adcgain_dock.gain_box.currentText()
         gain = self.adcgain_dock.gains[txt]
-        self.workers["ADC"]["worker"].set_adc_gain(gain)
+        self.workers["ADC"]["worker"].set_adc_gain_signal.emit(gain)
 
     @QtCore.pyqtSlot()
     def __set_sampling(self):

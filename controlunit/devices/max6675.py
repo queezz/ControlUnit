@@ -27,14 +27,14 @@ except ImportError as e:
 class MAX6675(DeviceThread):
 
     sigAbortHeater = QtCore.pyqtSignal()
+    set_heater_output = QtCore.pyqtSignal(float)
 
     def __init__(self, device_name, app, startTime, config, pi):
-        super().__init__(device_name, app, startTime, config)
+        super().__init__(device_name, app, startTime, config, pi)
         self.__app = app
         self.device_name = device_name
         self.__startTime = startTime
         self.config = config
-        self.__abort = False
         self.pi = pi
         self.init()
 
@@ -55,10 +55,7 @@ class MAX6675(DeviceThread):
 
     @QtCore.pyqtSlot()
     def abort(self):
-        message = "Worker thread {} aborting acquisition".format(self.device_name)
-        # self.send_message.emit(message)
-        # print(message)
-        self.__abort = True
+        self._abort = True
 
     def setPresetTemp(self, newTemp: int):
         self.temperature_setpoint = newTemp
@@ -77,7 +74,12 @@ class MAX6675(DeviceThread):
         self.thread.setObjectName("heater current")
         self.membrane_heater.moveToThread(self.thread)
         self.thread.started.connect(self.membrane_heater.work)
-        self.sigAbortHeater.connect(self.membrane_heater.setAbort)
+        self.sigAbortHeater.connect(
+            self.membrane_heater.setAbort, type=QtCore.Qt.DirectConnection
+        )
+        self.set_heater_output.connect(
+            self.membrane_heater.setOnLight, type=QtCore.Qt.DirectConnection
+        )
         self.thread.start()
 
     def init_thermocouple(self):
@@ -143,7 +145,7 @@ class MAX6675(DeviceThread):
 
         step = 0
 
-        while not (self.__abort):
+        while not (self._abort):
             time.sleep(self.sampling_time)
             self.read_thermocouple()
             self.update_dataframe()
@@ -156,7 +158,6 @@ class MAX6675(DeviceThread):
                 step = 0
             else:
                 step += 1
-            self.__app.processEvents()
         else:
             # ABORTING
             self.calculate_average()
@@ -194,9 +195,9 @@ class MAX6675(DeviceThread):
         if e >= 0:
             output = Kp * e + Ki * integral + Kd * derivative
             output = output * 0.0002
-            self.membrane_heater.setOnLight(max(output, 0))
+            self.set_heater_output.emit(max(output, 0))
         else:
-            self.membrane_heater.setOnLight(0)
+            self.set_heater_output.emit(0)
         self.__exE = e
         self.__sumE = integral
 
