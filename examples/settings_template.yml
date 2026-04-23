@@ -6,7 +6,6 @@ Data Folder: ~/work/cudata #
 Path is Local: True
 
 Sampling Rate: 0.1 # Default sampling rate
-Debug.Plasma Current DAC: false
 Verbose.Plasma Current PID: false
 
 # ================================================

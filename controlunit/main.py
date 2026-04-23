@@ -131,6 +131,12 @@ class MainApp(QtCore.QObject, UIWindow):
     def _init_cocnnections(self):
         """Toggle plots for Current, Temperature, and Pressure"""
         self.settings_dock.setSamplingBtn.clicked.connect(self.__set_sampling)
+        self.settings_dock.set_output_voltage_btn.clicked.connect(
+            self.__set_plasma_output_voltage
+        )
+        self.settings_dock.turn_off_output_voltage_btn.clicked.connect(
+            self.__turn_off_plasma_output_voltage
+        )
         self.scale_dock.subzero_ip.clicked.connect(self._set_zero_ip)
 
     # MARK: GUI setup
@@ -647,12 +653,8 @@ class MainApp(QtCore.QObject, UIWindow):
         """
         if not self.workers:
             return
-        config = self.config if self.config is not None else {}
         ampere = self.plasma_control_dock.ampere_spin_box.value()
         value = (ampere / 5 + 2.52) * 1000
-        if config.get("Debug.Plasma Current DAC", False):
-            self.workers["PlasmaCurrent"]["worker"].output_voltage_signal.emit(value)
-            return
         self.workers["ADC"]["worker"].set_plasma_current.emit(value)
 
     @QtCore.pyqtSlot(float)
@@ -726,6 +728,26 @@ class MainApp(QtCore.QObject, UIWindow):
         self.update_plot_timewindow()
         self.workers["ADC"]["worker"].set_sampling_time(value)
         self.log_message(f"ADC sampling set to {value}")
+
+    @QtCore.pyqtSlot()
+    def __set_plasma_output_voltage(self):
+        """Set direct output voltage of plasma current DAC."""
+        if not self.workers:
+            return
+        value = self.settings_dock.output_voltage_spinbox.value() * 1000
+        self.workers["ADC"]["worker"].set_plasma_current.emit(0)
+        self.workers["PlasmaCurrent"]["worker"].output_voltage_signal.emit(value)
+        self.log_message(f"Plasma DAC output set to {value/1000:.3f} V")
+
+    @QtCore.pyqtSlot()
+    def __turn_off_plasma_output_voltage(self):
+        """Turn off direct output voltage of plasma current DAC."""
+        if not self.workers:
+            return
+        self.settings_dock.output_voltage_spinbox.setValue(0.0)
+        self.workers["ADC"]["worker"].set_plasma_current.emit(0)
+        self.workers["PlasmaCurrent"]["worker"].output_voltage_signal.emit(0)
+        self.log_message("Plasma DAC output turned off")
 
 
 # MARK: End
