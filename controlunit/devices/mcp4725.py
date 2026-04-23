@@ -2,7 +2,7 @@
 MCP4725 communication
 12 bit DAC
 
-Currently unused, planned for plasma current control.
+Used for plasma current control.
 
 https://www.microchip.com/en-us/product/mcp4725
 https://www.sparkfun.com/products/12918

@@ -1,4 +1,4 @@
-Settings Version: 1.2
+Settings Version: 1.3
 # Define your local settings in
 # localsettings = os.path.join(os.path.expanduser('~'),'.controlunit', 'settings.yml')
 # ~/.controlunit/settings.yml
@@ -13,6 +13,8 @@ Log File: controlunit.log
 
 Sampling Time: 0.1 # Default sampling rate
 Debug.Raw ADC: true
+Debug.Plasma Current DAC: false
+Verbose.Plasma Current PID: false
 
 # ================================================
 #

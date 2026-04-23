@@ -67,6 +67,7 @@ class ADC(DeviceThread):
         self.zero_ip = 0
         self.zero_bu = 0
         self.sampling_time = self.config["Sampling Time"]
+        self.pid_verbose = self.config.get("Verbose.Plasma Current PID", False)
 
         self.connect_signals()
 
@@ -316,8 +317,12 @@ class ADC(DeviceThread):
         output = self.pid((self.plasma_current - self.zero_ip) * 1000)
         output = output + baseline
         self.set_cathode_current(output)
-        #print(self.pid.components)
-        print(self.pid.setpoint, output, (self.plasma_current - self.zero_ip)*1000)
+        if self.pid_verbose:
+            print(
+                self.pid.setpoint,
+                output,
+                (self.plasma_current - self.zero_ip) * 1000,
+            )
 
     # MARK: start
     @QtCore.pyqtSlot()

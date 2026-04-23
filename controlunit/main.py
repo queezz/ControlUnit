@@ -310,6 +310,7 @@ class MainApp(QtCore.QObject, UIWindow):
             return
 
         self.workers["ADC"]["worker"].set_plasma_current.emit(0)
+        self.workers["PlasmaCurrent"]["worker"].output_voltage_signal.emit(0)
 
         self._mfc_presets = {1: 0, 2: 0}
         self.update_current_values()
@@ -646,8 +647,12 @@ class MainApp(QtCore.QObject, UIWindow):
         """
         if not self.workers:
             return
+        config = self.config if self.config is not None else {}
         ampere = self.plasma_control_dock.ampere_spin_box.value()
         value = (ampere / 5 + 2.52) * 1000
+        if config.get("Debug.Plasma Current DAC", False):
+            self.workers["PlasmaCurrent"]["worker"].output_voltage_signal.emit(value)
+            return
         self.workers["ADC"]["worker"].set_plasma_current.emit(value)
 
     @QtCore.pyqtSlot(float)
