@@ -12,7 +12,7 @@ Data Folder: ~/work/cudata #
 Log File: controlunit.log
 
 Sampling Time: 0.1 # Default sampling rate
-Debug.Raw ADC: false
+Debug.Raw ADC: true
 
 # ================================================
 #
@@ -100,7 +100,7 @@ ADC Channels:
     Description: "MFC for Hydrogen, 20 SCCM"
     Conversion Function: "No Conversion"
   MFC2:
-    Channel: 26
+    Channel: 28
     Gain: 5
     Description: "MFC2 for Oxygen, 10 SCCM"
     Conversion Function: "No Conversion"
