@@ -12,6 +12,7 @@ Data Folder: ~/work/cudata #
 Log File: controlunit.log
 
 Sampling Time: 0.1 # Default sampling rate
+Debug.Raw ADC: false
 
 # ================================================
 #

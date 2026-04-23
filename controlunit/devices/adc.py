@@ -216,9 +216,12 @@ class ADC(DeviceThread):
         Update processed dataframe with new values
         """
         converted_values = []
+        raw_adc_debug = self.config.get("Debug.Raw ADC", False)
         for name, value in self.adc_voltages.items():
             conversion = self.adc_channels[name].conversion
-            if conversion.__name__ == "ionization_gauge":
+            if raw_adc_debug:
+                converted_values.append(value)
+            elif conversion.__name__ == "ionization_gauge":
                 converted_values.append(
                     conversion(value, self.__IGmode, self.__IGrange)
                 )
