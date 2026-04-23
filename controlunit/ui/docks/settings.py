@@ -32,19 +32,19 @@ class SettingsDock(Dock):
     def __setLayout(self):
         self.addWidget(self.widget)
 
-        self.widget.addWidget(self.output_voltage_label, 0, 0)
-        self.widget.addWidget(self.output_voltage_spinbox, 0, 1)
-        self.widget.addWidget(self.set_output_voltage_btn, 0, 2)
-        self.widget.addWidget(self.turn_off_output_voltage_btn, 0, 3)
+        self.widget.addWidget(self.samplingCb, 0, 0)
+        self.widget.addWidget(self.setSamplingBtn, 0, 1)
 
-        self.widget.addWidget(self.samplingCb, 1, 0)
-        self.widget.addWidget(self.setSamplingBtn, 1, 1)
+        self.widget.addWidget(self.output_voltage_label, 1, 0)
+        self.widget.addWidget(self.output_voltage_spinbox, 1, 1)
+        self.widget.addWidget(self.set_output_voltage_btn, 1, 2)
+        self.widget.addWidget(self.turn_off_output_voltage_btn, 1, 3)
 
         self.verticalSpacer = QtWidgets.QSpacerItem(
             0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
         )
         self.widget.layout.setVerticalSpacing(5)
-        self.widget.layout.addItem(self.verticalSpacer)
+        self.widget.layout.addItem(self.verticalSpacer, 2, 0, 1, 4)
 
 
 if __name__ == "__main__":

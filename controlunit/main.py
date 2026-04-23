@@ -102,6 +102,9 @@ class MainApp(QtCore.QObject, UIWindow):
         self.plasma_control_dock.set_dac_voltage.clicked.connect(
             self.set_currentcontrol_voltage
         )
+        self.plasma_control_dock.turn_off_pid_btn.clicked.connect(
+            self.turn_off_currentcontrol_voltage
+        )
 
     def _init_calibration_connections(self):
         self.calibration_dock.calibrationBtn.clicked.connect(self.calibration)
@@ -656,6 +659,16 @@ class MainApp(QtCore.QObject, UIWindow):
         ampere = self.plasma_control_dock.ampere_spin_box.value()
         value = (ampere / 5 + 2.52) * 1000
         self.workers["ADC"]["worker"].set_plasma_current.emit(value)
+
+    @QtCore.pyqtSlot()
+    def turn_off_currentcontrol_voltage(self):
+        """Stop plasma current PID and force the DAC output to 0 V."""
+        if not self.workers:
+            return
+        self.plasma_control_dock.ampere_spin_box.setValue(0.0)
+        self.workers["ADC"]["worker"].set_plasma_current.emit(0)
+        self.workers["PlasmaCurrent"]["worker"].output_voltage_signal.emit(0)
+        self.log_message("Plasma current PID turned off")
 
     @QtCore.pyqtSlot(float)
     def _set_cathode_current(self, control_voltage):

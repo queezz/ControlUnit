@@ -21,6 +21,7 @@ class PlasmaCurrentDock(Dock):
         # self.voltage_spin_box = QtWidgets.QDoubleSpinBox()
         self.ampere_spin_box = QtWidgets.QDoubleSpinBox()
         self.set_dac_voltage = QtWidgets.QPushButton("set")
+        self.turn_off_pid_btn = QtWidgets.QPushButton("off")
         # self.voltage_spin_box.setSuffix(f" mV")
         self.ampere_spin_box.setSuffix(f" A")
 
@@ -33,6 +34,7 @@ class PlasmaCurrentDock(Dock):
         self.ampere_spin_box.setSingleStep(0.1)
 
         self.set_dac_voltage.setStyleSheet("font: 20pt")
+        self.turn_off_pid_btn.setStyleSheet("font: 20pt")
         # self.voltage_spin_box.setStyleSheet(
         #     "QDoubleSpinBox::up-button   { width: 30px; }\n"
         #     "QDoubleSpinBox::down-button { width: 30px;}\n"
@@ -48,6 +50,7 @@ class PlasmaCurrentDock(Dock):
         # self.widget.addWidget(self.voltage_spin_box, 0, 0)
         self.widget.addWidget(self.ampere_spin_box, 0, 0)
         self.widget.addWidget(self.set_dac_voltage, 0, 1)
+        self.widget.addWidget(self.turn_off_pid_btn, 0, 2)
 
     def _add_vertical_spacer(self):
         """Add vertical spacer"""
@@ -55,7 +58,7 @@ class PlasmaCurrentDock(Dock):
             0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
         )
         self.widget.layout.setVerticalSpacing(3)
-        self.widget.layout.addItem(self.verticalSpacer)
+        self.widget.layout.addItem(self.verticalSpacer, 1, 0, 1, 3)
 
 
 if __name__ == "__main__":
