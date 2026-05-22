@@ -1,0 +1,5 @@
+mkdocs>=1.6
+mkdocs-material>=9.7
+mkdocs-glightbox
+mdx-truly-sane-lists
+pymdown-extensions
