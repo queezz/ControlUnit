@@ -56,7 +56,7 @@ Full documentation is at **<https://queezz.github.io/ControlUnit/>**
 | [Related Projects](https://queezz.github.io/ControlUnit/ecosystem/related-projects/) | Ecosystem: echelle_spectra, pihtivacuum, TemperatureControl, tclogger |
 
 Hardware documentation lives in the lab-wide knowledge base:
-[aklab-howto](https://queezz.github.io/aklab-howto/hardware/controlunit/).
+[aklab-howto](https://queezz.github.io/aklab-howto/hardware/controlunit/control-unit/).
 
 ## Repository structure
 
