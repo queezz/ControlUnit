@@ -139,8 +139,12 @@ This is the corrected mapping of git authors to humans.
   lab Raspberry Pi. His pass through the codebase coincided with
   Arseniy's first serious effort to migrate from numpy arrays to
   pandas DataFrames.
-- **Kawabata-kun.** Wrote the final plasma-current PID loop and
-  helped land the isolated-DAC integration in April 2026.
+- **Kurokawa-kun.** Earlier lab contributor. Left
+  `kurokawa-dev/PWR.py` — a quarantined SCPI driver for a Kikusui
+  PWR-401L bench supply — never integrated into `ControlUnit`.
+- **Kawabata-kun.** Came *after* Kurokawa. Wrote the final
+  plasma-current PID loop and helped land the isolated-DAC
+  integration in April 2026 (`kawdev` branch).
 - **`Kshora`.** External PR contributor (PRs #1, #18, #19) for early
   MFC and MCP4725 work.
 - **`codex/*` automated bot.** Two LLM-authored PRs in August 2025
@@ -196,7 +200,7 @@ A category-tagged inventory of what is *implemented*, *planned*,
 
 ### Experimental branches (live in git, off the main line)
 
-- `kawdev` — Kurokawa's plasma-current development branch.
+- `kawdev` — Kawabata's plasma-current development branch.
 - `thread-fix-v2` — current development tip; isolated DAC + settings
   layout cleanup + Ip-PID OFF button.
 - `dev` — long-lived integration branch.
@@ -254,8 +258,8 @@ A category-tagged inventory of what is *implemented*, *planned*,
 > understanding of a lab instrument. Into a network."
 
 - `kurokawa-dev/PWR.py` (SCPI driver for a Kikusui PWR-401L bench
-  supply *[confirmed by developer]*) — never integrated. Likely to
-  remain quarantined.
+  supply *[confirmed by developer]*) — Kurokawa's quarantined
+  experiment, predating Kawabata's plasma-current work. Never integrated.
 
 ---
 
@@ -299,7 +303,7 @@ ControlUnit/
 ├── manuals/                     # one PDF (ads1113.pdf) — minimal in-repo reference
 ├── images/                      # README screenshots + photos of the physical box
 ├── tests/                       # one example test + one Codex-added test
-├── kurokawa-dev/PWR.py          # QUARANTINED experimental: serial driver for PWR401L
+├── kurokawa-dev/PWR.py          # QUARANTINED (Kurokawa): serial driver for PWR401L
 ├── bin/plasmacontrol            # 7-line entry-point script (BROKEN: imports MainWidget)
 ├── .github/workflows/           # one CI: flake8 syntax + example pytest
 ├── README.md, requirements.txt, setup.py, settings.yml, .pre-commit-config.yaml
@@ -1221,11 +1225,12 @@ Fine in practice; bad if anyone ever wants 100 Hz.
 FutureWarning with `astype(dtypes)` — from a much newer pandas. CI
 doesn't see the drift because it doesn't exercise the GUI path.
 
-### I. The `kurokawa-dev/` quarantine
+### I. The `kurokawa-dev/` quarantine (Kurokawa)
 
 A 50-line SCPI driver for a Kikusui PWR-401L bench supply
-*[confirmed]*, tab-indented, in its own top-level folder, never
-imported. A parking spot for an integration that may or may not
+*[confirmed]*, tab-indented, in its own top-level folder. Kurokawa's
+work — earlier than Kawabata's `kawdev` / plasma-current PID pass.
+Never imported. A parking spot for an integration that may or may not
 happen.
 
 ### J. Inconsistent error-handling
@@ -1541,6 +1546,9 @@ or external knowledge.
   it (and introduced the I²C-per-channel-read bottleneck).
 - The "Phase 4 commit by hasuo_kuzmin.lab" was Miura-kun committing
   from the lab Pi during a pandas-migration push.
+- **Kurokawa** and **Kawabata** are two separate contributors in
+  sequence: Kurokawa left `kurokawa-dev/PWR.py`; Kawabata came later
+  with `kawdev` and the plasma-current PID / isolated-DAC work.
 - The "Kawabata" name attached to the plasma-current PID and
   isolation work is correct.
 - The "baseline = 1000 mV corresponds to ~16 A" value reflects an
@@ -1576,4 +1584,421 @@ keeps it running.
 The next archaeological pass will find things this one missed. That
 is good. Until then, this is what we know.
 
-*End of second-pass reconciled snapshot.*
+*End of second-pass reconciled snapshot. Ecosystem context follows.*
+
+---
+
+# Related Projects and Ecosystem Evolution
+
+> The first two passes treated `ControlUnit` as if it were an island.
+> It is not. It sits in a small constellation of repositories that
+> share the same author, the same lab, overlapping hardware, and a
+> visibly evolving philosophy of *what a laboratory instrument
+> should look like*. Reading those repositories alongside this one
+> turns several "loose ends" of the archaeology into "edges that
+> point outside the frame". This section adds that context without
+> rewriting the previous archaeology — those edges were always there,
+> we just did not name them.
+
+## Why this section exists
+
+A repeated pattern in the first two passes was: "this looks
+half-finished" → developer correction: "yes, because the rest moved
+elsewhere." The membrane temperature path, the hardware documentation,
+the in-code datasheet links, the half-stubbed extraction classes, the
+quarantined `kurokawa-dev/PWR.py` — each is a place where the local
+archaeology hit a dead end that turned out to be a *gate* into a
+neighbouring project.
+
+Naming the gates:
+
+- The `Echelle` references and the `_echelle_base` variable point
+  *backward* to a predecessor.
+- The MAX6675 heater path and its `TemperatureControl` link in a
+  TODO comment point *sideways* to a migration target.
+- The `aklab-howto` URLs the developer has mentioned point
+  *outward* to an external documentation hub.
+- The developer's stated "network of instruments" goal and his
+  "single TC logger" remark point *forward* to `tclogger`.
+- A second project running on the same Pi (`pihtivacuum`) points
+  *adjacent* — a peer process on shared hardware.
+
+The constellation is small but it is a real lineage. The rest of this
+section reconstructs it.
+
+## The constellation
+
+### 1. `echelle_spectra` — the predecessor (≈ 2018–2019)
+
+Repository: <https://github.com/queezz/echelle_spectra>
+
+A spectroscopic GUI and data-processing application developed during
+the developer's work at NIFS on the LHD (Large Helical Device). It
+predates `ControlUnit` and is the direct ancestor of several of this
+project's most stubborn architectural fossils.
+
+What `Echelle` gave `ControlUnit`:
+
+- **pyqtgraph + DockArea layout.** The dual-pane plot,
+  `GraphicsLayoutWidget`, the `Dock`-per-panel pattern, and the
+  custom-painted toggle aesthetic all originate here.
+- **Threading template.** A `QtCore.QObject` subclass parameterised
+  by an `Enum`, driven by an `app.processEvents()`-from-the-worker
+  loop, communicating with the main thread via `pyqtSignal`. The
+  shape of `Worker` in the first-pass `controlunit/worker.py` was
+  template-copied from this.
+- **Package-init sys.path hack.** The `sys.path.append(__file__'s
+  parent)` idiom that lets `from mainView import UIWindow` work
+  alongside `from controlunit.devices.adc import ADC`. The variable
+  name `_echelle_base` is, literally, the original variable name from
+  `Echelle` — preserved unchanged across the copy.
+- **General "Qt application as scientific instrument" feel.** Big
+  fonts, large hit areas, single-tab + a `Settings` tab,
+  HTML-formatted log dock, datetime-axis plots. The visual grammar.
+
+> **Historical Evolution (Echelle → ControlUnit).** *[confirmed]*
+> The `_echelle_base` variable, the `Worker` shape, the touch-sized
+> toggle aesthetic, and the multiple-inheritance `UIWindow` mixin all
+> descend from `echelle_spectra`. When Ito-kun took the template and
+> extended it for the ADC, he extended *Echelle code in ControlUnit
+> clothing*. The first-pass archaeology read those fossils as
+> "Qt-newcomer choices" — they are, but the newcomer was the
+> developer himself two projects ago, not the B4 student.
+
+`Echelle` is also where the developer first hit Qt threading, first
+used `pyqtgraph` seriously, and first built a real GUI for an
+experiment. The "I finally understood what classes are: drawers" line
+in the Phase 4 Developer Note is, in retrospect, a delayed payment on
+patterns that were *imported* in `Echelle` and only *understood* in
+`ControlUnit` Phase 4.
+
+### 2. `pihtivacuum` — the co-resident peer (concurrent with `ControlUnit`)
+
+Repository: <https://github.com/queezz/pihtivacuum>
+
+A companion project running on **the same Raspberry Pi as
+ControlUnit**, dedicated to vacuum-system orchestration for the PIHTI
+rig. Its presence is invisible inside `ControlUnit`'s git history but
+materially shapes how `ControlUnit` actually runs on the lab Pi.
+
+Implications for the archaeology of *this* repo:
+
+- The Pi is *not* a `ControlUnit`-exclusive box. It is a small
+  multi-process orchestrator on which `ControlUnit` is one of at
+  least two long-running processes.
+- Several decisions in `ControlUnit` that look defensive in isolation
+  make sense when you remember another process is sharing the box:
+  - The unique CSV filename per run
+    (`cu_<YYYYMMDD_HHMMSS>.csv`) avoids collision with another
+    writer.
+    *[inferred]*
+  - The `~/work/cudata/` data path is *configurable* via
+    `~/.controlunit/settings.yml` precisely because another process
+    might own a different path on the same disk. *[inferred]*
+  - The `start_gpio.py: start_pigpiod()` routine kills any existing
+    `pigpiod` and restarts it. That is aggressive for a
+    single-tenant app — and exactly what you need on a multi-process
+    Pi where another program might have left `pigpiod` in a bad
+    state. *[inferred]*
+
+> **Historical Evolution (peer process).** *[inferred from
+> ecosystem; flagged for developer confirmation]*
+> The `pihtivacuum` project shares the Pi with `ControlUnit`. They
+> coexist by convention rather than by IPC: each owns its GPIO pins
+> and its CSV namespace. There is no shared bus or message broker —
+> the orchestration is human-managed and file-system-mediated. This
+> is "network of instruments, no network protocol yet".
+
+`pihtivacuum` is the first sign that the *box* (the physical Pi) had
+already begun to function as a small operating environment hosting
+*multiple* instrument processes — even before the developer
+articulated the "network of instruments" philosophy. The intent
+arrived after the practice.
+
+### 3. `TemperatureControl` — the migration target (≈ 2024 onward)
+
+Repository: <https://github.com/queezz/TemperatureControl>
+
+A Windows + National Instruments DAQ implementation of the
+thermocouple-reading and heater-control logic that used to live in
+`ControlUnit`'s `MAX6675 + HeaterControl` path. Referenced inline in
+this repo as a TODO target:
+
+```python
+# controlunit/devices/max6675.py (lines 178–181)
+"""
+Shouldn't the self.sampling_time here be 0.25, not the one for ADC?
+TODO: update to simple-pid as in TemperatureControl
+https://github.com/queezz/TemperatureControl
+"""
+```
+
+What `TemperatureControl` represents in the constellation:
+
+- **A migration, not a refactor.** The heater PID was not
+  re-implemented in place. It was lifted out of the Pi and rebuilt
+  on a platform with stronger analogue front-ends (NI DAQ) and a
+  different OS (Windows). The `ControlUnit` MAX6675 path was left in
+  place as a dormant capability rather than deleted.
+- **A first deliberate decoupling.** Before `TemperatureControl`, the
+  Pi did everything. After, the Pi did plasma + gas + vacuum and a
+  Windows machine did temperature. The boundary was drawn along a
+  *physical-signal-class* line (the thermocouple), not along a
+  software-architecture line.
+- **A reference implementation of the "use `simple_pid` properly"
+  move.** The TODO comment makes it explicit: when the Pi heater
+  PID eventually returns (or is replaced by ESP32), it will look
+  like `TemperatureControl`, not like the hand-rolled
+  `MAX6675.temperature_control()` integral-clamped loop.
+
+> **Historical Evolution (heater path).** *[confirmed by developer
+> in §System Status Inventory]*
+> Heater migration is described elsewhere in this document as
+> "forever 🙂". `TemperatureControl` is the *destination* of that
+> migration — the project that absorbed a capability `ControlUnit`
+> used to own. Reading the `ControlUnit` repository alone gives you
+> only the *departure*; the constellation gives you the arrival.
+
+### 4. `aklab-howto` — the external documentation hub
+
+Repository: <https://github.com/queezz/aklab-howto>
+Live site: <https://queezz.github.io/aklab-howto/>
+
+A lab-wide knowledge base. The pages directly relevant to
+`ControlUnit`:
+
+- [Control Unit overview](
+  https://queezz.github.io/aklab-howto/hardware/controlunit/control-unit/)
+- [High-Precision AD/DA Board](
+  https://queezz.github.io/aklab-howto/hardware/controlunit/high-precision-adda-board/)
+- [Y-Corp ADC board](
+  https://queezz.github.io/aklab-howto/hardware/controlunit/y-corp-adc-board/)
+- [FT232H USB GPIO (the moved-to-Windows-NI replacement)](
+  https://queezz.github.io/aklab-howto/hardware/controlunit/ft232h-usb-gpio/)
+
+What it does for the archaeology of `ControlUnit`:
+
+- **It explains what is missing from `manuals/`.** The first-pass
+  said "one orphan datasheet" and recommended a `docs/datasheets/`
+  folder. The correct reading is: the datasheets *do* live somewhere,
+  but somewhere *else*. The repository's apparent thinness in
+  hardware docs reflects a deliberate externalisation, not neglect.
+- **It absorbs hardware build notes that have no place in the
+  Python code.** Board layouts, signal-conditioning circuitry,
+  cabling, pin numberings, panel layouts — all of these are
+  hardware artefacts that change on a different timescale than the
+  software does. Keeping them in `aklab-howto` lets `ControlUnit`'s
+  git history stay focused on software.
+- **It is itself an MkDocs site.** When `ControlUnit` migrates to
+  MkDocs, the natural pattern is **cross-link, do not duplicate**.
+
+> **First-pass inference (corrected).** *[corrected]*
+> The first pass said the `manuals/` folder was sparse and
+> recommended populating it. With `aklab-howto` in the picture, the
+> correct recommendation is the opposite: empty `manuals/` further,
+> migrate `ads1113.pdf` *out* into `aklab-howto`, and replace the
+> in-repo folder with a one-line pointer.
+
+### 5. `tclogger` — the future-direction successor (recent)
+
+Repository: <https://github.com/queezz/tclogger>
+
+An ESP32-based thermocouple-logging project. The "single TC logger"
+the developer mentioned in the Phase 4 / heater-path Developer Notes.
+
+What it represents:
+
+- **A break with the Pi-as-everything model.** ESP32 is small,
+  cheap, single-purpose, and natively network-aware. A `tclogger`
+  unit is not a control panel — it is a *sensor that publishes*.
+- **A first move toward "the orchestrator does not own the
+  sensors".** In `ControlUnit`, the Pi owns the ADC, the DACs, the
+  thermocouple, the GPIO sync line — *everything* is wired into the
+  one box. In a `tclogger`-style architecture, the orchestrator is
+  decoupled from the sensors by a network boundary; sensors can be
+  added, removed, or replaced without touching orchestrator code.
+- **A different software shape entirely.** Not PyQt5 + pyqtgraph +
+  pandas. Different language likely, different deployment model
+  (firmware flash, not `python -m`), different update cadence.
+
+> **Historical Evolution (forward arrow).** *[confirmed]*
+> The "network of instruments" philosophy that appears verbatim in
+> the Engineering Mindset section of this document is operationalised
+> for the first time in `tclogger`. The membrane-temperature-via-ESP32
+> design the developer described is the natural next step from
+> `tclogger`. `ControlUnit` is therefore the *terminal* form of the
+> "single Pi does everything" lineage; `tclogger` is the *initial*
+> form of the lineage that replaces it.
+
+## Cross-repository timeline
+
+Anchoring `ControlUnit`'s development against the others gives a
+fuller chronology:
+
+```text
+≈ 2018–2019 Echelle Spectra at NIFS / LHD.
+            pyqtgraph + Qt threading + the "scientific Qt app"
+            visual grammar. The template-source.
+
+2019        Worker / mainView / __init__.py patterns template-copied
+            forward into a successor lab.
+
+2020-02 ─── ControlUnit initial commit. Echelle-ported Worker.
+2020-03 ─── Ito-kun's I²C-per-read extension and the "Untangling"
+            commit. Numpy buffers, ThreadType enum, custom toggles.
+
+2020–22     ControlUnit running. Long quiet period. Lab in operation.
+            (pihtivacuum likely co-resident on the Pi; precise dates
+             would come from that repo's history.)
+
+2022-06 ─── ControlUnit pdoc3 docs generated. Visual snapshot of
+            "old" architecture preserved.
+
+2023-05 ─── ControlUnit ADC-thread tuning storm. settings.yml
+            becomes deliberate documentation.
+
+2024-08 ─── ControlUnit worker super class split (Miura-kun's
+            pandas-migration commit from the lab Pi).
+2024-09 ─── ControlUnit serial renames. sensors→devices, components→ui.
+
+2024 onward TemperatureControl on Windows + NI.
+            Heater path migrates *out* of ControlUnit.
+            ControlUnit MAX6675 path becomes dormant.
+
+2025-08 ─── ControlUnit Codex PRs. Software-only experiment in
+            LLM-assisted development.
+
+≈ 2025–2026 tclogger experiments.
+            ESP32-based single-sensor instruments. First operational
+            move toward a "network of instruments" architecture.
+
+2026-04 ─── ControlUnit isolated DAC for plasma current
+            (Kawabata-kun). The latest serious in-repo work.
+2026-05 ─── ControlUnit "settings: debug false" — the present.
+
+aklab-howto runs continuously alongside all of this as the
+documentation hub. Its pages on ControlUnit hardware predate and
+postdate any single commit in this repo.
+```
+
+The dates inside `ControlUnit` are precise (git-confirmed). The dates
+*outside* `ControlUnit` are approximate from the user's descriptions
+*[speculative on exact years]* — the corresponding repo histories
+would tighten them.
+
+## Philosophical evolution across the constellation
+
+Reading the five repos as one body of work, four trajectories are
+visible.
+
+### From inherited patterns to chosen patterns
+
+`Echelle` → `ControlUnit` (early phases) → `ControlUnit` (Phase 4 onward).
+The early `ControlUnit` *inherited* Qt-application patterns it did
+not yet understand (the `Worker` shape, the sys.path hack, the
+`app.processEvents()` from a worker thread). Through 2024–2026, the
+developer's commit notes and the structural changes show those
+patterns moving from *received* to *chosen* — kept because they
+work, modified where they do not, named in vocabulary the developer
+controls.
+
+### From "one machine does everything" to "boundary along signal class"
+
+`ControlUnit` → `TemperatureControl`. The first major decoupling cut
+the lab apparatus along the boundary of *thermocouple measurement +
+heater control*. Not because the software architecture demanded it,
+but because the *physical signal class* deserved better hardware (NI
+DAQ for accuracy, Windows for driver maturity). The boundary is
+*physical*, not architectural.
+
+### From "in-code datasheet links" to "external documentation hub"
+
+`settings.yml` URLs → `aklab-howto` pages. Early `ControlUnit`
+captured hardware knowledge as comments. `aklab-howto` later
+absorbed that knowledge into its own MkDocs site, leaving
+`ControlUnit` free to focus on software. This is *the same migration
+strategy* as `TemperatureControl`, applied to documentation rather
+than to thermocouples.
+
+### From "monolithic control panel" to "network of single-purpose nodes"
+
+`ControlUnit` + `pihtivacuum` (multiple processes, one Pi) →
+`tclogger` (one process, one ESP32, network-facing). The first step
+was multi-process on one box; the second step is multi-box. The
+"network of instruments" philosophy is therefore not a sudden
+insight — it is *the next deliberate step in a trajectory that
+already started* when `pihtivacuum` began running alongside
+`ControlUnit` on the same Pi.
+
+> **Developer Note (Arseniy) — paraphrased from earlier in this
+> document, restated here for the trajectory.**
+> "I've evolved my understanding of a lab instrument. Into a network."
+
+What the constellation shows is that the *understanding* came after
+the *practice* — `pihtivacuum` was already a peer process on the Pi
+before the developer named the pattern; `TemperatureControl` was
+already off-loading a physical signal class before the developer
+articulated the principle; `tclogger` is the first project where the
+principle was clear before the code was written.
+
+## What this means for reading `ControlUnit` itself
+
+Several characteristics of this repository now have *external*
+explanations rather than *local* ones:
+
+| Local observation                                    | External explanation                                       |
+|------------------------------------------------------|------------------------------------------------------------|
+| `_echelle_base` variable name                        | Direct fossil from `echelle_spectra`                       |
+| `Worker` / `ThreadType` / sys.path hack              | Inherited from `echelle_spectra`                           |
+| Custom-painted touch toggles                         | Visual grammar from `echelle_spectra`                      |
+| Sparse `manuals/` folder                             | Hardware docs deliberately live in `aklab-howto`           |
+| `MAX6675` path dormant                               | Capability migrated to `TemperatureControl`                |
+| `simple-pid` TODO reference                          | Points at `TemperatureControl`'s reference implementation  |
+| Aggressive `pigpiod` restart in `start_gpio.py`      | Coexists with `pihtivacuum` on the same Pi *[inferred]*    |
+| "Network of instruments" intent in code comments     | First realised in `tclogger`, not in this repo             |
+| `kurokawa-dev/PWR.py` quarantine                     | Kurokawa's PWR-401L driver; predates Kawabata's plasma work   |
+
+The right MkDocs structure for `ControlUnit` therefore is *not*
+a self-contained encyclopedia. It is a **regional documentation**:
+deep on this repository's software, thin where the constellation
+already provides the answer, and cross-linked to:
+
+- `aklab-howto` for hardware,
+- `echelle_spectra` for visual / threading lineage,
+- `TemperatureControl` for the heater migration,
+- `tclogger` for the network-of-instruments direction,
+- `pihtivacuum` for the Pi-as-orchestrator peer context.
+
+## Open questions about the ecosystem
+
+Items where the ecosystem reading is itself uncertain and would
+benefit from the developer's pass:
+
+- **Exact temporal overlap between `pihtivacuum` and `ControlUnit`.**
+  The peer-on-the-same-Pi reading is strongly suggested by the
+  developer's description, but the precise time at which the two
+  began co-residing is not in this repository.
+- **Whether `TemperatureControl` consumed `ControlUnit`'s old
+  thermocouple data format.** A direct CSV-compatibility check
+  against `controlunit/main.py: generate_header_temperature()` would
+  tell us whether the migration preserved historical data continuity
+  or restarted it.
+- **Whether `tclogger` is intended to *replace* the `MAX6675` path
+  inside `ControlUnit` or to *bypass* it entirely.** The Developer
+  Note in §PID stops short of committing — "even if I would come
+  back to it, I would make a dedicated ESP32 unit". Whether that
+  ESP32 reports *to* `ControlUnit` or *around* it is a design
+  question yet to be answered.
+- **What "PIHTI" precisely names.** The acronym recurs in
+  `pihtivacuum` and in the developer's lab vocabulary. Resolving it
+  would help orient the documentation. *[speculative — likely a rig
+  / facility designation rather than a technique]*
+
+These are not internal questions of `ControlUnit`. They are
+questions about *the lab as a software ecosystem*. They are listed
+here so that the next archaeological pass — whether against
+`tclogger`, `pihtivacuum`, or the lab as a whole — has a starting
+list of edges to chase.
+
+*End of ecosystem context. The instrument is, and has always been,
+embedded.*
