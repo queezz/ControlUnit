@@ -28,6 +28,8 @@ class DAC8532(DeviceThread):
     sigAbortHeater = QtCore.pyqtSignal()
     send_presets_to_adc = QtCore.pyqtSignal(list)
     start_calibration_signal = QtCore.pyqtSignal(float, int, float)
+    output_voltage_signal = QtCore.pyqtSignal(int, float)
+    stop_signal = QtCore.pyqtSignal()
 
     def __init__(self, device_name, app, startTime, config, pi):
         super().__init__(device_name, app, startTime, config, pi)
@@ -51,18 +53,19 @@ class DAC8532(DeviceThread):
 
     def connect_slots(self):
         self.start_calibration_signal.connect(self.do_calibration)
+        self.output_voltage_signal.connect(self.output_voltage)
+        self.stop_signal.connect(self.stop)
 
     @QtCore.pyqtSlot()
     def abort(self):
-        message = "Worker thread {} aborting acquisition".format(self.device_name)
-        # self.send_message.emit(message)
-        # print(message)
-        self.__abort = True
+        self._abort = True
+        self.calibrating = False
         self.dac_reset_voltage()
 
     def init_dac_worker(self, presetVoltage: int):
         pass
 
+    @QtCore.pyqtSlot()
     def stop(self):
         self.calibrating = False
         self.dac_reset_voltage()
@@ -73,6 +76,7 @@ class DAC8532(DeviceThread):
         self.output_voltage(2, 0)
 
     # MARK: Output Voltage
+    @QtCore.pyqtSlot(int, float)
     def output_voltage(self, channel, voltage):
         """Voltage in mV"""
         if voltage > 5000:

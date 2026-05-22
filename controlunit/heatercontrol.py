@@ -24,6 +24,7 @@ class HeaterContol(QtCore.QObject):
         self.abort = False
 
     # MARK: setter
+    @QtCore.pyqtSlot(float)
     def setOnLight(self, value: float):
         self.set_heater_on_duration = value
 
@@ -40,8 +41,6 @@ class HeaterContol(QtCore.QObject):
                 time.sleep(min(self.set_heater_on_duration, 0.01))
                 self.pi.write(CHHEATER, 0)
                 time.sleep(max(0.01 - self.set_heater_on_duration, 0))
-            self.app.processEvents()
-
     def __setThread(self):
         self.threadName = QtCore.QThread.currentThread().objectName()
         self.threadId = int(QtCore.QThread.currentThreadId())

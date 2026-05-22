@@ -1,0 +1,89 @@
+site_name: ControlUnit
+site_description: Raspberry Pi plasma-experiment control and data-acquisition system
+site_url: https://queezz.github.io/ControlUnit/
+repo_url: https://github.com/queezz/ControlUnit
+repo_name: queezz/ControlUnit
+
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  icon:
+    repo: fontawesome/brands/github
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.image.zoom
+  palette:
+    - scheme: bh-dark
+      primary: custom
+      accent: yellow
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+    - scheme: default
+      primary: amber
+      accent: orange
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+
+plugins:
+  - search
+  - glightbox
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.critic
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - tables
+  - mdx_truly_sane_lists:
+      nested_indent: 4
+
+extra_css:
+  - styles/brand.css
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+  - https://unpkg.com/mermaid@10/dist/mermaid.min.js
+
+nav:
+  - Home: index.md
+  - Record:
+      - Archaeology: Archaeology.md
+      - History: history.md
+  - Architecture:
+      - Qt Threading: architecture/qt-threading.md
+      - Signal Flow: architecture/signal-flow.md
+  - Hardware:
+      - Channel Map: hardware/channel-map.md
+  - Ecosystem:
+      - Related Projects: ecosystem/related-projects.md

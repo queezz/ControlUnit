@@ -6,6 +6,7 @@ Data Folder: ~/work/cudata #
 Path is Local: True
 
 Sampling Rate: 0.1 # Default sampling rate
+Verbose.Plasma Current PID: false
 
 # ================================================
 #
