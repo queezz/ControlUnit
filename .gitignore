@@ -2,6 +2,9 @@ data/
 
 Pipfile*
 
+# MkDocs build output
+site/
+
 .ipynb_checkpoints/
 __pycache__/
 *.py[cod]

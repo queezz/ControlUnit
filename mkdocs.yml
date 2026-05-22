@@ -1,0 +1,49 @@
+site_name: ControlUnit
+site_description: Raspberry Pi plasma-experiment control and data-acquisition system
+site_url: https://queezz.github.io/ControlUnit/
+repo_url: https://github.com/queezz/ControlUnit
+repo_name: queezz/ControlUnit
+
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Archaeology: Archaeology.md
+  - History: history.md
+  - Architecture:
+      - Qt Threading: architecture/qt-threading.md
+      - Signal Flow: architecture/signal-flow.md
+  - Hardware:
+      - Channel Map: hardware/channel-map.md
+  - Ecosystem:
+      - Related Projects: ecosystem/related-projects.md
