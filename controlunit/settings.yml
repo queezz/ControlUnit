@@ -12,7 +12,7 @@ Data Folder: ~/work/cudata #
 Log File: controlunit.log
 
 Sampling Time: 0.1 # Default sampling rate
-Debug.Raw ADC: true
+Debug.Raw ADC: false
 Verbose.Plasma Current PID: false
 
 # ================================================
