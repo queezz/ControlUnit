@@ -28,8 +28,8 @@ intense pushes during experimental downtime.
 2022-06 ──── [REORGANIZE] make a package, add pdoc3 docs.
              Visual snapshot of "old" architecture preserved.
 
-2023-04 ──── Multiple contributors arrive (Kshora, leprecon-pi /
-             Miura-kun). Channel names evolve live during measurement runs.
+2023-04 ──── Multiple contributors arrive (Kurokawa-kun/`Kshora`,
+             leprecon-pi/Miura-kun). Channel names evolve live during runs.
 
 2023-05 ──── ADC channel meta moved into AdcChannelProps + settings.yml.
              8 commits "worker: tuning ADC thread" — the buffer redesign.
@@ -75,9 +75,8 @@ Hardware: Raspberry Pi 3B → Pi 4 (8 GB), transparent to software.
 | `queezz` / Arseniy | Principal developer | Wrote and rewrote most of the system across all phases |
 | `Tatsuemon` / Ito-kun | B4 student | Extended Echelle template for ADC; introduced I²C-per-read pattern |
 | `leprecon-pi` / Miura-kun | Lab member | Pandas migration; Phase 4 big-bang split committed from the lab Pi |
-| Kurokawa-kun | Earlier lab contributor | Left `kurokawa-dev/PWR.py` (SCPI driver for Kikusui PWR-401L); never integrated |
+| Kurokawa-kun (`Kshora`) | Lab contributor | PRs #1, #18, #19 — early MFC and MCP4725 work; also left `kurokawa-dev/PWR.py` (SCPI driver for Kikusui PWR-401L, never integrated) |
 | Kawabata-kun | Later lab contributor | Final plasma-current PID loop and isolated DAC integration (Apr 2026) |
-| `Kshora` | External contributor | Early MFC and MCP4725 work (PRs #1, #18, #19) |
 | `codex/*` bot | LLM-authored PRs | PRs #20 and #21 (Aug 2025); untested on hardware at merge time |
 
 > *"I was exploring and learning. My goal with this RasPi unit was to

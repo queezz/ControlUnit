@@ -77,8 +77,9 @@ extra_javascript:
 
 nav:
   - Home: index.md
-  - Archaeology: Archaeology.md
-  - History: history.md
+  - Record:
+      - Archaeology: Archaeology.md
+      - History: history.md
   - Architecture:
       - Qt Threading: architecture/qt-threading.md
       - Signal Flow: architecture/signal-flow.md

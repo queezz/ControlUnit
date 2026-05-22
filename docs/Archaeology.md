@@ -41,8 +41,7 @@ Inline epistemic tags are still used where status is non-obvious:
   proven.
 
 The final section,
-[Known uncertainties and possible incorrect assumptions](
-#known-uncertainties-and-possible-incorrect-assumptions),
+[Known uncertainties and possible incorrect assumptions](#known-uncertainties-and-possible-incorrect-assumptions),
 is now much shorter — most uncertainties have been resolved by the
 developer's pass.
 
@@ -139,14 +138,13 @@ This is the corrected mapping of git authors to humans.
   lab Raspberry Pi. His pass through the codebase coincided with
   Arseniy's first serious effort to migrate from numpy arrays to
   pandas DataFrames.
-- **Kurokawa-kun.** Earlier lab contributor. Left
+- **Kurokawa-kun** (git handle **`Kshora`**). Lab contributor. PRs #1,
+  #18, #19 — early MFC and MCP4725 work. Also left
   `kurokawa-dev/PWR.py` — a quarantined SCPI driver for a Kikusui
   PWR-401L bench supply — never integrated into `ControlUnit`.
 - **Kawabata-kun.** Came *after* Kurokawa. Wrote the final
   plasma-current PID loop and helped land the isolated-DAC
   integration in April 2026 (`kawdev` branch).
-- **`Kshora`.** External PR contributor (PRs #1, #18, #19) for early
-  MFC and MCP4725 work.
 - **`codex/*` automated bot.** Two LLM-authored PRs in August 2025
   (#20, #21). Arseniy's first experiment with LLM-assisted design;
   not tested on the rig at the time.
@@ -907,7 +905,7 @@ not measurement-campaign signatures.
 2020-06 ── First numpy → pandas attempt (incomplete; will sit for years).
 2020–22 ── Long quiet period. Rig is running, dev is teaching.
 2022-06 ── [REORGANIZE] package layout + pdoc3 docs generated.
-2023-04 ── Multiple contributors arrive (Kshora, leprecon-pi).
+2023-04 ── Multiple contributors arrive (Kurokawa-kun/`Kshora`, leprecon-pi/Miura-kun).
             Measurement-campaign labels in commits ("hasizuka", "B2",
             "B1") reflect channels being renamed live during runs.
 2023-05 ── ADC channel meta moved into AdcChannelProps + settings.yml.
@@ -1546,9 +1544,11 @@ or external knowledge.
   it (and introduced the I²C-per-channel-read bottleneck).
 - The "Phase 4 commit by hasuo_kuzmin.lab" was Miura-kun committing
   from the lab Pi during a pandas-migration push.
-- **Kurokawa** and **Kawabata** are two separate contributors in
-  sequence: Kurokawa left `kurokawa-dev/PWR.py`; Kawabata came later
-  with `kawdev` and the plasma-current PID / isolated-DAC work.
+- **Kurokawa** (git handle `Kshora`) and **Kawabata** are two separate
+  contributors in sequence: Kurokawa submitted PRs #1, #18, #19 as
+  `Kshora` (early MFC / MCP4725 work) and left `kurokawa-dev/PWR.py`;
+  Kawabata came later with `kawdev` and the plasma-current PID /
+  isolated-DAC work.
 - The "Kawabata" name attached to the plasma-current PID and
   isolation work is correct.
 - The "baseline = 1000 mV corresponds to ~16 A" value reflects an
@@ -1588,8 +1588,7 @@ is good. Until then, this is what we know.
 
 ---
 
-# Related Projects and Ecosystem Evolution
-
+## Related Projects and Ecosystem Evolution
 > The first two passes treated `ControlUnit` as if it were an island.
 > It is not. It sits in a small constellation of repositories that
 > share the same author, the same lab, overlapping hardware, and a
@@ -1600,8 +1599,7 @@ is good. Until then, this is what we know.
 > rewriting the previous archaeology — those edges were always there,
 > we just did not name them.
 
-## Why this section exists
-
+### Why this section exists
 A repeated pattern in the first two passes was: "this looks
 half-finished" → developer correction: "yes, because the rest moved
 elsewhere." The membrane temperature path, the hardware documentation,
@@ -1626,10 +1624,8 @@ Naming the gates:
 The constellation is small but it is a real lineage. The rest of this
 section reconstructs it.
 
-## The constellation
-
-### 1. `echelle_spectra` — the predecessor (≈ 2018–2019)
-
+### The constellation
+#### 1. `echelle_spectra` — the predecessor (≈ 2018–2019)
 Repository: <https://github.com/queezz/echelle_spectra>
 
 A spectroscopic GUI and data-processing application developed during
@@ -1672,8 +1668,7 @@ in the Phase 4 Developer Note is, in retrospect, a delayed payment on
 patterns that were *imported* in `Echelle` and only *understood* in
 `ControlUnit` Phase 4.
 
-### 2. `pihtivacuum` — the co-resident peer (concurrent with `ControlUnit`)
-
+#### 2. `pihtivacuum` — the co-resident peer (concurrent with `ControlUnit`)
 Repository: <https://github.com/queezz/pihtivacuum>
 
 A companion project running on **the same Raspberry Pi as
@@ -1715,8 +1710,7 @@ already begun to function as a small operating environment hosting
 articulated the "network of instruments" philosophy. The intent
 arrived after the practice.
 
-### 3. `TemperatureControl` — the migration target (≈ 2024 onward)
-
+#### 3. `TemperatureControl` — the migration target (≈ 2024 onward)
 Repository: <https://github.com/queezz/TemperatureControl>
 
 A Windows + National Instruments DAQ implementation of the
@@ -1759,8 +1753,7 @@ What `TemperatureControl` represents in the constellation:
 > used to own. Reading the `ControlUnit` repository alone gives you
 > only the *departure*; the constellation gives you the arrival.
 
-### 4. `aklab-howto` — the external documentation hub
-
+#### 4. `aklab-howto` — the external documentation hub
 Repository: <https://github.com/queezz/aklab-howto>
 Live site: <https://queezz.github.io/aklab-howto/>
 
@@ -1799,8 +1792,7 @@ What it does for the archaeology of `ControlUnit`:
 > migrate `ads1113.pdf` *out* into `aklab-howto`, and replace the
 > in-repo folder with a one-line pointer.
 
-### 5. `tclogger` — the future-direction successor (recent)
-
+#### 5. `tclogger` — the future-direction successor (recent)
 Repository: <https://github.com/queezz/tclogger>
 
 An ESP32-based thermocouple-logging project. The "single TC logger"
@@ -1830,8 +1822,7 @@ What it represents:
 > "single Pi does everything" lineage; `tclogger` is the *initial*
 > form of the lineage that replaces it.
 
-## Cross-repository timeline
-
+### Cross-repository timeline
 Anchoring `ControlUnit`'s development against the others gives a
 fuller chronology:
 
@@ -1886,13 +1877,11 @@ The dates inside `ControlUnit` are precise (git-confirmed). The dates
 *[speculative on exact years]* — the corresponding repo histories
 would tighten them.
 
-## Philosophical evolution across the constellation
-
+### Philosophical evolution across the constellation
 Reading the five repos as one body of work, four trajectories are
 visible.
 
-### From inherited patterns to chosen patterns
-
+#### From inherited patterns to chosen patterns
 `Echelle` → `ControlUnit` (early phases) → `ControlUnit` (Phase 4 onward).
 The early `ControlUnit` *inherited* Qt-application patterns it did
 not yet understand (the `Worker` shape, the sys.path hack, the
@@ -1902,8 +1891,7 @@ patterns moving from *received* to *chosen* — kept because they
 work, modified where they do not, named in vocabulary the developer
 controls.
 
-### From "one machine does everything" to "boundary along signal class"
-
+#### From "one machine does everything" to "boundary along signal class"
 `ControlUnit` → `TemperatureControl`. The first major decoupling cut
 the lab apparatus along the boundary of *thermocouple measurement +
 heater control*. Not because the software architecture demanded it,
@@ -1911,8 +1899,7 @@ but because the *physical signal class* deserved better hardware (NI
 DAQ for accuracy, Windows for driver maturity). The boundary is
 *physical*, not architectural.
 
-### From "in-code datasheet links" to "external documentation hub"
-
+#### From "in-code datasheet links" to "external documentation hub"
 `settings.yml` URLs → `aklab-howto` pages. Early `ControlUnit`
 captured hardware knowledge as comments. `aklab-howto` later
 absorbed that knowledge into its own MkDocs site, leaving
@@ -1920,8 +1907,7 @@ absorbed that knowledge into its own MkDocs site, leaving
 strategy* as `TemperatureControl`, applied to documentation rather
 than to thermocouples.
 
-### From "monolithic control panel" to "network of single-purpose nodes"
-
+#### From "monolithic control panel" to "network of single-purpose nodes"
 `ControlUnit` + `pihtivacuum` (multiple processes, one Pi) →
 `tclogger` (one process, one ESP32, network-facing). The first step
 was multi-process on one box; the second step is multi-box. The
@@ -1941,8 +1927,7 @@ already off-loading a physical signal class before the developer
 articulated the principle; `tclogger` is the first project where the
 principle was clear before the code was written.
 
-## What this means for reading `ControlUnit` itself
-
+### What this means for reading `ControlUnit` itself
 Several characteristics of this repository now have *external*
 explanations rather than *local* ones:
 
@@ -1969,8 +1954,7 @@ already provides the answer, and cross-linked to:
 - `tclogger` for the network-of-instruments direction,
 - `pihtivacuum` for the Pi-as-orchestrator peer context.
 
-## Open questions about the ecosystem
-
+### Open questions about the ecosystem
 Items where the ecosystem reading is itself uncertain and would
 benefit from the developer's pass:
 
