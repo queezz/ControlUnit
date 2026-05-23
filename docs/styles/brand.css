@@ -190,3 +190,22 @@
     rgba(255,255,255,.03)
   );
 }
+
+
+/* =========================================================
+   Graphviz architecture diagrams
+   ========================================================= */
+
+.md-typeset img.architecture-diagram {
+  display: block;
+  margin: 1.25em auto;
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,.12);
+}
+
+[data-md-color-scheme="default"] .md-typeset img.architecture-diagram {
+  border-color: rgba(0,0,0,.10);
+  background-color: #f6f8fa;
+}

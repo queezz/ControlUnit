@@ -1,0 +1,161 @@
+// Qt runtime architecture — source for MkDocs runtime ownership diagram.
+// Regenerate SVG: python scripts/build_graphviz.py
+//
+// Graphviz gives stable left-to-right layout; Mermaid + Dagre was inconsistent
+// in MkDocs Material (edge routing, stretched subgraphs).
+
+digraph RuntimeArchitecture {
+    graph [
+        rankdir=LR,
+        bgcolor="transparent",
+        fontname="Helvetica",
+        fontsize=11,
+        splines=ortho,
+        nodesep=0.55,
+        ranksep=0.85,
+        compound=true,
+        pad=0.35,
+        newrank=true
+    ];
+
+    node [
+        shape=box,
+        style="rounded,filled",
+        fontname="Helvetica",
+        fontsize=10,
+        margin="0.14,0.07"
+    ];
+
+    edge [
+        fontname="Helvetica",
+        fontsize=9,
+        arrowsize=0.7
+    ];
+
+    // -------------------------------------------------------------------------
+    // Qt Main Thread
+    // -------------------------------------------------------------------------
+    subgraph cluster_gui {
+        label="Qt Main Thread";
+        style="rounded,filled";
+        fillcolor="#1a2332";
+        color="#4a7abf";
+        fontcolor="#c8d8f0";
+
+        { rank=same;
+            MAIN [label="MainApp\nQObject + UIWindow", fillcolor="#2a3a52", fontcolor="#e8ecf4"];
+            UI   [label="UI docks + graph\nControlDock · GasFlowDock\nSettingsDock · LogDock", fillcolor="#2a3a52", fontcolor="#e8ecf4"];
+        }
+        { rank=same;
+            REG  [label="Worker registry\nself.workers{}", fillcolor="#2a3a52", fontcolor="#e8ecf4"];
+            TRIG [label="trigger_signal.py\nGPIO26 LED", fillcolor="#2a3a52", fontcolor="#e8ecf4"];
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Worker QThreads
+    // -------------------------------------------------------------------------
+    subgraph cluster_threads {
+        label="Worker QThreads";
+        style="rounded,filled";
+        fillcolor="#2a2418";
+        color="#b8860b";
+        fontcolor="#f0e0b0";
+
+        { rank=same;
+            ADC [label="ADC thread\ndevices/adc.py\nacquisition_loop", fillcolor="#3d3420", fontcolor="#f0e6cc"];
+            MFC [label="MFC thread\ndevices/dac8532.py", fillcolor="#3d3420", fontcolor="#f0e6cc"];
+        }
+        { rank=same;
+            PC [label="PlasmaCurrent thread\ndevices/mcp4725.py", fillcolor="#3d3420", fontcolor="#f0e6cc"];
+            HT [label="MemTemp thread dormant\ndevices/max6675.py",
+                fillcolor="#181818", fontcolor="#777777",
+                color="#666666", style="rounded,filled,dashed"];
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Hardware Interface
+    // -------------------------------------------------------------------------
+    subgraph cluster_interface {
+        label="Hardware Interface";
+        style="rounded,filled";
+        fillcolor="#182824";
+        color="#2a9d8f";
+        fontcolor="#b8e8dc";
+
+        { rank=same;
+            BUSA [label="I2C bus A", fillcolor="#1f3530", fontcolor="#cce8e2"];
+            BUSB [label="I2C bus B\nisolated", fillcolor="#1f3530", fontcolor="#cce8e2"];
+        }
+        GPIO [label="GPIO 26", fillcolor="#1f3530", fontcolor="#cce8e2"];
+    }
+
+    // -------------------------------------------------------------------------
+    // Physical Hardware
+    // -------------------------------------------------------------------------
+    subgraph cluster_hardware {
+        label="Physical Hardware";
+        style="rounded,filled,bold";
+        fillcolor="#281818";
+        color="#c45c4a";
+        fontcolor="#f0c8c0";
+        penwidth=2;
+
+        { rank=same;
+            ADCBOX [label="ADS1115 16-bit ADC\nPCA9554 mux", fillcolor="#3d2020", fontcolor="#f5d5d0", penwidth=1.5];
+            MFCBOX [label="DAC8532 outputs\nH2 + O2 MFCs", fillcolor="#3d2020", fontcolor="#f5d5d0", penwidth=1.5];
+        }
+        PSU [label="Cathode power supply", fillcolor="#3d2020", fontcolor="#f5d5d0", penwidth=1.5];
+    }
+
+    // -------------------------------------------------------------------------
+    // Layout anchors — invisible chain keeps clusters left-to-right
+    // -------------------------------------------------------------------------
+    MAIN -> MFC  [style=invis, weight=100, minlen=2];
+    MFC  -> BUSA [style=invis, weight=100, minlen=2];
+    BUSA -> ADCBOX [style=invis, weight=100, minlen=2];
+
+    // -------------------------------------------------------------------------
+    // Ownership (solid; dormant registry link dashed + muted)
+    // -------------------------------------------------------------------------
+    MAIN -> UI;
+    MAIN -> REG;
+    MAIN -> TRIG;
+
+    REG -> ADC;
+    REG -> MFC;
+    REG -> PC;
+    REG -> HT [style=dashed, label="dormant", color="#666666", fontcolor="#888888"];
+
+    // -------------------------------------------------------------------------
+    // Qt queued signals (dashed) — worker → main thread
+    // -------------------------------------------------------------------------
+    ADC -> MAIN [style=dashed, label="data_ready", color="#8ab4ff", constraint=false];
+    MFC -> MAIN [style=dashed, label="sigDone / msg", color="#8ab4ff", constraint=false];
+    PC  -> MAIN [style=dashed, label="sigDone / msg", color="#8ab4ff", constraint=false];
+
+    // -------------------------------------------------------------------------
+    // DirectConnection — MFC → ADC (same-thread slot call)
+    // -------------------------------------------------------------------------
+    MFC -> ADC [
+        penwidth=2.5,
+        label="DirectConnection",
+        color="#ffcc66",
+        fontcolor="#ffcc66",
+        labeldistance=1.8,
+        labelangle=25
+    ];
+
+    // -------------------------------------------------------------------------
+    // Hardware bus links (dotted)
+    // -------------------------------------------------------------------------
+    ADC  -> BUSA [style=dotted, color="#66b3aa"];
+    MFC  -> BUSA [style=dotted, color="#66b3aa"];
+    PC   -> BUSB [style=dotted, color="#66b3aa"];
+    TRIG -> GPIO [style=dotted, color="#66b3aa"];
+
+    BUSA -> ADCBOX [style=dotted, color="#e08070"];
+    BUSA -> MFCBOX [style=dotted, color="#e08070"];
+    BUSB -> PSU    [style=dotted, color="#e08070"];
+}

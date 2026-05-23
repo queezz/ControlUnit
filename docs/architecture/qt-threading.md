@@ -10,73 +10,20 @@ Three diagrams follow; the historical narrative is below them.
 
 Who owns what, and in which thread it executes.
 
-```mermaid
-flowchart TB
-    subgraph GUI["Qt Main Thread"]
-        MAIN["MainApp\nQObject + UIWindow"]
-        UI["ui/ docks + graph\nControlDock · PlasmaCurrentDock\nGasFlowDock · SettingsDock · LogDock"]
-        WDICT["self.workers { }\nQThread parent dict"]
-        TRIG["trigger_signal.py\nIndicatorLED\npigpio GPIO 26"]
-    end
+![Qt runtime architecture — ownership, signals, and hardware buses](../assets/graphviz/runtime_architecture.svg){ .architecture-diagram }
 
-    subgraph T_ADC["QThread — ADC"]
-        WADC["ADC : DeviceThread\ndevices/adc.py\nacquisition_loop\nSTEP batching · simple_pid"]
-    end
+??? note "Diagram source (Graphviz)"
+    This diagram is rendered from Graphviz DOT rather than Mermaid. Mermaid + Dagre
+    produced unstable edge routing and stretched subgraphs in MkDocs Material; Graphviz
+    gives a fixed left-to-right layout that stays consistent across builds.
 
-    subgraph T_MFC["QThread — MFCs"]
-        WMFC["DAC8532 : DeviceThread\ndevices/dac8532.py\nMFC H₂ + O₂ voltage"]
-    end
+    Edit `docs/assets/graphviz/runtime_architecture.dot`, then regenerate:
 
-    subgraph T_PC["QThread — PlasmaCurrent"]
-        WPC["MCP4725 : DeviceThread\ndevices/mcp4725.py\nplasma-current DAC"]
-    end
+    ```bash
+    python scripts/build_graphviz.py
+    ```
 
-    subgraph T_HT["QThread — MemTemp  ·  DORMANT"]
-        WHT["MAX6675 : DeviceThread\ndevices/max6675.py\ncommented out in define_devices\nmigrated → TemperatureControl repo"]
-    end
-
-    subgraph CHIP["Chip Drivers — synchronous, no Qt"]
-        SADC["adc_setter.py\nAIO_32_0RA_IRC driver"]
-        SMFC["dac8532_setter.py"]
-        SPC["mcp4725_setter.py"]
-    end
-
-    subgraph HW["Raspberry Pi 4 8 GB + custom PCB"]
-        BUS_A["I²C bus A\nADS1115 16-bit ADC\nPCA9554 32-ch mux\nDAC8532 MFC outputs"]
-        BUS_B["I²C bus B — galvanically isolated\nMCP4725 plasma DAC\nApril 2026 hardware mod"]
-        GPIO26["GPIO 26\nsync edge + front-panel LED"]
-        MFCS["H₂ MFC 20 sccm\nO₂ MFC 10 sccm"]
-        CATH["cathode power supply\n→ plasma"]
-    end
-
-    MAIN --> UI
-    MAIN --> WDICT
-    MAIN --> TRIG
-    WDICT --> T_ADC
-    WDICT --> T_MFC
-    WDICT --> T_PC
-    WDICT -. "commented out\nin define_devices" .-> T_HT
-
-    WADC -- "data_ready\n[Qt queued]" --> MAIN
-    WMFC -- "sigDone / msg\n[Qt queued]" --> MAIN
-    WPC -- "sigDone / msg\n[Qt queued]" --> MAIN
-    WMFC -- "send_presets_to_adc\n[DirectConnection]" --> WADC
-
-    WADC --> SADC
-    WMFC --> SMFC
-    WPC --> SPC
-
-    SADC -- "smbus" --> BUS_A
-    SMFC -- "smbus" --> BUS_A
-    SPC -- "smbus" --> BUS_B
-
-    BUS_A --> MFCS
-    BUS_B --> CATH
-    TRIG --> GPIO26
-
-    style T_HT fill:#181818,stroke:#4a4a4a,stroke-dasharray:6 3
-    style WHT fill:#181818,stroke:#4a4a4a,color:#606060
-```
+Edge key: **solid** = ownership · **dashed** = Qt queued signals or dormant registry link · **bold** = DirectConnection · **dotted** = hardware bus links
 
 Key structural notes:
 
