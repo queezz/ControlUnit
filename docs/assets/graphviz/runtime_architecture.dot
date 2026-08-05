@@ -1,20 +1,33 @@
 // Qt runtime architecture — source for MkDocs runtime ownership diagram.
 // Regenerate SVG: python scripts/build_graphviz.py
 //
-// Graphviz gives stable left-to-right layout; Mermaid + Dagre was inconsistent
-// in MkDocs Material (edge routing, stretched subgraphs).
+// Graphviz (rankdir=TB) gives a stable vertical layout suited to MkDocs
+// Material page width. Mermaid + Dagre was inconsistent: unstable edge
+// routing, stretched subgraphs, poor dark-mode rendering.
+//
+// Layout strategy — "runtime/thread architecture with hardware underneath":
+//   • One node per rank (two at ranks 2 and 8) via invisible chaining edges.
+//     This keeps the diagram narrow and portrait-oriented.
+//   • Invisible edges enforce the strict top-to-bottom rank sequence:
+//       GUI (ranks 0-2) → Threads (3-6) → Interface (7-8) → Hardware (9-11)
+//   • All back-edges (worker→MAIN signals, DirectConnection) are
+//     constraint=false so they route as curves without inverting ranks.
+//   • Visible hardware bus edges are also constraint=false; the rank ordering
+//     for interface and hardware nodes is handled by the invisible chain alone.
 
 digraph RuntimeArchitecture {
     graph [
-        rankdir=LR,
+        rankdir=TB,
         bgcolor="transparent",
         fontname="Helvetica",
         fontsize=11,
-        splines=ortho,
-        nodesep=0.55,
-        ranksep=0.85,
+        // curved: routes constraint=false back-edges (worker→MAIN) cleanly;
+        // ortho creates wide right-angle loops when edges cross many ranks.
+        splines=curved,
+        nodesep=0.35,
+        ranksep=0.5,
         compound=true,
-        pad=0.35,
+        pad=0.45,
         newrank=true
     ];
 
@@ -23,7 +36,7 @@ digraph RuntimeArchitecture {
         style="rounded,filled",
         fontname="Helvetica",
         fontsize=10,
-        margin="0.14,0.07"
+        margin="0.16,0.09"
     ];
 
     edge [
@@ -33,7 +46,7 @@ digraph RuntimeArchitecture {
     ];
 
     // -------------------------------------------------------------------------
-    // Qt Main Thread
+    // Qt Main Thread  ·  ranks 0–2
     // -------------------------------------------------------------------------
     subgraph cluster_gui {
         label="Qt Main Thread";
@@ -42,18 +55,18 @@ digraph RuntimeArchitecture {
         color="#4a7abf";
         fontcolor="#c8d8f0";
 
-        { rank=same;
-            MAIN [label="MainApp\nQObject + UIWindow", fillcolor="#2a3a52", fontcolor="#e8ecf4"];
-            UI   [label="UI docks + graph\nControlDock · GasFlowDock\nSettingsDock · LogDock", fillcolor="#2a3a52", fontcolor="#e8ecf4"];
-        }
-        { rank=same;
-            REG  [label="Worker registry\nself.workers{}", fillcolor="#2a3a52", fontcolor="#e8ecf4"];
-            TRIG [label="trigger_signal.py\nGPIO26 LED", fillcolor="#2a3a52", fontcolor="#e8ecf4"];
-        }
+        MAIN [label="MainApp\nQObject + UIWindow",
+              fillcolor="#2a3a52", fontcolor="#e8ecf4"];
+        UI   [label="UI docks + graph\nControlDock · GasFlowDock\nSettingsDock · LogDock",
+              fillcolor="#2a3a52", fontcolor="#e8ecf4"];
+        REG  [label="Worker registry\nself.workers{}",
+              fillcolor="#2a3a52", fontcolor="#e8ecf4"];
+        TRIG [label="trigger_signal.py\nGPIO26 LED",
+              fillcolor="#2a3a52", fontcolor="#e8ecf4"];
     }
 
     // -------------------------------------------------------------------------
-    // Worker QThreads
+    // Worker QThreads  ·  ranks 3–6
     // -------------------------------------------------------------------------
     subgraph cluster_threads {
         label="Worker QThreads";
@@ -62,20 +75,19 @@ digraph RuntimeArchitecture {
         color="#b8860b";
         fontcolor="#f0e0b0";
 
-        { rank=same;
-            ADC [label="ADC thread\ndevices/adc.py\nacquisition_loop", fillcolor="#3d3420", fontcolor="#f0e6cc"];
-            MFC [label="MFC thread\ndevices/dac8532.py", fillcolor="#3d3420", fontcolor="#f0e6cc"];
-        }
-        { rank=same;
-            PC [label="PlasmaCurrent thread\ndevices/mcp4725.py", fillcolor="#3d3420", fontcolor="#f0e6cc"];
-            HT [label="MemTemp thread dormant\ndevices/max6675.py",
-                fillcolor="#181818", fontcolor="#777777",
-                color="#666666", style="rounded,filled,dashed"];
-        }
+        ADC [label="ADC thread\ndevices/adc.py\nacquisition_loop",
+             fillcolor="#3d3420", fontcolor="#f0e6cc"];
+        MFC [label="MFC thread\ndevices/dac8532.py",
+             fillcolor="#3d3420", fontcolor="#f0e6cc"];
+        PC  [label="PlasmaCurrent thread\ndevices/mcp4725.py",
+             fillcolor="#3d3420", fontcolor="#f0e6cc"];
+        HT  [label="MemTemp thread (dormant)\ndevices/max6675.py",
+             fillcolor="#181818", fontcolor="#777777",
+             color="#666666", style="rounded,filled,dashed"];
     }
 
     // -------------------------------------------------------------------------
-    // Hardware Interface
+    // Hardware Interface  ·  ranks 7–8
     // -------------------------------------------------------------------------
     subgraph cluster_interface {
         label="Hardware Interface";
@@ -84,15 +96,13 @@ digraph RuntimeArchitecture {
         color="#2a9d8f";
         fontcolor="#b8e8dc";
 
-        { rank=same;
-            BUSA [label="I2C bus A", fillcolor="#1f3530", fontcolor="#cce8e2"];
-            BUSB [label="I2C bus B\nisolated", fillcolor="#1f3530", fontcolor="#cce8e2"];
-        }
-        GPIO [label="GPIO 26", fillcolor="#1f3530", fontcolor="#cce8e2"];
+        BUSA [label="I2C bus A",           fillcolor="#1f3530", fontcolor="#cce8e2"];
+        BUSB [label="I2C bus B — isolated", fillcolor="#1f3530", fontcolor="#cce8e2"];
+        GPIO [label="GPIO 26",             fillcolor="#1f3530", fontcolor="#cce8e2"];
     }
 
     // -------------------------------------------------------------------------
-    // Physical Hardware
+    // Physical Hardware  ·  ranks 9–11
     // -------------------------------------------------------------------------
     subgraph cluster_hardware {
         label="Physical Hardware";
@@ -102,60 +112,95 @@ digraph RuntimeArchitecture {
         fontcolor="#f0c8c0";
         penwidth=2;
 
-        { rank=same;
-            ADCBOX [label="ADS1115 16-bit ADC\nPCA9554 mux", fillcolor="#3d2020", fontcolor="#f5d5d0", penwidth=1.5];
-            MFCBOX [label="DAC8532 outputs\nH2 + O2 MFCs", fillcolor="#3d2020", fontcolor="#f5d5d0", penwidth=1.5];
-        }
-        PSU [label="Cathode power supply", fillcolor="#3d2020", fontcolor="#f5d5d0", penwidth=1.5];
+        ADCBOX [label="ADS1115 16-bit ADC\nPCA9554 mux",
+                fillcolor="#3d2020", fontcolor="#f5d5d0", penwidth=1.5];
+        MFCBOX [label="DAC8532 outputs\nH2 + O2 MFCs",
+                fillcolor="#3d2020", fontcolor="#f5d5d0", penwidth=1.5];
+        PSU    [label="Cathode power supply",
+                fillcolor="#3d2020", fontcolor="#f5d5d0", penwidth=1.5];
     }
 
-    // -------------------------------------------------------------------------
-    // Layout anchors — invisible chain keeps clusters left-to-right
-    // -------------------------------------------------------------------------
-    MAIN -> MFC  [style=invis, weight=100, minlen=2];
-    MFC  -> BUSA [style=invis, weight=100, minlen=2];
-    BUSA -> ADCBOX [style=invis, weight=100, minlen=2];
+    // =========================================================================
+    // RANK-ORDERING INVISIBLE EDGES
+    // Each chain forces a single node onto a unique rank, creating a narrow
+    // portrait layout (≤2 nodes wide at any rank).
+    // =========================================================================
+
+    // GUI internal chain:  rank 0→1→{2,2}
+    //   MAIN→UI is also a visible ownership edge so no separate invis needed.
+    //   UI→REG[invis] bumps REG to rank 2 despite MAIN→REG visible at rank 1.
+    //   UI→TRIG[invis] bumps TRIG to rank 2 (shares rank with REG — 2-wide).
+    UI   -> REG  [style=invis, weight=20];
+    UI   -> TRIG [style=invis, weight=20];
+
+    // Threads chain: ADC at rank 3 (REG+1), then MFC→PC→HT each one deeper.
+    ADC  -> MFC  [style=invis, weight=20];
+    MFC  -> PC   [style=invis, weight=20];
+    PC   -> HT   [style=invis, weight=20];
+
+    // Interface anchor: forces interface cluster below HT (rank 7).
+    HT   -> BUSA [style=invis, weight=20];
+    // BUSA at rank 7; BUSB and GPIO share rank 8 (2-wide).
+    BUSA -> BUSB [style=invis, weight=20];
+    BUSA -> GPIO [style=invis, weight=20];
+
+    // Hardware anchor: ADCBOX→MFCBOX→PSU stacked below BUSB (rank 9→10→11).
+    BUSB -> ADCBOX [style=invis, weight=20];
+    ADCBOX -> MFCBOX [style=invis, weight=20];
+    MFCBOX -> PSU    [style=invis, weight=20];
+
+    // =========================================================================
+    // VISIBLE EDGES
+    // =========================================================================
 
     // -------------------------------------------------------------------------
-    // Ownership (solid; dormant registry link dashed + muted)
+    // Ownership (solid)
     // -------------------------------------------------------------------------
     MAIN -> UI;
     MAIN -> REG;
     MAIN -> TRIG;
 
-    REG -> ADC;
-    REG -> MFC;
-    REG -> PC;
-    REG -> HT [style=dashed, label="dormant", color="#666666", fontcolor="#888888"];
+    REG  -> ADC;
+    REG  -> MFC;
+    REG  -> PC;
+    REG  -> HT [style=dashed, label="dormant", color="#666666", fontcolor="#888888"];
 
     // -------------------------------------------------------------------------
     // Qt queued signals (dashed) — worker → main thread
+    // constraint=false: upward back-edges; constraining them would collapse
+    // the thread layer up against the GUI layer.
     // -------------------------------------------------------------------------
-    ADC -> MAIN [style=dashed, label="data_ready", color="#8ab4ff", constraint=false];
-    MFC -> MAIN [style=dashed, label="sigDone / msg", color="#8ab4ff", constraint=false];
-    PC  -> MAIN [style=dashed, label="sigDone / msg", color="#8ab4ff", constraint=false];
+    ADC -> MAIN [style=dashed, label="data_ready",
+                 color="#8ab4ff", fontcolor="#8ab4ff", constraint=false];
+    MFC -> MAIN [style=dashed, label="sigDone / msg",
+                 color="#8ab4ff", fontcolor="#8ab4ff", constraint=false];
+    PC  -> MAIN [style=dashed, label="sigDone / msg",
+                 color="#8ab4ff", fontcolor="#8ab4ff", constraint=false];
 
     // -------------------------------------------------------------------------
-    // DirectConnection — MFC → ADC (same-thread slot call)
+    // DirectConnection — MFC → ADC (slot runs in emitter's thread)
+    // constraint=false: this edge goes upward (rank 4→3); rank ordering is
+    // maintained by the ADC→MFC invisible chain, not this visible edge.
     // -------------------------------------------------------------------------
     MFC -> ADC [
         penwidth=2.5,
         label="DirectConnection",
         color="#ffcc66",
         fontcolor="#ffcc66",
-        labeldistance=1.8,
-        labelangle=25
+        constraint=false
     ];
 
     // -------------------------------------------------------------------------
-    // Hardware bus links (dotted)
+    // Hardware bus links (dotted, display-only)
+    // All constraint=false — rank ordering for interface/hardware nodes is
+    // handled entirely by the invisible chain edges above.
     // -------------------------------------------------------------------------
-    ADC  -> BUSA [style=dotted, color="#66b3aa"];
-    MFC  -> BUSA [style=dotted, color="#66b3aa"];
-    PC   -> BUSB [style=dotted, color="#66b3aa"];
-    TRIG -> GPIO [style=dotted, color="#66b3aa"];
+    ADC  -> BUSA [style=dotted, color="#66b3aa", constraint=false];
+    MFC  -> BUSA [style=dotted, color="#66b3aa", constraint=false];
+    PC   -> BUSB [style=dotted, color="#66b3aa", constraint=false];
+    TRIG -> GPIO [style=dotted, color="#66b3aa", constraint=false];
 
-    BUSA -> ADCBOX [style=dotted, color="#e08070"];
-    BUSA -> MFCBOX [style=dotted, color="#e08070"];
-    BUSB -> PSU    [style=dotted, color="#e08070"];
+    BUSA -> ADCBOX [style=dotted, color="#e08070", constraint=false];
+    BUSA -> MFCBOX [style=dotted, color="#e08070", constraint=false];
+    BUSB -> PSU    [style=dotted, color="#e08070", constraint=false];
 }
