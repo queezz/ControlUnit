@@ -9,10 +9,13 @@ boundaries remain in the sibling `fleet` repository.
 
 ## Environment
 
-Use the project virtual environment outside Dropbox:
+The operational target is the Raspberry Pi. For off-device tests,
+documentation, and dummy-hardware development, share the fleet's single
+hardware development environment outside Dropbox; do not create a dedicated
+ControlUnit venv:
 
-- Windows: `~/.venvs/controlunit/Scripts/python.exe`
-- macOS/Linux: `~/.venvs/controlunit/bin/python`
+- Windows: `~/.venvs/hardware-dev/Scripts/python.exe`
+- macOS/Linux: `~/.venvs/hardware-dev/bin/python`
 
 Bare `python` on the Windows machine can resolve to Inkscape's interpreter, so
 always use the explicit venv path. The legacy `setup.py` currently names a
@@ -21,15 +24,15 @@ Until that packaging metadata is repaired, install the declared dependencies
 and run from the repository root:
 
 ```powershell
-& "$env:USERPROFILE\.venvs\controlunit\Scripts\python.exe" -m pip install -r requirements.txt -r requirements-docs.txt pytest
+& "$env:USERPROFILE\.venvs\hardware-dev\Scripts\python.exe" -m pip install -r requirements.txt -r requirements-docs.txt pytest
 ```
 
 Before every commit:
 
 ```powershell
 $env:QT_QPA_PLATFORM = "offscreen"
-& "$env:USERPROFILE\.venvs\controlunit\Scripts\python.exe" -m pytest -q
-& "$env:USERPROFILE\.venvs\controlunit\Scripts\python.exe" -m mkdocs build --strict
+& "$env:USERPROFILE\.venvs\hardware-dev\Scripts\python.exe" -m pytest -q
+& "$env:USERPROFILE\.venvs\hardware-dev\Scripts\python.exe" -m mkdocs build --strict
 ```
 
 ## Read first
