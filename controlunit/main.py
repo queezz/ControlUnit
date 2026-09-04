@@ -15,9 +15,11 @@ from controlunit.trigger_signal import IndicatorLED
 
 from controlunit.ui.text_shortcuts import RED, BLUE, RESET
 
-# Plain standard library: a few locked values the optional web view reads.
-# Nothing here imports Flask, so a machine without it starts as it always did.
+# Plain standard library: a few locked values the optional web view reads,
+# and the queue it puts commands on. Nothing here imports Flask, so a machine
+# without it starts as it always did.
 from controlunit.web.status import RigStatus
+from controlunit.web import commands as web_commands
 
 try:
     import pigpio
@@ -37,6 +39,9 @@ class MainApp(QtCore.QObject, UIWindow):
     # DEFAULT_TEMPERATURE = 0
     DEFAULT_VOLTAGE = 0
     STEP = 3
+    # Baselines exist before the first run does, so nothing has to ask
+    # whether the dict is there yet.
+    zero_adjustment = {"Ip": 0, "Bu": 0, "Bd": 0}
 
     sigAbortWorkers = QtCore.pyqtSignal()
 
@@ -69,6 +74,10 @@ class MainApp(QtCore.QObject, UIWindow):
             names=self.config["ADC Signal Names"],
             units=self._web_units(),
         )
+        # Where a browser's instruction waits for this thread. The web thread
+        # only ever appends to it; every worker call still happens here.
+        self.web_commands = web_commands.CommandQueue()
+        self.web_status.set_remote(self.control_dock.remoteSW.isChecked())
 
         # MARK: Current Values
         # To display in text browser
@@ -128,12 +137,13 @@ class MainApp(QtCore.QObject, UIWindow):
                 for stamp in newdata["date"]
             ]
             values = {}
+            zeros = getattr(self, "zero_adjustment", {})
             for name, column in zip(
                 self.config["ADC Signal Names"], self.config["ADC Converted Names"]
             ):
                 series = newdata[column].astype(float).tolist()
-                if name == "Ip":
-                    zero = self.zero_adjustment["Ip"]
+                zero = zeros.get(name, 0)
+                if zero:
                     series = [value - zero for value in series]
                 values[name] = series
             self.web_status.record_samples(times, values)
@@ -191,6 +201,7 @@ class MainApp(QtCore.QObject, UIWindow):
         self.control_dock.IGrange.valueChanged.connect(self.update_ig_range)
         self.control_dock.FullNormSW.clicked.connect(self.fulltonormal)
         self.control_dock.OnOffSW.clicked.connect(self.__onoff)
+        self.control_dock.remoteSW.clicked.connect(self._toggle_remote)
         self.control_dock.quitBtn.clicked.connect(self.__quit)
         self.control_dock.qmsSigSw.clicked.connect(self._toggle_led_status)
         self.control_dock.scaleBtn.currentIndexChanged.connect(
@@ -213,6 +224,13 @@ class MainApp(QtCore.QObject, UIWindow):
             self.__turn_off_plasma_output_voltage
         )
         self.scale_dock.subzero_ip.clicked.connect(self._set_zero_ip)
+        # The Bu button existed and was never wired; Bd is new beside it.
+        self.scale_dock.subzero_baratron.clicked.connect(
+            lambda: self._zero_from_dock("Bu")
+        )
+        self.scale_dock.subzero_baratron_down.clicked.connect(
+            lambda: self._zero_from_dock("Bd")
+        )
 
     # MARK: GUI setup
 
@@ -234,9 +252,38 @@ class MainApp(QtCore.QObject, UIWindow):
         if self.popup_confirmation_window(question):
             self.abort_all_threads()
             self.web_status.set_acquiring(False)
+            self._force_remote_off()
             self.control_dock.quitBtn.setEnabled(True)
         else:
             self.control_dock.OnOffSW.setChecked(True)
+
+    # MARK: Remote control
+    def _toggle_remote(self):
+        """Record the Remote switch, and say so in the log.
+
+        The switch is the whole gate on a browser changing anything: with it
+        off the web view reads and nothing more. It cannot be turned on from
+        a browser, only here, and stopping acquisition puts it back off.
+        """
+        on = self.control_dock.remoteSW.isChecked()
+        self.web_status.set_remote(on)
+        self.log_message("Remote control {}".format("on" if on else "off"))
+
+    def _force_remote_off(self):
+        """Acquisition stopping takes browser control down with it."""
+        if not self.control_dock.remoteSW.isChecked():
+            self.web_status.set_remote(False)
+            return
+        self.control_dock.remoteSW.setChecked(False)
+        self.web_status.set_remote(False)
+        self.log_message("Remote control off (acquisition stopped)")
+
+    def _drain_web_commands(self):
+        """Run what a browser queued, here on the thread that owns the workers."""
+        try:
+            web_commands.drain(self)
+        except Exception as error:
+            print(f"{RED}web command:{RESET} {error}")
 
     def _toggle_led_status(self):
         if not self.control_dock.OnOffSW.isChecked():
@@ -291,7 +338,11 @@ class MainApp(QtCore.QObject, UIWindow):
             "ADC": self.update_plots_adc,
         }
 
-        self.zero_adjustment = {"Ip": 0, "Bu": 0}
+        # Plasma current and both Baratrons can be read from a baseline. A
+        # zero changes the display, the plots and the web view; the CSV on
+        # disk keeps the converted signal exactly as measured.
+        self.zero_adjustment = {"Ip": 0, "Bu": 0, "Bd": 0}
+        self.web_status.record_zeros(self.zero_adjustment)
 
     # MARK: Prep Threads
     def prep_threads(self):
@@ -411,6 +462,9 @@ class MainApp(QtCore.QObject, UIWindow):
         self.turn_off_voltages()
         self.terminate_existing_threads()
         self.web_status.set_acquiring(False)
+        # No workers, no browser control: the switch goes back to LOCAL so a
+        # laptop cannot be left holding a gate over a rig that is not running.
+        self._force_remote_off()
 
     # MARK: logging
     def generate_time_stamp(self):
@@ -625,9 +679,7 @@ class MainApp(QtCore.QObject, UIWindow):
         labels = ["Pu", "Pd", "Ip", "Bu", "Bd"]
         values = []
         for label in labels:
-            v = self.currentvalues[label]
-            if label == "Ip":
-                v -= self.zero_adjustment["Ip"]
+            v = self.currentvalues[label] - self.zero_adjustment.get(label, 0)
             values.append([self.graph.pens[label]["color"], label, v])
 
         self.control_dock.update_current_values(values)
@@ -636,6 +688,7 @@ class MainApp(QtCore.QObject, UIWindow):
     def _adjust_zeros(self, zero_adjustment):
         """Set zero adjustment dict"""
         self.zero_adjustment = zero_adjustment
+        self.web_status.record_zeros(zero_adjustment)
 
     # MARK: Update Plots
     def update_plots(self, device_name):
@@ -668,13 +721,9 @@ class MainApp(QtCore.QObject, UIWindow):
 
         what_to_plot = ["Ip", "Pu", "Pd", "Bu", "Bd"]
         for name in what_to_plot:
-            if name == "Ip":
-                values = (
-                    df[name + "_c"].values.astype(float) - self.zero_adjustment["Ip"]
-                )
-            else:
-                values = df[name + "_c"].values.astype(float)
-
+            values = df[name + "_c"].values.astype(float) - self.zero_adjustment.get(
+                name, 0
+            )
             self.graph.plot_lines[name].setData(time[::skip], values[::skip])
 
     @QtCore.pyqtSlot()
@@ -772,9 +821,29 @@ class MainApp(QtCore.QObject, UIWindow):
     # MARK: ADC controls
     def _set_zero_ip(self):
         """set current ip as 0"""
+        self._zero_from_dock("Ip")
+
+    def _zero_from_dock(self, channel):
+        """A Scales dock button: take the baseline, and say so in the log.
+
+        A browser's Zero now takes the same baseline but writes its own log
+        line, naming who asked, so a zero is never logged twice.
+        """
         if not self.workers:
             return
-        self.workers["ADC"]["worker"].set_zero_ip_signal.emit()
+        self.set_zero_baseline(channel)
+        self.log_message(f"Baseline of {channel} taken")
+
+    def set_zero_baseline(self, channel):
+        """Take what `channel` reads now as its zero.
+
+        One path for all three channels and for both origins: the buttons in
+        the Scales dock and a browser's Zero now both arrive here, and the
+        worker answers with every zero at once through `send_zero_adjustment`.
+        """
+        if not self.workers:
+            return
+        self.workers["ADC"]["worker"].set_zero_signal.emit(channel)
 
     @QtCore.pyqtSlot()
     def update_ig_mode(self):
@@ -886,18 +955,36 @@ def parse_arguments(argv=None):
     return parser.parse_args(argv)
 
 
+#: How often the main thread looks for what a browser asked for. Fast enough
+#: that a press feels answered within one poll of the page, slow enough that
+#: it costs the acquisition loop nothing.
+WEB_COMMAND_MS = 200
+
+
 def start_web_view(widget, arguments):
     """
     Start the web view on a daemon thread, if it was asked for.
 
-    The thread only ever reads the status record the main thread writes, so
-    worker ownership and the hardware-first shutdown order are untouched.
+    The thread reads the status record the main thread writes and appends to
+    the command queue the main thread drains; it never calls a worker slot,
+    so worker ownership and the hardware-first shutdown order are untouched.
+    The timer belongs to the main thread and exists only under --web.
     """
     if not arguments.web:
         return None
     from controlunit.web.server import serve_in_thread
 
-    serve_in_thread(widget.web_status, host=arguments.host, port=arguments.port)
+    timer = QtCore.QTimer(widget)
+    timer.timeout.connect(widget._drain_web_commands)
+    timer.start(WEB_COMMAND_MS)
+    widget.web_command_timer = timer
+
+    serve_in_thread(
+        widget.web_status,
+        commands=widget.web_commands,
+        host=arguments.host,
+        port=arguments.port,
+    )
     print(f" Web view: http://{arguments.host}:{arguments.port}/")
     return True
 

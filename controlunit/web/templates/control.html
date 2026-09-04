@@ -1,0 +1,221 @@
+{% extends 'base.html' %}
+{% block title %}Control · ControlUnit{% endblock %}
+{% block scripts %}
+<script defer src="{{ url_for('static', filename='js/control.js') }}?v={{ app_version }}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page" id="control" data-actor="{{ actor }}">
+
+    {# Controls live left: the gate, the name behind a command, and the one
+       action that is always allowed. #}
+    <aside class="rail rail-left">
+        <section class="rail-card rail-card--fit">
+            <h2 class="rail-label">Remote control</h2>
+            <p class="remote-line">On the rig's screen:
+                <span class="chip chip-idle" data-role="remote-chip">off</span></p>
+            {# The one place the gate is explained: the reason setting is off
+               right now, in words, once, never repeated on a row. #}
+            <p class="muted remote-why" data-role="remote-why">Setting is off until the switch on the rig is on.</p>
+            {# One stable status line. It changes in place; nothing is ever
+               inserted above the controls a reader is about to use again. #}
+            <p class="remote-status mono" data-role="status" role="status"></p>
+        </section>
+
+        <section class="rail-card rail-card--fit">
+            <h2 class="rail-label">Acting as</h2>
+            <div class="actor-row">
+                <input type="text" id="actor-name" class="find" maxlength="24"
+                       value="{{ actor }}" placeholder="your name"
+                       aria-label="The name written beside a command">
+                <button type="button" data-role="save-actor">Save</button>
+            </div>
+        </section>
+
+        <section class="rail-card rail-card--fit">
+            <h2 class="rail-label">Always allowed</h2>
+            <button type="button" class="stop-all" data-role="stop-all">Stop all outputs</button>
+            <p class="muted stop-note">Gas and cathode current to zero, name or no name, switch or no switch.</p>
+        </section>
+    </aside>
+
+    <main class="page-main">
+        <h1>Control</h1>
+
+        <section class="group" id="sec-acquisition">
+            <h2>1 · Acquisition</h2>
+            <p class="muted group-note">Started and stopped at the rig, never from here.</p>
+            <dl class="facts facts--wide">
+                <dt>State</dt>
+                <dd><span class="chip chip-idle" data-role="acq-chip">idle</span></dd>
+                <dt>File</dt>
+                <dd class="mono" data-fact="file">{{ state.run.file or '—' }}</dd>
+                <dt>Since</dt>
+                <dd data-fact="started">—</dd>
+                <dt>Samples</dt>
+                <dd class="mono" data-fact="samples">{{ state.run.samples }}</dd>
+            </dl>
+        </section>
+
+        <section class="group" id="sec-gas">
+            <h2>2 · Gas flow</h2>
+            <div class="rows">
+                {% for number, gas in gases %}
+                <div class="row" data-mfc="{{ number }}">
+                    <span class="row-name">{{ gas }}</span>
+                    <label class="row-field">
+                        <span class="row-caption">Set to</span>
+                        <input type="number" class="setpoint" data-role="mfc-input"
+                               min="0" max="{{ mfc_max }}" step="1" value="0"
+                               aria-label="{{ gas }} flow setpoint, millivolts">
+                        <span class="row-unit">mV</span>
+                    </label>
+                    <span class="row-reading">
+                        <span class="row-caption">Holding</span>
+                        <span class="mono" data-role="mfc-setpoint">—</span>
+                    </span>
+                    <span class="row-reading">
+                        <span class="row-caption">Measured</span>
+                        <span class="mono" data-role="mfc-measured">—</span>
+                    </span>
+                    <span class="row-actions">
+                        <button type="button" data-role="mfc-set">Set</button>
+                        <button type="button" data-role="mfc-zero">Zero</button>
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="group" id="sec-plasma">
+            <h2>3 · Plasma current</h2>
+            <div class="rows">
+                <div class="row" data-plasma>
+                    <span class="row-name">Ip</span>
+                    <label class="row-field">
+                        <span class="row-caption">Set to</span>
+                        <input type="number" class="setpoint" data-role="plasma-input"
+                               min="0" max="{{ plasma_max }}" step="0.1" value="0"
+                               aria-label="Plasma current setpoint, amperes">
+                        <span class="row-unit">A</span>
+                    </label>
+                    <span class="row-reading">
+                        <span class="row-caption">Holding</span>
+                        <span class="mono" data-role="plasma-setpoint">—</span>
+                    </span>
+                    <span class="row-reading">
+                        <span class="row-caption">Measured</span>
+                        <span class="mono" data-role="plasma-measured">—</span>
+                    </span>
+                    <span class="row-actions">
+                        <button type="button" data-role="plasma-set">Set</button>
+                        <button type="button" data-role="plasma-off">PID off</button>
+                    </span>
+                </div>
+                <div class="row row--reading" data-role="cathode-row" hidden>
+                    <span class="row-name">Cv</span>
+                    <span class="row-reading">
+                        <span class="row-caption">Cathode drive</span>
+                        <span class="mono" data-role="cathode-measured">—</span>
+                    </span>
+                </div>
+            </div>
+        </section>
+
+        <section class="group" id="sec-gauge">
+            <h2>4 · Gauge and sync</h2>
+            <div class="rows">
+                <div class="row">
+                    <span class="row-name">Mode</span>
+                    <span class="row-actions">
+                        {% for mode in gauge_modes %}
+                        <button type="button" class="choice" data-role="gauge-mode"
+                                data-mode="{{ mode }}" aria-pressed="false">{{ mode }}</button>
+                        {% endfor %}
+                    </span>
+                    <span class="row-reading">
+                        <span class="row-caption">Holding</span>
+                        <span class="mono" data-role="gauge-mode-now">—</span>
+                    </span>
+                </div>
+                <div class="row">
+                    <span class="row-name">Range</span>
+                    <span class="row-actions">
+                        {% for decade in gauge_range %}
+                        <button type="button" class="choice" data-role="gauge-range"
+                                data-range="{{ decade }}" aria-pressed="false">1e{{ decade }}</button>
+                        {% endfor %}
+                    </span>
+                    <span class="row-reading">
+                        <span class="row-caption">Holding</span>
+                        <span class="mono" data-role="gauge-range-now">—</span>
+                    </span>
+                </div>
+                <div class="row">
+                    <span class="row-name">QMS sync</span>
+                    <span class="row-actions">
+                        <button type="button" class="choice" data-role="sync" data-on="1" aria-pressed="false">On</button>
+                        <button type="button" class="choice" data-role="sync" data-on="0" aria-pressed="false">Off</button>
+                    </span>
+                    <span class="row-reading">
+                        <span class="row-caption">Holding</span>
+                        <span class="mono" data-role="sync-now">—</span>
+                    </span>
+                </div>
+            </div>
+        </section>
+
+        <section class="group" id="sec-baselines">
+            <h2>5 · Baselines</h2>
+            <p class="muted group-note">A baseline changes the screen, the plots and this page; the data file keeps the signal as measured.</p>
+            <div class="rows">
+                {% for channel in zero_channels %}
+                <div class="row" data-zero="{{ channel }}">
+                    <span class="row-name">{{ channel }}</span>
+                    <span class="row-reading">
+                        <span class="row-caption">Zero</span>
+                        <span class="mono" data-role="zero-value">—</span>
+                    </span>
+                    <span class="row-reading">
+                        <span class="row-caption">Reads</span>
+                        <span class="mono" data-role="zero-measured">—</span>
+                    </span>
+                    <span class="row-actions">
+                        <button type="button" data-role="zero-now">Zero now</button>
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+    </main>
+
+    {# Context lives right: this run, and where the page's own groups are. #}
+    <aside class="rail rail-right">
+        <section class="rail-card rail-card--fit">
+            <h2 class="rail-label">This run</h2>
+            <dl class="facts">
+                <dt class="wide">File</dt>
+                <dd class="mono wide" data-fact="file">{{ state.run.file or '—' }}</dd>
+                <dt>Started</dt>
+                <dd data-fact="started">—</dd>
+                <dt>Samples</dt>
+                <dd class="mono" data-fact="samples">{{ state.run.samples }}</dd>
+                <dt>Rate</dt>
+                <dd class="mono" data-fact="rate">{{ state.run.rate or '—' }}</dd>
+                <dt>Hardware</dt>
+                <dd data-fact="hardware">{{ 'dummy' if state.dummy else 'real' }}</dd>
+            </dl>
+        </section>
+
+        <section class="rail-card rail-card--fit">
+            <h2 class="rail-label">On this page</h2>
+            <ul class="index">
+                {% for anchor, label in sections %}
+                <li><a href="#{{ anchor }}">{{ label }}</a></li>
+                {% endfor %}
+            </ul>
+        </section>
+    </aside>
+
+</div>
+{% endblock %}

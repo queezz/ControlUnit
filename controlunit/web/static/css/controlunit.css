@@ -47,6 +47,10 @@
   --content-gap: 20px;
   --rail-w: 17rem;
   --page-max: 1500px;
+  /* A headed group's own inset: its 14px top padding plus its 1px border.
+     An anchor's landing subtracts this so the heading, not the card's edge,
+     is what ends up clear of the bar. */
+  --group-inset: 15px;
 
   font-family: "Segoe UI", Aptos, Calibri, system-ui, sans-serif;
 }
@@ -97,6 +101,16 @@ button {
 }
 
 button:hover, button:focus-visible { border-color: var(--accent); outline: none; }
+
+/* A control the gate would refuse keeps its border and its place: it is a
+   button that cannot be pressed right now, not a word that vanished. Why it
+   cannot is said once, in the Remote card, never here. */
+button:disabled, input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button:disabled:hover { border-color: var(--line); }
 
 a.button {
   display: inline-block;
@@ -414,6 +428,134 @@ dl.facts dd.wide { margin-top: -2px; }
 .freshness { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; min-height: 1.6em; }
 .data-key { margin: 0; font-size: 0.86rem; }
 
+/* -- the Control tab --------------------------------------------------- */
+
+/* Every group is a jump target of the right rail's index, and lands its own
+   heading about 16px clear of the fixed bar rather than under it. The `sec-`
+   prefix is the mechanism; there is no second rule to remember.
+
+   The offset is a sum, never a hand-picked number: the bar's height, plus
+   the air the heading wants above it, less the card's own inset — because
+   the box that scrolls is the card and the thing to land is the heading
+   inside it. `--group-inset` is declared with the other measurements at the
+   top of this file, beside the padding and border it stands for. */
+[id^="sec-"] {
+  scroll-margin-top: calc(var(--bar) + 16px - var(--group-inset));
+}
+
+/* Flat headed groups: one bordered panel per group, plain headings inside,
+   never a second frame drawn around a row. The inset above is this padding
+   plus this border, so the two stay in step. */
+.group {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  padding: 14px 16px 16px;
+  margin-bottom: 16px;
+}
+
+.group h2 { margin: 0 0 4px; font-size: 1rem; }
+.group-note { margin: 0 0 12px; font-size: 0.88rem; }
+.group h2 + .rows, .group h2 + .facts { margin-top: 12px; }
+
+.rows { display: flex; flex-direction: column; gap: 10px; }
+
+/* One row per thing the rig holds: what it is, what to set it to, what it
+   is holding, what it measures, and the presses that change it. */
+.row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+.rows > .row:first-child { border-top: 0; padding-top: 0; }
+
+/* One width for every row's name, so the fields line up down the group; a
+   longer name takes the room it needs rather than breaking. */
+.row-name {
+  flex: 0 0 auto;
+  min-width: 4.5rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.row-field { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Each reading keeps a fixed width sized for its worst value, so a poll that
+   changes a number never moves the control beside it. */
+.row-reading { display: inline-flex; align-items: baseline; gap: 6px; min-width: 8.5rem; }
+.row-caption { color: var(--dim); font-size: 0.78rem; letter-spacing: 0.03em; }
+.row-unit { color: var(--muted); font-size: 0.82rem; }
+
+/* The presses follow the readings rather than being pushed to the far right:
+   every row's fields are the same fixed width, so the buttons line up down
+   the column whether the row fits on one line or wraps onto two. */
+.row-actions { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+.setpoint {
+  width: 5.5rem;
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  color: var(--fg);
+  background: var(--inset);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 5px 8px;
+}
+
+.setpoint:focus { border-color: var(--accent); outline: none; }
+
+/* The Acquisition group's facts run wide: this group is read, not pressed. */
+.facts--wide { grid-template-columns: auto minmax(0, 1fr); }
+
+/* -- the Control tab's left rail --------------------------------------- */
+
+.remote-line { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
+.remote-why { margin: 0 0 8px; font-size: 0.88rem; }
+
+/* Always present, so an answer never pushes a control down the rail. */
+.remote-status {
+  margin: 0;
+  min-height: 2.6em;
+  color: var(--accent);
+  overflow-wrap: anywhere;
+}
+
+.actor-row { display: flex; align-items: center; gap: 8px; }
+.actor-row .find { flex: 1 1 auto; }
+
+/* The one action that is always allowed wears the one alarm colour on the
+   page, and is the full width of its card so it cannot be missed. */
+.stop-all {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  font-weight: 600;
+  color: #fdf3f0;
+  background: var(--stop);
+  border-color: var(--stop);
+}
+
+.stop-all:hover, .stop-all:focus-visible { border-color: var(--stop-fg); background: var(--stop-fg); }
+.stop-note { margin: 8px 0 0; font-size: 0.84rem; }
+
+/* -- an on-this-page index --------------------------------------------- */
+
+.index { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.index a {
+  display: block;
+  padding: 4px 6px;
+  border-radius: 6px;
+  color: var(--fg);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+.index a:hover, .index a:focus-visible { background: var(--accent-wash); color: var(--accent); outline: none; }
+
 /* -- the log (Log) ----------------------------------------------------- */
 
 .log-lead { margin-bottom: 14px; }
@@ -567,6 +709,8 @@ dl.facts dd.wide { margin-top: -2px; }
   .readouts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .choice-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .log-line { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .row-name { flex: 0 0 100%; }
+  .row-actions { margin-left: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

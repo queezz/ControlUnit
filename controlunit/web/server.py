@@ -1,26 +1,33 @@
-"""The read-only web view that stands beside the Qt window.
+"""The web view that stands beside the Qt window.
 
 A Flask application on a daemon thread inside the ControlUnit process. It
-never imports PyQt, never touches a worker, and never writes to the rig: it
-reads a small locked status record the Qt main thread keeps up to date, and
-asks the two neighbouring services how they are.
+never imports PyQt and never touches a worker: it reads a small locked status
+record the Qt main thread keeps up to date, asks the two neighbouring
+services how they are, and — for the Control tab — appends checked commands
+to a queue the main thread drains on its own timer.
 
-Three tabs are served. Live is the rig's values and two strip charts; Log is
-the same message log the Qt Log dock shows; Lab is the three services of the
-lab ensemble, their states, and how each is started. Control is named in
-the tab bar and not built: browser control waits on an owner decision.
+Four tabs are served. Live is the rig's values and two strip charts; Control
+sets what the rig holds; Log is the same message log the Qt Log dock shows;
+Lab is the three services of the lab ensemble and how each is started.
+
+Reading is open to anyone on the lab network. Setting needs a name chosen in
+the browser and the Remote switch turned on beside the rig's own screen, so
+that gas flow and cathode current never move past a person who is not there.
+Stopping every output is the one exception and is always allowed.
 """
 
 import threading
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, make_response, render_template, request
 
 from controlunit._version import __version__
+from controlunit.web import commands as command_desk
 from controlunit.web import neighbours as neighbourhood
 from controlunit.web.status import (
     MAX_POINTS,
     RigStatus,
     SERVICE,
+    ZERO_CHANNELS,
     health_body,
     state_body,
 )
@@ -69,21 +76,46 @@ PENS = (
 #: The tabs, in bar order. A tab with no endpoint is named and not built.
 TABS = (
     ("live", "Live", "live"),
-    ("control", "Control", None),
+    ("control", "Control", "control"),
     ("log", "Log", "log"),
     ("lab", "Lab", "lab"),
 )
 
+#: The name a browser carries, so the log can say who asked for a setpoint.
+#: A label, never an identity: it proves nothing and is not a credential.
+ACTOR_COOKIE = "actor"
+ACTOR_MAX_AGE = 60 * 60 * 24 * 30
 
-def create_app(status=None, board=None):
-    """Build the application. `status` is the record the Qt thread writes."""
+#: The Control tab's own groups, in operating order. The right rail's index
+#: is built from this, so the page cannot promise a section it does not have.
+SECTIONS = (
+    ("sec-acquisition", "Acquisition"),
+    ("sec-gas", "Gas flow"),
+    ("sec-plasma", "Plasma current"),
+    ("sec-gauge", "Gauge and sync"),
+    ("sec-baselines", "Baselines"),
+)
+
+#: The two gas lines, by the gas each carries on this rig.
+GASES = ((1, "H₂"), (2, "O₂"))
+
+
+def create_app(status=None, board=None, commands=None):
+    """Build the application.
+
+    `status` is the record the Qt thread writes; `commands` is the queue it
+    drains. Without a queue the Control tab still renders and every setter
+    answers 409, which is what a test client and a read-only run both want.
+    """
     rig = status if status is not None else RigStatus()
     services = board if board is not None else neighbourhood.NeighbourBoard()
+    desk = commands if commands is not None else command_desk.CommandQueue()
 
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
     app.config["RIG_STATUS"] = rig
     app.config["NEIGHBOUR_BOARD"] = services
+    app.config["COMMAND_QUEUE"] = desk
 
     @app.after_request
     def freshness_and_safety(response):
@@ -130,6 +162,24 @@ def create_app(status=None, board=None):
             default_window=DEFAULT_WINDOW,
             pens=PENS,
             state=state_body(rig, __version__),
+        )
+
+    @app.route("/control")
+    def control():
+        return render_template(
+            "control.html",
+            active="control",
+            state=state_body(rig, __version__),
+            sections=SECTIONS,
+            gases=GASES,
+            zero_channels=ZERO_CHANNELS,
+            gauge_modes=command_desk.GAUGE_MODES,
+            gauge_range=range(
+                command_desk.GAUGE_RANGE_LOW, command_desk.GAUGE_RANGE_HIGH + 1
+            ),
+            mfc_max=command_desk.MFC_MAX_MV,
+            plasma_max=command_desk.PLASMA_MAX_A,
+            actor=command_desk.clean_actor(request.cookies.get(ACTOR_COOKIE)),
         )
 
     @app.route("/log")
@@ -179,7 +229,82 @@ def create_app(status=None, board=None):
         since = _bounded_int(request.args.get("since"), 0, 0, 10**12)
         return jsonify(rig.log_since(since))
 
+    # -- what the Control tab sends -----------------------------------------
+
+    @app.route("/api/identify", methods=["POST"])
+    def identify():
+        """Remember, in this browser, the name to write beside a command."""
+        name = command_desk.clean_actor(_json_body().get("name"))
+        if not name:
+            return jsonify({"reason": "type a name first"}), 400
+        answer = make_response(jsonify({"actor": name}))
+        answer.set_cookie(
+            ACTOR_COOKIE,
+            name,
+            max_age=ACTOR_MAX_AGE,
+            samesite="Lax",
+            httponly=True,
+        )
+        return answer
+
+    def send(kind, number=None):
+        """Check a command, weigh the gate, and queue it. One shape for all.
+
+        Nothing here calls the rig. A queued command is `202` and an id; the
+        browser learns what actually happened from the next `/api/state`,
+        never by assuming its own request succeeded.
+        """
+        actor = command_desk.clean_actor(request.cookies.get(ACTOR_COOKIE))
+        snapshot = rig.read()
+
+        refused = command_desk.refusal(kind, snapshot.get("remote"), actor)
+        if refused:
+            return jsonify({"reason": refused}), 403
+        if command_desk.needs_acquisition(kind) and not snapshot.get("acquiring"):
+            return jsonify({"reason": command_desk.NO_ACQUISITION}), 409
+
+        try:
+            value = command_desk.validate(kind, _json_body(), number=number)
+            queued = desk.submit(
+                kind, value, actor=actor, origin=request.remote_addr or ""
+            )
+        except command_desk.Invalid as reason:
+            code = 409 if str(reason) == command_desk.TOO_MANY else 400
+            return jsonify({"reason": str(reason)}), code
+
+        return jsonify({"id": queued.id, "value": queued.summary()}), 202
+
+    @app.route("/api/stop-all", methods=["POST"])
+    def stop_all():
+        return send("stop_all")
+
+    @app.route("/api/mfc/<int:number>", methods=["POST"])
+    def mfc(number):
+        return send("mfc", number=number)
+
+    @app.route("/api/plasma-current", methods=["POST"])
+    def plasma_current():
+        return send("plasma")
+
+    @app.route("/api/gauge", methods=["POST"])
+    def gauge():
+        return send("gauge")
+
+    @app.route("/api/sync", methods=["POST"])
+    def sync():
+        return send("sync")
+
+    @app.route("/api/zero", methods=["POST"])
+    def zero():
+        return send("zero")
+
     return app
+
+
+def _json_body():
+    """The request's JSON object, or an empty one; never an exception."""
+    body = request.get_json(silent=True)
+    return body if isinstance(body, dict) else {}
 
 
 def _bounded_int(text, default, low, high):
@@ -191,13 +316,13 @@ def _bounded_int(text, default, low, high):
     return max(low, min(high, value))
 
 
-def serve_in_thread(status, host=DEFAULT_HOST, port=DEFAULT_PORT):
+def serve_in_thread(status, commands=None, host=DEFAULT_HOST, port=DEFAULT_PORT):
     """Start the web view on a daemon thread and return the thread.
 
     A daemon thread simply stops answering when the process ends, so the
     hardware-first shutdown order the Qt side owns is left exactly as it was.
     """
-    app = create_app(status)
+    app = create_app(status, commands=commands)
 
     def run():
         app.run(host=host, port=port, threaded=True, debug=False, use_reloader=False)

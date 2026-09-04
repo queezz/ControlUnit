@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 
 __about__ = """
 In this version we use two devices:
@@ -24,4 +24,11 @@ In this version we use two devices:
 This version adds an optional read-only web view, started with --web: a
 health report, a Live tab with the rig's values and two strip charts, a Log
 tab with the message log, and a Lab tab showing the three lab services.
+
+This version adds browser control on a Control tab: gas flow, plasma
+current, gauge mode and range, the QMS sync line, and the baselines of Ip,
+Bu and Bd can be set from a laptop. Setting is gated by a Remote switch on
+the rig's own screen and a name chosen in the browser; stopping every output
+is always allowed. A browser's instruction is queued and run by the Qt main
+thread, which calls the same methods the rig's own buttons call.
 """
