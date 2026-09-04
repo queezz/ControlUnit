@@ -13,26 +13,27 @@
 # limitations under the License.
 
 
-__version__ = "0.7.0"
+# The major number names an era of the program, by owner decision
+# 2026-09-04: 0 the prototypes, 1 the later updates, 2 the half-transition
+# to separate workers, 3 the thread fix the rig actually ran, 4 the rig on
+# the lab network. The second number moves for a feature, the third for a
+# fix; pyproject.toml carries the same number and a test holds them equal.
+# docs/history.md tells the eras in full.
+__version__ = "4.0.0"
 
 __about__ = """
-In this version we use two devices:
-- I2C ADC for signal records
-- DAC8532 AD/DA board for MFCs control
-- MCP4725 DAC for plasma current control
+Version 4: the rig on the lab network.
 
-This version adds an optional read-only web view, started with --web: a
-health report, a Live tab with the rig's values and two strip charts, a Log
-tab with the message log, and a Lab tab showing the three lab services.
-
-The Live tab can show its five readouts big, for reading the rig from a
-metre away, and can be told to poll four times a second while a gauge is
-zeroed at the rig.
-
-This version adds browser control on a Control tab: gas flow, plasma
-current, gauge mode and range, the QMS sync line, and the baselines of Ip,
-Bu and Bd can be set from a laptop. Setting is gated by a Remote switch on
-the rig's own screen and a name chosen in the browser; stopping every output
-is always allowed. A browser's instruction is queued and run by the Qt main
-thread, which calls the same methods the rig's own buttons call.
+Three devices are read and driven: the I2C ADC for signal records, the
+DAC8532 board for the mass-flow controllers, and the MCP4725 DAC for the
+plasma current. Beside the Qt window an optional web view, started with
+--web and on by default from the rig's launcher, serves a health report for
+the lab's ensemble of three services and four tabs: Live, the rig's values
+and two strip charts with big readouts and a fast poll; Control, which lets
+a browser set gas flow, plasma current, gauge mode and range, the QMS sync
+line and the Ip/Bu/Bd baselines behind a Remote switch on the rig's own
+screen, with Stop all outputs always allowed; Log, the message log; and
+Lab, the three services and how each is started. Every browser command is
+queued and run by the Qt main thread through the same methods the rig's
+own buttons call.
 """

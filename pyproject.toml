@@ -1,0 +1,38 @@
+# The package as the fleet and a packaging tool read it. The version here is
+# the same number as controlunit/_version.py, which the program itself reads
+# at run time; tests/test_version.py holds the two equal. The rig never
+# installs this package (it runs from its checkout, with its packages from
+# apt); off-rig work installs requirements.txt into the shared environment.
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "controlunit"
+version = "4.0.0"
+description = "Raspberry Pi plasma-lab control and data acquisition, with a web view on the lab network"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Arseniy Kuzmin" }]
+dependencies = [
+    "numpy>=1.17.4",
+    "pandas>=0.25.3",
+    "PyQt5>=5.14.1",
+    "PyQt5-sip>=12.7.0",
+    "pyqtgraph>=0.10.0",
+    "simple-pid>=1.0",
+    "PyYAML>=5.3",
+    "flask>=3,<4",
+]
+
+[project.urls]
+Homepage = "https://github.com/queezz/ControlUnit"
+Documentation = "https://queezz.github.io/ControlUnit/"
+
+[tool.setuptools.packages.find]
+include = ["controlunit*"]
+
+[tool.setuptools.package-data]
+controlunit = ["settings.yml", "web/templates/*.html", "web/static/css/*.css", "web/static/js/*.js"]

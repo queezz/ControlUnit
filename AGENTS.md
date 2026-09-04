@@ -18,10 +18,11 @@ ControlUnit venv:
 - macOS/Linux: `~/.venvs/hardware-dev/bin/python`
 
 Bare `python` on the Windows machine can resolve to Inkscape's interpreter, so
-always use the explicit venv path. The legacy `setup.py` currently names a
-nonexistent `controlunit/components` package and cannot be installed editable.
-Until that packaging metadata is repaired, install the declared dependencies
-and run from the repository root:
+always use the explicit venv path. `pyproject.toml` declares the package and
+its version (the same number as `controlunit/_version.py`; a test holds them
+equal, and the fleet reads the declared one). The rig installs nothing: it
+runs from its checkout, with its packages from apt. Off-rig, install the
+declared dependencies and run from the repository root:
 
 ```powershell
 & "$env:USERPROFILE\.venvs\hardware-dev\Scripts\python.exe" -m pip install -r requirements.txt -r requirements-docs.txt pytest

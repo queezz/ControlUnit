@@ -68,6 +68,26 @@ intense pushes during experimental downtime.
 Hardware: Raspberry Pi 3B → Pi 4 (8 GB), transparent to software.
 ```
 
+## Versions
+
+The major number names an era, not a release schedule (owner decision
+2026-09-04, on the fleet's rule to version by user-visible reality rather
+than strict SemVer). The numbers before 4 were never stamped on a release;
+they are the eras as Arseniy tells them, written here so the number in the
+tab bar means something to a student.
+
+| Major | Era | What the rig ran |
+|---|---|---|
+| 0 | The prototypes, 2020–2022 | The Echelle-derived monolithic worker; one class, every device by enum. |
+| 1 | The later updates, 2023 | Channel metadata in `settings.yml`, the ADC buffer redesign, logging to file, gain switching. |
+| 2 | Half the transition to separate workers, 2024 | The worker super class split and the pandas migration; MFC and MCP4725 integration; the first plasma-current PID. |
+| 3 | The thread fix, 2024–2026 | Signal declarations and `DirectConnection` wiring so the workers stop cleanly; the isolated DAC; the PID controlling in amperes. This is the code the rig ran until 2026-09-04. |
+| 4 | The rig on the lab network, from 2026-09-04 | The web view beside the Qt window: health for the ensemble of three, Live, Control behind the Remote switch, Log and Lab. |
+
+Within an era the second number moves for a feature and the third for a
+fix, and every copy of the number (`controlunit/_version.py`,
+`pyproject.toml`) moves together.
+
 ## Contributors
 
 | Handle | Person | Role |
