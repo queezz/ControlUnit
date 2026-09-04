@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 __about__ = """
 In this version we use two devices:
@@ -21,6 +21,7 @@ In this version we use two devices:
 - DAC8532 AD/DA board for MFCs control
 - MCP4725 DAC for plasma current control
 
-This version adds an optional read-only web view, started with --web, which
-serves a health report and a Lab page showing the three lab services.
+This version adds an optional read-only web view, started with --web: a
+health report, a Live tab with the rig's values and two strip charts, a Log
+tab with the message log, and a Lab tab showing the three lab services.
 """

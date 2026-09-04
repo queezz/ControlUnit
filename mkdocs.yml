@@ -83,6 +83,7 @@ nav:
   - Architecture:
       - Qt Threading: architecture/qt-threading.md
       - Signal Flow: architecture/signal-flow.md
+      - Web View: architecture/web-ui.md
   - Hardware:
       - Channel Map: hardware/channel-map.md
   - Ecosystem:

@@ -66,6 +66,8 @@ class MainApp(QtCore.QObject, UIWindow):
         self.web_status = RigStatus(
             channels=len(self.config["ADC Signal Names"]),
             sampling=self.sampling,
+            names=self.config["ADC Signal Names"],
+            units=self._web_units(),
         )
 
         # MARK: Current Values
@@ -79,6 +81,64 @@ class MainApp(QtCore.QObject, UIWindow):
 
         self.showMain()
         self.log_to_file(f"App started: {os.path.abspath(__file__)}")
+
+    # MARK: Web status
+    # Unit per conversion function, for the web view's readouts. A channel
+    # whose conversion returns the ADC voltage unchanged stays in volts.
+    _WEB_UNITS = {
+        "Hall Sensor": "A",
+        "Ionization Gauge": "Torr",
+        "Pfeiffer Single Gauge": "Torr",
+        "Pfeiffer IKR251": "Torr",
+        "Baratron": "Torr",
+        "cathode volt": "V",
+    }
+
+    def _web_units(self):
+        """Map each channel name to the unit its converted value carries."""
+        props = self.config["Adc Channel Properties"]
+        return {
+            name: self._WEB_UNITS.get(props[name].conversion_id, "V")
+            for name in props
+        }
+
+    def _for_web(self, text):
+        """
+        The same message the Log dock shows, minus this machine's paths:
+        a browser is told the data file's name, never where it lives.
+        """
+        folder = getattr(self, "datapath", "")
+        if not folder:
+            return text
+        for spelling in (os.path.abspath(folder), folder, folder.replace("\\", "/")):
+            if spelling:
+                text = text.replace(spelling + os.sep, "").replace(spelling + "/", "")
+        return text
+
+    def _publish_step(self, newdata):
+        """
+        Hand the web view the samples this step delivered, in the same
+        units and with the same zero adjustment the rig's own screen shows.
+        The web view must never stop the acquisition loop, so any failure
+        here is printed and swallowed.
+        """
+        try:
+            times = [
+                getattr(stamp, "to_pydatetime", lambda: stamp)().timestamp()
+                for stamp in newdata["date"]
+            ]
+            values = {}
+            for name, column in zip(
+                self.config["ADC Signal Names"], self.config["ADC Converted Names"]
+            ):
+                series = newdata[column].astype(float).tolist()
+                if name == "Ip":
+                    zero = self.zero_adjustment["Ip"]
+                    series = [value - zero for value in series]
+                values[name] = series
+            self.web_status.record_samples(times, values)
+        except Exception as error:
+            print(f"{RED}web status:{RESET} {error}")
 
     def update_plot_timewindow(self):
         """
@@ -181,6 +241,7 @@ class MainApp(QtCore.QObject, UIWindow):
     def _toggle_led_status(self):
         if not self.control_dock.OnOffSW.isChecked():
             return
+        self.web_status.record_setpoints(sync=self.control_dock.qmsSigSw.isChecked())
         if self.control_dock.qmsSigSw.isChecked():
             self.indicator_led.on()
         else:
@@ -334,6 +395,7 @@ class MainApp(QtCore.QObject, UIWindow):
 
         self.workers["ADC"]["worker"].set_plasma_current.emit(0)
         self.workers["PlasmaCurrent"]["worker"].output_voltage_signal.emit(0)
+        self.web_status.record_setpoints(plasma_a=0.0)
 
         self._mfc_presets = {1: 0, 2: 0}
         self.update_current_values()
@@ -348,6 +410,7 @@ class MainApp(QtCore.QObject, UIWindow):
         """
         self.turn_off_voltages()
         self.terminate_existing_threads()
+        self.web_status.set_acquiring(False)
 
     # MARK: logging
     def generate_time_stamp(self):
@@ -366,6 +429,7 @@ class MainApp(QtCore.QObject, UIWindow):
         """
         time_stamp = self.generate_time_stamp()
         self.log_to_file(strip_tags(message))
+        self.web_status.log(self._for_web(strip_tags(message)), time_stamp)
         new_line = f"<{htmltag}>{time_stamp}: {message}</{htmltag}>"
         if not self.logDock.log.toPlainText():
             self.logDock.log.setHtml(new_line)
@@ -396,6 +460,9 @@ class MainApp(QtCore.QObject, UIWindow):
             )
             with open(self.savepaths[device_name], "w") as f:
                 f.writelines(self.generate_header_adc())
+            # A new file is a new run for the web view: its ring empties and
+            # its run facts start again. The name only, never the path.
+            self.web_status.start_run(os.path.basename(self.savepaths[device_name]))
 
         self.log_datafile_name(device_name)
 
@@ -508,6 +575,7 @@ class MainApp(QtCore.QObject, UIWindow):
         self.baratronsignal1 = self.datadict["ADC"].iloc[-3:]["Bu"].mean()
         self.baratronsignal2 = self.datadict["ADC"].iloc[-3:]["Bd"].mean()
         self.update_plots(device_name)
+        self._publish_step(result[0])
 
     def _membrane_heater_step(self, result):
         device_name = result[-1]
@@ -543,6 +611,9 @@ class MainApp(QtCore.QObject, UIWindow):
         update current values when new signal comes
         """
         # self.tempcontrolDock.update_current_values(self.__temp, f"{self.currentvalues['T']:.0f}")
+        self.web_status.record_setpoints(
+            mfc1_v=self._mfc_presets[1], mfc2_v=self._mfc_presets[2]
+        )
         self.gasflow_dock.update_display(
             self._mfc_presets[1], f"{self.currentvalues['MFC1']*1000:.0f}", 1
         )
@@ -673,6 +744,7 @@ class MainApp(QtCore.QObject, UIWindow):
         ampere = self.plasma_control_dock.ampere_spin_box.value()
         # value = (ampere / 5 + 2.52) * 1000
         self.workers["ADC"]["worker"].set_plasma_current.emit(ampere)
+        self.web_status.record_setpoints(plasma_a=float(ampere))
 
     @QtCore.pyqtSlot()
     def turn_off_currentcontrol_voltage(self):
@@ -682,6 +754,7 @@ class MainApp(QtCore.QObject, UIWindow):
         self.plasma_control_dock.ampere_spin_box.setValue(0.0)
         self.workers["ADC"]["worker"].set_plasma_current.emit(0)
         self.workers["PlasmaCurrent"]["worker"].output_voltage_signal.emit(0)
+        self.web_status.record_setpoints(plasma_a=0.0)
         self.log_message("Plasma current PID turned off")
 
     @QtCore.pyqtSlot(float)
@@ -715,6 +788,7 @@ class MainApp(QtCore.QObject, UIWindow):
             return
         value = self.control_dock.IGmode.currentIndex()
         self.workers["ADC"]["worker"].set_ig_mode_signal.emit(value)
+        self.web_status.record_setpoints(ig_mode=self.control_dock.IGmode.currentText())
 
     @QtCore.pyqtSlot()
     def update_ig_range(self):
@@ -726,6 +800,7 @@ class MainApp(QtCore.QObject, UIWindow):
             return
         value = self.control_dock.IGrange.value()
         self.workers["ADC"]["worker"].set_ig_range_signal.emit(value)
+        self.web_status.record_setpoints(ig_range=value)
 
     @QtCore.pyqtSlot()
     def __set_gain(self):
@@ -754,6 +829,7 @@ class MainApp(QtCore.QObject, UIWindow):
         self.sampling = value
         self.update_plot_timewindow()
         self.workers["ADC"]["worker"].set_sampling_time(value)
+        self.web_status.describe_run(len(self.config["ADC Signal Names"]), value)
         self.log_message(f"ADC sampling set to {value}")
 
     @QtCore.pyqtSlot()
@@ -764,6 +840,7 @@ class MainApp(QtCore.QObject, UIWindow):
         value = self.settings_dock.output_voltage_spinbox.value() * 1000
         self.workers["ADC"]["worker"].set_plasma_current.emit(0)
         self.workers["PlasmaCurrent"]["worker"].output_voltage_signal.emit(value)
+        self.web_status.record_setpoints(plasma_a=0.0)
         self.log_message(f"Plasma DAC output set to {value/1000:.3f} V")
 
     @QtCore.pyqtSlot()

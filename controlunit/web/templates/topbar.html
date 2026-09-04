@@ -1,9 +1,12 @@
 <nav class="tabbar" aria-label="Main">
     <div class="tab-group">
-        <a class="tab brand-tab" href="{{ url_for('lab') }}">ControlUnit <span class="tab-version">v{{ app_version }}</span></a>
-        <span class="tab tab-later" aria-disabled="true">Live <span class="tab-mark">soon</span></span>
-        <span class="tab tab-later" aria-disabled="true">Control <span class="tab-mark">soon</span></span>
-        <span class="tab tab-later" aria-disabled="true">Log <span class="tab-mark">soon</span></span>
-        <a class="tab" href="{{ url_for('lab') }}" aria-current="page">Lab</a>
+        <a class="tab brand-tab" href="{{ url_for('live') }}">ControlUnit <span class="tab-version">v{{ app_version }}</span></a>
+        {% for key, label, endpoint in tabs %}
+        {% if endpoint %}
+        <a class="tab" href="{{ url_for(endpoint) }}"{% if key == active %} aria-current="page"{% endif %}>{{ label }}</a>
+        {% else %}
+        <span class="tab tab-later" aria-disabled="true">{{ label }} <span class="tab-mark">soon</span></span>
+        {% endif %}
+        {% endfor %}
     </div>
 </nav>

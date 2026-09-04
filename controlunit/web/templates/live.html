@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% block title %}Live · ControlUnit{% endblock %}
+{% block scripts %}
+<script defer src="{{ url_for('static', filename='js/live.js') }}?v={{ app_version }}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page" id="live"
+     data-default-window="{{ default_window }}"
+     data-pens='{{ pens | tojson }}'>
+
+    {# Controls live left: what changes what the main column shows. #}
+    <aside class="rail rail-left">
+        <section class="rail-card rail-card--fit">
+            <h2 class="rail-label">Window</h2>
+            <div class="choice-grid" role="group" aria-label="Window">
+                {% for label, seconds in windows %}
+                <button type="button" class="choice" data-window="{{ seconds }}"
+                        {% if seconds == default_window %}aria-pressed="true"{% else %}aria-pressed="false"{% endif %}>{{ label }}</button>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="rail-card rail-card--fit">
+            <h2 class="rail-label">Channels</h2>
+            <div class="choice-grid choice-grid--pens" role="group" aria-label="Channels">
+                {% for name, colour in pens %}
+                <button type="button" class="choice choice--pen" data-channel="{{ name }}" aria-pressed="true">
+                    <span class="pen-dot" style="background: {{ colour }}"></span>{{ name }}
+                </button>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="rail-card rail-card--fit">
+            <h2 class="rail-label">Scales</h2>
+            <div class="choice-row" role="group" aria-label="Pressure axis">
+                <span class="choice-caption">Pressure axis</span>
+                <button type="button" class="choice" data-scale="log" aria-pressed="true">log</button>
+                <button type="button" class="choice" data-scale="lin" aria-pressed="false">lin</button>
+            </div>
+        </section>
+    </aside>
+
+    <main class="page-main">
+        <h1>Live</h1>
+
+        {# Readouts: the value, in the pen's colour, and nothing beside it. #}
+        <div class="readouts">
+            {% for name, colour in pens %}
+            <div class="readout" data-readout="{{ name }}">
+                <span class="readout-name" style="color: {{ colour }}">{{ name }}</span>
+                <span class="readout-value mono" data-role="value">—</span>
+                <span class="readout-unit" data-role="unit"></span>
+            </div>
+            {% endfor %}
+        </div>
+
+        <section class="chart" aria-label="Plasma current">
+            <header class="chart-head">
+                <h2>Plasma current, A</h2>
+                <span class="chart-span muted" data-role="span-plasma"></span>
+            </header>
+            <canvas id="chart-plasma" height="220"></canvas>
+        </section>
+
+        <section class="chart" aria-label="Pressure">
+            <header class="chart-head">
+                <h2>Pressure, Torr</h2>
+                <span class="chart-span muted" data-role="span-pressure"></span>
+            </header>
+            <canvas id="chart-pressure" height="280"></canvas>
+        </section>
+    </main>
+
+    {# Context lives right: this run, and how fresh what you see is. #}
+    <aside class="rail rail-right">
+        <section class="rail-card rail-card--fit">
+            <h2 class="rail-label">This run</h2>
+            <dl class="facts">
+                <dt>File</dt>
+                <dd class="mono" data-fact="file">{{ state.run.file or '—' }}</dd>
+                <dt>Started</dt>
+                <dd data-fact="started">—</dd>
+                <dt>Samples</dt>
+                <dd class="mono" data-fact="samples">{{ state.run.samples }}</dd>
+                <dt>Rate</dt>
+                <dd class="mono" data-fact="rate">{{ state.run.rate or '—' }}</dd>
+                <dt>Hardware</dt>
+                <dd data-fact="hardware">{{ 'dummy' if state.dummy else 'real' }}</dd>
+                <dt>Plasma PID</dt>
+                <dd data-fact="plasma">—</dd>
+                <dt>Gas flow</dt>
+                <dd class="mono" data-fact="mfc">—</dd>
+            </dl>
+        </section>
+
+        <section class="rail-card rail-card--fit">
+            <h2 class="rail-label">Data</h2>
+            <p class="freshness">
+                <span class="chip chip-{{ state.data.state }}" data-role="data-state">{{ state.data.state }}</span>
+                <span class="mono muted" data-role="data-age"></span>
+            </p>
+            {# The one place the three data states are explained. #}
+            <dl class="legend-list">
+                <dt><span class="chip chip-live">live</span></dt>
+                <dd>the last sample is fresh</dd>
+                <dt><span class="chip chip-stale">stale</span></dt>
+                <dd>no sample for <span data-role="stale-after">{{ '%g' % state.data.stale_after }}</span> s or more</dd>
+                <dt><span class="chip chip-idle">idle</span></dt>
+                <dd>acquisition is off</dd>
+            </dl>
+        </section>
+    </aside>
+
+</div>
+{% endblock %}

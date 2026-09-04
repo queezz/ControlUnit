@@ -4,16 +4,44 @@ The Qt main thread owns every worker; this module owns nothing but a few
 plain values behind a lock. Nothing here imports PyQt, and nothing here
 reaches for a worker, a device or a file. The main thread writes; the web
 thread reads a copy.
+
+Slice two adds three things the Live and Log tabs read: the latest converted
+value of every channel, a bounded ring of recent samples for the strip
+charts, and the tail of the message log. All three are written from the
+main thread's existing step and log methods and cost a few list appends per
+call, so the acquisition loop is not slowed by a browser being open.
 """
 
+import bisect
+import collections
 import sys
 import threading
+import time
 
 # The dummy stubs are imported under either name depending on how the
 # package was entered, so both spellings count as "the stubs are loaded".
 _DUMMY_MODULES = ("devices.dummy", "controlunit.devices.dummy")
 
 SERVICE = "controlunit"
+
+#: How much of the run the browser can look back over. The CSV on disk is
+#: the record; this ring only feeds the live window.
+KEEP_SECONDS = 2 * 60 * 60
+
+#: A hard cap on the ring however fast the rig samples, so a mis-set sampling
+#: time cannot grow memory without bound. Two hours at 10 Hz is 72 000.
+MAX_SAMPLES = 200_000
+
+#: How many message-log lines the Log tab can read back.
+LOG_LINES = 1000
+
+#: The most points a series answer carries per channel. Six hundred is more
+#: than a strip chart a few hundred pixels wide can draw distinctly.
+MAX_POINTS = 600
+
+DATA_LIVE = "live"
+DATA_STALE = "stale"
+DATA_IDLE = "idle"
 
 
 def dummy_hardware_loaded():
@@ -24,32 +52,199 @@ def dummy_hardware_loaded():
 class RigStatus:
     """A small locked record of what the rig is doing right now."""
 
-    def __init__(self, channels=0, sampling=None):
+    def __init__(
+        self,
+        channels=0,
+        sampling=None,
+        names=(),
+        units=None,
+        keep_seconds=KEEP_SECONDS,
+        clock=time.time,
+    ):
         self._lock = threading.RLock()
+        self._clock = clock
         self._acquiring = False
         self._channels = int(channels or 0)
         self._sampling = sampling
+        self._names = list(names)
+        self._units = dict(units or {})
+        self._keep_seconds = float(keep_seconds)
 
-    def describe_run(self, channels, sampling):
+        self._latest = {}
+        self._last_sample_at = None
+        self._samples = 0
+        self._file = ""
+        self._started_at = None
+
+        # The ring: parallel deques so a window can be cut by time with a
+        # bisect on the times alone.
+        self._times = collections.deque(maxlen=MAX_SAMPLES)
+        self._rows = collections.deque(maxlen=MAX_SAMPLES)
+
+        self._setpoints = {
+            "mfc1_v": 0.0,
+            "mfc2_v": 0.0,
+            "plasma_a": 0.0,
+            "ig_mode": None,
+            "ig_range": None,
+            "sync": False,
+        }
+
+        self._log = collections.deque(maxlen=LOG_LINES)
+        self._log_seq = 0
+
+    # -- what the main thread writes -----------------------------------------
+
+    def describe_run(self, channels, sampling, names=None, units=None):
         """Record the channel count and sampling time the config declares."""
         with self._lock:
             self._channels = int(channels or 0)
             self._sampling = sampling
+            if names is not None:
+                self._names = list(names)
+            if units is not None:
+                self._units = dict(units)
 
     def set_acquiring(self, running):
         """Record whether the acquisition threads are running."""
         with self._lock:
             self._acquiring = bool(running)
+            if not self._acquiring:
+                self._last_sample_at = None
+
+    def start_run(self, file_name):
+        """A new data file has been opened: a new run starts, the ring empties."""
+        with self._lock:
+            self._file = str(file_name or "")
+            self._started_at = self._clock()
+            self._samples = 0
+            self._times.clear()
+            self._rows.clear()
+            self._latest = {}
+            self._last_sample_at = None
+
+    def record_samples(self, times, values):
+        """Append samples the ADC step delivered.
+
+        `times` is a sequence of epoch seconds; `values` maps a channel name
+        to a sequence of the same length holding converted values, already
+        adjusted the way the rig's own screen shows them.
+        """
+        times = [float(t) for t in times]
+        if not times:
+            return
+        columns = {name: list(column) for name, column in values.items()}
+        with self._lock:
+            for index, stamp in enumerate(times):
+                row = {}
+                for name, column in columns.items():
+                    try:
+                        row[name] = float(column[index])
+                    except (TypeError, ValueError, IndexError):
+                        row[name] = None
+                self._times.append(stamp)
+                self._rows.append(row)
+            self._samples += len(times)
+            self._latest = dict(self._rows[-1])
+            self._last_sample_at = self._clock()
+            self._trim()
+
+    def _trim(self):
+        """Drop what is older than the window the ring promises to keep."""
+        if not self._times:
+            return
+        oldest_kept = self._times[-1] - self._keep_seconds
+        while self._times and self._times[0] < oldest_kept:
+            self._times.popleft()
+            self._rows.popleft()
+
+    def record_setpoints(self, **setpoints):
+        """Record the setpoints the rig currently holds, by name."""
+        with self._lock:
+            for key, value in setpoints.items():
+                if key in self._setpoints:
+                    self._setpoints[key] = value
+
+    def log(self, text, stamp=None):
+        """Keep one message-log line, tags already stripped."""
+        with self._lock:
+            self._log_seq += 1
+            self._log.append(
+                {
+                    "seq": self._log_seq,
+                    "time": str(stamp or ""),
+                    "text": str(text or ""),
+                }
+            )
+
+    # -- what the web thread reads -------------------------------------------
 
     def read(self):
         """A snapshot the web thread may keep and use without the lock."""
         with self._lock:
+            now = self._clock()
+            age = None
+            if self._last_sample_at is not None:
+                age = max(0.0, now - self._last_sample_at)
             return {
                 "acquiring": self._acquiring,
                 "channels": self._channels,
                 "sampling": self._sampling,
                 "dummy": dummy_hardware_loaded(),
+                "names": list(self._names),
+                "units": dict(self._units),
+                "values": dict(self._latest),
+                "setpoints": dict(self._setpoints),
+                "file": self._file,
+                "started_at": self._started_at,
+                "samples": self._samples,
+                "held_seconds": self._keep_seconds,
+                "age": age,
+                "now": now,
             }
+
+    def series(self, window_seconds=0, max_points=MAX_POINTS, names=None):
+        """Thinned `[t, v]` pairs per channel over the last `window_seconds`.
+
+        A window of zero or less means everything the ring holds. Thinning
+        keeps every `skip`-th point plus the last one, the same arithmetic the
+        Qt graph uses, so a two hour window costs the same as a short one.
+        """
+        with self._lock:
+            times = list(self._times)
+            rows = list(self._rows)
+        if not times:
+            return {"from": None, "to": None, "count": 0, "channels": {}}
+        start = 0
+        if window_seconds and window_seconds > 0:
+            start = bisect.bisect_left(times, times[-1] - float(window_seconds))
+        times = times[start:]
+        rows = rows[start:]
+        count = len(times)
+        skip = 1
+        if max_points and count > max_points:
+            skip = -(-count // int(max_points))
+        picked = list(range(0, count, skip))
+        if picked and picked[-1] != count - 1:
+            picked.append(count - 1)
+        wanted = list(names) if names else list(self._names or rows[-1].keys())
+        channels = {}
+        for name in wanted:
+            channels[name] = [
+                [times[i], rows[i].get(name)] for i in picked if name in rows[i]
+            ]
+        return {"from": times[0], "to": times[-1], "count": count, "channels": channels}
+
+    def log_since(self, seq=0):
+        """Every kept log line after sequence number `seq`, oldest first."""
+        with self._lock:
+            lines = [dict(line) for line in self._log if line["seq"] > int(seq or 0)]
+            last = self._log_seq
+            held = len(self._log)
+        return {"lines": lines, "last": last, "held": held}
+
+
+# -- derived facts ------------------------------------------------------------
 
 
 def _rate_phrase(sampling):
@@ -66,6 +261,32 @@ def _rate_phrase(sampling):
     return "{:.3g} Hz".format(hertz)
 
 
+def stale_after(sampling):
+    """Seconds without a sample after which live data is called stale.
+
+    The ADC hands the main thread a few samples at a time, so a single
+    sampling period is too tight a bound; five periods, and never less than
+    two seconds, is the line between a hiccup and a stall.
+    """
+    try:
+        seconds = float(sampling)
+    except (TypeError, ValueError):
+        seconds = 0.0
+    return max(2.0, 5.0 * seconds) if seconds > 0 else 2.0
+
+
+def data_state(snapshot):
+    """One of `live`, `stale`, `idle` for the snapshot's freshness."""
+    if not snapshot.get("acquiring"):
+        return DATA_IDLE
+    age = snapshot.get("age")
+    if age is None:
+        return DATA_STALE
+    if age > stale_after(snapshot.get("sampling")):
+        return DATA_STALE
+    return DATA_LIVE
+
+
 def health_detail(snapshot):
     """One short sentence a lab person can read, or an empty string."""
     channels = snapshot.get("channels") or 0
@@ -79,9 +300,13 @@ def health_detail(snapshot):
         acquiring = "acquiring {:d} channels".format(channels)
     else:
         acquiring = "acquiring"
+    parts = [acquiring]
+    setpoints = snapshot.get("setpoints") or {}
+    if setpoints.get("plasma_a"):
+        parts.append("plasma PID on")
     if snapshot.get("dummy"):
-        return "{}, dummy hardware".format(acquiring)
-    return acquiring
+        parts.append("dummy hardware")
+    return ", ".join(parts)
 
 
 def health_body(status, version):
@@ -93,4 +318,46 @@ def health_body(status, version):
         "version": version,
         "status": "ok" if healthy else "degraded",
         "detail": health_detail(snapshot),
+    }
+
+
+def state_body(status, version):
+    """What every tab polls once a second: values, run facts, freshness."""
+    snapshot = status.read()
+    units = snapshot.get("units") or {}
+    values = snapshot.get("values") or {}
+    channels = []
+    for name in snapshot.get("names") or sorted(values):
+        channels.append(
+            {
+                "name": name,
+                "value": values.get(name),
+                "unit": units.get(name, ""),
+            }
+        )
+    started = snapshot.get("started_at")
+    elapsed = None
+    if started is not None:
+        elapsed = max(0.0, snapshot["now"] - started)
+    return {
+        "service": SERVICE,
+        "version": version,
+        "acquiring": bool(snapshot.get("acquiring")),
+        "dummy": bool(snapshot.get("dummy")),
+        "data": {
+            "state": data_state(snapshot),
+            "age": snapshot.get("age"),
+            "stale_after": stale_after(snapshot.get("sampling")),
+        },
+        "run": {
+            "file": snapshot.get("file") or "",
+            "started_at": started,
+            "elapsed": elapsed,
+            "samples": snapshot.get("samples") or 0,
+            "rate": _rate_phrase(snapshot.get("sampling")),
+            "sampling": snapshot.get("sampling"),
+            "held_seconds": snapshot.get("held_seconds"),
+        },
+        "setpoints": snapshot.get("setpoints") or {},
+        "channels": channels,
     }

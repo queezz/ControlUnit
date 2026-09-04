@@ -1,0 +1,79 @@
+"""Neighbours come from their own small file, with how each is started.
+
+`~/.controlunit/settings.yml` is a complete replacement for the packaged
+settings when it exists, so a file holding only neighbours would stop the
+rig from starting. The addresses therefore live in `neighbours.yml`; the
+older block in `settings.yml` is still honoured when the new file is absent.
+"""
+
+import io
+import json
+
+from controlunit.web import neighbours as neighbourhood
+from controlunit.web.neighbours import NeighbourBoard, read_neighbours
+from controlunit.web.server import create_app
+
+NEIGHBOURS = """\
+pihti-diagram:
+  url: http://rig.example:5000/
+  where: on this Pi, as a system service
+  start: sudo systemctl start pihti.service
+pihti-log:
+  url: http://vault.example:4310
+"""
+
+
+class FakeResponse(io.BytesIO):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+        return False
+
+
+def test_the_neighbours_file_carries_where_and_start(tmp_path):
+    home = tmp_path / ".controlunit"
+    home.mkdir()
+    (home / "neighbours.yml").write_text(NEIGHBOURS, encoding="utf-8")
+    entries = read_neighbours(home)
+    assert entries["pihti-diagram"] == {
+        "url": "http://rig.example:5000",
+        "where": "on this Pi, as a system service",
+        "start": "sudo systemctl start pihti.service",
+    }
+    assert entries["pihti-log"] == {"url": "http://vault.example:4310", "where": "", "start": ""}
+
+
+def test_the_old_settings_block_is_used_only_when_the_file_is_absent(tmp_path):
+    home = tmp_path / ".controlunit"
+    home.mkdir()
+    (home / "settings.yml").write_text(
+        "Settings Version: 1.3\nNeighbours:\n  pihti-log: http://old.example:4310\n",
+        encoding="utf-8",
+    )
+    assert read_neighbours(home)["pihti-log"]["url"] == "http://old.example:4310"
+    (home / "neighbours.yml").write_text(NEIGHBOURS, encoding="utf-8")
+    assert read_neighbours(home)["pihti-log"]["url"] == "http://vault.example:4310"
+
+
+def test_the_card_says_how_that_service_starts_or_nothing(tmp_path, monkeypatch):
+    home = tmp_path / ".controlunit"
+    home.mkdir()
+    (home / "neighbours.yml").write_text(NEIGHBOURS, encoding="utf-8")
+
+    def opener(url, timeout=None):
+        return FakeResponse(json.dumps({"status": "ok", "version": "0.7.0", "detail": ""}).encode())
+
+    monkeypatch.setattr(neighbourhood.urllib.request, "urlopen", opener)
+    client = create_app(board=NeighbourBoard(home=home)).test_client()
+    rows = {row["alias"]: row for row in client.get("/api/neighbours").get_json()["services"]}
+    assert rows["pihti-diagram"]["start"] == "sudo systemctl start pihti.service"
+    assert rows["pihti-diagram"]["where"] == "on this Pi, as a system service"
+    assert rows["pihti-log"]["start"] == ""
+    assert rows["pihti-log"]["where"] == ""
+
+    page = client.get("/lab").get_data(as_text=True)
+    assert "sudo systemctl start pihti.service" in page
+    assert "Runs on this Pi, as a system service." in page
+    assert "lab pihti-log" not in page

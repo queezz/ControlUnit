@@ -47,6 +47,14 @@
                 if (service.url) open.removeAttribute("aria-disabled");
                 else open.setAttribute("aria-disabled", "true");
             }
+            var where = card.querySelector('[data-role="where"]');
+            if (where) where.textContent = service.where ? "Runs " + service.where + "." : "";
+            var start = card.querySelector('[data-role="start"]');
+            if (start) start.textContent = service.start || "";
+            var toggle = card.querySelector(".howto .toggle");
+            if (toggle) toggle.hidden = !service.start;
+            var howto = card.querySelector(".howto");
+            if (howto) howto.hidden = !(service.where || service.start);
         }
         var address = document.querySelector('[data-address="' + service.alias + '"]');
         if (address) address.textContent = service.url || "not configured";

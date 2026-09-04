@@ -3,4 +3,6 @@ pandas>=0.25.3
 PyQt5>=5.14.1
 PyQt5-sip>=12.7.0
 pyqtgraph>=0.10.0
+simple-pid>=1.0
+PyYAML>=5.3
 flask>=3,<4

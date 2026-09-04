@@ -1,5 +1,8 @@
 {% extends 'base.html' %}
 {% block title %}Lab · ControlUnit{% endblock %}
+{% block scripts %}
+<script defer src="{{ url_for('static', filename='js/lab.js') }}?v={{ app_version }}"></script>
+{% endblock %}
 
 {% block content %}
 <div class="page">
@@ -7,7 +10,7 @@
     {# The left rail is the control track on every tab that has controls. The
        Lab tab has nothing to switch, so the track stands empty rather than
        being filled with invented controls, and the reading column keeps the
-       same address it will have on Live, Control and Log. #}
+       same address it has on Live and Log. #}
     <div class="rail rail-left" aria-hidden="true"></div>
 
     <main class="page-main">
@@ -38,12 +41,15 @@
                     {% endif %}
                 </div>
 
-                <div class="howto">
-                    <p class="howto-meaning">{{ service.meaning }}</p>
+                {# How that service is started on the machine it runs on. A
+                   card whose config says nothing about it says nothing. #}
+                <div class="howto" {% if not (service.where or service.start) %}hidden{% endif %}>
+                    <p class="howto-meaning" data-role="where">{% if service.where %}Runs {{ service.where }}.{% endif %}</p>
                     <button class="toggle" type="button" aria-expanded="false"
                             aria-controls="start-{{ service.alias }}"
-                            data-shows="start-{{ service.alias }}">show</button>
-                    <code class="howto-command" id="start-{{ service.alias }}" hidden>{{ service.start }}</code>
+                            data-shows="start-{{ service.alias }}"
+                            {% if not service.start %}hidden{% endif %}>show</button>
+                    <code class="howto-command" id="start-{{ service.alias }}" data-role="start" hidden>{{ service.start }}</code>
                 </div>
             </article>
             {% endfor %}
@@ -52,7 +58,7 @@
 
     <aside class="rail rail-right">
         <section class="rail-card rail-card--fit">
-            <h2 class="rail-label">On this machine</h2>
+            <h2 class="rail-label">Addresses this machine knows</h2>
             <dl class="facts">
                 {% for service in services %}
                 <dt>{{ service.name }}</dt>

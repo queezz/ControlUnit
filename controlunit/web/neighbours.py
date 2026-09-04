@@ -5,9 +5,27 @@ reads on all three services, and a neighbour's address would have to travel
 into the page. Instead this server asks each neighbour itself, over a two
 second timeout, and remembers the answer for ten seconds.
 
-Addresses come only from the machine-local file `~/.controlunit/settings.yml`,
-which the repository never carries. Nothing about the lab's topology lives in
-the portable source.
+Addresses come only from a machine-local file the repository never carries,
+`~/.controlunit/neighbours.yml`::
+
+    pihti-diagram:
+      url: http://pihti:5000
+      where: on this Pi, as a system service
+      start: sudo systemctl start pihti.service
+    pihti-log:
+      url: http://ak-office.local:4310
+      where: on the office Windows PC
+      start: lab pihti-log
+
+`url` is required for a neighbour to be asked at all. `where` and `start`
+are optional and say how *that* service is started on *the machine it runs
+on*; a card with neither says nothing about starting, rather than guessing.
+
+Why its own file, and not a block in `~/.controlunit/settings.yml`: the
+program treats a local `settings.yml` as a complete replacement for the
+packaged one, so a file holding only a neighbours block would stop the rig
+from starting. The older `Neighbours:` block in `settings.yml` is still read
+when `neighbours.yml` is absent, for a machine that already has one.
 """
 
 import json
@@ -21,9 +39,10 @@ from pathlib import Path
 TIMEOUT_SECONDS = 2.0
 CACHE_SECONDS = 10.0
 HEALTH_PATH = "/api/health"
+NEIGHBOURS_FILE = "neighbours.yml"
 
 #: The ensemble, in the order the page shows it: this service, then the two
-#: it stands beside. The alias is also the `lab` name used to start each one.
+#: it stands beside.
 NEIGHBOUR_ALIASES = ("pihti-log", "pihti-diagram")
 
 DISPLAY_NAMES = {
@@ -50,16 +69,10 @@ def settings_home():
     return Path.home() / ".controlunit"
 
 
-def read_addresses(home=None):
-    """Map each neighbour alias to its address, from local settings only.
-
-    A missing file, an unreadable one, or a file with no `Neighbours:` block
-    all mean the same thing here: this machine has not been told, which the
-    page shows as "not configured" rather than guessing.
-    """
-    path = Path(home) if home is not None else settings_home()
+def _load_yaml(path):
+    """The mapping a YAML file holds, or an empty one for any failure."""
     try:
-        text = (path / "settings.yml").read_text(encoding="utf-8")
+        text = Path(path).read_text(encoding="utf-8")
     except OSError:
         return {}
     try:
@@ -70,21 +83,47 @@ def read_addresses(home=None):
         data = yaml.safe_load(text)
     except Exception:
         return {}
-    if not isinstance(data, dict):
-        return {}
-    block = data.get("Neighbours")
-    if not isinstance(block, dict):
-        return {}
+    return data if isinstance(data, dict) else {}
 
-    addresses = {}
+
+def _entries(block):
+    """Normalise a neighbours mapping: alias -> {url, where, start}."""
+    entries = {}
+    if not isinstance(block, dict):
+        return entries
     for alias, value in block.items():
         if isinstance(value, dict):
             url = value.get("url") or value.get("URL")
+            where = value.get("where") or ""
+            start = value.get("start") or ""
         else:
-            url = value
+            url, where, start = value, "", ""
         if isinstance(url, str) and url.strip():
-            addresses[str(alias).strip()] = url.strip().rstrip("/")
-    return addresses
+            entries[str(alias).strip()] = {
+                "url": url.strip().rstrip("/"),
+                "where": str(where).strip(),
+                "start": str(start).strip(),
+            }
+    return entries
+
+
+def read_neighbours(home=None):
+    """Map each neighbour alias to its entry, from local files only.
+
+    A missing file, an unreadable one, or one with nothing usable all mean
+    the same thing here: this machine has not been told, which the page shows
+    as "not configured" rather than guessing.
+    """
+    path = Path(home) if home is not None else settings_home()
+    entries = _entries(_load_yaml(path / NEIGHBOURS_FILE))
+    if entries:
+        return entries
+    return _entries(_load_yaml(path / "settings.yml").get("Neighbours"))
+
+
+def read_addresses(home=None):
+    """Alias -> URL only; kept for callers that want nothing else."""
+    return {alias: entry["url"] for alias, entry in read_neighbours(home).items()}
 
 
 def _read_health(url, timeout=TIMEOUT_SECONDS):
@@ -135,11 +174,15 @@ class NeighbourBoard:
     def addresses(self):
         return read_addresses(self._home)
 
+    def entries(self):
+        return read_neighbours(self._home)
+
     def _probe_all(self):
-        addresses = self.addresses()
+        entries = self.entries()
         rows = []
         for alias in NEIGHBOUR_ALIASES:
-            url = addresses.get(alias, "")
+            entry = entries.get(alias) or {}
+            url = entry.get("url", "")
             if not url:
                 rows.append(
                     {
@@ -151,6 +194,8 @@ class NeighbourBoard:
                         # The chip states it and the rail legend explains it
                         # once; there is nothing further to say here.
                         "detail": "",
+                        "where": "",
+                        "start": "",
                     }
                 )
                 continue
@@ -163,6 +208,8 @@ class NeighbourBoard:
                     "state": state,
                     "version": version,
                     "detail": detail,
+                    "where": entry.get("where", ""),
+                    "start": entry.get("start", ""),
                 }
             )
         return rows
