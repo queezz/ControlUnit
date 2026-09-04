@@ -102,6 +102,9 @@ class MainApp(QtCore.QObject, UIWindow):
         self.plasma_control_dock.set_dac_voltage.clicked.connect(
             self.set_currentcontrol_voltage
         )
+        self.plasma_control_dock.turn_off_pid_btn.clicked.connect(
+            self.turn_off_currentcontrol_voltage
+        )
 
     def _init_calibration_connections(self):
         self.calibration_dock.calibrationBtn.clicked.connect(self.calibration)
@@ -131,6 +134,12 @@ class MainApp(QtCore.QObject, UIWindow):
     def _init_cocnnections(self):
         """Toggle plots for Current, Temperature, and Pressure"""
         self.settings_dock.setSamplingBtn.clicked.connect(self.__set_sampling)
+        self.settings_dock.set_output_voltage_btn.clicked.connect(
+            self.__set_plasma_output_voltage
+        )
+        self.settings_dock.turn_off_output_voltage_btn.clicked.connect(
+            self.__turn_off_plasma_output_voltage
+        )
         self.scale_dock.subzero_ip.clicked.connect(self._set_zero_ip)
 
     # MARK: GUI setup
@@ -189,6 +198,8 @@ class MainApp(QtCore.QObject, UIWindow):
         }
 
         self.devices = devices
+
+        self.savepaths = {}
         self.datadict = {
             # "MembraneTemperature": pd.DataFrame(columns=self.config["Temperature Columns"]),
             "ADC": pd.DataFrame(columns=self.config["ADC Column Names"]),
@@ -198,6 +209,7 @@ class MainApp(QtCore.QObject, UIWindow):
             "ADC": pd.DataFrame(columns=self.config["ADC Column Names"]),
         }
 
+        self.create_file("ADC")
 
         self.plot_methods = {
             "MAX6675": self.update_plots_max6675,
@@ -268,7 +280,6 @@ class MainApp(QtCore.QObject, UIWindow):
         worker.data_ready.connect(self.on_worker_step)
         worker.sigDone.connect(self.on_worker_done)
         worker.send_message.connect(self.log_message)
-        self.sigAbortWorkers.connect(worker.abort)
 
         if worker.device_name == "ADC":
             worker.send_control_voltage.connect(self._set_cathode_current)
@@ -278,7 +289,9 @@ class MainApp(QtCore.QObject, UIWindow):
         """Connect workers signals directly"""
         mfcs_worker = self.workers["MFCs"]["worker"]
         adc_worker = self.workers["ADC"]["worker"]
-        mfcs_worker.send_presets_to_adc.connect(adc_worker.update_mfcs)
+        mfcs_worker.send_presets_to_adc.connect(
+            adc_worker.update_mfcs, type=QtCore.Qt.DirectConnection
+        )
 
     # MARK: Abort
     def terminate_existing_threads(self):
@@ -306,11 +319,12 @@ class MainApp(QtCore.QObject, UIWindow):
             return
 
         self.workers["ADC"]["worker"].set_plasma_current.emit(0)
+        self.workers["PlasmaCurrent"]["worker"].output_voltage_signal.emit(0)
 
         self._mfc_presets = {1: 0, 2: 0}
         self.update_current_values()
-        self.workers["MFCs"]["worker"].output_voltage(1, 0)
-        self.workers["MFCs"]["worker"].output_voltage(2, 0)
+        self.workers["MFCs"]["worker"].output_voltage_signal.emit(1, 0)
+        self.workers["MFCs"]["worker"].output_voltage_signal.emit(2, 0)
 
     @QtCore.pyqtSlot()
     def abort_all_threads(self):
@@ -319,7 +333,6 @@ class MainApp(QtCore.QObject, UIWindow):
         This one signals to workers to stop.
         """
         self.turn_off_voltages()
-        self.sigAbortWorkers.emit()
         self.terminate_existing_threads()
 
     # MARK: logging
@@ -351,6 +364,64 @@ class MainApp(QtCore.QObject, UIWindow):
         # self.logDock.log.append(f"<{htmltag}>{nowstamp}: {message}</{htmltag}>")
 
     # MARK: Data - handling
+    def create_file(self, device_name):
+        """
+        Create file for saving sensor data
+        """
+        # if device_name == "MAX6675":
+        #     self.savepaths[device_name] = os.path.join(
+        #         os.path.abspath(self.datapath),
+        #         f"cu_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_temp.csv",
+        #     )
+        #     with open(self.savepaths[device_name], "w") as f:
+        #         f.writelines(self.generate_header_temperature())
+        if device_name == "ADC":
+            self.savepaths[device_name] = os.path.join(
+                os.path.abspath(self.datapath),
+                f"cu_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            )
+            with open(self.savepaths[device_name], "w") as f:
+                f.writelines(self.generate_header_adc())
+
+        self.log_datafile_name(device_name)
+
+    def log_datafile_name(self, device_name):
+        """Log filename of a datafile created"""
+        message = (
+            f"<font size=4 color='blue'>{device_name}</font>"
+            f" savepath:<br> {self.savepaths[device_name]}"
+        )
+        self.log_message(message)
+
+    def generate_header_adc(self):
+        """
+        Generage ADC header
+        """
+        return [
+            "# Title , Control Unit ADC signals\n",
+            f"# Date , {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n",
+            f"# Columns , {', '.join(self.config['ADC Column Names'])}\n",
+            f"# Signals , {', '.join(self.config['ADC Signal Names'])}\n",
+            f"# Channels , {', '.join([str(i) for i in self.config['ADC Channel Numbers']])}\n",
+            "# For converted signals '_c' is added\n",
+            "#\n",
+            "# [Data]\n",
+        ]
+
+    def generate_header_temperature(self):
+        """
+        Generage Teperature header
+        """
+        return [
+            "# Control Unit Temperature Control signals\n",
+            f"# Date: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n",
+            f"# Columns: {', '.join(self.config['Temperature Columns'])}\n",
+            f"# Heater GPIO: {self.config['Heater GPIO']}\n",
+            f"# LED GPIO: {self.config['LED GPIO']}\n",
+            "#\n",
+            "# [Data]\n",
+        ]
+
     # MARK: Data - append
     def append_data(self, device_name):
         """
@@ -387,6 +458,14 @@ class MainApp(QtCore.QObject, UIWindow):
     def calculate_skip_points(self, l, noskip=5000):
         return 1 if l < noskip else l // noskip + 1
 
+    def save_data(self, device_name):
+        """
+        Save sensor data
+        """
+        savepath = self.savepaths[device_name]
+        data = self.newdata[device_name]
+        data.to_csv(savepath, mode="a", header=False, index=False)
+
     # MARK: Worker Step
     @QtCore.pyqtSlot(list)
     def on_worker_step(self, result):
@@ -406,6 +485,7 @@ class MainApp(QtCore.QObject, UIWindow):
         #  self.data_ready.emit([newdata, self.device_name])
         self.newdata[device_name] = result[0]
         self.append_data(device_name)
+        self.save_data(device_name)
         for plotname, name in zip(
             self.config["ADC Signal Names"], self.config["ADC Converted Names"]
         ):
@@ -420,6 +500,7 @@ class MainApp(QtCore.QObject, UIWindow):
         # [self.data, self.device_name]
         self.newdata[device_name] = result[0]
         self.append_data(device_name)
+        self.save_data(device_name)
         # here 3 is number of data points recieved from worker.
         # TODO: update to self.newdata[device_name]['T'].mean()
         self.currentvalues["T"] = self.datadict[device_name].iloc[-3:]["T"].mean()
@@ -550,13 +631,12 @@ class MainApp(QtCore.QObject, UIWindow):
     def stop_mfc(self):
         """
         Sets 0V output for both Flow Controllers.
-        TODO: change to emitting signal
         """
         if not self.workers:
             return
         self._mfc_presets = {1: 0, 2: 0}
         self.update_current_values()
-        self.workers["MFCs"]["worker"].stop()
+        self.workers["MFCs"]["worker"].stop_signal.emit()
 
     def set_mfc_goal(self, mfc_num):
         if not self.workers:
@@ -565,7 +645,7 @@ class MainApp(QtCore.QObject, UIWindow):
         self._mfc_presets[mfc_num] = value
         voltage_now = self.currentvalues[f"MFC{mfc_num}"]
         self.update_current_values()
-        self.workers["MFCs"]["worker"].output_voltage(
+        self.workers["MFCs"]["worker"].output_voltage_signal.emit(
             mfc_num, self._mfc_presets[mfc_num]
         )
 
@@ -576,8 +656,19 @@ class MainApp(QtCore.QObject, UIWindow):
         """
         if not self.workers:
             return
-        value = self.plasma_control_dock.voltage_spin_box.value()
-        self.workers["ADC"]["worker"].set_plasma_current.emit(value)
+        ampere = self.plasma_control_dock.ampere_spin_box.value()
+        # value = (ampere / 5 + 2.52) * 1000
+        self.workers["ADC"]["worker"].set_plasma_current.emit(ampere)
+
+    @QtCore.pyqtSlot()
+    def turn_off_currentcontrol_voltage(self):
+        """Stop plasma current PID and force the DAC output to 0 V."""
+        if not self.workers:
+            return
+        self.plasma_control_dock.ampere_spin_box.setValue(0.0)
+        self.workers["ADC"]["worker"].set_plasma_current.emit(0)
+        self.workers["PlasmaCurrent"]["worker"].output_voltage_signal.emit(0)
+        self.log_message("Plasma current PID turned off")
 
     @QtCore.pyqtSlot(float)
     def _set_cathode_current(self, control_voltage):
@@ -587,14 +678,16 @@ class MainApp(QtCore.QObject, UIWindow):
         """
         if not self.workers:
             return
-        self.workers["PlasmaCurrent"]["worker"].output_voltage(control_voltage)
+        self.workers["PlasmaCurrent"]["worker"].output_voltage_signal.emit(
+            control_voltage
+        )
 
     # MARK: ADC controls
     def _set_zero_ip(self):
         """set current ip as 0"""
         if not self.workers:
             return
-        self.workers["ADC"]["worker"].set_zero_ip()
+        self.workers["ADC"]["worker"].set_zero_ip_signal.emit()
 
     @QtCore.pyqtSlot()
     def update_ig_mode(self):
@@ -607,7 +700,7 @@ class MainApp(QtCore.QObject, UIWindow):
         if not self.workers:
             return
         value = self.control_dock.IGmode.currentIndex()
-        self.workers["ADC"]["worker"].set_ig_mode(value)
+        self.workers["ADC"]["worker"].set_ig_mode_signal.emit(value)
 
     @QtCore.pyqtSlot()
     def update_ig_range(self):
@@ -618,7 +711,7 @@ class MainApp(QtCore.QObject, UIWindow):
         if not self.workers:
             return
         value = self.control_dock.IGrange.value()
-        self.workers["ADC"]["worker"].set_ig_range(value)
+        self.workers["ADC"]["worker"].set_ig_range_signal.emit(value)
 
     @QtCore.pyqtSlot()
     def __set_gain(self):
@@ -633,7 +726,7 @@ class MainApp(QtCore.QObject, UIWindow):
             return
         txt = self.adcgain_dock.gain_box.currentText()
         gain = self.adcgain_dock.gains[txt]
-        self.workers["ADC"]["worker"].set_adc_gain(gain)
+        self.workers["ADC"]["worker"].set_adc_gain_signal.emit(gain)
 
     @QtCore.pyqtSlot()
     def __set_sampling(self):
@@ -648,6 +741,26 @@ class MainApp(QtCore.QObject, UIWindow):
         self.update_plot_timewindow()
         self.workers["ADC"]["worker"].set_sampling_time(value)
         self.log_message(f"ADC sampling set to {value}")
+
+    @QtCore.pyqtSlot()
+    def __set_plasma_output_voltage(self):
+        """Set direct output voltage of plasma current DAC."""
+        if not self.workers:
+            return
+        value = self.settings_dock.output_voltage_spinbox.value() * 1000
+        self.workers["ADC"]["worker"].set_plasma_current.emit(0)
+        self.workers["PlasmaCurrent"]["worker"].output_voltage_signal.emit(value)
+        self.log_message(f"Plasma DAC output set to {value/1000:.3f} V")
+
+    @QtCore.pyqtSlot()
+    def __turn_off_plasma_output_voltage(self):
+        """Turn off direct output voltage of plasma current DAC."""
+        if not self.workers:
+            return
+        self.settings_dock.output_voltage_spinbox.setValue(0.0)
+        self.workers["ADC"]["worker"].set_plasma_current.emit(0)
+        self.workers["PlasmaCurrent"]["worker"].output_voltage_signal.emit(0)
+        self.log_message("Plasma DAC output turned off")
 
 
 # MARK: End

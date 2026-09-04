@@ -8,7 +8,8 @@ from PyQt5 import QtCore
 
 
 class CoreLogic(QtCore.QObject):
-    plot_update_signal = QtCore.pyqtSignal(object)  # To send data to the plot
+    # Signals within CoreLogic to centralize communication
+    plot_update_signal = QtCore.pyqtSignal(object)
 
     def __init__(self):
         super().__init__()

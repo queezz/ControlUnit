@@ -6,8 +6,6 @@ I2C アナログ入力ボード AIO-32/0RA-IRC
 https://www.y2c.co.jp/i2c-r/aio-32-0ra-irc/
 """
 
-import os
-from pathlib import Path
 import numpy as np
 import pandas as pd
 import time, datetime
@@ -25,6 +23,11 @@ class ADC(DeviceThread):
     send_control_voltage = QtCore.pyqtSignal(float)
     send_zero_adjustment = QtCore.pyqtSignal(dict)
     set_plasma_current = QtCore.pyqtSignal(float)
+    set_ig_mode_signal = QtCore.pyqtSignal(int)
+    set_ig_range_signal = QtCore.pyqtSignal(int)
+    set_trigger_signal_signal = QtCore.pyqtSignal(int)
+    set_adc_gain_signal = QtCore.pyqtSignal(int)
+    set_zero_ip_signal = QtCore.pyqtSignal()
 
     def __init__(self, device_name, app, startTime, config, pi):
         super().__init__(device_name, app, startTime, config, pi)
@@ -60,20 +63,36 @@ class ADC(DeviceThread):
         self.__qmsSignal = 0
         self._mfc_presets = {1: 0.0, 2: 0.0}
         self.plasma_current_setpopint = 0
+        self.control_voltage = 0
         self.plasma_current = 0
+        self.plasma_current_converted = 0
         self.zero_ip = 0
         self.zero_bu = 0
         self.sampling_time = self.config["Sampling Time"]
+        self.pid_verbose = self.config.get("Verbose.Plasma Current PID", False)
 
         self.connect_signals()
 
-        # handle data storage within this thread
-        self.datapath = Path(self.config["Data Folder"])
-        self.create_file()
-
     def connect_signals(self):
         """connect signals"""
-        self.set_plasma_current.connect(self._set_plasma_current)
+        self.set_plasma_current.connect(
+            self._set_plasma_current, type=QtCore.Qt.DirectConnection
+        )
+        self.set_ig_mode_signal.connect(
+            self.set_ig_mode, type=QtCore.Qt.DirectConnection
+        )
+        self.set_ig_range_signal.connect(
+            self.set_ig_range, type=QtCore.Qt.DirectConnection
+        )
+        self.set_trigger_signal_signal.connect(
+            self.set_trigger_signal, type=QtCore.Qt.DirectConnection
+        )
+        self.set_adc_gain_signal.connect(
+            self.set_adc_gain, type=QtCore.Qt.DirectConnection
+        )
+        self.set_zero_ip_signal.connect(
+            self.set_zero_ip, type=QtCore.Qt.DirectConnection
+        )
 
     def prep_adc_board(self):
         """
@@ -95,6 +114,7 @@ class ADC(DeviceThread):
             j.gain = self.gain_definitions[j.gainIndex]
 
     # MARK: Setters
+    @QtCore.pyqtSlot(int)
     def set_ig_mode(self, IGmode: int):
         """
         Sets Ionization Gauge mode from GUI
@@ -104,6 +124,7 @@ class ADC(DeviceThread):
         self.__IGmode = IGmode
         return
 
+    @QtCore.pyqtSlot(int)
     def set_ig_range(self, IGrange: int):
         """
         Sets Ionization Gauge range (scale) from GUI
@@ -112,6 +133,7 @@ class ADC(DeviceThread):
         self.__IGrange = IGrange
         return
 
+    @QtCore.pyqtSlot(int)
     def set_trigger_signal(self, signal: int):
         """
         Sets "trigger" signal from GUI for syncing QMS and RasPi data
@@ -135,6 +157,7 @@ class ADC(DeviceThread):
         mfc_num, voltage_preset = arg
         self.set_mfc_preset(voltage_preset, mfc_num)
 
+    @QtCore.pyqtSlot(int)
     def set_adc_gain(self, gain):
         """
         Set gain for Baratron channel on ADC
@@ -160,37 +183,6 @@ class ADC(DeviceThread):
         """
         self.adc_datarate = [self.aio.DataRate.DR_860SPS]
 
-    # MARK: Data saving
-    def create_file(self):
-        """Create a file for ADC data"""
-        fname = f"cu_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-        self.datapath.mkdir(parents=True, exist_ok=True)
-        self.savepath = self.datapath / fname
-        with open(self.savepath, "w") as f:
-            f.writelines(self.generate_header())
-        message = (
-            f"<font size=4 color='blue'>{self.device_name}</font>"
-            f" savepath:<br> {self.savepath}"
-        )
-        self.send_message.emit(message)
-
-    def generate_header(self):
-        """Generate header lines for ADC file"""
-        return [
-            "# Title , Control Unit ADC signals\n",
-            f"# Date , {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n",
-            f"# Columns , {', '.join(self.config['ADC Column Names'])}\n",
-            f"# Signals , {', '.join(self.config['ADC Signal Names'])}\n",
-            f"# Channels , {', '.join([str(i) for i in self.config['ADC Channel Numbers']])}\n",
-            "# For converted signals '_c' is added\n",
-            "#\n",
-            "# [Data]\n",
-        ]
-
-    def save_data(self, data):
-        """Append data to file"""
-        data.to_csv(self.savepath, mode="a", header=False, index=False)
-
     # MARK: Data append
     def put_new_data_in_dataframe(self):
         """
@@ -208,7 +200,7 @@ class ADC(DeviceThread):
                     self.__qmsSignal,
                     self._mfc_presets[1],
                     self._mfc_presets[2],
-                    self.plasma_current_setpopint,
+                    self.control_voltage,
                     *self.adc_voltages.values(),
                 ]
             ),
@@ -227,9 +219,12 @@ class ADC(DeviceThread):
         Update processed dataframe with new values
         """
         converted_values = []
+        raw_adc_debug = self.config.get("Debug.Raw ADC", False)
         for name, value in self.adc_voltages.items():
             conversion = self.adc_channels[name].conversion
-            if conversion.__name__ == "ionization_gauge":
+            if raw_adc_debug:
+                converted_values.append(value)
+            elif conversion.__name__ == "ionization_gauge":
                 converted_values.append(
                     conversion(value, self.__IGmode, self.__IGrange)
                 )
@@ -260,7 +255,6 @@ class ADC(DeviceThread):
         Clears temporary dataframes to reset memory consumption.
         """
         newdata = self.adc_values.join(self.converted_values)
-        self.save_data(newdata)
         self.data_ready.emit([newdata, self.device_name])
         self.clear_datasets()
 
@@ -274,6 +268,7 @@ class ADC(DeviceThread):
 
     # MARK: plasma current
 
+    @QtCore.pyqtSlot()
     def set_zero_ip(self):
         """set zero Ip"""
         if self.converted_values["Ip_c"].mean() is not np.nan:
@@ -282,7 +277,7 @@ class ADC(DeviceThread):
 
     def set_cathode_current(self, control_voltage):
         """Send cathode control voltage to main thread"""
-        self.plasma_current_setpopint = control_voltage
+        self.control_voltage = control_voltage
         self.send_control_voltage.emit(control_voltage)
 
     @QtCore.pyqtSlot(float)
@@ -309,9 +304,10 @@ class ADC(DeviceThread):
         Set PID parameters
         ouptput is control voltage, from 0 to 5000 V.
         """
-        p, i, d = 1, 0, 0
+        p, i, d = 30, 40, 0
         self.pid = PID(p, i, d, setpoint=self.plasma_current_setpopint)
-        self.pid.output_limits = (0, 2600)
+        self.pid.output_limits = (0, 4500)
+        # self.pid.integral_limits = (-1250, 1250)
         self.pid.sample_time = self.sampling_time * self.STEP
         # self.signal_send_pid.emit(self.pid.tunings)
 
@@ -319,9 +315,16 @@ class ADC(DeviceThread):
         """
         PID control plasma current
         """
-        output = self.pid(self.plasma_current - self.zero_ip)
+        baseline = 1000 #2000 #mV, corresponds to 16A
+        output = self.pid(self.plasma_current_converted - self.zero_ip)
+        output = output + baseline
         self.set_cathode_current(output)
-        #print(self.pid.components)
+        if self.pid_verbose:
+            print(
+                self.pid.setpoint,
+                output,
+                self.plasma_current_converted - self.zero_ip,
+            )
 
     # MARK: start
     @QtCore.pyqtSlot()
@@ -342,6 +345,7 @@ class ADC(DeviceThread):
             for _, ch in self.adc_channels.items()
         }
         self.plasma_current = self.adc_voltages["Ip"]
+        self.plasma_current_converted = self.adc_channels["Ip"].conversion(self.plasma_current)
 
     # MARK: main loop
     def acquisition_loop(self):
@@ -377,7 +381,6 @@ class ADC(DeviceThread):
             else:
                 step += 1
             totalStep += 1
-            self.__app.processEvents()
         else:
             # self.calculate_averaged_signals()
             self.send_processed_data_to_main_thread()

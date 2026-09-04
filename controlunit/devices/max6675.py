@@ -6,8 +6,6 @@ Thermocouple sensor with a thermistor.
 https://www.analog.com/media/en/technical-documentation/data-sheets/max6675.pdf
 """
 
-import os
-from pathlib import Path
 import numpy as np
 import pandas as pd
 import time, datetime
@@ -29,6 +27,7 @@ except ImportError as e:
 class MAX6675(DeviceThread):
 
     sigAbortHeater = QtCore.pyqtSignal()
+    set_heater_output = QtCore.pyqtSignal(float)
 
     def __init__(self, device_name, app, startTime, config, pi):
         super().__init__(device_name, app, startTime, config, pi)
@@ -36,7 +35,6 @@ class MAX6675(DeviceThread):
         self.device_name = device_name
         self.__startTime = startTime
         self.config = config
-        self.__abort = False
         self.pi = pi
         self.init()
 
@@ -55,15 +53,9 @@ class MAX6675(DeviceThread):
         self.__sumE = 0
         self.__exE = 0
 
-        self.datapath = Path(self.config["Data Folder"])
-        self.create_file()
-
     @QtCore.pyqtSlot()
     def abort(self):
-        message = "Worker thread {} aborting acquisition".format(self.device_name)
-        # self.send_message.emit(message)
-        # print(message)
-        self.__abort = True
+        self._abort = True
 
     def setPresetTemp(self, newTemp: int):
         self.temperature_setpoint = newTemp
@@ -82,7 +74,12 @@ class MAX6675(DeviceThread):
         self.thread.setObjectName("heater current")
         self.membrane_heater.moveToThread(self.thread)
         self.thread.started.connect(self.membrane_heater.work)
-        self.sigAbortHeater.connect(self.membrane_heater.setAbort)
+        self.sigAbortHeater.connect(
+            self.membrane_heater.setAbort, type=QtCore.Qt.DirectConnection
+        )
+        self.set_heater_output.connect(
+            self.membrane_heater.setOnLight, type=QtCore.Qt.DirectConnection
+        )
         self.thread.start()
 
     def init_thermocouple(self):
@@ -110,7 +107,6 @@ class MAX6675(DeviceThread):
         """
         Send processed data to main.py
         """
-        self.save_data(self.data)
         self.data_ready.emit([self.data, self.device_name])
 
     def clear_datasets(self):
@@ -118,36 +114,6 @@ class MAX6675(DeviceThread):
         Remove data from temporary dataframes
         """
         self.data = self.data.iloc[0:0]
-
-    # MARK: data saving
-    def create_file(self):
-        """Create file for temperature data"""
-        fname = f"cu_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_temp.csv"
-        self.datapath.mkdir(parents=True, exist_ok=True)
-        self.savepath = self.datapath / fname
-        with open(self.savepath, "w") as f:
-            f.writelines(self.generate_header())
-        message = (
-            f"<font size=4 color='blue'>{self.device_name}</font>"
-            f" savepath:<br> {self.savepath}"
-        )
-        self.send_message.emit(message)
-
-    def generate_header(self):
-        """Generate header for temperature data"""
-        return [
-            "# Control Unit Temperature Control signals\n",
-            f"# Date: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n",
-            f"# Columns: {', '.join(self.columns)}\n",
-            f"# Heater GPIO: {self.config['Heater GPIO']}\n",
-            f"# LED GPIO: {self.config['LED GPIO']}\n",
-            "#\n",
-            "# [Data]\n",
-        ]
-
-    def save_data(self, data):
-        """Append data to temperature file"""
-        data.to_csv(self.savepath, mode="a", header=False, index=False)
 
     def update_dataframe(self):
         """
@@ -179,7 +145,7 @@ class MAX6675(DeviceThread):
 
         step = 0
 
-        while not (self.__abort):
+        while not (self._abort):
             time.sleep(self.sampling_time)
             self.read_thermocouple()
             self.update_dataframe()
@@ -192,7 +158,6 @@ class MAX6675(DeviceThread):
                 step = 0
             else:
                 step += 1
-            self.__app.processEvents()
         else:
             # ABORTING
             self.calculate_average()
@@ -230,9 +195,9 @@ class MAX6675(DeviceThread):
         if e >= 0:
             output = Kp * e + Ki * integral + Kd * derivative
             output = output * 0.0002
-            self.membrane_heater.setOnLight(max(output, 0))
+            self.set_heater_output.emit(max(output, 0))
         else:
-            self.membrane_heater.setOnLight(0)
+            self.set_heater_output.emit(0)
         self.__exE = e
         self.__sumE = integral
 
