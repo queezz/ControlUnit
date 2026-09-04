@@ -657,8 +657,8 @@ class MainApp(QtCore.QObject, UIWindow):
         if not self.workers:
             return
         ampere = self.plasma_control_dock.ampere_spin_box.value()
-        value = (ampere / 5 + 2.52) * 1000
-        self.workers["ADC"]["worker"].set_plasma_current.emit(value)
+        # value = (ampere / 5 + 2.52) * 1000
+        self.workers["ADC"]["worker"].set_plasma_current.emit(ampere)
 
     @QtCore.pyqtSlot()
     def turn_off_currentcontrol_voltage(self):

@@ -64,6 +64,7 @@ class ADC(DeviceThread):
         self._mfc_presets = {1: 0.0, 2: 0.0}
         self.plasma_current_setpopint = 0
         self.plasma_current = 0
+        self.plasma_current_converted = 0
         self.zero_ip = 0
         self.zero_bu = 0
         self.sampling_time = self.config["Sampling Time"]
@@ -302,7 +303,7 @@ class ADC(DeviceThread):
         Set PID parameters
         ouptput is control voltage, from 0 to 5000 V.
         """
-        p, i, d = 0.3, 0.1, 0
+        p, i, d = 30, 40, 0
         self.pid = PID(p, i, d, setpoint=self.plasma_current_setpopint)
         self.pid.output_limits = (0, 4500)
         # self.pid.integral_limits = (-1250, 1250)
@@ -314,7 +315,7 @@ class ADC(DeviceThread):
         PID control plasma current
         """
         baseline = 1000 #2000 #mV, corresponds to 16A
-        output = self.pid((self.plasma_current - self.zero_ip) * 1000)
+        output = self.pid(self.plasma_current_converted - self.zero_ip)
         output = output + baseline
         self.set_cathode_current(output)
         if self.pid_verbose:
@@ -343,6 +344,7 @@ class ADC(DeviceThread):
             for _, ch in self.adc_channels.items()
         }
         self.plasma_current = self.adc_voltages["Ip"]
+        self.plasma_current_converted = self.adc_channels["Ip"].conversion(self.plasma_current)
 
     # MARK: main loop
     def acquisition_loop(self):
