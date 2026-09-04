@@ -10,6 +10,12 @@ value of every channel, a bounded ring of recent samples for the strip
 charts, and the tail of the message log. All three are written from the
 main thread's existing step and log methods and cost a few list appends per
 call, so the acquisition loop is not slowed by a browser being open.
+
+Slice three adds three more, for the Control tab: whether the Remote switch
+on the rig's own screen is on, the baseline zeros the display subtracts, and
+what became of the last command a browser sent. The browser learns what
+happened from the next reading of this record, never by assuming its own
+request succeeded.
 """
 
 import collections
@@ -37,6 +43,10 @@ LOG_LINES = 1000
 #: The most points a series answer carries per channel. Six hundred is more
 #: than a strip chart a few hundred pixels wide can draw distinctly.
 MAX_POINTS = 600
+
+#: The channels whose baseline the screen, the plots and the web subtract.
+#: The CSV on disk is never adjusted; a zero is a way of reading, not data.
+ZERO_CHANNELS = ("Ip", "Bu", "Bd")
 
 DATA_LIVE = "live"
 DATA_STALE = "stale"
@@ -91,6 +101,12 @@ class RigStatus:
 
         self._log = collections.deque(maxlen=LOG_LINES)
         self._log_seq = 0
+
+        # Browser control: the switch on the rig's screen, the baselines the
+        # display subtracts, and the fate of the last command sent.
+        self._remote = False
+        self._zeros = {name: 0.0 for name in ZERO_CHANNELS}
+        self._last_command = None
 
     # -- what the main thread writes -----------------------------------------
 
@@ -164,6 +180,26 @@ class RigStatus:
                 if key in self._setpoints:
                     self._setpoints[key] = value
 
+    def set_remote(self, on):
+        """Record the Remote switch on the rig's own screen."""
+        with self._lock:
+            self._remote = bool(on)
+
+    def record_zeros(self, zeros):
+        """Record the baselines the display and the web view subtract."""
+        with self._lock:
+            for name in ZERO_CHANNELS:
+                if name in (zeros or {}):
+                    try:
+                        self._zeros[name] = float(zeros[name])
+                    except (TypeError, ValueError):
+                        self._zeros[name] = 0.0
+
+    def record_command(self, record):
+        """Keep what became of the last command a browser sent."""
+        with self._lock:
+            self._last_command = dict(record or {})
+
     def log(self, text, stamp=None):
         """Keep one message-log line, tags already stripped."""
         with self._lock:
@@ -194,6 +230,9 @@ class RigStatus:
                 "units": dict(self._units),
                 "values": dict(self._latest),
                 "setpoints": dict(self._setpoints),
+                "remote": self._remote,
+                "zeros": dict(self._zeros),
+                "last_command": dict(self._last_command) if self._last_command else None,
                 "file": self._file,
                 "started_at": self._started_at,
                 "samples": self._samples,
@@ -375,5 +414,11 @@ def state_body(status, version):
             "held_seconds": snapshot.get("held_seconds"),
         },
         "setpoints": snapshot.get("setpoints") or {},
+        # Browser control: whether the rig's own switch allows it, the
+        # baselines the readings above already have subtracted, and what
+        # became of the last command sent. The page reads its answer here.
+        "remote": bool(snapshot.get("remote")),
+        "zeros": snapshot.get("zeros") or {},
+        "last_command": snapshot.get("last_command"),
         "channels": channels,
     }

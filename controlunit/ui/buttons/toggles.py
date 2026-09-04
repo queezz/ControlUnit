@@ -64,6 +64,22 @@ class OnOffSwitch(MySwitch):
     colors = [QtGui.QColor("#8df01d"), QtGui.QColor("#b89c76")]
 
 
+class RemoteSwitch(MySwitch):
+    """Whether a browser on the lab network may change a setpoint.
+
+    Off is the resting state and the safe one: with this switch off the web
+    view can only read, exactly as it did before browser control existed. It
+    is a switch on the rig's own screen on purpose — gas flow and cathode
+    current move on it, so a person standing at the rig decides.
+    """
+
+    radius = 14
+    width = 44
+
+    labels = ["REMOTE", "LOCAL"]
+    colors = [QtGui.QColor("#e0a63a"), QtGui.QColor("#b89c76")]
+
+
 class ToggleCurrentPlot(MySwitch):
     radius = 15
     width = 30

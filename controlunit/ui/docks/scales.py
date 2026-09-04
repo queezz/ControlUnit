@@ -36,16 +36,25 @@ class PlotScaleDock(Dock):
         self.togYLog = ToggleYLogScale()
 
     def _init_buttons(self):
+        # One baseline button per channel that has one. Each takes the mean
+        # of what the channel reads now as its zero; the display, the plots
+        # and the web view subtract it, and the CSV never does.
         self.subzero_ip = QtWidgets.QPushButton("O Ip")
         self.subzero_baratron = QtWidgets.QPushButton("O Bu")
+        self.subzero_baratron_down = QtWidgets.QPushButton("O Bd")
         [
             btn.setStyleSheet("font: 20pt")
-            for btn in [self.subzero_ip, self.subzero_baratron]
+            for btn in [
+                self.subzero_ip,
+                self.subzero_baratron,
+                self.subzero_baratron_down,
+            ]
         ]
 
     def _add_buttons(self):
         self.widget.addWidget(self.subzero_ip, 2, 2)
         self.widget.addWidget(self.subzero_baratron, 2, 3)
+        self.widget.addWidget(self.subzero_baratron_down, 3, 3)
 
     def _init_spinboxes(self):
         self.Pmax = QtWidgets.QSpinBox()

@@ -1,4 +1,4 @@
-"""The three pages render, share one tab bar, and keep their assets local."""
+"""The four pages render, share one tab bar, and keep their assets local."""
 
 import re
 
@@ -31,6 +31,13 @@ def lab(client):
 @pytest.fixture
 def log(client):
     response = client.get("/log")
+    assert response.status_code == 200
+    return response.get_data(as_text=True)
+
+
+@pytest.fixture
+def control(client):
+    response = client.get("/control")
     assert response.status_code == 200
     return response.get_data(as_text=True)
 
@@ -77,11 +84,68 @@ def test_the_fast_poll_is_not_remembered_and_the_big_readouts_are(client):
     assert "view.fast" not in script
 
 
-def test_the_tab_bar_marks_control_as_not_built(live, log, lab):
-    for page in (live, log, lab):
-        assert "Control <span class=\"tab-mark\">soon</span>" in page
+def test_the_tab_bar_leads_to_every_tab_and_marks_none_unbuilt(live, log, lab, control):
+    for page in (live, log, lab, control):
+        assert "tab-mark" not in page
+        assert 'href="/control"' in page
         assert 'href="/log"' in page
         assert 'href="/lab"' in page
+
+
+def test_control_is_the_current_tab_on_its_own_page(control):
+    assert 'aria-current="page">Control<' in control
+
+
+def test_control_carries_its_five_groups_as_jump_targets(control):
+    for anchor in (
+        "sec-acquisition",
+        "sec-gas",
+        "sec-plasma",
+        "sec-gauge",
+        "sec-baselines",
+    ):
+        assert 'id="{}"'.format(anchor) in control
+        assert 'href="#{}"'.format(anchor) in control
+
+
+def test_control_offers_every_command_the_slice_built(control):
+    assert 'data-role="stop-all"' in control
+    for number in (1, 2):
+        assert 'data-mfc="{}"'.format(number) in control
+    assert 'data-role="plasma-set"' in control
+    assert 'data-role="plasma-off"' in control
+    assert 'data-role="gauge-mode"' in control
+    assert 'data-role="gauge-range"' in control
+    assert 'data-role="sync"' in control
+    for channel in ("Ip", "Bu", "Bd"):
+        assert 'data-zero="{}"'.format(channel) in control
+
+
+def test_control_offers_the_same_gauge_range_the_rig_does(control):
+    for decade in range(-8, -2):
+        assert 'data-range="{}"'.format(decade) in control
+
+
+def test_the_gate_is_explained_in_exactly_one_place(control):
+    """The Remote card teaches once; no row carries its own reason."""
+    assert control.count("Setting is off until the switch on the rig is on.") == 1
+    assert control.count('data-role="remote-why"') == 1
+    assert control.count('data-role="status"') == 1
+
+
+def test_control_asks_state_and_posts_the_command_routes(client):
+    script = client.get("/static/js/control.js").get_data(as_text=True)
+    assert "/api/state" in script
+    for route in (
+        "/api/identify",
+        "/api/stop-all",
+        "/api/mfc/",
+        "/api/plasma-current",
+        "/api/gauge",
+        "/api/sync",
+        "/api/zero",
+    ):
+        assert route in script
 
 
 def test_the_lab_page_names_the_three_services(lab):
@@ -108,20 +172,25 @@ def test_an_unconfigured_neighbour_says_nothing_about_starting(lab):
     assert "scripts/run_controlunit.sh" in lab  # this program's own launcher
 
 
-def test_assets_are_keyed_to_the_version(live, log, lab):
-    for page, asset in ((live, "js/live.js"), (log, "js/log.js"), (lab, "js/lab.js")):
+def test_assets_are_keyed_to_the_version(live, log, lab, control):
+    for page, asset in (
+        (live, "js/live.js"),
+        (log, "js/log.js"),
+        (lab, "js/lab.js"),
+        (control, "js/control.js"),
+    ):
         assert re.search(re.escape("css/controlunit.css") + r"\?v=" + re.escape(__version__), page)
         assert re.search(re.escape(asset) + r"\?v=" + re.escape(__version__), page)
 
 
-@pytest.mark.parametrize("path", ["/", "/log", "/lab"])
+@pytest.mark.parametrize("path", ["/", "/control", "/log", "/lab"])
 def test_the_pages_fetch_nothing_from_the_internet(client, path):
     page = client.get(path).get_data(as_text=True)
     assert "//" not in page.replace("http://", "").replace("https://", "")
     assert "cdn" not in page.lower()
 
 
-@pytest.mark.parametrize("path", ["/", "/log", "/lab"])
+@pytest.mark.parametrize("path", ["/", "/control", "/log", "/lab"])
 def test_every_page_uses_the_three_track_grid_with_both_rails(client, path):
     page = client.get(path).get_data(as_text=True)
     assert 'class="page"' in page

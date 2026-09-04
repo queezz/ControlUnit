@@ -28,4 +28,11 @@ tab with the message log, and a Lab tab showing the three lab services.
 The Live tab can show its five readouts big, for reading the rig from a
 metre away, and can be told to poll four times a second while a gauge is
 zeroed at the rig.
+
+This version adds browser control on a Control tab: gas flow, plasma
+current, gauge mode and range, the QMS sync line, and the baselines of Ip,
+Bu and Bd can be set from a laptop. Setting is gated by a Remote switch on
+the rig's own screen and a name chosen in the browser; stopping every output
+is always allowed. A browser's instruction is queued and run by the Qt main
+thread, which calls the same methods the rig's own buttons call.
 """

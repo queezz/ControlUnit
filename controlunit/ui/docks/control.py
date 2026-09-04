@@ -1,7 +1,7 @@
 import pyqtgraph as pg
 from PyQt5 import QtGui, QtCore, QtWidgets
 from pyqtgraph.dockarea import Dock
-from ..buttons.toggles import MySwitch, OnOffSwitch, QmsSwitch
+from ..buttons.toggles import MySwitch, OnOffSwitch, QmsSwitch, RemoteSwitch
 from ..widgets.analoggauge import AnalogGaugeWidget
 from readsettings import select_settings
 
@@ -100,17 +100,28 @@ class ControlDock(Dock):
         self.FullNormSW = MySwitch()
         self.OnOffSW = OnOffSwitch()
         self.OnOffSW.setFont(QtGui.QFont("serif", 16))
+        # Beside the on/off switch, because it is the same kind of decision:
+        # whether something outside this dock may move the hardware. It rests
+        # off and is forced off whenever acquisition stops.
+        self.remoteSW = RemoteSwitch()
+        self.remoteSW.setFont(QtGui.QFont("serif", 16))
 
     def _add_main_widgets(self):
-        """Add widgets to the layout"""
-        self.widget.addWidget(self.OnOffSW, 0, 0, 1, 2)
-        self.widget.addWidget(self.qmsSigSw, 0, 2, 1, 2)
-        self.widget.addWidget(self.quitBtn, 0, 4, 1, 2)
-        self.widget.addWidget(self.valueBw, 1, 0, 1, 6)
-        self.widget.addWidget(self.FullNormSW, 2, 0, 1, 2)
-        self.widget.addWidget(self.scaleBtn, 2, 2)
-        self.widget.addWidget(self.IGmode, 2, 3, 1, 2)
-        self.widget.addWidget(self.IGrange, 2, 5)
+        """Add widgets to the layout.
+
+        Twelve columns rather than six so the Remote switch takes its place
+        in the top row beside On/Off without changing any other widget's
+        share of the width: every span below is doubled.
+        """
+        self.widget.addWidget(self.OnOffSW, 0, 0, 1, 3)
+        self.widget.addWidget(self.remoteSW, 0, 3, 1, 3)
+        self.widget.addWidget(self.qmsSigSw, 0, 6, 1, 3)
+        self.widget.addWidget(self.quitBtn, 0, 9, 1, 3)
+        self.widget.addWidget(self.valueBw, 1, 0, 1, 12)
+        self.widget.addWidget(self.FullNormSW, 2, 0, 1, 4)
+        self.widget.addWidget(self.scaleBtn, 2, 4, 1, 2)
+        self.widget.addWidget(self.IGmode, 2, 6, 1, 4)
+        self.widget.addWidget(self.IGrange, 2, 10, 1, 2)
 
     def __init_analog_gauge(self):
         """Initialize the analog gauge (removed from GUI)."""
