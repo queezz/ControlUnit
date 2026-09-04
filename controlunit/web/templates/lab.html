@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block title %}Lab · ControlUnit{% endblock %}
+
+{% block content %}
+<div class="page">
+
+    {# The left rail is the control track on every tab that has controls. The
+       Lab tab has nothing to switch, so the track stands empty rather than
+       being filled with invented controls, and the reading column keeps the
+       same address it will have on Live, Control and Log. #}
+    <div class="rail rail-left" aria-hidden="true"></div>
+
+    <main class="page-main">
+        <h1>The lab's three services</h1>
+
+        <div class="services">
+            {% for service in services %}
+            <article class="service" data-alias="{{ service.alias }}">
+                <header class="service-head">
+                    <h2>{{ service.name }}</h2>
+                    <span class="chip chip-{{ service.state | replace(' ', '-') }}"
+                          data-role="state">{{ service.state }}</span>
+                </header>
+
+                <p class="service-detail" data-role="detail">{{ service.detail }}</p>
+
+                <dl class="facts">
+                    <dt>Version</dt>
+                    <dd class="mono" data-role="version">{{ service.version or '—' }}</dd>
+                </dl>
+
+                <div class="service-actions">
+                    {% if service.here %}
+                    <span class="here-note">You are reading it</span>
+                    {% else %}
+                    <a class="button" data-role="open" href="{{ service.url }}"
+                       {% if not service.url %}aria-disabled="true"{% endif %}>Open</a>
+                    {% endif %}
+                </div>
+
+                <div class="howto">
+                    <p class="howto-meaning">{{ service.meaning }}</p>
+                    <button class="toggle" type="button" aria-expanded="false"
+                            aria-controls="start-{{ service.alias }}"
+                            data-shows="start-{{ service.alias }}">show</button>
+                    <code class="howto-command" id="start-{{ service.alias }}" hidden>{{ service.start }}</code>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+    </main>
+
+    <aside class="rail rail-right">
+        <section class="rail-card rail-card--fit">
+            <h2 class="rail-label">On this machine</h2>
+            <dl class="facts">
+                {% for service in services %}
+                <dt>{{ service.name }}</dt>
+                <dd class="mono" data-address="{{ service.alias }}">{{ service.url or 'not configured' }}</dd>
+                {% endfor %}
+            </dl>
+        </section>
+
+        {# The one place on the surface where a state is explained. Everywhere
+           else the chip stands alone. #}
+        <section class="rail-card rail-card--fit legend">
+            <h2 class="rail-label">What a state means</h2>
+            <div class="scrolls">
+                <dl class="legend-list">
+                    {% for state, meaning in legend %}
+                    <dt><span class="chip chip-{{ state | replace(' ', '-') }}">{{ state }}</span></dt>
+                    <dd>{{ meaning }}</dd>
+                    {% endfor %}
+                </dl>
+            </div>
+        </section>
+    </aside>
+
+</div>
+{% endblock %}

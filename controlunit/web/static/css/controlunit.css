@@ -1,0 +1,391 @@
+/* ControlUnit's web view. Self-contained: no framework, no CDN, no icon
+ * font, no build step, nothing fetched from the internet — the rig's LAN may
+ * have none.
+ *
+ * Structure follows Fleet's web UI law (fleet/WEBUI.md) and the PIHTI
+ * diagram's own page grid: a sticky tab bar, a three-track grid whose rails
+ * never move, rail cards with one uppercase micro-heading each, controls on
+ * the left and context on the right.
+ *
+ * Colour is per-tool dressing (owner ruling 2026-08-10) and this one is the
+ * warm charcoal and amber of the design brief, so the rig's tab tells apart
+ * from the diagram's and the journal's cool dark at a glance. */
+
+:root {
+  color-scheme: dark;
+
+  --bg: #171a1f;
+  --header: #1c2026;
+  --panel: #1f2329;
+  --inset: #191d22;
+
+  --fg: rgba(236, 233, 226, 0.92);
+  --muted: rgba(236, 233, 226, 0.58);
+  --dim: rgba(236, 233, 226, 0.42);
+
+  --line: rgba(255, 255, 255, 0.11);
+  --line-soft: rgba(255, 255, 255, 0.06);
+
+  --accent: #e0a63a;
+  --accent-wash: rgba(224, 166, 58, 0.14);
+
+  --live: #5cbf8f;
+  --live-wash: rgba(92, 191, 143, 0.13);
+  --warn: #e0b04a;
+  --warn-wash: rgba(224, 176, 74, 0.12);
+  --stop: #c0503e;
+  --stop-fg: #d9765f;
+  --stop-wash: rgba(192, 80, 62, 0.14);
+
+  --mono: ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", monospace;
+
+  --gutter: 20px;
+  /* The tab bar's own height. Every sticky offset below is this plus the
+     content gap, which is exactly where the rails already stand at scroll 0,
+     so nothing moves the instant stickiness engages. */
+  --bar: 56px;
+  --content-gap: 20px;
+  --rail-w: 17rem;
+  --page-max: 1500px;
+
+  font-family: "Segoe UI", Aptos, Calibri, system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html {
+  scrollbar-gutter: stable;
+  overflow-y: scroll;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+a { color: var(--accent); }
+
+h1 {
+  margin: 0 0 18px;
+  font-size: clamp(1.5rem, 2.6vw, 2rem);
+  letter-spacing: -0.02em;
+  font-weight: 650;
+}
+
+h2 { margin: 0 0 10px; font-size: 1.15rem; letter-spacing: -0.01em; }
+p { margin: 0 0 10px; }
+
+.mono { font-family: var(--mono); font-size: 0.86rem; font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+
+[hidden] { display: none !important; }
+
+/* Every control is visibly pressable at rest: a real border and a faint
+   fill, never a bare word that only reveals itself on hover. */
+button {
+  font: inherit;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+
+button:hover, button:focus-visible { border-color: var(--accent); outline: none; }
+
+a.button {
+  display: inline-block;
+  padding: 5px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--fg);
+  text-decoration: none;
+}
+
+a.button:hover, a.button:focus-visible { border-color: var(--accent); outline: none; }
+a.button[aria-disabled="true"] { opacity: 0.45; pointer-events: none; }
+
+/* -- tab bar ----------------------------------------------------------- */
+
+.tabbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  min-height: var(--bar);
+  align-items: center;
+  gap: 4px;
+  padding: 4px var(--gutter);
+  background: var(--header);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: var(--content-gap);
+}
+
+.tab-group { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+
+.tabbar .tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  /* 11 + 24 + 11 = 46px, plus the bar's own 8px of padding and 1px border,
+     stays under --bar, so the bar is exactly --bar tall and every sticky
+     offset below stays the sum it claims to be. */
+  padding: 11px 12px;
+  line-height: 24px;
+  border-radius: 8px;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.tabbar a.tab:hover { color: var(--fg); background: rgba(255, 255, 255, 0.04); }
+
+.tabbar .tab[aria-current="page"] {
+  color: var(--fg);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.tabbar .brand-tab {
+  color: var(--accent);
+  font-weight: 650;
+  font-size: 1.05rem;
+  padding-left: 4px;
+}
+
+.tab-version { font-family: var(--mono); font-size: 0.74rem; color: var(--muted); font-weight: 400; }
+
+/* A tab that is not built yet is named and marked, never dressed as a
+   control a person can press. */
+.tabbar .tab-later { color: var(--dim); cursor: default; }
+.tab-mark {
+  /* Its own line box, shorter than the tab's, so this small marker cannot
+     make the tab bar taller than --bar. */
+  line-height: 18px;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+  border: 1px solid var(--line-soft);
+  border-radius: 5px;
+  padding: 0 5px;
+}
+
+/* -- page grid --------------------------------------------------------- */
+
+.container {
+  width: min(var(--page-max), 100%);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+/* One grid for every tab: fixed rail widths, one shared template, and the
+   row stretched so a sticky rail has the content column's whole height to
+   travel in. Only the rail itself pins to the top (align-self), because
+   `align-items: start` on the parent would collapse the rail's grid area to
+   its own content height and leave it no room to stick in. */
+.page {
+  display: grid;
+  grid-template-columns: var(--rail-w) minmax(0, 1fr) var(--rail-w);
+  gap: var(--content-gap);
+  align-items: stretch;
+}
+
+.page > * { min-width: 0; }
+
+.page-main { margin-bottom: 80px; }
+
+.rail {
+  align-self: start;
+  position: sticky;
+  top: calc(var(--bar) + var(--content-gap));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  height: calc(100vh - var(--bar) - var(--content-gap) - 20px);
+  overflow: hidden;
+}
+
+.rail-card {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  min-height: 0;
+}
+
+/* Sized to its own content; if the window is short it shrinks and its own
+   list scrolls inside it, so the rail never becomes a second page scrollbar. */
+.rail-card--fit { flex: 0 1 auto; display: flex; flex-direction: column; }
+
+.rail-card > .scrolls {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.rail-label {
+  margin: 0 0 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+/* -- facts lists ------------------------------------------------------- */
+
+dl.facts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 12px;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+dl.facts dt { color: var(--dim); }
+dl.facts dd { margin: 0; overflow-wrap: anywhere; }
+
+/* -- state chips ------------------------------------------------------- */
+
+/* The chip reserves the width of the longest state name, so a refresh that
+   changes a state never nudges anything beside it. */
+.chip {
+  display: inline-block;
+  min-width: 9.5ch;
+  text-align: center;
+  padding: 1px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+
+.chip-ok { color: var(--live); border-color: rgba(92, 191, 143, 0.45); background: var(--live-wash); }
+.chip-degraded { color: var(--warn); border-color: rgba(224, 176, 74, 0.45); background: var(--warn-wash); }
+.chip-down { color: var(--stop-fg); border-color: rgba(192, 80, 62, 0.55); background: var(--stop-wash); }
+.chip-unreachable { color: var(--muted); border-style: dashed; border-color: var(--muted); background: none; }
+.chip-not-configured { color: var(--dim); border-style: dotted; border-color: var(--dim); background: none; }
+
+/* -- service cards ----------------------------------------------------- */
+
+.services { display: grid; gap: 16px; }
+
+/* A bounded card is wayfinding, not decoration: the eye jumps to the
+   service it wants without reading past the other two. */
+.service {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  padding: 16px 18px 14px;
+}
+
+.service-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.service-head h2 { margin: 0; }
+
+/* Two lines of room whether the sentence is long or short, so a refresh
+   never shifts the rows below it. */
+.service-detail {
+  color: var(--muted);
+  min-height: 2.9em;
+  margin: 0 0 10px;
+}
+
+.service-actions { margin: 12px 0 0; }
+
+.here-note {
+  display: inline-block;
+  padding: 5px 0;
+  color: var(--dim);
+  font-size: 0.9rem;
+}
+
+.howto {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+}
+
+/* Meaning leads; the line to type sits behind the toggle. The toggle keeps
+   one position whether the command is shown or hidden. */
+.howto-meaning { margin: 0; flex: 1 1 16rem; color: var(--muted); font-size: 0.9rem; }
+/* One width for both words, so the button does not shift sideways under the
+   pointer when "show" becomes "hide". */
+.howto .toggle { flex: 0 0 auto; font-size: 0.82rem; min-width: 5rem; text-align: center; }
+
+.howto-command {
+  flex: 1 1 100%;
+  font-family: var(--mono);
+  font-size: 0.86rem;
+  color: var(--fg);
+  background: var(--inset);
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  padding: 8px 11px;
+}
+
+/* -- the one legend ---------------------------------------------------- */
+
+.legend-list {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 7px 10px;
+  margin: 0;
+  font-size: 0.86rem;
+}
+
+.legend-list dt { margin: 0; }
+.legend-list dd { margin: 0; color: var(--muted); }
+
+/* -- below the rail breakpoint ----------------------------------------- */
+
+/* No room for three tracks: one column, the context rail above the reading
+   column, and the empty control track gone. Same DOM, different placement. */
+@media (max-width: 1199px) {
+  .page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rail-left { display: none; }
+
+  .rail-right {
+    order: -1;
+    position: static;
+    height: auto;
+    overflow: visible;
+  }
+
+  .rail-card--fit { flex: 0 0 auto; }
+  .rail-card > .scrolls { overflow: visible; }
+}
+
+@media (max-width: 620px) {
+  .container { padding: 0 12px; }
+  .tabbar .tab { padding: 10px 8px; font-size: 0.9rem; }
+  .service { padding: 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

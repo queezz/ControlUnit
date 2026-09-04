@@ -43,6 +43,22 @@ python -m controlunit.main
 Missing hardware libraries (`pigpio`, `smbus`, `RPi.GPIO`, `spidev`) are
 automatically replaced with no-op stubs from `controlunit/devices/dummy.py`.
 
+## Web view
+
+Add `--web` and the same process also answers a browser, so the rig can be
+read from a laptop on the lab network:
+
+```shell
+python -m controlunit.main --web --host 127.0.0.1 --port 4187
+```
+
+It listens on loopback and port 4187 unless told otherwise, and it is
+read-only: a Lab page showing this service, the PIHTI journal and the PIHTI
+vacuum diagram with the state of each, plus `GET /api/health` for the two
+neighbours to read back. The neighbours' addresses come from a `Neighbours:`
+block in the machine-local `~/.controlunit/settings.yml`, which this
+repository never carries. Without `--web` nothing about the program changes.
+
 ## Documentation
 
 Full documentation is at **<https://queezz.github.io/ControlUnit/>**
