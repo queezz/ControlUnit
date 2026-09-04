@@ -38,18 +38,30 @@ address or a credential; the data file appears by name only.
 | `GET /lab` | the Lab tab |
 | `GET /api/health` | `{service, version, status, detail}` — the ensemble's contract; `ok` only while acquiring on real hardware |
 | `GET /api/neighbours` | this service and its two neighbours, each with a state |
-| `GET /api/state` | latest values, setpoints, run facts and freshness; polled once a second |
+| `GET /api/state` | latest values, setpoints, run facts and freshness; polled once a second, or four times a second under Poll: fast |
 | `GET /api/series?window=300&points=600` | thinned `[t, v]` pairs per channel over the last `window` seconds, `0` for all held |
+
+A window is cut by walking the ring backwards from the newest sample and
+stopping at the first one outside it, so twenty seconds costs two hundred
+rows however long the ring has grown, and the Live tab may ask four times a
+second without the Pi paying for two hours of samples each time. `window=0`
+still copies the whole ring, because the whole ring is what it asked for.
 | `GET /api/log?since=N` | log lines after sequence number `N` |
 
 ## Tabs
 
 - **Live** — the five signals the rig's own graph draws, in its own pen
   colours, as readouts and two canvas strip charts: plasma current, and the
-  pressures on a log axis. The left rail chooses the window, the channels and
-  the pressure axis; the right rail states the run and how fresh the data is.
-  Data is `live`, `stale` (no sample for five sampling periods, never less
-  than two seconds) or `idle` (acquisition off).
+  pressures on a log axis. The left rail chooses the window, the channels,
+  the pressure axis, the readout size and the poll rate; the right rail states
+  the run and how fresh the data is. Data is `live`, `stale` (no sample for
+  five sampling periods, never less than two seconds) or `idle` (acquisition
+  off). `Display: big` makes the five readouts the column's lead, for reading
+  the rig from a metre away, and is remembered per browser. `Poll: fast` asks
+  for state and series four times a second instead of once and twice, for
+  watching a value settle while a gauge is zeroed at the rig; it keeps
+  whatever window is chosen, and it is deliberately forgotten on reload so a
+  page left open overnight stops asking.
 - **Log** — the same message log the Qt Log dock shows, newest first, with a
   Find and an order switch.
 - **Lab** — the three services of the lab ensemble with a state each: `ok`,

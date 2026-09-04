@@ -2,6 +2,8 @@
 three routes that serve them. Freshness is a fact about the clock, never a
 guess, so the clock is injected."""
 
+import collections
+
 import pytest
 
 from controlunit._version import __version__
@@ -79,6 +81,43 @@ def test_a_window_cuts_by_time_and_thinning_keeps_the_last_point():
     assert len(points) <= 101
     assert points[-1][0] == pytest.approx(299.9)
     assert points[0][0] >= 239.8
+
+
+class CountingRing(collections.deque):
+    """A ring that says how many rows an iteration actually touched."""
+
+    def __init__(self, items):
+        collections.deque.__init__(self, items)
+        self.visited = 0
+
+    def __reversed__(self):
+        for item in collections.deque.__reversed__(self):
+            self.visited += 1
+            yield item
+
+
+def test_a_short_window_never_walks_the_old_rows():
+    """The Live tab may ask four times a second; the Pi must not pay for the
+    whole ring to answer a question about the last twenty seconds."""
+    status = rig()
+    feed(status, 0.0, 72000)  # two hours at 10 Hz, the ring at its fullest
+    status._times = CountingRing(status._times)
+
+    body = status.series(window_seconds=20, max_points=600)
+
+    # 200 rows are inside a 20 s window at 10 Hz; one more ends the walk.
+    assert status._times.visited <= 210
+    assert body["to"] - body["from"] <= 20.0
+    assert body["to"] == pytest.approx(7199.9)
+
+
+def test_the_backwards_walk_cuts_where_a_cut_by_time_would():
+    status = rig()
+    feed(status, 0.0, 1000)  # 100 s at 10 Hz
+    stamps = [point[0] for point in status.series(window_seconds=10, max_points=10000)["channels"]["Ip"]]
+    assert stamps[-1] == pytest.approx(99.9)
+    assert stamps[0] == pytest.approx(89.9, abs=0.11)
+    assert len(stamps) == pytest.approx(101, abs=1)
 
 
 def test_full_window_costs_the_same_as_a_short_one():

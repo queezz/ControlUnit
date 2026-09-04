@@ -12,7 +12,6 @@ main thread's existing step and log methods and cost a few list appends per
 call, so the acquisition loop is not slowed by a browser being open.
 """
 
-import bisect
 import collections
 import sys
 import threading
@@ -76,8 +75,8 @@ class RigStatus:
         self._file = ""
         self._started_at = None
 
-        # The ring: parallel deques so a window can be cut by time with a
-        # bisect on the times alone.
+        # The ring: parallel deques so a window can be cut by time by walking
+        # the times alone, backwards from the newest.
         self._times = collections.deque(maxlen=MAX_SAMPLES)
         self._rows = collections.deque(maxlen=MAX_SAMPLES)
 
@@ -209,17 +208,35 @@ class RigStatus:
         A window of zero or less means everything the ring holds. Thinning
         keeps every `skip`-th point plus the last one, the same arithmetic the
         Qt graph uses, so a two hour window costs the same as a short one.
+
+        A real window is cut by walking the ring backwards from the newest
+        sample and stopping at the first one that falls outside it, so twenty
+        seconds costs two hundred rows however long the ring has grown. The
+        Live tab may ask four times a second while someone zeroes a gauge at
+        the rig, and the Pi should not pay for two hours of samples to answer
+        a question about the last twenty. `Full` still copies everything,
+        because everything is what it asked for.
         """
         with self._lock:
-            times = list(self._times)
-            rows = list(self._rows)
-        if not times:
-            return {"from": None, "to": None, "count": 0, "channels": {}}
-        start = 0
-        if window_seconds and window_seconds > 0:
-            start = bisect.bisect_left(times, times[-1] - float(window_seconds))
-        times = times[start:]
-        rows = rows[start:]
+            if not self._times:
+                return {"from": None, "to": None, "count": 0, "channels": {}}
+            if window_seconds and window_seconds > 0:
+                cutoff = self._times[-1] - float(window_seconds)
+                times = []
+                rows = []
+                for stamp, row in zip(reversed(self._times), reversed(self._rows)):
+                    if stamp < cutoff:
+                        break
+                    times.append(stamp)
+                    rows.append(row)
+                times.reverse()
+                rows.reverse()
+            else:
+                times = list(self._times)
+                rows = list(self._rows)
+            # A row is never written again once it is in the ring, so the rest
+            # of this can be done without holding the lock.
+            wanted = list(names) if names else list(self._names or rows[-1].keys())
         count = len(times)
         skip = 1
         if max_points and count > max_points:
@@ -227,7 +244,6 @@ class RigStatus:
         picked = list(range(0, count, skip))
         if picked and picked[-1] != count - 1:
             picked.append(count - 1)
-        wanted = list(names) if names else list(self._names or rows[-1].keys())
         channels = {}
         for name in wanted:
             channels[name] = [

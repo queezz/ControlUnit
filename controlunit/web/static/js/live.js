@@ -5,6 +5,14 @@
  * into elements that already exist and already have their room reserved in
  * CSS, so a value changing under the reader never moves anything.
  *
+ * Two of the rail's choices are about how the page itself reads rather than
+ * about what it draws. Big turns the five readouts into the column's lead,
+ * for reading the rig from a metre away, and is remembered. Fast asks four
+ * times a second instead of once or twice, for watching a value settle while
+ * a gauge is zeroed at the rig, and is deliberately forgotten on reload: it
+ * is for a few minutes under the desk, and a page left open overnight must
+ * not keep hammering the Pi.
+ *
  * The charts are plain <canvas> panels: a faint grid, a log axis for
  * pressure, the rig's own five pen colours, and an emphasised end point.
  * Nothing animates.
@@ -14,6 +22,7 @@
 
     var STATE_MS = 1000;
     var SERIES_MS = 2000;
+    var FAST_MS = 250;
     var STORE_KEY = "controlunit.live";
 
     var root = document.getElementById("live");
@@ -29,11 +38,18 @@
     var view = {
         window: Number(root.dataset.defaultWindow || 300),
         channels: {Ip: true, Pu: true, Pd: true, Bu: true, Bd: true},
-        log: true
+        log: true,
+        big: false
     };
 
-    /* A remembered window, channel set and axis choice are conveniences,
-       never facts: the page renders correctly with none of them stored. */
+    /* The fast poll lives outside `view` on purpose: `view` is what is
+       written to the browser's store, and fast is the one choice a reload
+       must not bring back. */
+    var fast = false;
+
+    /* A remembered window, channel set, axis and readout size are
+       conveniences, never facts: the page renders correctly with none of
+       them stored. */
     function remember() {
         try { localStorage.setItem(STORE_KEY, JSON.stringify(view)); } catch (e) { /* fine */ }
     }
@@ -46,6 +62,7 @@
                 if (typeof kept.channels[name] === "boolean") view.channels[name] = kept.channels[name];
             });
             if (typeof kept.log === "boolean") view.log = kept.log;
+            if (typeof kept.big === "boolean") view.big = kept.big;
         } catch (e) { /* fine */ }
     }
 
@@ -323,9 +340,10 @@
     }
 
     function spanLabel(drawn) {
-        if (!drawn || !drawn.count) return "no samples yet";
+        var tail = fast ? " · fast" : "";
+        if (!drawn || !drawn.count) return "no samples yet" + tail;
         var seconds = Math.max(0, Math.round(drawn.to - drawn.from));
-        return "last " + fmtSeconds(seconds) + " · " + drawn.count + " samples";
+        return "last " + fmtSeconds(seconds) + " · " + drawn.count + " samples" + tail;
     }
 
     // -- rail controls -------------------------------------------------------
@@ -362,6 +380,44 @@
                 drawAll();
             });
         });
+        root.querySelectorAll("[data-display]").forEach(function (button) {
+            button.addEventListener("click", function () {
+                view.big = button.dataset.display === "big";
+                applyDisplay();
+                remember();
+            });
+        });
+        root.querySelectorAll("[data-poll]").forEach(function (button) {
+            button.addEventListener("click", function () {
+                fast = button.dataset.poll === "fast";
+                applyPoll();
+                pollState();
+                pollSeries();
+                drawAll();   // the span labels say which rate is running
+            });
+        });
+    }
+
+    /* Big is one class on the page: the charts keep their width, so there is
+       nothing to redraw, and only the readout row's own height changes. */
+    function applyDisplay() {
+        root.classList.toggle("live--big", view.big);
+        press("[data-display]", "display", view.big ? "big" : "normal");
+    }
+
+    var stateTimer = null;
+    var seriesTimer = null;
+
+    function applyPoll() {
+        press("[data-poll]", "poll", fast ? "fast" : "normal");
+        if (stateTimer) window.clearInterval(stateTimer);
+        if (seriesTimer) window.clearInterval(seriesTimer);
+        // The readouts come from /api/state, so both have to speed up for a
+        // number under the desk to keep pace with the chart beside it. The
+        // series keeps whatever window the reader chose; fast is a rate, not
+        // a view.
+        stateTimer = window.setInterval(pollState, fast ? FAST_MS : STATE_MS);
+        seriesTimer = window.setInterval(pollSeries, fast ? FAST_MS : SERIES_MS);
     }
 
     function reflectView() {
@@ -371,6 +427,7 @@
             if (button) button.setAttribute("aria-pressed", view.channels[name] ? "true" : "false");
         });
         press("[data-scale]", "scale", view.log ? "log" : "lin");
+        applyDisplay();
     }
 
     function setup() {
@@ -380,8 +437,7 @@
         drawAll();
         pollState();
         pollSeries();
-        window.setInterval(pollState, STATE_MS);
-        window.setInterval(pollSeries, SERIES_MS);
+        applyPoll();
         var pending = null;
         window.addEventListener("resize", function () {
             if (pending) window.clearTimeout(pending);

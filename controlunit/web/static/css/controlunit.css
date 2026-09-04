@@ -252,6 +252,18 @@ input.find:focus { border-color: var(--accent); outline: none; }
   color: var(--dim);
 }
 
+/* The one thing a control's own words cannot say, riding on its heading's
+   line rather than in a paragraph beneath it: teaching this way costs the
+   rail no height, which is the difference between the rail fitting a short
+   window and quietly clipping its last card. */
+.rail-label .rail-aside {
+  margin-left: 6px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+}
+
 /* -- rail controls ----------------------------------------------------- */
 
 /* A choice is a small bordered button; the pressed one wears the accent. */
@@ -388,6 +400,40 @@ dl.facts dd.wide { margin-top: -2px; }
    than reaching past its own card. */
 @media (min-width: 1200px) and (max-width: 1320px) {
   .readout-value { font-size: 1rem; }
+}
+
+/* -- big readouts (Display: big) --------------------------------------- */
+
+/* The same five readouts, read from a metre away while a gauge is zeroed at
+   the rig. One class on the page turns it on: no element appears, moves to
+   another parent, or leaves, so the rails and the charts stay where they
+   are and only the readout row's own height changes. */
+.live--big .readouts {
+  /* Cards wide enough for the number first, then as many across as fit: at
+     a full-width column that is three and two, and between the two rails it
+     is two, two and one. Nothing has to shrink to stay on its line. */
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.live--big .readout {
+  /* The value is sized from the card it stands in, so the widest a pressure
+     ever reads — -5.00e-3, eight characters — stays on one line at every
+     width this page is read at, phone included. */
+  container-type: inline-size;
+  padding: 12px 16px 14px;
+  min-height: 7.4rem;
+}
+
+.live--big .readout-name,
+.live--big .readout-unit { font-size: 0.95rem; }
+
+.live--big .readout-value {
+  font-size: 2.2rem;            /* what a browser without cq units gets */
+  font-size: min(3.6rem, 19cqi);
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 .chart {

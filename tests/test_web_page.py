@@ -48,6 +48,35 @@ def test_live_offers_the_same_windows_as_the_rig(live):
         assert 'data-window="{}"'.format(seconds) in live
 
 
+def test_live_offers_a_readout_size_and_a_poll_rate(live):
+    assert 'class="rail-label">Display<' in live
+    assert 'class="rail-label">Poll ' in live
+    for choice in ("display", "poll"):
+        assert 'data-{}="normal"'.format(choice) in live
+    assert 'data-display="big"' in live
+    assert 'data-poll="fast"' in live
+    # That the fast poll does not survive a reload is said once, on the
+    # card's own heading line, and nowhere else on the page.
+    assert live.count("forgotten on reload") == 1
+
+
+def test_the_big_readouts_are_one_class_over_the_same_dom(client, live):
+    """Nothing appears or leaves when big is pressed: only a class changes."""
+    script = client.get("/static/js/live.js").get_data(as_text=True)
+    css = client.get("/static/css/controlunit.css").get_data(as_text=True)
+    assert "live--big" in script
+    assert ".live--big" in css
+    assert live.count('class="readout"') == 5
+
+
+def test_the_fast_poll_is_not_remembered_and_the_big_readouts_are(client):
+    """A page opened tomorrow must not still be asking four times a second."""
+    script = client.get("/static/js/live.js").get_data(as_text=True)
+    assert "JSON.stringify(view)" in script  # `view` is what is stored
+    assert "view.big" in script
+    assert "view.fast" not in script
+
+
 def test_the_tab_bar_marks_control_as_not_built(live, log, lab):
     for page in (live, log, lab):
         assert "Control <span class=\"tab-mark\">soon</span>" in page

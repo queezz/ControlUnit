@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 
 __about__ = """
 In this version we use two devices:
@@ -24,4 +24,8 @@ In this version we use two devices:
 This version adds an optional read-only web view, started with --web: a
 health report, a Live tab with the rig's values and two strip charts, a Log
 tab with the message log, and a Lab tab showing the three lab services.
+
+The Live tab can show its five readouts big, for reading the rig from a
+metre away, and can be told to poll four times a second while a gauge is
+zeroed at the rig.
 """
