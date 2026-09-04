@@ -110,5 +110,12 @@ def test_the_neighbour_states_are_explained_in_exactly_one_place(lab):
 
 
 def test_the_data_states_are_explained_in_exactly_one_place(live):
-    for meaning in ("the last sample is fresh", "acquisition is off"):
+    for meaning in ("without a sample", "when acquisition is off"):
         assert live.count(meaning) == 1
+
+
+def test_the_data_card_shows_one_pill_only(live):
+    """The chip is the reading; the other states are words, never pills."""
+    card = live[live.index('class="rail-label">Data<'):]
+    card = card[:card.index("</section>")]
+    assert card.count('class="chip') == 1

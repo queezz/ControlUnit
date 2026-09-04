@@ -78,8 +78,8 @@
         <section class="rail-card rail-card--fit">
             <h2 class="rail-label">This run</h2>
             <dl class="facts">
-                <dt>File</dt>
-                <dd class="mono" data-fact="file">{{ state.run.file or '—' }}</dd>
+                <dt class="wide">File</dt>
+                <dd class="mono wide" data-fact="file">{{ state.run.file or '—' }}</dd>
                 <dt>Started</dt>
                 <dd data-fact="started">—</dd>
                 <dt>Samples</dt>
@@ -101,15 +101,11 @@
                 <span class="chip chip-{{ state.data.state }}" data-role="data-state">{{ state.data.state }}</span>
                 <span class="mono muted" data-role="data-age"></span>
             </p>
-            {# The one place the three data states are explained. #}
-            <dl class="legend-list">
-                <dt><span class="chip chip-live">live</span></dt>
-                <dd>the last sample is fresh</dd>
-                <dt><span class="chip chip-stale">stale</span></dt>
-                <dd>no sample for <span data-role="stale-after">{{ '%g' % state.data.stale_after }}</span> s or more</dd>
-                <dt><span class="chip chip-idle">idle</span></dt>
-                <dd>acquisition is off</dd>
-            </dl>
+            {# The one place the other two states are explained: in words,
+               never as a second pill beside the one that is the reading. #}
+            <p class="muted data-key"><span class="mono">stale</span> after
+                <span data-role="stale-after">{{ '%g' % state.data.stale_after }}</span> s without a sample ·
+                <span class="mono">idle</span> when acquisition is off</p>
         </section>
     </aside>
 

@@ -318,6 +318,10 @@ dl.facts {
 
 dl.facts dt { color: var(--dim); }
 dl.facts dd { margin: 0; overflow-wrap: anywhere; }
+/* A value too long for the column the widest label leaves — a file name —
+   takes its own row under its label rather than breaking mid-word. */
+dl.facts .wide { grid-column: 1 / -1; }
+dl.facts dd.wide { margin-top: -2px; }
 
 /* -- state chips ------------------------------------------------------- */
 
@@ -407,7 +411,8 @@ dl.facts dd { margin: 0; overflow-wrap: anywhere; }
 
 .chart canvas { display: block; width: 100%; }
 
-.freshness { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; min-height: 1.6em; }
+.freshness { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; min-height: 1.6em; }
+.data-key { margin: 0; font-size: 0.86rem; }
 
 /* -- the log (Log) ----------------------------------------------------- */
 
