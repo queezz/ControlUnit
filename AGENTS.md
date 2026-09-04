@@ -56,5 +56,11 @@ $env:QT_QPA_PLATFORM = "offscreen"
   with `scripts/build_graphviz.py` whenever the architecture diagram changes.
 
 Commit directly to `master` when asked, stage paths deliberately, and end every
-agent-written commit with the bare trailer `agent: codex gpt-5`. Do not add
-`Co-Authored-By` trailers or create tags unless the owner asks.
+agent-written commit with the bare trailer `agent: <the agent that wrote it>`.
+Do not add `Co-Authored-By` trailers or create tags unless the owner asks.
+
+Pushing is not gated in this repository (owner decision 2026-09-04). A session
+that has run the gates may push its own commits, `master` included. Fleet's
+`RULES.md` §1 reserves pushes for queezz so that no session puts work on a
+remote he has not seen; that still holds in the fleet repository, and he named
+it an unnecessary gate here. Tags remain his.
