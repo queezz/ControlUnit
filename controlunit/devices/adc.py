@@ -63,6 +63,7 @@ class ADC(DeviceThread):
         self.__qmsSignal = 0
         self._mfc_presets = {1: 0.0, 2: 0.0}
         self.plasma_current_setpopint = 0
+        self.control_voltage = 0
         self.plasma_current = 0
         self.plasma_current_converted = 0
         self.zero_ip = 0
@@ -199,7 +200,7 @@ class ADC(DeviceThread):
                     self.__qmsSignal,
                     self._mfc_presets[1],
                     self._mfc_presets[2],
-                    self.plasma_current_setpopint,
+                    self.control_voltage,
                     *self.adc_voltages.values(),
                 ]
             ),
@@ -276,7 +277,7 @@ class ADC(DeviceThread):
 
     def set_cathode_current(self, control_voltage):
         """Send cathode control voltage to main thread"""
-        self.plasma_current_setpopint = control_voltage
+        self.control_voltage = control_voltage
         self.send_control_voltage.emit(control_voltage)
 
     @QtCore.pyqtSlot(float)
@@ -322,7 +323,7 @@ class ADC(DeviceThread):
             print(
                 self.pid.setpoint,
                 output,
-                (self.plasma_current - self.zero_ip) * 1000,
+                self.plasma_current_converted - self.zero_ip,
             )
 
     # MARK: start
