@@ -28,8 +28,9 @@ class ADC(DeviceThread):
     set_trigger_signal_signal = QtCore.pyqtSignal(int)
     set_adc_gain_signal = QtCore.pyqtSignal(int)
     set_zero_ip_signal = QtCore.pyqtSignal()
-    # One signal for all three baselines, carrying the channel's own name.
-    set_zero_signal = QtCore.pyqtSignal(str)
+    # One signal for all three baselines: the channel's name and the zero the
+    # main thread measured for it over the last seconds of the run.
+    set_zero_signal = QtCore.pyqtSignal(str, float)
 
     def __init__(self, device_name, app, startTime, config, pi):
         super().__init__(device_name, app, startTime, config, pi)
@@ -273,22 +274,20 @@ class ADC(DeviceThread):
     # MARK: plasma current
 
     #: The baseline channels, and the worker attribute each one's zero lives
-    #: in. A zero is the mean of the recent converted column: it changes how
-    #: a signal is read on the screen, in the plots and on the web, and never
-    #: what is written to the CSV.
+    #: in. A zero changes how a signal is read on the screen, in the plots and
+    #: on the web, and never what is written to the CSV. The main thread
+    #: measures it over the last seconds of the run it holds; this buffer is
+    #: emptied every few samples and is too short to average anything.
     ZEROS = {"Ip": "zero_ip", "Bu": "zero_bu", "Bd": "zero_bd"}
 
-    @QtCore.pyqtSlot(str)
-    def set_zero(self, channel):
-        """Take the present mean of one converted channel as its zero."""
+    @QtCore.pyqtSlot(str, float)
+    def set_zero(self, channel, value):
+        """Hold `value` as one channel's zero and report every zero back."""
         attribute = self.ZEROS.get(channel)
         if attribute is None:
             return
-        mean = self.converted_values[channel + "_c"].mean()
-        # An empty buffer means nothing yet: keep the zero we already hold
-        # rather than adopting a NaN that would silence the channel.
-        if mean == mean:
-            setattr(self, attribute, mean)
+        if value == value:  # never a NaN, which would silence the channel
+            setattr(self, attribute, float(value))
         self.send_zero_adjustment.emit(self.zeros())
 
     def zeros(self):
@@ -297,8 +296,8 @@ class ADC(DeviceThread):
 
     @QtCore.pyqtSlot()
     def set_zero_ip(self):
-        """set zero Ip"""
-        self.set_zero("Ip")
+        """The old worker-side zero: the mean of this short buffer."""
+        self.set_zero("Ip", self.converted_values["Ip_c"].mean())
 
     def set_cathode_current(self, control_voltage):
         """Send cathode control voltage to main thread"""

@@ -58,6 +58,7 @@ REFUSED = "refused"
 NO_REMOTE = "the Remote switch on the rig's screen is off"
 NO_ACTOR = "no name is set in this browser"
 NO_ACQUISITION = "no acquisition running"
+NO_SAMPLES = "no samples to take a baseline from yet"
 TOO_MANY = "too many commands are already waiting"
 
 
@@ -380,8 +381,11 @@ def _apply_sync(app, value):
 
 
 def _apply_zero(app, value):
-    app.set_zero_baseline(value["channel"])
-    return APPLIED, ""
+    # The main thread says whether it had samples to average; a zero that
+    # was not taken is never reported as one that was.
+    if app.set_zero_baseline(value["channel"]):
+        return APPLIED, ""
+    return REFUSED, NO_SAMPLES
 
 
 _APPLIERS = {
@@ -409,10 +413,12 @@ def describe(command, outcome, reason):
     """The message-log line one command leaves behind, in plain ASCII."""
     who = command.actor or "someone"
     where = " from {}".format(command.origin) if command.origin else ""
+    # The summary is a whole clause ("H2 flow 1234 mV", "baseline of Bu
+    # taken"), so nothing is prefixed to it that only fits a setpoint.
     if outcome == APPLIED:
-        tail = ": {}".format(reason) if reason else ""
-        return "Remote: {}{} set {}{}".format(who, where, command.summary(), tail)
-    return "Remote: {}{} asked for {} - refused, {}".format(
+        tail = " ({})".format(reason) if reason else ""
+        return "Remote: {}{}: {}{}".format(who, where, command.summary(), tail)
+    return "Remote: {}{}: {} - refused, {}".format(
         who, where, command.summary(), reason
     )
 

@@ -249,8 +249,13 @@ class FakeApp(object):
     def _toggle_led_status(self):
         self.calls.append(("_toggle_led_status", self.control_dock.qmsSigSw.isChecked()))
 
+    #: Whether the main thread had samples to average; the real one answers
+    #: False before the first step lands.
+    has_samples = True
+
     def set_zero_baseline(self, channel):
         self.calls.append(("set_zero_baseline", channel))
+        return self.has_samples
 
     def log_message(self, message, htmltag="p"):
         self.messages.append(message)
@@ -309,6 +314,32 @@ def test_a_zero_command_reaches_the_one_baseline_method():
     app.web_commands.submit("zero", {"channel": "Bd"}, actor="queezz")
     commands.drain(app)
     assert app.calls == [("set_zero_baseline", "Bd")]
+    assert app.web_status.read()["last_command"]["outcome"] == commands.APPLIED
+    assert app.messages[-1] == "Remote: queezz: baseline of Bd taken"
+
+
+def test_a_zero_with_nothing_to_average_is_refused_not_claimed():
+    """A baseline that was not taken is never reported as one that was."""
+    app = FakeApp()
+    app.has_samples = False
+    app.web_commands.submit("zero", {"channel": "Bu"}, actor="queezz", origin="10.0.0.5")
+    commands.drain(app)
+    record = app.web_status.read()["last_command"]
+    assert record["outcome"] == commands.REFUSED
+    assert record["reason"] == commands.NO_SAMPLES
+    assert app.messages[-1] == (
+        "Remote: queezz from 10.0.0.5: baseline of Bu taken - refused, "
+        + commands.NO_SAMPLES
+    )
+
+
+def test_the_log_line_reads_as_a_sentence_for_every_kind():
+    app = FakeApp()
+    app.web_commands.submit("mfc", {"n": 1, "mv": 1234}, actor="queezz")
+    app.web_commands.submit("stop_all", {}, actor="queezz")
+    commands.drain(app)
+    assert app.messages[-2] == "Remote: queezz: H2 flow 1234 mV"
+    assert app.messages[-1] == "Remote: queezz: all outputs to zero"
 
 
 def test_stop_all_turns_the_outputs_off_and_zeroes_the_screen():

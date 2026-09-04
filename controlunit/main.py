@@ -831,19 +831,55 @@ class MainApp(QtCore.QObject, UIWindow):
         """
         if not self.workers:
             return
-        self.set_zero_baseline(channel)
-        self.log_message(f"Baseline of {channel} taken")
+        if self.set_zero_baseline(channel):
+            self.log_message(f"Baseline of {channel} taken")
+        else:
+            self.log_message(f"Baseline of {channel} not taken: no samples yet")
+
+    #: How much of the run a baseline averages over. Two seconds is twenty
+    #: samples at the usual rate: enough to sit above the Hall sensor's noise,
+    #: short enough that the reading is still "now".
+    BASELINE_SECONDS = 2.0
+
+    def baseline_of(self, channel):
+        """
+        The mean of the last two seconds of `channel`, as converted and
+        never zero-adjusted, or None while there is not a sample yet.
+        """
+        try:
+            column = self.datadict["ADC"][channel + "_c"].astype(float)
+        except (KeyError, AttributeError, TypeError, ValueError):
+            return None
+        try:
+            rows = max(1, int(round(self.BASELINE_SECONDS / float(self.sampling))))
+        except (TypeError, ValueError, ZeroDivisionError):
+            rows = 20
+        tail = column.iloc[-rows:]
+        if tail.empty:
+            return None
+        mean = float(tail.mean())
+        if mean != mean:
+            return None
+        return mean
 
     def set_zero_baseline(self, channel):
-        """Take what `channel` reads now as its zero.
+        """
+        Take what `channel` has read over the last seconds as its zero.
+        True when a baseline was taken; False when nothing is running or no
+        sample has arrived yet, so a caller can say so instead of claiming
+        a zero it did not take.
 
         One path for all three channels and for both origins: the buttons in
         the Scales dock and a browser's Zero now both arrive here, and the
         worker answers with every zero at once through `send_zero_adjustment`.
         """
         if not self.workers:
-            return
-        self.workers["ADC"]["worker"].set_zero_signal.emit(channel)
+            return False
+        value = self.baseline_of(channel)
+        if value is None:
+            return False
+        self.workers["ADC"]["worker"].set_zero_signal.emit(channel, value)
+        return True
 
     @QtCore.pyqtSlot()
     def update_ig_mode(self):

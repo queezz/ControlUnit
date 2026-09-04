@@ -132,8 +132,14 @@
 
         var sp = state.setpoints || {};
         text("plasma", sp.plasma_a ? "on, " + Number(sp.plasma_a).toFixed(2) + " A" : "off");
-        var mfc1 = sp.mfc1_v !== undefined ? Math.round(Number(sp.mfc1_v) * 1000) : 0;
-        var mfc2 = sp.mfc2_v !== undefined ? Math.round(Number(sp.mfc2_v) * 1000) : 0;
+        /* `mfc1_v` and `mfc2_v` are already millivolts, whatever the `_v` in
+           their names suggests: the rig's own four spinboxes are read as
+           1000/100/10/1 (`gas_flow.get_massflow_from_gui`) and that whole
+           number is what the main thread records. The Control tab reads the
+           same field as millivolts; this one multiplied by a thousand as
+           well, so a 1234 mV setpoint read here as "1234000 mV". */
+        var mfc1 = sp.mfc1_v !== undefined ? Math.round(Number(sp.mfc1_v)) : 0;
+        var mfc2 = sp.mfc2_v !== undefined ? Math.round(Number(sp.mfc2_v)) : 0;
         text("mfc", "H₂ " + mfc1 + " mV · O₂ " + mfc2 + " mV");
 
         var data = state.data || {};

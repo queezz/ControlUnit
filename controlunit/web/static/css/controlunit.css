@@ -531,8 +531,13 @@ dl.facts dd.wide { margin-top: -2px; }
 .row-field { display: inline-flex; align-items: center; gap: 6px; }
 
 /* Each reading keeps a fixed width sized for its worst value, so a poll that
-   changes a number never moves the control beside it. */
-.row-reading { display: inline-flex; align-items: baseline; gap: 6px; min-width: 8.5rem; }
+   changes a number never moves the control beside it. The width is measured,
+   not guessed: the widest reading this page renders is the Baselines group's
+   "Reads -5.00e-3 Torr" at 145px and the cathode row's "Cathode drive
+   -5.000 V" at 153px. At the old 8.5rem (136px) both overran their box, so
+   the three "Zero now" buttons sat at three different addresses and moved by
+   up to 11px as the baselines changed under the reader. */
+.row-reading { display: inline-flex; align-items: baseline; gap: 6px; min-width: 9.75rem; }
 .row-caption { color: var(--dim); font-size: 0.78rem; letter-spacing: 0.03em; }
 .row-unit { color: var(--muted); font-size: 0.82rem; }
 
@@ -561,12 +566,25 @@ dl.facts dd.wide { margin-top: -2px; }
 /* -- the Control tab's left rail --------------------------------------- */
 
 .remote-line { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
-.remote-why { margin: 0 0 8px; font-size: 0.88rem; }
 
-/* Always present, so an answer never pushes a control down the rail. */
+/* The gate's one reason, and the room for the longest of the four. Three of
+   them ("Setting is off until the switch on the rig is on.", "… until you
+   save a name below.", "… while no acquisition is running.") take two lines
+   in this rail; the fourth ("You may set what the rig holds.") takes one.
+   With no reservation at all the card shrank by a line the moment the gate
+   opened, and the Acting-as and Stop-all-outputs cards below it jumped 21px
+   — at exactly the moment the switch on the rig was thrown, which is when
+   this card is being read. Two lines, always. */
+.remote-why { margin: 0 0 8px; font-size: 0.88rem; min-height: 3.1em; }
+
+/* Always present, so an answer never pushes a control down the rail. Sized
+   from the longest answer this page can produce, not from a short one: the
+   validation refusals ("refused: a flow setpoint is a whole number of
+   millivolts from 0 to 5000") take three lines here, and the old 2.6em held
+   barely one, so a refusal shifted the two cards below by up to 26px. */
 .remote-status {
   margin: 0;
-  min-height: 2.6em;
+  min-height: 4.6em;
   color: var(--accent);
   overflow-wrap: anywhere;
 }
@@ -636,7 +654,14 @@ dl.facts dd.wide { margin-top: -2px; }
 .log-time { color: var(--dim); white-space: nowrap; }
 .log-text { overflow-wrap: anywhere; white-space: pre-wrap; }
 
-.find-count { margin: 8px 0 0; font-size: 0.86rem; min-height: 1.3em; }
+/* One whole line of room, whether a count is showing or not: at 1.3em the
+   reservation was 17.9px against a 20.6px line, so the card below in the
+   rail moved 2.8px every time a Find matched or was cleared. The line-height
+   is 1.5, so one line is 1.5em of this element's own font; the reservation is
+   a hair past that, because a value that only equals the line box leaves the
+   two boxes rounding to different sub-pixels and the card below still drifts
+   by a hundredth. Whichever state is showing, the reservation wins. */
+.find-count { margin: 8px 0 0; font-size: 0.86rem; min-height: 1.6em; }
 
 /* -- service cards (Lab) ----------------------------------------------- */
 
@@ -662,10 +687,12 @@ dl.facts dd.wide { margin-top: -2px; }
 .service-head h2 { margin: 0; }
 
 /* Two lines of room whether the sentence is long or short, so a refresh
-   never shifts the rows below it. */
+   never shifts the rows below it. Two lines is 3em at a line-height of 1.5,
+   not 2.9em: at 2.9em the reservation was 43.5px against a 45px pair of
+   lines, and a detail that wrapped moved the rows under it by 1.5px. */
 .service-detail {
   color: var(--muted);
-  min-height: 2.9em;
+  min-height: 3.1em;
   margin: 0 0 10px;
 }
 

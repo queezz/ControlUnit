@@ -26,7 +26,19 @@ holds what is still undecided or unbuilt.
   Stakes: hydrogen and oxygen flow and the cathode current move on this.
   Recommendation: the switch on the rig, plus a Stop all outputs button that is
   always allowed because it only ever drives the hardware to zero.
-  Safe default: view only, which is what is built.
+  Safe default: view only. Slice three is being built on the recommendation
+  as its default (queezz ordered control-tab work 2026-09-04 without settling
+  this); saying "keep view only" or "anyone on the LAN" changes one gate.
+
+## Work only queezz can do
+
+- Restart the rig onto 0.7.0, on a rig that is not acquiring — owner work
+  pending. Both Pi checkouts carry it; the running process is 0.6.0. On
+  restart the control dock gains a Remote switch beside On/Off and the
+  Scales dock an "O Bd" button beside "O Bu".
+  Done when: `http://pihti:4187/api/health` reports 0.7.0, `/control` shows
+  every setter disabled until the Remote switch is thrown on the rig, and
+  Stop all outputs answers with "all outputs to zero" in the Log tab.
 
 ## Reported, not reproduced
 
@@ -46,6 +58,13 @@ holds what is still undecided or unbuilt.
   first, and fall back to a letter to `code/lab-cli` if that file is dirty.
 
 ## Settled, kept here only until the next session reads them
+
+- 0.7.0 (2026-09-04, evening): big readouts and a fast poll on Live; zero
+  baselines for Ip, Bu and Bd from the rig's Scales dock and from the
+  browser; the Control tab and its command path, gated by the Remote switch
+  on the rig with Stop all outputs always allowed. Acquisition start/stop
+  from a browser is not built. Log entry
+  `2026-09-04-webui-slice-three-control-and-live-extras.md`.
 
 - Slice two shipped in 0.6.0 (2026-09-04): the read-only Live and Log tabs,
   `/api/state`, `/api/series`, `/api/log`, Live as the home page and Lab at
