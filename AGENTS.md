@@ -35,6 +35,20 @@ $env:QT_QPA_PLATFORM = "offscreen"
 & "$env:USERPROFILE\.venvs\hardware-dev\Scripts\python.exe" -m mkdocs build --strict
 ```
 
+## Running on the rig
+
+The Raspberry Pi starts the control unit with `scripts/run_controlunit.sh`,
+which `~/Desktop/aktest.sh` calls. The launcher lives in the repository rather
+than only on the Pi's desktop, so a change to how the rig starts is reviewed
+like any other change, and so it travels with the code it starts.
+
+The web view stays off unless `--web` is passed, and the launcher passes it.
+When on, it answers on the lab network by default at `http://pihti:4187/`
+(owner decision 2026-09-04, "the whole point is LAN": the rig is one machine
+and the view is read from a laptop or a phone); `--host 127.0.0.1` narrows a
+run to the Pi itself. The view is read-only either way - it reads a small
+status record the main thread writes, and never touches a worker.
+
 ## Read first
 
 1. [README.md](README.md) — current hardware, runtime status, and documentation.

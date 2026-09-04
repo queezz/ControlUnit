@@ -793,8 +793,12 @@ def parse_arguments(argv=None):
     )
     parser.add_argument(
         "--host",
-        default="127.0.0.1",
-        help="address the web view listens on (default: loopback only)",
+        # Answers on the lab network by default (owner decision 2026-09-04,
+        # "the whole point is LAN"): the rig is one machine in the lab and the
+        # view is read from a laptop or a phone. Pass --host 127.0.0.1 to
+        # narrow a run to the Pi itself. The view stays read-only either way.
+        default="0.0.0.0",
+        help="address the web view listens on (default: the lab network)",
     )
     parser.add_argument(
         "--port",
