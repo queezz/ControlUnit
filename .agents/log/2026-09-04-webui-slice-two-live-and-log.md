@@ -167,6 +167,25 @@ queezz restarts it. PIHTI Log's health body carries `status` and `version`
 but no `service` or `detail`, which our reader accepts as `ok` with an
 empty sentence.
 
+## On the rig
+
+queezz restarted the rig at 20:34 and sent a screenshot: 0.6.0 in the tab
+bar, the Live tab beside the Qt window, the five readouts matching the
+screen's own numbers (Pu 1.22e-5, Pd 1.13e-8, Ip -0.32 A, Bu and Bd
+slightly negative with no gas), 666 samples at 10 Hz, `live` at 0.1 s, the
+plasma chart drawing the Hall sensor's noise. Read from the Pi's loopback
+afterwards: `/api/health` reports 0.6.0 `ok`, and `/api/neighbours` shows
+all three services `ok` — the diagram 0.7.0 with its detail sentence, PIHTI
+Log 0.21.0 with an empty one. The deploy item leaves directions.
+
+Two things the screenshot shows that are worth knowing and not defects:
+with no gas the two Baratrons read a little below zero, and a log axis has
+nowhere to put a negative number, so only Pu and Pd draw on the pressure
+chart until `lin` is pressed; and the right rail wraps the data file's name
+inside its extension ("…203431.cs / v") because the facts grid gives the
+value column what the widest label leaves it. The second is a small CSS
+polish for the next session: let a long value take the whole row.
+
 ## Left
 
 - Deploying 0.6.0 to the rig and writing its neighbours file: owner work,

@@ -28,18 +28,6 @@ holds what is still undecided or unbuilt.
   always allowed because it only ever drives the hardware to zero.
   Safe default: view only, which is what is built.
 
-## Work only queezz can do
-
-- Restart the rig onto web view 0.6.0, on a rig that is not acquiring —
-  owner work pending. Both Pi checkouts are at `b7537ac` and
-  `~/.controlunit/neighbours.yml` is written and parses (done over SSH on
-  queezz's instruction, 2026-09-04); the running process is still 0.5.0.
-  Stop acquisition on the rig's screen, quit, and start it again from the
-  desktop shortcut.
-  Done when: `http://pihti:4187/api/health` reports version 0.6.0, `/` shows
-  the Live tab with moving charts while acquiring, and `/lab` shows both
-  neighbour cards `ok`.
-
 ## Reported, not reproduced
 
 - Clicking the page logo produced an error before acquisition was started,
