@@ -14,9 +14,14 @@
             <h2 class="rail-label">Remote control</h2>
             <p class="remote-line">On the rig's screen:
                 <span class="chip chip-idle" data-role="remote-chip">off</span></p>
+            {# Who has the rig, so two people never drive one plasma without
+               seeing each other. Stated once, here, and never on a row. #}
+            <p class="holder-line" data-role="holder">{{ state.control.line }}</p>
             {# The one place the gate is explained: the reason setting is off
                right now, in words, once, never repeated on a row. #}
             <p class="muted remote-why" data-role="remote-why">Setting is off until the switch on the rig is on.</p>
+            <button type="button" class="take-over" data-role="take-over"
+                    {{ '' if state.remote and actor and not state.control.mine else 'disabled' }}>Take over</button>
             {# One stable status line. It changes in place; nothing is ever
                inserted above the controls a reader is about to use again. #}
             <p class="remote-status mono" data-role="status" role="status"></p>

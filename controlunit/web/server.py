@@ -11,9 +11,11 @@ sets what the rig holds; Log is the same message log the Qt Log dock shows;
 Lab is the three services of the lab ensemble and how each is started.
 
 Reading is open to anyone on the lab network. Setting needs a name chosen in
-the browser and the Remote switch turned on beside the rig's own screen, so
-that gas flow and cathode current never move past a person who is not there.
-Stopping every output is the one exception and is always allowed.
+the browser, the Remote switch turned on beside the rig's own screen so that
+gas flow and cathode current never move past a person who is not there, and
+control of the rig, which the first browser to send a setter holds and a
+second person takes over in the open. Stopping every output is the one
+exception and is always allowed.
 """
 
 import threading
@@ -151,6 +153,30 @@ def create_app(status=None, board=None, commands=None):
             row["here"] = row["alias"] == SERVICE
         return rows
 
+    def who_is_asking():
+        """The name this browser carries and the address it is asking from."""
+        return (
+            command_desk.clean_actor(request.cookies.get(ACTOR_COOKIE)),
+            request.remote_addr or "",
+        )
+
+    def control_now():
+        """Who holds control, and whether that is the browser asking.
+
+        A page cannot tell its own address from a response — nothing here
+        carries one except the holder line, which is the whole point of it —
+        so whether the reader is the holder is answered here rather than
+        compared there.
+        """
+        actor, origin = who_is_asking()
+        body = desk.control.read()
+        body["mine"] = desk.control.held_by(actor, origin)
+        body["line"] = command_desk.holder_sentence(body)
+        return body
+
+    def page_state():
+        return state_body(rig, __version__, control=control_now())
+
     # -- pages ---------------------------------------------------------------
 
     @app.route("/")
@@ -161,7 +187,7 @@ def create_app(status=None, board=None, commands=None):
             windows=WINDOWS,
             default_window=DEFAULT_WINDOW,
             pens=PENS,
-            state=state_body(rig, __version__),
+            state=page_state(),
         )
 
     @app.route("/control")
@@ -169,7 +195,7 @@ def create_app(status=None, board=None, commands=None):
         return render_template(
             "control.html",
             active="control",
-            state=state_body(rig, __version__),
+            state=page_state(),
             sections=SECTIONS,
             gases=GASES,
             zero_channels=ZERO_CHANNELS,
@@ -187,7 +213,7 @@ def create_app(status=None, board=None, commands=None):
         return render_template(
             "log.html",
             active="log",
-            state=state_body(rig, __version__),
+            state=page_state(),
             log=rig.log_since(0),
         )
 
@@ -214,7 +240,7 @@ def create_app(status=None, board=None, commands=None):
 
     @app.route("/api/state")
     def state():
-        return jsonify(state_body(rig, __version__))
+        return jsonify(page_state())
 
     @app.route("/api/series")
     def series():
@@ -254,10 +280,12 @@ def create_app(status=None, board=None, commands=None):
         browser learns what actually happened from the next `/api/state`,
         never by assuming its own request succeeded.
         """
-        actor = command_desk.clean_actor(request.cookies.get(ACTOR_COOKIE))
+        actor, origin = who_is_asking()
         snapshot = rig.read()
 
-        refused = command_desk.refusal(kind, snapshot.get("remote"), actor)
+        refused = command_desk.refusal(
+            kind, snapshot.get("remote"), actor, origin=origin, control=desk.control
+        )
         if refused:
             return jsonify({"reason": refused}), 403
         if command_desk.needs_acquisition(kind) and not snapshot.get("acquiring"):
@@ -265,14 +293,36 @@ def create_app(status=None, board=None, commands=None):
 
         try:
             value = command_desk.validate(kind, _json_body(), number=number)
-            queued = desk.submit(
-                kind, value, actor=actor, origin=request.remote_addr or ""
-            )
+            queued = desk.submit(kind, value, actor=actor, origin=origin)
         except command_desk.Invalid as reason:
             code = 409 if str(reason) == command_desk.TOO_MANY else 400
             return jsonify({"reason": str(reason)}), code
 
         return jsonify({"id": queued.id, "value": queued.summary()}), 202
+
+    @app.route("/api/take-over", methods=["POST"])
+    def take_over():
+        """Move control of the rig to this browser, deliberately.
+
+        The lock moves here, in the thread that was asked, so the answer is
+        true when it is given; the main thread then logs it with the new
+        name, where it came from and when, like any other command. Taking
+        over when you already hold it changes nothing and says so.
+        """
+        actor, origin = who_is_asking()
+        refused = command_desk.refusal("take_over", rig.read().get("remote"), actor)
+        if refused:
+            return jsonify({"reason": refused}), 403
+        changed, previous = desk.control.take_over(actor, origin)
+        if changed:
+            try:
+                desk.submit("take_over", {"from": previous}, actor=actor, origin=origin)
+            except command_desk.Invalid:
+                # The queue is full of setpoints. Control has still moved;
+                # only the log line for it is lost, which is not worth
+                # refusing a person the rig in front of them.
+                pass
+        return jsonify({"changed": changed, "control": control_now()})
 
     @app.route("/api/stop-all", methods=["POST"])
     def stop_all():

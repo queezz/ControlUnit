@@ -268,15 +268,19 @@ class MainApp(QtCore.QObject, UIWindow):
         on = self.control_dock.remoteSW.isChecked()
         self.web_status.set_remote(on)
         self.log_message("Remote control {}".format("on" if on else "off"))
+        if not on:
+            web_commands.release(self, "Remote switch off")
 
     def _force_remote_off(self):
         """Acquisition stopping takes browser control down with it."""
-        if not self.control_dock.remoteSW.isChecked():
+        if self.control_dock.remoteSW.isChecked():
+            self.control_dock.remoteSW.setChecked(False)
             self.web_status.set_remote(False)
-            return
-        self.control_dock.remoteSW.setChecked(False)
-        self.web_status.set_remote(False)
-        self.log_message("Remote control off (acquisition stopped)")
+            self.log_message("Remote control off (acquisition stopped)")
+        else:
+            self.web_status.set_remote(False)
+        # Nobody is left holding control of a rig that is not listening.
+        web_commands.release(self, "acquisition stopped")
 
     def _drain_web_commands(self):
         """Run what a browser queued, here on the thread that owns the workers."""

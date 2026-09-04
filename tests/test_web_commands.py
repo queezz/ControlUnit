@@ -121,6 +121,134 @@ def test_stopping_is_allowed_with_neither():
     assert commands.refusal("stop_all", False, "") == ""
 
 
+# -- the operator lock --------------------------------------------------------
+
+
+def held(actor, origin, since=None):
+    return {"holder": actor, "origin": origin, "since": since}
+
+
+def test_the_first_setter_queued_takes_control():
+    desk = commands.CommandQueue()
+    assert desk.control.read()["holder"] == ""
+    desk.submit("mfc", {"n": 1, "mv": 100}, actor="Arseniy", origin="10.249.254.30")
+    now = desk.control.read()
+    assert now["holder"] == "Arseniy"
+    assert now["origin"] == "10.249.254.30"
+    assert now["since"] > 0
+
+
+def test_a_second_setter_from_the_holder_keeps_control_where_it_is():
+    desk = commands.CommandQueue()
+    desk.submit("sync", {"on": True}, actor="Arseniy", origin="10.249.254.30")
+    since = desk.control.read()["since"]
+    desk.submit("sync", {"on": False}, actor="Arseniy", origin="10.249.254.30")
+    assert desk.control.read()["since"] == since
+
+
+def test_stopping_the_outputs_neither_takes_control_nor_needs_it():
+    desk = commands.CommandQueue()
+    desk.submit("stop_all", {}, actor="Ivan", origin="10.249.254.31")
+    assert desk.control.read()["holder"] == ""
+    desk.submit("mfc", {"n": 1, "mv": 100}, actor="Arseniy", origin="10.249.254.30")
+    assert (
+        commands.refusal(
+            "stop_all", True, "Ivan", origin="10.249.254.31", control=desk.control
+        )
+        == ""
+    )
+
+
+@pytest.mark.parametrize("kind", ["mfc", "plasma", "gauge", "sync", "zero"])
+def test_a_second_person_is_refused_with_the_holder_sentence(kind):
+    desk = commands.CommandQueue()
+    desk.submit("mfc", {"n": 1, "mv": 100}, actor="Arseniy", origin="10.249.254.30")
+    reason = commands.refusal(
+        kind, True, "Ivan", origin="10.249.254.31", control=desk.control
+    )
+    assert reason == commands.holder_sentence(desk.control.read())
+    assert reason.startswith("Arseniy has control since ")
+    assert reason.endswith(" from 10.249.254.30")
+
+
+def test_the_same_name_from_another_address_is_another_person():
+    """Two laptops sharing one name are still two people at one plasma."""
+    desk = commands.CommandQueue()
+    desk.submit("sync", {"on": True}, actor="Arseniy", origin="10.249.254.30")
+    assert desk.control.held_by("Arseniy", "10.249.254.30") is True
+    assert desk.control.held_by("Arseniy", "10.249.254.31") is False
+    assert (
+        commands.refusal(
+            "sync", True, "Arseniy", origin="10.249.254.31", control=desk.control
+        )
+        != ""
+    )
+
+
+def test_the_holder_may_go_on_setting():
+    desk = commands.CommandQueue()
+    desk.submit("sync", {"on": True}, actor="Arseniy", origin="10.249.254.30")
+    assert (
+        commands.refusal(
+            "sync", True, "Arseniy", origin="10.249.254.30", control=desk.control
+        )
+        == ""
+    )
+
+
+def test_with_no_lock_at_hand_the_switch_and_the_name_are_the_whole_gate():
+    assert commands.refusal("sync", True, "Arseniy") == ""
+
+
+def test_a_take_over_moves_control_and_names_who_had_it():
+    desk = commands.CommandQueue()
+    desk.submit("sync", {"on": True}, actor="Arseniy", origin="10.249.254.30")
+    changed, previous = desk.control.take_over("Ivan", "10.249.254.31")
+    assert changed is True
+    assert previous == "Arseniy"
+    assert desk.control.read()["holder"] == "Ivan"
+    assert (
+        commands.refusal(
+            "sync", True, "Arseniy", origin="10.249.254.30", control=desk.control
+        )
+        != ""
+    )
+
+
+def test_taking_over_from_nobody_simply_takes_it():
+    desk = commands.CommandQueue()
+    changed, previous = desk.control.take_over("Ivan", "10.249.254.31")
+    assert changed is True
+    assert previous == ""
+    assert desk.control.read()["holder"] == "Ivan"
+
+
+def test_taking_over_what_you_already_hold_changes_nothing():
+    desk = commands.CommandQueue()
+    desk.control.take_over("Ivan", "10.249.254.31")
+    since = desk.control.read()["since"]
+    changed, previous = desk.control.take_over("Ivan", "10.249.254.31")
+    assert changed is False
+    assert previous == "Ivan"
+    assert desk.control.read()["since"] == since
+
+
+def test_the_holder_sentence_is_one_sentence_in_the_reader_s_words():
+    assert commands.holder_sentence(None) == commands.NOBODY
+    assert commands.holder_sentence(held("", "", None)) == commands.NOBODY
+    line = commands.holder_sentence(held("Arseniy", "10.249.254.30", 1757000000.0))
+    assert line.startswith("Arseniy has control since ")
+    assert line.endswith(" from 10.249.254.30")
+    # A name and nothing else still reads as a sentence.
+    assert commands.holder_sentence(held("Arseniy", "", None)) == "Arseniy has control"
+
+
+def test_a_name_that_was_never_typed_cannot_take_control():
+    desk = commands.CommandQueue()
+    assert desk.control.claim("", "10.249.254.30") is False
+    assert desk.control.read()["holder"] == ""
+
+
 def test_only_stopping_works_without_the_workers():
     assert commands.needs_acquisition("stop_all") is False
     for kind in ("mfc", "plasma", "gauge", "sync", "zero"):
@@ -419,6 +547,60 @@ def test_a_refusal_is_logged_as_a_refusal_with_its_reason():
     assert commands.NO_ACQUISITION in app.messages[0]
 
 
+def test_a_take_over_is_a_command_in_its_own_right():
+    """It moves no hardware, and it is logged with the name, address and time."""
+    app = FakeApp()
+    app.web_commands.submit("sync", {"on": True}, actor="Arseniy", origin="10.249.254.30")
+    app.web_commands.control.take_over("Ivan", "10.249.254.31")
+    app.web_commands.submit(
+        "take_over", {"from": "Arseniy"}, actor="Ivan", origin="10.249.254.31"
+    )
+    commands.drain(app)
+    assert app.calls == [("_toggle_led_status", True)]
+    assert app.messages[-1] == (
+        "Remote: Ivan from 10.249.254.31: took control from Arseniy"
+    )
+    assert app.web_status.read()["last_command"]["outcome"] == commands.APPLIED
+
+
+def test_a_take_over_from_nobody_says_so_without_naming_a_ghost():
+    app = FakeApp()
+    app.web_commands.submit("take_over", {"from": ""}, actor="Ivan", origin="10.0.0.4")
+    commands.drain(app)
+    assert app.messages[-1] == "Remote: Ivan from 10.0.0.4: took control"
+
+
+def test_a_take_over_runs_with_no_acquisition_because_it_moves_nothing():
+    app = FakeApp(running=False)
+    app.web_commands.submit("take_over", {}, actor="Ivan", origin="10.0.0.4")
+    commands.drain(app)
+    assert app.web_status.read()["last_command"]["outcome"] == commands.APPLIED
+
+
+@pytest.mark.parametrize(
+    "reason", ["acquisition stopped", "Remote switch off"]
+)
+def test_the_main_thread_releases_control_and_says_why(reason):
+    app = FakeApp()
+    app.web_commands.submit("mfc", {"n": 1, "mv": 10}, actor="Arseniy", origin="10.0.0.5")
+    assert commands.release(app, reason) == "Arseniy"
+    assert app.web_commands.control.read()["holder"] == ""
+    assert app.messages[-1] == "Control released ({})".format(reason)
+
+
+def test_releasing_what_nobody_held_says_nothing():
+    app = FakeApp()
+    assert commands.release(app, "acquisition stopped") == ""
+    assert app.messages == []
+
+
+def test_releasing_on_an_app_with_no_queue_does_nothing():
+    class Bare(object):
+        pass
+
+    assert commands.release(Bare(), "acquisition stopped") == ""
+
+
 def test_draining_an_app_with_no_queue_does_nothing():
     class Bare(object):
         pass
@@ -605,7 +787,144 @@ def test_the_outcome_of_a_drained_command_appears_in_state(tmp_path):
     assert last["reason"] == commands.NO_ACQUISITION
 
 
-@pytest.mark.parametrize("path", ["/api/stop-all", "/api/gauge", "/api/identify"])
+# -- the operator lock, over the wire -----------------------------------------
+
+
+@pytest.mark.parametrize("path, body", SETTERS)
+def test_a_second_person_is_refused_over_the_wire(path, body, tmp_path):
+    desk = commands.CommandQueue()
+    app = app_for(rig(remote=True), tmp_path, desk)
+    first = app.test_client()
+    first.set_cookie("actor", "Arseniy")
+    assert (
+        first.post(
+            "/api/mfc/1", json={"mv": 100}, environ_base={"REMOTE_ADDR": "10.249.254.30"}
+        ).status_code
+        == 202
+    )
+
+    second = app.test_client()
+    second.set_cookie("actor", "Ivan")
+    answer = second.post(path, json=body, environ_base={"REMOTE_ADDR": "10.249.254.31"})
+    assert answer.status_code == 403
+    reason = answer.get_json()["reason"]
+    assert reason.startswith("Arseniy has control since ")
+    assert reason.endswith(" from 10.249.254.30")
+
+
+def test_the_holder_goes_on_setting_and_stop_all_is_never_gated(tmp_path):
+    desk = commands.CommandQueue()
+    app = app_for(rig(remote=True), tmp_path, desk)
+    holder = app.test_client()
+    holder.set_cookie("actor", "Arseniy")
+    for _ in range(2):
+        answer = holder.post(
+            "/api/sync", json={"on": True}, environ_base={"REMOTE_ADDR": "10.249.254.30"}
+        )
+        assert answer.status_code == 202
+
+    other = app.test_client()
+    other.set_cookie("actor", "Ivan")
+    assert (
+        other.post(
+            "/api/stop-all", json={}, environ_base={"REMOTE_ADDR": "10.249.254.31"}
+        ).status_code
+        == 202
+    )
+    # Stopping the outputs left control exactly where it was.
+    assert desk.control.read()["holder"] == "Arseniy"
+
+
+def test_take_over_moves_control_and_queues_its_own_log_line(tmp_path):
+    desk = commands.CommandQueue()
+    app = app_for(rig(remote=True), tmp_path, desk)
+    first = app.test_client()
+    first.set_cookie("actor", "Arseniy")
+    first.post(
+        "/api/mfc/1", json={"mv": 100}, environ_base={"REMOTE_ADDR": "10.249.254.30"}
+    )
+    desk.take_all()
+
+    second = app.test_client()
+    second.set_cookie("actor", "Ivan")
+    answer = second.post(
+        "/api/take-over", json={}, environ_base={"REMOTE_ADDR": "10.249.254.31"}
+    )
+    assert answer.status_code == 200
+    body = answer.get_json()
+    assert body["changed"] is True
+    assert body["control"]["holder"] == "Ivan"
+    assert body["control"]["mine"] is True
+    queued = desk.take_all()
+    assert [c.kind for c in queued] == ["take_over"]
+    assert queued[0].summary() == "took control from Arseniy"
+
+
+def test_taking_over_what_you_hold_is_a_no_op_that_still_answers(tmp_path):
+    desk = commands.CommandQueue()
+    client = app_for(rig(remote=True), tmp_path, desk).test_client()
+    client.set_cookie("actor", "Ivan")
+    client.post("/api/take-over", json={}, environ_base={"REMOTE_ADDR": "10.0.0.4"})
+    desk.take_all()
+    answer = client.post(
+        "/api/take-over", json={}, environ_base={"REMOTE_ADDR": "10.0.0.4"}
+    )
+    assert answer.status_code == 200
+    assert answer.get_json()["changed"] is False
+    assert desk.take_all() == []
+
+
+def test_taking_over_needs_the_switch_and_a_name(tmp_path):
+    off = app_for(rig(remote=False), tmp_path).test_client()
+    off.set_cookie("actor", "Ivan")
+    answer = off.post("/api/take-over", json={})
+    assert answer.status_code == 403
+    assert answer.get_json()["reason"] == commands.NO_REMOTE
+
+    nameless = app_for(rig(remote=True), tmp_path).test_client()
+    answer = nameless.post("/api/take-over", json={})
+    assert answer.status_code == 403
+    assert answer.get_json()["reason"] == commands.NO_ACTOR
+
+
+def test_state_carries_who_has_control_and_whether_it_is_this_browser(tmp_path):
+    desk = commands.CommandQueue()
+    app = app_for(rig(remote=True), tmp_path, desk)
+    holder = app.test_client()
+    holder.set_cookie("actor", "Arseniy")
+    holder.post(
+        "/api/sync", json={"on": True}, environ_base={"REMOTE_ADDR": "10.249.254.30"}
+    )
+
+    mine = holder.get(
+        "/api/state", environ_base={"REMOTE_ADDR": "10.249.254.30"}
+    ).get_json()["control"]
+    assert mine["holder"] == "Arseniy"
+    assert mine["origin"] == "10.249.254.30"
+    assert mine["since"] > 0
+    assert mine["mine"] is True
+    assert mine["line"].startswith("Arseniy has control since ")
+
+    other = app.test_client()
+    other.set_cookie("actor", "Ivan")
+    theirs = other.get(
+        "/api/state", environ_base={"REMOTE_ADDR": "10.249.254.31"}
+    ).get_json()["control"]
+    assert theirs["mine"] is False
+    assert theirs["line"] == mine["line"]
+
+
+def test_an_untouched_rig_says_nobody_has_control(tmp_path):
+    body = app_for(rig(), tmp_path).test_client().get("/api/state").get_json()
+    assert body["control"]["holder"] == ""
+    assert body["control"]["since"] is None
+    assert body["control"]["mine"] is False
+    assert body["control"]["line"] == commands.NOBODY
+
+
+@pytest.mark.parametrize(
+    "path", ["/api/stop-all", "/api/gauge", "/api/identify", "/api/take-over"]
+)
 def test_a_command_route_answers_nothing_to_a_get(path, tmp_path):
     client = app_for(rig(remote=True), tmp_path).test_client()
     assert client.get(path).status_code == 405
