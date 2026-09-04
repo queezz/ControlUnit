@@ -181,10 +181,17 @@ Log 0.21.0 with an empty one. The deploy item leaves directions.
 Two things the screenshot shows that are worth knowing and not defects:
 with no gas the two Baratrons read a little below zero, and a log axis has
 nowhere to put a negative number, so only Pu and Pd draw on the pressure
-chart until `lin` is pressed; and the right rail wraps the data file's name
-inside its extension ("…203431.cs / v") because the facts grid gives the
-value column what the widest label leaves it. The second is a small CSS
-polish for the next session: let a long value take the whole row.
+chart until `lin` is pressed; and the right rail wrapped the data file's
+name inside its extension ("…203431.cs / v") because the facts grid gives
+the value column what the widest label leaves it.
+
+queezz then asked why the Data card showed two green `live` pills. It drew
+its legend as three pills beneath the one that is the reading, and the walk
+had let that pass because each meaning rendered once. Fixed in `c1dc7f6`
+with the file-name wrap: the chip stays the reading, the other two states
+are one sentence in words beneath it, and a wide fact takes its own row.
+Measured live: one chip, one line, rail at 76. Pulled to both Pi checkouts;
+the running process caches templates, so it shows after the next restart.
 
 ## Left
 
