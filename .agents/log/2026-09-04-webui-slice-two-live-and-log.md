@@ -153,6 +153,20 @@ and probed only 48938/48939.
   (its address `pihti:5000` and the journal's `AK-office.local:4310`); they
   are in the neighbours file directions hands queezz. Notes have no receipt.
 
+## Deployed to the Pi, short of the restart
+
+On queezz's live instruction ("pull the master, I'll restart"), which
+crosses the read-only-rig line `.agents/README.md` states: both checkouts,
+`~/work/aktest` and `~/work/ControlUnit`, fast-forwarded to `b7537ac`, and
+`~/.controlunit/neighbours.yml` written with the diagram at `pihti:5000` and
+PIHTI Log at `AK-office.local:4310`. Checked from the Pi: the file parses
+through the program's own reader, `AK-office.local` resolves to
+10.249.254.17, and both neighbours answer their health route. The running
+process, PID 27135 on 0.5.0, was not touched; it keeps acquiring until
+queezz restarts it. PIHTI Log's health body carries `status` and `version`
+but no `service` or `detail`, which our reader accepts as `ok` with an
+empty sentence.
+
 ## Left
 
 - Deploying 0.6.0 to the rig and writing its neighbours file: owner work,

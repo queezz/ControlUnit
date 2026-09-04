@@ -30,30 +30,15 @@ holds what is still undecided or unbuilt.
 
 ## Work only queezz can do
 
-- Put web view 0.6.0 on the rig, on a rig that is not acquiring — owner work
-  pending. Pull `master` into both Pi checkouts, write the neighbours file, and
-  restart from the desktop shortcut:
-
-      git -C /home/pi/work/aktest pull
-      git -C /home/pi/work/ControlUnit pull
-      mkdir -p ~/.controlunit
-      cat > ~/.controlunit/neighbours.yml <<'EOF'
-      pihti-diagram:
-        url: http://pihti:5000
-        where: on this Pi, as a system service
-        start: sudo systemctl start pihti.service
-      pihti-log:
-        url: http://AK-office.local:4310
-        where: on the office Windows PC
-        start: lab pihti-log
-      EOF
-
-  The file is `neighbours.yml`, not `settings.yml`: a local `settings.yml` is
-  a complete replacement for the packaged one and a file holding only
-  neighbours would stop the rig from starting.
+- Restart the rig onto web view 0.6.0, on a rig that is not acquiring —
+  owner work pending. Both Pi checkouts are at `b7537ac` and
+  `~/.controlunit/neighbours.yml` is written and parses (done over SSH on
+  queezz's instruction, 2026-09-04); the running process is still 0.5.0.
+  Stop acquisition on the rig's screen, quit, and start it again from the
+  desktop shortcut.
   Done when: `http://pihti:4187/api/health` reports version 0.6.0, `/` shows
-  the Live tab with moving charts while acquiring, and `/lab` shows the
-  diagram card `ok` with "Runs on this Pi, as a system service."
+  the Live tab with moving charts while acquiring, and `/lab` shows both
+  neighbour cards `ok`.
 
 ## Reported, not reproduced
 
