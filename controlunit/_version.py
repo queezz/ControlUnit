@@ -13,11 +13,14 @@
 # limitations under the License.
 
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 __about__ = """
 In this version we use two devices:
 - I2C ADC for signal records
 - DAC8532 AD/DA board for MFCs control
 - MCP4725 DAC for plasma current control
+
+This version adds an optional read-only web view, started with --web, which
+serves a health report and a Lab page showing the three lab services.
 """

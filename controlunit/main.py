@@ -1,3 +1,4 @@
+import argparse
 import sys, datetime, os
 from datetime import timedelta
 import pandas as pd
@@ -13,6 +14,10 @@ from striphtmltags import strip_tags
 from controlunit.trigger_signal import IndicatorLED
 
 from controlunit.ui.text_shortcuts import RED, BLUE, RESET
+
+# Plain standard library: a few locked values the optional web view reads.
+# Nothing here imports Flask, so a machine without it starts as it always did.
+from controlunit.web.status import RigStatus
 
 try:
     import pigpio
@@ -55,6 +60,13 @@ class MainApp(QtCore.QObject, UIWindow):
         self.config = readsettings.init_configuration(verbose=True)
         self.datapath = self.config["Data Folder"]
         self.sampling = self.config["Sampling Time"]
+
+        # What the web view is allowed to know: how many channels, how fast,
+        # and whether acquisition is running. It reads a copy, never a worker.
+        self.web_status = RigStatus(
+            channels=len(self.config["ADC Signal Names"]),
+            sampling=self.sampling,
+        )
 
         # MARK: Current Values
         # To display in text browser
@@ -145,12 +157,14 @@ class MainApp(QtCore.QObject, UIWindow):
         """
         if self.control_dock.OnOffSW.isChecked():
             self.prep_threads()
+            self.web_status.set_acquiring(True)
             self.control_dock.quitBtn.setEnabled(False)
             return
 
         question = "Are you sure you want to stop data acquisition?"
         if self.popup_confirmation_window(question):
             self.abort_all_threads()
+            self.web_status.set_acquiring(False)
             self.control_dock.quitBtn.setEnabled(True)
         else:
             self.control_dock.OnOffSW.setChecked(True)
@@ -650,22 +664,70 @@ class MainApp(QtCore.QObject, UIWindow):
         self.log_message(f"ADC sampling set to {value}")
 
 
+# MARK: Web view
+def parse_arguments(argv=None):
+    """
+    Read the command line. Without --web nothing about the program changes.
+    """
+    parser = argparse.ArgumentParser(
+        prog="controlunit",
+        description="Plasma-lab control and data acquisition.",
+    )
+    parser.add_argument(
+        "--web",
+        action="store_true",
+        help="also serve the read-only web view in this process",
+    )
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="address the web view listens on (default: loopback only)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=4187,
+        help="port the web view listens on (default: 4187)",
+    )
+    return parser.parse_args(argv)
+
+
+def start_web_view(widget, arguments):
+    """
+    Start the web view on a daemon thread, if it was asked for.
+
+    The thread only ever reads the status record the main thread writes, so
+    worker ownership and the hardware-first shutdown order are untouched.
+    """
+    if not arguments.web:
+        return None
+    from controlunit.web.server import serve_in_thread
+
+    serve_in_thread(widget.web_status, host=arguments.host, port=arguments.port)
+    print(f" Web view: http://{arguments.host}:{arguments.port}/")
+    return True
+
+
 # MARK: End
 def main():
     """
     for command line script using entrypoint
     """
+    arguments = parse_arguments()
     app = QtWidgets.QApplication([])
     widget = MainApp(app)
+    start_web_view(widget, arguments)
     sys.exit(app.exec_())
 
 
 if __name__ == "__main__":
     from __init__ import _echelle_base
 
+    arguments = parse_arguments()
     pth = str(_echelle_base / "icons/controlunit.png")
     app = QtWidgets.QApplication([])
     app.setWindowIcon(QtGui.QIcon(pth))
     widget = MainApp(app)
+    start_web_view(widget, arguments)
 
     sys.exit(app.exec_())
