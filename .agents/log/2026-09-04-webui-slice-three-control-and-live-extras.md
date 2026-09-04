@@ -130,6 +130,49 @@ Two it found in Python and left, fixed here afterwards:
 
 Gates after that: 177 tests, strict docs, flake8, all clean.
 
+## Later the same night: the lock, version 4, and the fleet
+
+queezz asked three things and said "go". First, whether two people could
+drive one plasma unseen: yes, so an **operator lock** was built by a fourth
+Opus agent in its worktree and merged (`e32475d`, `436d487`). The first
+browser to send a setter holds control, by name and address together;
+every Control page shows "Arseniy has control since 21:40 from
+10.249.254.30" in one place; another person's setters are refused with
+that sentence until they press Take over, which is logged and shown to the
+first person within a poll; Stop all outputs is never gated; the rig's own
+screen always wins and the lock is released when acquisition stops or the
+Remote switch goes off; no idle timeout, because a lock held through an
+overnight run is the normal case. Walked live: rails at 76, nothing moves
+when the holder changes, 22 of 22 setters disabled for a non-holder.
+216 tests.
+
+Second, **version 4.0.0** (`ad23ac9`): the major number names an era, told
+in `docs/history.md`, and the number the web slices carried undersold what
+shipped. Third, why "my fleet" showed no version: the fleet table reads
+`pyproject.toml`, which this repository never had, only a `setup.py`
+naming a package that does not exist. `pyproject.toml` now declares the
+package and the same version, a test holds the two equal, `setup.py` is
+gone, and after `fleet scan --only ControlUnit` the fleet reads 4.0.0.
+Lab's helm panel is a different surface and still cannot show a service
+that runs on the Pi; letter `20260904-9138b125-d0de6d` to `code/lab-cli`
+asks for a remote-service shape.
+
+Also read on the rig, read-only, at his request for a diagnosis: after
+2 h 32 m at 0.1 Hz the process sat at 1.3 % CPU and 134 MB, the Pi at
+50.6 °C, unthrottled. The log shows sampling set to 0.01 s at 20:46 and the
+app restarted at 20:51; whether that was a crash is his to say. Code
+issues worth fixing, ranked and handed to him in chat: one shared
+ionization-gauge mode and range for every such channel (the blocker for
+his upstream ion gauge); the ADC gain button is a no-op; the whole run
+lives in memory and is concatenated and filtered every step, which is
+nothing at 0.1 Hz and grows without bound at 10 Hz; a 9-hour offset
+hard-coded in the plot axis; a stale "two workers done" count against
+three workers; the PID's update period not following a mid-run sampling
+change. The upstream ion gauge plan: per-channel mode and range in the
+worker, its exponent set from the web Control tab, a mode and scale column
+in the CSV, a letter to PIHTI Log. Four facts wanted from him first:
+channel and gain, a name, the controller kind, and whether Pu stays.
+
 ## Left
 
 - The rig runs 0.6.0 until queezz restarts it; both Pi checkouts carry

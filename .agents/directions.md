@@ -40,6 +40,21 @@ holds what is still undecided or unbuilt.
   every setter disabled until the Remote switch is thrown on the rig, and
   Stop all outputs answers with "all outputs to zero" in the Log tab.
 
+## Ready to build, once queezz answers
+
+- The upstream ion gauge: per-channel ionization-gauge mode and range in the
+  ADC worker instead of one shared pair, its exponent set from the web
+  Control tab's Gauge group, a mode and scale column for it in the CSV, and
+  a letter to `code/pihti-log` because the file's columns change. Needs from
+  queezz: the ADC channel and gain it is wired to, a short name, whether
+  its controller reads like the downstream one (linear 0–10 V times ten to
+  the exponent), and whether the Pfeiffer gauge Pu stays beside it.
+- Rig code issues found 2026-09-04, ranked in the log entry of that night:
+  the ADC gain button is a no-op; the whole run is held in memory and
+  copied every step; a 9-hour offset hard-coded in the plot axis; the
+  "two workers done" count against three workers; the PID period not
+  following a mid-run sampling change. None is urgent at 0.1 Hz.
+
 ## Reported, not reproduced
 
 - Clicking the page logo produced an error before acquisition was started,
@@ -48,16 +63,29 @@ holds what is still undecided or unbuilt.
   the logo now leads to Live rather than Lab. If it recurs, the browser's
   console line or the rig's terminal output is the evidence needed.
 
-## Ready to build
+## Waiting on another ship
 
-- Register the web view in the Lab registry: `www = 4187` and
-  `version_url = "/api/health"` on the existing `[services.controlunit]` table
-  in `lab-cli/services.toml`, and `--web` in its command, so Lab's own board
-  reads the rig the way it reads the journal. A commit in another repository
-  under its own contract (RULES.md §11): prove it with a scratch `lab start`
-  first, and fall back to a letter to `code/lab-cli` if that file is dirty.
+- The helm panel cannot show a service that runs on another machine and is
+  never started from here, which is what ControlUnit is: its registry entry
+  is a door with no row. Letter `20260904-9138b125-d0de6d` to `code/lab-cli`
+  asks for a remote-service shape (a whole-origin `www` such as
+  `http://pihti:4187`, `version_url = "/api/health"`, no command, no Start
+  or Stop). Until lab answers, the fleet table already shows the version
+  from `pyproject.toml`, which is what queezz missed on 2026-09-04.
 
 ## Settled, kept here only until the next session reads them
+
+- The operator lock (queezz 2026-09-04, "go"): first browser to send a
+  setter holds control by name and address, Take over is deliberate and
+  logged, Stop all never gated, released on stop and on Remote off, no
+  idle timeout. Shipped in `436d487`.
+
+- Version 4.0.0 (owner decision 2026-09-04): the major number names an era,
+  told in `docs/history.md`; `pyproject.toml` declares the package and the
+  fleet reads its version from there; `setup.py` is gone.
+- Sampling at 0.1 Hz on the rig is deliberate for long overnight runs
+  (queezz, 2026-09-04); the web view's stale line follows the sampling
+  time, so at 10 s it is 50 s.
 
 - 0.7.0 (2026-09-04, evening): big readouts and a fast poll on Live; zero
   baselines for Ip, Bu and Bd from the rig's Scales dock and from the
