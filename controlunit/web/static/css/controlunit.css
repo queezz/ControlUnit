@@ -367,9 +367,24 @@ dl.facts dd { margin: 0; overflow-wrap: anywhere; }
   min-height: 4.6rem;
 }
 
-.readout-name { grid-column: 1 / -1; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.04em; }
-.readout-value { font-size: 1.35rem; font-weight: 500; overflow-wrap: anywhere; }
-.readout-unit { color: var(--muted); font-size: 0.8rem; }
+.readout-name { grid-column: 1; grid-row: 1; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.04em; }
+
+/* The unit rides beside the name, so the number below owns the card's whole
+   width. Five cards across a 1280 px window leave 94 px inside one; a
+   pressure reads 3.11e-4 and at worst -5.00e-3, which needs about 90 px of
+   that. Beside the unit it had only 66 px, broke mid-number onto a second
+   line, and made the whole readout row taller the moment a value crossed
+   into exponent form — the one thing this row must never do. */
+.readout-unit { grid-column: 2; grid-row: 1; justify-self: end; color: var(--muted); font-size: 0.8rem; }
+.readout-value { grid-column: 1 / -1; grid-row: 2; font-size: 1.2rem; font-weight: 500; white-space: nowrap; }
+
+/* Just above the rail breakpoint the two rails take their fixed 17rem each
+   out of a narrow window and the five cards are at their tightest: 78 px
+   inside one at 1200. The number steps down a size through that band rather
+   than reaching past its own card. */
+@media (min-width: 1200px) and (max-width: 1320px) {
+  .readout-value { font-size: 1rem; }
+}
 
 .chart {
   border: 1px solid var(--line);

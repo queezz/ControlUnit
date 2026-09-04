@@ -62,6 +62,20 @@
         return value.toFixed(magnitude >= 100 ? 0 : magnitude >= 10 ? 1 : 3);
     }
 
+    /* One axis, one kind of number. The readout formatter is not that: below
+       0.01 it turns exponential, so a linear pressure axis came out as
+       1.00e-4, 2.00e-4 … above a plain 0.000, two notations on one scale.
+       The tick step says how many decimals a label needs; only a step finer
+       than a millionth falls back to an exponent, where a plain decimal
+       would be unreadable anyway. */
+    function fmtTick(value, step) {
+        if (value === null || value === undefined || !isFinite(value)) return "";
+        var size = Math.abs(step) || Math.abs(value) || 1;
+        var decimals = -Math.floor(Math.log10(size));
+        if (decimals > 6) return value.toExponential(1).replace("e+", "e");
+        return value.toFixed(Math.max(0, decimals));
+    }
+
     function fmtSeconds(seconds) {
         if (seconds === null || seconds === undefined || !isFinite(seconds)) return "";
         if (seconds < 60) return seconds.toFixed(1) + " s";
@@ -252,12 +266,13 @@
 
         var yTicks = logScale ? niceTicks(lo, hi, 6).filter(function (v) { return Math.abs(v - Math.round(v)) < 1e-9; }) : niceTicks(lo, hi, 5);
         if (logScale && yTicks.length < 2) yTicks = niceTicks(lo, hi, 6);
+        var yStep = yTicks.length > 1 ? yTicks[1] - yTicks[0] : 0;
         ctx.textAlign = "right";
         ctx.textBaseline = "middle";
         yTicks.forEach(function (v) {
             var yy = Math.round(y(v)) + 0.5;
             ctx.beginPath(); ctx.moveTo(pad.left, yy); ctx.lineTo(pad.left + plotW, yy); ctx.stroke();
-            var label = logScale ? "1e" + Math.round(v) : fmtValue(v, "");
+            var label = logScale ? "1e" + Math.round(v) : fmtTick(v, yStep);
             ctx.fillText(label, pad.left - 8, yy);
         });
 

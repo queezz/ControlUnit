@@ -7,17 +7,17 @@ holds what is still undecided or unbuilt.
 
 - How should the rig find PIHTI Log, which runs on queezz's Windows PC rather
   than on the Pi and whose address can change — put the address in the Pi's own
-  settings file by hand, look the machine up by name on the lab network using
+  neighbours file by hand, look the machine up by name on the lab network using
   the name service Windows and the Pi already both speak, or have the rig scan
   the network for it — the owner's call.
   Stakes: by hand is ten minutes now and breaks silently whenever the PC's
-  address changes, which is the state the Lab tab is in today. Looking it up by
-  name keeps working across address changes and needs the PC to answer to a
-  name. Scanning needs no setup at all and is the slowest and the least
-  predictable, and it means the rig probing machines nobody asked it to touch.
-  Recommendation: look it up by name, and fall back to a hand-written address
-  when the name does not answer, so a working lab is never blocked on name
-  resolution.
+  address changes. Looking it up by name keeps working across address changes
+  and needs the PC to answer to a name; the diagram session reports the PC
+  already answers as `AK-office.local`, which the neighbours file below uses.
+  Scanning needs no setup at all and is the slowest and the least predictable,
+  and it means the rig probing machines nobody asked it to touch.
+  Recommendation: the name, `AK-office.local`, in the neighbours file, and a
+  hand-written address only if the name stops answering from the Pi.
   Safe default: by hand, which is what the code already supports.
 
 - Who may change a setpoint from a browser: never (view only), only while a
@@ -26,50 +26,63 @@ holds what is still undecided or unbuilt.
   Stakes: hydrogen and oxygen flow and the cathode current move on this.
   Recommendation: the switch on the rig, plus a Stop all outputs button that is
   always allowed because it only ever drives the hardware to zero.
-  Safe default: view only.
+  Safe default: view only, which is what is built.
 
-## Defects in the Lab tab
+## Work only queezz can do
 
-Reported by queezz 2026-09-04 against the running page; evidence gathered on
-the Pi and recorded in `.agents/log/2026-09-04-rig-code-restored-and-web-on-lan.md`.
+- Put web view 0.6.0 on the rig, on a rig that is not acquiring — owner work
+  pending. Pull `master` into both Pi checkouts, write the neighbours file, and
+  restart from the desktop shortcut:
 
-- The Pi has no `~/.controlunit/settings.yml`, so it has no `Neighbours:` block
-  and both neighbour cards fall to `not configured`. The code is behaving
-  correctly on absent configuration; the configuration has never been written.
-- The PIHTI diagram card tells the reader to start the diagram with
-  `lab pihti-diagram`, on the very machine where `pihti.service` is already
-  `active`. It is wrong about the mechanism and about the state at once.
-- The start-command copy assumes every neighbour is started by `lab` on the
-  machine reading the page. `lab` is the Windows helm; the Pi runs systemd
-  units. A card should say how that service is started on that machine, or say
-  nothing at all.
-- Clicking the page logo produced an error before acquisition was started, and
-  did not after. Not reproduced, not diagnosed.
+      git -C /home/pi/work/aktest pull
+      git -C /home/pi/work/ControlUnit pull
+      mkdir -p ~/.controlunit
+      cat > ~/.controlunit/neighbours.yml <<'EOF'
+      pihti-diagram:
+        url: http://pihti:5000
+        where: on this Pi, as a system service
+        start: sudo systemctl start pihti.service
+      pihti-log:
+        url: http://AK-office.local:4310
+        where: on the office Windows PC
+        start: lab pihti-log
+      EOF
+
+  The file is `neighbours.yml`, not `settings.yml`: a local `settings.yml` is
+  a complete replacement for the packaged one and a file holding only
+  neighbours would stop the rig from starting.
+  Done when: `http://pihti:4187/api/health` reports version 0.6.0, `/` shows
+  the Live tab with moving charts while acquiring, and `/lab` shows the
+  diagram card `ok` with "Runs on this Pi, as a system service."
+
+## Reported, not reproduced
+
+- Clicking the page logo produced an error before acquisition was started,
+  and did not after (queezz, 2026-09-04, against 0.5.0 on the rig). Not
+  reproduced off-rig: loading `/` before acquisition answers 200 on 0.6.0, and
+  the logo now leads to Live rather than Lab. If it recurs, the browser's
+  console line or the rig's terminal output is the evidence needed.
 
 ## Ready to build
 
-- Slice two of the web view: the read-only Live tab, the rig's values and two
-  strip charts on any laptop on the LAN. queezz's verdict on slice one standing
-  alone was that he needs "a real view, not a joke", so this is the piece that
-  makes the surface worth opening. Nothing needs deciding first.
-- Reply to PIHTI Log's letter `20260904-ec356017-5a06b4` (received and
-  collected 2026-09-04): the proposed health endpoint shape is accepted as
-  written, and each service should poll its neighbours from its own server
-  side, through a small `/api/neighbours` route, rather than from the browser,
-  so no service opens cross-origin reads and neighbour URLs stay in each
-  machine's local config. The port is settled at 4187.
-- `.agents/README.md` does not exist, though this repository's cold-start
-  packet requires it and names it a required read. Write it, or correct the
-  packet.
-- `simple_pid` and `pyyaml` are imported but declared in no requirements file;
-  both had to be installed by hand before the program would boot off-rig.
+- Register the web view in the Lab registry: `www = 4187` and
+  `version_url = "/api/health"` on the existing `[services.controlunit]` table
+  in `lab-cli/services.toml`, and `--web` in its command, so Lab's own board
+  reads the rig the way it reads the journal. A commit in another repository
+  under its own contract (RULES.md §11): prove it with a scratch `lab start`
+  first, and fall back to a letter to `code/lab-cli` if that file is dirty.
 
 ## Settled, kept here only until the next session reads them
 
-- The web view answers on the lab network by default (owner decision
-  2026-09-04, "the whole point is LAN"). Recorded in `AGENTS.md` and in the
-  `--host` default.
-- Port 4187 is accepted, and in use on the rig.
-- The warm charcoal and amber dressing is accepted; it shipped and stands.
-- Slice one is merged to `master` and pushed; it is no longer waiting on the
-  rig's uncommitted work, which landed in `bc0888c` and `aff0b57`.
+- Slice two shipped in 0.6.0 (2026-09-04): the read-only Live and Log tabs,
+  `/api/state`, `/api/series`, `/api/log`, Live as the home page and Lab at
+  `/lab`. Slice three, browser control, waits on the second decision above.
+- The Lab tab's neighbour cards now say how a service is started only when
+  the neighbours file says so, and say where it runs; the `lab <alias>` line
+  is no longer assumed for every neighbour.
+- PIHTI Log's letter `20260904-ec356017-5a06b4` was answered 2026-09-04 by a
+  note: shape accepted, port 4187, neighbours polled server-side.
+- The diagram session's note `20260904-925fa9a3-8a460b` (its address and the
+  journal's) was read and acted on 2026-09-04; its addresses are in the
+  neighbours file above. Notes have no receipt.
+- `.agents/README.md` exists now; `simple-pid` and `PyYAML` are declared.
