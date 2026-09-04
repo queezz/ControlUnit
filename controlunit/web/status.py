@@ -23,6 +23,8 @@ import sys
 import threading
 import time
 
+from controlunit.web.commands import NOBODY
+
 # The dummy stubs are imported under either name depending on how the
 # package was entered, so both spellings count as "the stubs are loaded".
 _DUMMY_MODULES = ("devices.dummy", "controlunit.devices.dummy")
@@ -376,8 +378,25 @@ def health_body(status, version):
     }
 
 
-def state_body(status, version):
-    """What every tab polls once a second: values, run facts, freshness."""
+#: What `/api/state` carries when nobody has taken control, and what it
+#: carries for a run with no command queue at all. The sentence comes from
+#: the command desk so that the page and a refusal cannot word it differently.
+NO_CONTROL = {
+    "holder": "",
+    "origin": "",
+    "since": None,
+    "mine": False,
+    "line": NOBODY,
+}
+
+
+def state_body(status, version, control=None):
+    """What every tab polls once a second: values, run facts, freshness.
+
+    `control` is who holds the operator lock, read from the command queue by
+    the caller rather than kept here: the lock is decided in the web thread,
+    and a second copy in this record could only ever go stale.
+    """
     snapshot = status.read()
     units = snapshot.get("units") or {}
     values = snapshot.get("values") or {}
@@ -420,5 +439,10 @@ def state_body(status, version):
         "remote": bool(snapshot.get("remote")),
         "zeros": snapshot.get("zeros") or {},
         "last_command": snapshot.get("last_command"),
+        # Who holds control of the rig from a browser, whether that is the
+        # browser asking, and the one sentence both the page and a refusal
+        # say it in. The holder's address is the deliberate exception to "no
+        # response carries an address": naming the other person is the point.
+        "control": dict(control) if control else dict(NO_CONTROL),
         "channels": channels,
     }

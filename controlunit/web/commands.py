@@ -7,6 +7,12 @@ call one. So a browser's request becomes a small record on a plain
 very methods its own buttons call. A setpoint has one code path whether it
 came from the rig's touchscreen or from a laptop.
 
+Who may send one is a second question, and the operator lock below answers
+it: the first browser to send a setter holds control, everyone else sees by
+name and address who that is, and takes it over deliberately. The lock is
+decided here, in the web thread where the commands arrive, and let go from
+the main thread when the rig stops listening.
+
 Nothing here imports PyQt, and nothing here touches a device. `drain` is
 handed the running `MainApp` and only ever calls methods that already exist
 on it; every value is checked in the web thread before it is queued, so the
@@ -15,18 +21,26 @@ main thread is never asked to run a command it should have refused.
 
 import queue
 import re
+import threading
 import time
 
 #: Every kind of command a browser may send, in operating order.
-KINDS = ("stop_all", "mfc", "plasma", "gauge", "sync", "zero")
+KINDS = ("stop_all", "take_over", "mfc", "plasma", "gauge", "sync", "zero")
 
 #: Stopping the outputs is always allowed: it only ever drives the hardware
 #: to zero, and a person who can see the rig must be able to do it whether
 #: or not they typed a name and whether or not the switch on the rig is on.
 ALWAYS_ALLOWED = ("stop_all",)
 
-#: Everything else needs workers running to mean anything.
+#: Everything else needs workers running to mean anything. Taking control is
+#: not one of them: it moves a lock, it does not touch the hardware.
 NEEDS_ACQUISITION = ("mfc", "plasma", "gauge", "sync", "zero")
+
+#: The setters the operator lock is about — everything that moves gas,
+#: cathode current, the gauge or the sync line. Stopping the outputs is never
+#: gated by it, and taking control is how the lock is moved, not something
+#: the lock may refuse.
+LOCKED = ("mfc", "plasma", "gauge", "sync", "zero")
 
 #: The channels whose baseline can be zeroed from the browser.
 ZERO_CHANNELS = ("Ip", "Bu", "Bd")
@@ -60,6 +74,9 @@ NO_ACTOR = "no name is set in this browser"
 NO_ACQUISITION = "no acquisition running"
 NO_SAMPLES = "no samples to take a baseline from yet"
 TOO_MANY = "too many commands are already waiting"
+
+#: What the holder line says when the lock is free.
+NOBODY = "Nobody has control"
 
 
 class Invalid(ValueError):
@@ -96,12 +113,126 @@ class Command(object):
         }
 
 
+class OperatorLock(object):
+    """Who is allowed to set what the rig holds from a browser, and since when.
+
+    Two people at one plasma is what this exists for. It is not a permission
+    system — a name is a label a person typed, not a credential — it is a way
+    of making the other person visible: the first browser to send a setter
+    holds control, everyone else is told who that is by name, address and
+    time, and takes it over deliberately rather than by accident.
+
+    Control is an actor *and* an origin together, because one shared name on
+    two laptops is still two people at one plasma. The rig's own screen is
+    never gated by any of this: a person standing at the machine always wins,
+    and the main thread lets go of the lock when acquisition stops or the
+    Remote switch goes off.
+    """
+
+    def __init__(self, clock=time.time):
+        self._lock = threading.Lock()
+        self._clock = clock
+        self._holder = ""
+        self._origin = ""
+        self._since = None
+
+    def _record(self):
+        return {"holder": self._holder, "origin": self._origin, "since": self._since}
+
+    def read(self):
+        """Who holds control right now, as `/api/state` carries it."""
+        with self._lock:
+            return self._record()
+
+    def held_by(self, actor, origin):
+        """True when this very browser is the one holding control."""
+        with self._lock:
+            return bool(self._holder) and self._is_holder(actor, origin)
+
+    def _is_holder(self, actor, origin):
+        return self._holder == clean_actor(actor) and self._origin == (origin or "")
+
+    def blocks(self, actor, origin):
+        """Whoever else holds control, or `None` when this browser may set.
+
+        One reading under one lock, so the sentence a refusal shows names the
+        person who actually held it at the moment the answer was decided.
+        """
+        with self._lock:
+            if not self._holder or self._is_holder(actor, origin):
+                return None
+            return self._record()
+
+    def claim(self, actor, origin):
+        """Take control if it is free; the first setter is what claims it."""
+        actor = clean_actor(actor)
+        if not actor:
+            return False
+        with self._lock:
+            if self._holder:
+                return False
+            self._holder = actor
+            self._origin = origin or ""
+            self._since = self._clock()
+            return True
+
+    def take_over(self, actor, origin):
+        """Move control here. Returns (whether it moved, who held it before).
+
+        Taking over when nobody holds control simply takes it; taking over
+        when you already hold it changes nothing, so the caller can answer
+        without pretending anything happened.
+        """
+        actor = clean_actor(actor)
+        origin = origin or ""
+        with self._lock:
+            if self._is_holder(actor, origin) and self._holder:
+                return False, self._holder
+            previous = self._holder
+            self._holder = actor
+            self._origin = origin
+            self._since = self._clock()
+            return True, previous
+
+    def release(self):
+        """Let go, and say who was holding it. Empty when nobody was."""
+        with self._lock:
+            previous = self._holder
+            self._holder = ""
+            self._origin = ""
+            self._since = None
+            return previous
+
+
+def holder_sentence(control):
+    """The one sentence that says who has control, in the reader's words.
+
+    Built here and nowhere else: the page prints it, a refusal gives it as
+    its reason, and neither can drift from the other. The clock is the rig's,
+    which is the clock everyone in the room is standing next to.
+    """
+    control = control or {}
+    holder = control.get("holder") or ""
+    if not holder:
+        return NOBODY
+    parts = ["{} has control".format(holder)]
+    since = control.get("since")
+    if since:
+        parts.append("since {}".format(time.strftime("%H:%M", time.localtime(since))))
+    if control.get("origin"):
+        parts.append("from {}".format(control["origin"]))
+    return " ".join(parts)
+
+
 class CommandQueue(object):
     """The one crossing between the web thread and the Qt main thread."""
 
     def __init__(self, maxsize=MAX_QUEUED):
         self._queue = queue.Queue(maxsize=maxsize)
         self._next = 0
+        #: Who may set anything from a browser. It is decided in the web
+        #: thread, where the commands arrive, and read from both threads.
+        self.control = OperatorLock()
 
     def submit(self, kind, value, actor="", origin=""):
         """Queue a checked command and return it, or raise `Invalid`."""
@@ -111,6 +242,11 @@ class CommandQueue(object):
             self._queue.put_nowait(command)
         except queue.Full:
             raise Invalid(TOO_MANY)
+        # A setter that made it onto the queue is what takes control: from
+        # here on the next person sees this one's name rather than quietly
+        # setting the same gas line.
+        if kind in LOCKED:
+            self.control.claim(actor, origin)
         return command
 
     def take_all(self):
@@ -262,13 +398,17 @@ def validate(kind, body, number=None):
 # -- who may press what -------------------------------------------------------
 
 
-def refusal(kind, remote, actor):
+def refusal(kind, remote, actor, origin="", control=None):
     """Why this command may not be queued, or an empty string if it may.
 
-    Reading is open to anyone on the lab network. Setting needs two things
-    at once: a name chosen in the browser, so the log says who, and the
-    Remote switch turned on beside the rig's own screen, so nobody moves gas
-    or cathode current past a person who is not there.
+    Reading is open to anyone on the lab network. Setting needs three things
+    at once: a name chosen in the browser, so the log says who; the Remote
+    switch turned on beside the rig's own screen, so nobody moves gas or
+    cathode current past a person who is not there; and control of the rig,
+    so two people do not drive one plasma without seeing each other.
+
+    The third is answered by `control`, an `OperatorLock`; without one the
+    first two are the whole gate, which is what a read-only run wants.
     """
     if kind in ALWAYS_ALLOWED:
         return ""
@@ -276,6 +416,10 @@ def refusal(kind, remote, actor):
         return NO_REMOTE
     if not clean_actor(actor):
         return NO_ACTOR
+    if kind in LOCKED and control is not None:
+        blocker = control.blocks(actor, origin)
+        if blocker:
+            return holder_sentence(blocker)
     return ""
 
 
@@ -298,6 +442,11 @@ def summarise(kind, value):
     value = value or {}
     if kind == "stop_all":
         return "all outputs to zero"
+    if kind == "take_over":
+        previous = value.get("from")
+        if previous:
+            return "took control from {}".format(previous)
+        return "took control"
     if kind == "mfc":
         return "{} flow {} mV".format(_GAS.get(value.get("n"), "gas"), value.get("mv"))
     if kind == "plasma":
@@ -388,7 +537,15 @@ def _apply_zero(app, value):
     return REFUSED, NO_SAMPLES
 
 
+def _apply_take_over(app, value):
+    """Nothing to drive: the lock moved in the web thread, where it was asked
+    for, so the browser's answer was true the moment it was given. This runs
+    here only so a take-over is logged and reported like any other command."""
+    return APPLIED, ""
+
+
 _APPLIERS = {
+    "take_over": _apply_take_over,
     "mfc": _apply_mfc,
     "plasma": _apply_plasma,
     "gauge": _apply_gauge,
@@ -421,6 +578,26 @@ def describe(command, outcome, reason):
     return "Remote: {}{}: {} - refused, {}".format(
         who, where, command.summary(), reason
     )
+
+
+def release(app, reason):
+    """Let go of browser control from the main thread, and say so in the log.
+
+    The rig's own screen always wins: when acquisition stops, or when the
+    Remote switch goes off, nobody is left holding a lock over a rig that is
+    no longer listening. There is no idle timeout — a lock held quietly
+    through a long overnight run is the normal case, not a fault.
+    """
+    waiting = getattr(app, "web_commands", None)
+    if waiting is None:
+        return ""
+    previous = waiting.control.release()
+    if previous:
+        try:
+            app.log_message("Control released ({})".format(reason))
+        except Exception as error:  # losing a log line never stops a shutdown
+            print("web control release: {}".format(error))
+    return previous
 
 
 def drain(app):

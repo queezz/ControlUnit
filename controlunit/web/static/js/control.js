@@ -8,6 +8,10 @@
  * Every update writes into elements that already exist, so a value changing
  * under the reader never moves anything, and the one status line changes in
  * place rather than appearing above the controls it reports on.
+ *
+ * Who has the rig is the rig's answer too, never this page's guess: the
+ * holder line and whether the reader is the holder both arrive in
+ * /api/state, so a page whose person lost control learns it within a poll.
  */
 (function () {
     "use strict";
@@ -186,25 +190,47 @@
         if (el) el.textContent = text;
     }
 
+    /* Who has the rig. The sentence is the rig's own — the same one a
+       refusal gives as its reason — so this page never words it a second
+       way. Whether the reader is the holder is answered by the rig too: a
+       browser cannot see its own address, and nothing here carries one
+       except this line. */
+    function paintControl(state) {
+        var control = state.control || {};
+        set('[data-role="holder"]', control.line || "Nobody has control");
+
+        var take = root.querySelector('[data-role="take-over"]');
+        if (take) {
+            take.disabled = !(state.remote && actor && !control.mine);
+        }
+        return control;
+    }
+
     /* The gate, in one place. Setting needs the switch on the rig's own
-       screen, a name in this browser, and workers running; the reason is
-       stated here once and never repeated beside a control. */
-    function paintGate(state) {
+       screen, a name in this browser, workers running, and control of the
+       rig; the reason is stated here once and never repeated beside a
+       control. */
+    function paintGate(state, control) {
         var chip = root.querySelector('[data-role="remote-chip"]');
         if (chip) {
             chip.textContent = state.remote ? "on" : "off";
             chip.className = "chip chip-" + (state.remote ? "live" : "idle");
         }
 
+        /* Control that nobody holds is there for the taking: the first
+           setpoint sent claims it. */
+        var mine = !control.holder || Boolean(control.mine);
+
         var why = "";
         if (!state.remote) why = "Setting is off until the switch on the rig is on.";
         else if (!actor) why = "Setting is off until you save a name below.";
         else if (!state.acquiring) why = "Setting is off while no acquisition is running.";
+        else if (!mine) why = "Setting is off until you take control below.";
         else why = "You may set what the rig holds.";
         var line = root.querySelector('[data-role="remote-why"]');
         if (line) line.textContent = why;
 
-        var allowed = Boolean(state.remote) && Boolean(actor) && Boolean(state.acquiring);
+        var allowed = Boolean(state.remote) && Boolean(actor) && Boolean(state.acquiring) && mine;
         root.querySelectorAll(".page-main button, .page-main input").forEach(function (control) {
             control.disabled = !allowed;
         });
@@ -228,7 +254,7 @@
         paintPlasma(state, map);
         paintGauge(state);
         paintBaselines(state, map);
-        paintGate(state);
+        paintGate(state, paintControl(state));
         paintOutcome(state);
     }
 
@@ -253,6 +279,19 @@
                     say("acting as " + actor);
                 } else {
                     say("refused: " + (answer.body.reason || "that name will not do"));
+                }
+                pollState();
+            }).catch(function () { say("the rig did not answer"); });
+        });
+
+        var take = root.querySelector('[data-role="take-over"]');
+        if (take) take.addEventListener("click", function () {
+            say("taking control …");
+            post("/api/take-over", {}).then(function (answer) {
+                if (answer.status === 200) {
+                    say(answer.body.changed ? "you have control" : "you already had control");
+                } else {
+                    say("refused: " + (answer.body.reason || "the rig did not accept that"));
                 }
                 pollState();
             }).catch(function () { say("the rig did not answer"); });

@@ -4,7 +4,9 @@ An optional browser view of the rig, served from inside the ControlUnit
 process. It is switched on with `--web`, which the rig's launcher
 `scripts/run_controlunit.sh` passes, and answers on the lab network at
 `http://pihti:4187/` by default. Reading is open to anyone on that network;
-setting a setpoint is gated twice over, and the gate is described below.
+setting a setpoint is gated by the switch on the rig, by a name in the
+browser, and by an operator lock so that two people never drive one plasma
+without seeing each other. All three are described below.
 
 ## Where it sits
 
@@ -21,7 +23,7 @@ main thread keeps up to date from methods it already runs:
 | `log_message` | one message-log line, tags stripped |
 | `update_current_values`, the plasma and gauge setters | the setpoints the rig holds |
 | `__onoff`, `abort_all_threads` | whether acquisition runs |
-| `_toggle_remote`, `_force_remote_off` | whether a browser may set anything |
+| `_toggle_remote`, `_force_remote_off` | whether a browser may set anything, and letting go of the operator lock |
 | `_adjust_zeros` | the baselines the display subtracts |
 | the command drain | what became of the last command a browser sent |
 
@@ -79,6 +81,55 @@ the log file and the Log tab. The origin address is the deliberate exception
 to "no response carries an address": a command that moved gas or cathode
 current says where it came from.
 
+## The operator lock
+
+The switch answers *may anyone set from a browser*; the lock answers *which
+one of them*. It exists for one question the owner asked: two people must not
+control one plasma without seeing each other.
+
+**The first browser to send a setter holds control.** Control is an actor name
+and the origin address together, taken the moment a setter (`mfc`, `plasma`,
+`gauge`, `sync`, `zero`) is queued. The same name from another address is
+another person — two laptops, one shared name, still two people at one rig.
+**Stop all outputs never takes the lock and is never gated by it.**
+
+Every Control page says who holds it, in one line in the Remote card of the
+left rail: *"Arseniy has control since 21:40 from 10.249.254.30"*, or *"Nobody
+has control"* when it is free. That line is written on the rig, in
+`commands.holder_sentence`, and carried in `/api/state` as `control.line`, so
+the page and a refusal cannot word it two ways; the address in it is the same
+deliberate exception the command log makes. A second person's setters are
+refused `403` with that very sentence as the reason, and their page shows the
+setters disabled with the reason stated once in the rail, exactly as the
+switch-off case does — plus a **Take over** button they may press.
+
+**Take over** (`POST /api/take-over`) moves the lock to the presser. It is a
+command in its own right: the main thread logs it with the new name, the
+origin and the time, and the previous holder's page shows the new holder
+within one poll. Taking over when nobody holds control simply takes it;
+taking over what you already hold is a no-op with `200`. The button is
+disabled while you hold control and while the Remote switch is off.
+
+**The rig's own screen always wins.** Nothing a person does at the Qt window
+is ever gated by the lock. The main thread lets go of it — through
+`commands.release(app, reason)`, which also writes the log line — when
+acquisition stops (*"Control released (acquisition stopped)"*) and when the
+Remote switch goes off (*"Control released (Remote switch off)"*). There is no
+idle timeout: a lock held quietly through a long overnight run is the normal
+case, not a fault.
+
+The lock lives on the `CommandQueue` as an `OperatorLock`, behind its own
+`threading.Lock`: it is decided in the web thread, where the commands arrive,
+and read from both threads. `/api/state` reads it from the queue rather than
+from a copy in `RigStatus`, because a second copy could only ever go stale.
+The reply also carries `control.mine`, since a browser cannot see its own
+address and so cannot work out for itself whether the holder is the reader.
+
+The lock is a courtesy between colleagues, not a security boundary: a name is
+a label a person typed, and anyone on the lab network may press Take over. It
+makes the other person visible; the Remote switch on the rig is what makes
+setting possible at all.
+
 ## Baselines
 
 Plasma current and both Baratrons can be read from a baseline. Pressing
@@ -104,7 +155,7 @@ a credential; the data file appears by name only.
 | `GET /lab` | the Lab tab |
 | `GET /api/health` | `{service, version, status, detail}` — the ensemble's contract; `ok` only while acquiring on real hardware |
 | `GET /api/neighbours` | this service and its two neighbours, each with a state |
-| `GET /api/state` | latest values, setpoints, run facts, freshness, the Remote switch, the zeros and the last command; polled once a second, or four times a second under Poll: fast |
+| `GET /api/state` | latest values, setpoints, run facts, freshness, the Remote switch, the zeros, who has control and the last command; polled once a second, or four times a second under Poll: fast |
 | `GET /api/series?window=300&points=600` | thinned `[t, v]` pairs per channel over the last `window` seconds, `0` for all held |
 
 A window is cut by walking the ring backwards from the newest sample and
@@ -114,6 +165,7 @@ second without the Pi paying for two hours of samples each time. `window=0`
 still copies the whole ring, because the whole ring is what it asked for.
 | `GET /api/log?since=N` | log lines after sequence number `N` |
 | `POST /api/identify` | `{"name": "..."}` — remember, in this browser, the name to write beside a command |
+| `POST /api/take-over` | take control of the rig from whoever holds it; `200` either way, `403` without the switch or a name |
 | `POST /api/stop-all` | every output to zero; always allowed |
 | `POST /api/mfc/<1\|2>` | `{"mv": 0..5000}` — a gas flow setpoint; `0` is the Zero button |
 | `POST /api/plasma-current` | `{"a": 0..3}` or `{"off": true}` |
@@ -144,7 +196,8 @@ still copies the whole ring, because the whole ring is what it asked for.
   only; a run is still started and stopped at the rig), Gas flow, Plasma
   current, Gauge and sync, and Baselines. Every row shows the setpoint the
   rig holds beside the value it measures. The left rail carries the gate —
-  the switch's state, the one reason setting is off right now, the name, and
+  the switch's state, who has control and the Take over button, the one
+  reason setting is off right now, the name, and
   the always-allowed Stop all outputs; the right rail carries this run and
   an index of the five groups. A control the gate would refuse is disabled
   and still visibly bordered, and the reason is stated once in the rail,

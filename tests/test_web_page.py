@@ -133,11 +133,28 @@ def test_the_gate_is_explained_in_exactly_one_place(control):
     assert control.count('data-role="status"') == 1
 
 
+def test_control_says_who_has_the_rig_in_exactly_one_line(control):
+    """The lock is explained once, in the Remote card, and never on a row."""
+    assert control.count('data-role="holder"') == 1
+    assert control.count("Nobody has control") == 1
+    assert control.count('data-role="take-over"') == 1
+    assert control.count(">Take over<") == 1
+
+
+def test_the_take_over_button_rests_disabled_until_the_gate_opens(control):
+    """With the switch off nobody may take anything, so it cannot be pressed."""
+    card = control[control.index('class="rail-label">Remote control<'):]
+    card = card[:card.index("</section>")]
+    assert 'data-role="take-over"' in card
+    assert "disabled" in card
+
+
 def test_control_asks_state_and_posts_the_command_routes(client):
     script = client.get("/static/js/control.js").get_data(as_text=True)
     assert "/api/state" in script
     for route in (
         "/api/identify",
+        "/api/take-over",
         "/api/stop-all",
         "/api/mfc/",
         "/api/plasma-current",

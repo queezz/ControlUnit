@@ -567,6 +567,16 @@ dl.facts dd.wide { margin-top: -2px; }
 
 .remote-line { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
 
+/* Who has the rig. Always present, and reserved for the longest sentence
+   this rail can produce — a 24-character name, a time and an address wrap to
+   three lines at this width — because the line changes exactly when a second
+   person takes the rig, which is the moment somebody is reading the card. */
+.holder-line { margin: 0 0 8px; font-size: 0.88rem; min-height: 4.6em; }
+
+/* Taking the rig from whoever has it is deliberate, so it is a full-width
+   button under the reason it answers, never a word beside it. */
+.take-over { display: block; width: 100%; margin: 0 0 10px; }
+
 /* The gate's one reason, and the room for the longest of the four. Three of
    them ("Setting is off until the switch on the rig is on.", "… until you
    save a name below.", "… while no acquisition is running.") take two lines
