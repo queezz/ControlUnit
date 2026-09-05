@@ -4,9 +4,9 @@ An optional browser view of the rig, served from inside the ControlUnit
 process. It is switched on with `--web`, which the rig's launcher
 `scripts/run_controlunit.sh` passes, and answers on the lab network at
 `http://pihti:4187/` by default. Reading is open to anyone on that network;
-setting a setpoint is gated by the switch on the rig, by a name in the
-browser, and by an operator lock so that two people never drive one plasma
-without seeing each other. All three are described below.
+setting a setpoint is gated by the switch on the rig, and by an operator
+lock so that two people never drive one plasma without seeing each other.
+Both are described below.
 
 ## Where it sits
 
@@ -58,19 +58,23 @@ is read from the next `/api/state`, which carries `last_command` (kind,
 actor, a short summary, the time and the outcome). The browser never assumes
 its own request succeeded.
 
-**Who may press what.** Setting needs two things at once:
+**Who may press what.** Setting needs the **Remote** switch turned on in the
+Qt control dock, on the rig's own screen, beside the on/off switch. It rests
+off, cannot be turned on from a browser, and is forced off whenever
+acquisition stops. That switch is the whole authorisation: a person standing
+at the rig decides whether the network may move anything.
 
-- a name chosen in the browser — `POST /api/identify` sets an `actor`
-  cookie, and the Control tab's left rail has an "Acting as" field. It is a
-  label so the log can say who, never a credential and never a claim of
-  identity;
-- the **Remote** switch turned on in the Qt control dock, on the rig's own
-  screen, beside the on/off switch. It rests off, cannot be turned on from a
-  browser, and is forced off whenever acquisition stops.
+A name is asked for and never waited for. `POST /api/identify` sets an
+`actor` cookie and the Control tab's left rail has an "Acting as" field, but
+it is a label so the log can say who, never a credential and never a claim
+of identity. Somebody who has typed no name is logged, and holds control, by
+the address their browser is at. Requiring one had made a rig with its switch
+already thrown refuse every command, which reads as a broken page rather
+than a locked one (owner report 2026-09-05).
 
-Missing either one is `403` with the reason; a command that needs the
-workers when none are running is `409`; a body that does not say something
-the rig accepts is `400`. **Stop all outputs** is the one exception and is
+Without the switch a setter is `403` with the reason; a command that needs
+the workers when none are running is `409`; a body that does not say
+something the rig accepts is `400`. **Stop all outputs** is the one exception and is
 always allowed — name or no name, switch or no switch, acquiring or not —
 because it only ever calls the `turn_off_voltages` the shutdown path calls
 and drives the hardware to zero.
@@ -87,10 +91,13 @@ The switch answers *may anyone set from a browser*; the lock answers *which
 one of them*. It exists for one question the owner asked: two people must not
 control one plasma without seeing each other.
 
-**The first browser to send a setter holds control.** Control is an actor name
-and the origin address together, taken the moment a setter (`mfc`, `plasma`,
-`gauge`, `sync`, `zero`) is queued. The same name from another address is
-another person — two laptops, one shared name, still two people at one rig.
+**The first browser to send a setter holds control**, taken the moment a
+setter (`mfc`, `plasma`, `gauge`, `sync`, `zero`) is queued. It is held by
+the browser's own address, and shown under the name that browser has saved,
+or under the address itself while it has saved none. So the same name from
+another address is another person — two laptops, one shared name, still two
+people at one rig — and saving a name after taking control renames the
+holder rather than locking them out of their own session.
 **Stop all outputs never takes the lock and is never gated by it.**
 
 Every Control page says who holds it, in one line in the Remote card of the
@@ -165,7 +172,7 @@ second without the Pi paying for two hours of samples each time. `window=0`
 still copies the whole ring, because the whole ring is what it asked for.
 | `GET /api/log?since=N` | log lines after sequence number `N` |
 | `POST /api/identify` | `{"name": "..."}` — remember, in this browser, the name to write beside a command |
-| `POST /api/take-over` | take control of the rig from whoever holds it; `200` either way, `403` without the switch or a name |
+| `POST /api/take-over` | take control of the rig from whoever holds it; `200` either way, `403` without the switch |
 | `POST /api/stop-all` | every output to zero; always allowed |
 | `POST /api/mfc/<1\|2>` | `{"mv": 0..5000}` — a gas flow setpoint; `0` is the Zero button |
 | `POST /api/plasma-current` | `{"a": 0..3}` or `{"off": true}` |

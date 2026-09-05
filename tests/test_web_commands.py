@@ -111,10 +111,11 @@ def test_a_name_is_reduced_to_something_safe_to_print():
 
 
 @pytest.mark.parametrize("kind", ["mfc", "plasma", "gauge", "sync", "zero"])
-def test_setting_needs_the_switch_and_a_name(kind):
+def test_setting_needs_the_switch_and_nothing_else(kind):
+    """The switch on the rig authorises; a name is a label, never a gate."""
     assert commands.refusal(kind, False, "queezz") == commands.NO_REMOTE
-    assert commands.refusal(kind, True, "") == commands.NO_ACTOR
     assert commands.refusal(kind, True, "queezz") == ""
+    assert commands.refusal(kind, True, "") == ""
 
 
 def test_stopping_is_allowed_with_neither():
@@ -243,9 +244,10 @@ def test_the_holder_sentence_is_one_sentence_in_the_reader_s_words():
     assert commands.holder_sentence(held("Arseniy", "", None)) == "Arseniy has control"
 
 
-def test_a_name_that_was_never_typed_cannot_take_control():
+def test_a_browser_with_neither_name_nor_address_takes_nothing():
+    """There is nobody to name, so there is nobody to hold the rig."""
     desk = commands.CommandQueue()
-    assert desk.control.claim("", "10.249.254.30") is False
+    assert desk.control.claim("", "") is False
     assert desk.control.read()["holder"] == ""
 
 
@@ -663,11 +665,11 @@ def test_with_the_switch_off_every_setter_is_refused(path, body, tmp_path):
 
 
 @pytest.mark.parametrize("path, body", SETTERS)
-def test_with_the_switch_on_but_no_name_every_setter_is_refused(path, body, tmp_path):
+def test_with_the_switch_on_a_nameless_browser_may_still_set(path, body, tmp_path):
+    """Nobody is kept from the rig for not having typed a name first."""
     client = app_for(rig(remote=True), tmp_path).test_client()
     response = client.post(path, json=body)
-    assert response.status_code == 403
-    assert response.get_json()["reason"] == commands.NO_ACTOR
+    assert response.status_code == 202
 
 
 @pytest.mark.parametrize("path, body", SETTERS)
@@ -883,8 +885,7 @@ def test_taking_over_needs_the_switch_and_a_name(tmp_path):
 
     nameless = app_for(rig(remote=True), tmp_path).test_client()
     answer = nameless.post("/api/take-over", json={})
-    assert answer.status_code == 403
-    assert answer.get_json()["reason"] == commands.NO_ACTOR
+    assert answer.status_code == 200
 
 
 def test_state_carries_who_has_control_and_whether_it_is_this_browser(tmp_path):
@@ -938,3 +939,44 @@ def test_no_answer_from_a_command_route_is_ever_stored(tmp_path):
 
 def test_the_version_the_pages_key_their_assets_to_moved(tmp_path):
     assert __version__ >= "0.7.0"
+
+
+# -- a name labels, an address holds -----------------------------------------
+
+
+def test_a_nameless_browser_holds_control_under_its_own_address():
+    """Somebody who typed no name is named by where they are sitting."""
+    lock = commands.OperatorLock(clock=lambda: 1000.0)
+    assert lock.claim("", "10.249.254.8") is True
+    held = lock.read()
+    assert held["holder"] == "10.249.254.8"
+    # Named once by the address, never twice.
+    assert commands.holder_sentence(held).count("10.249.254.8") == 1
+
+
+def test_saving_a_name_does_not_lock_a_holder_out_of_their_own_session():
+    lock = commands.OperatorLock(clock=lambda: 1000.0)
+    lock.claim("", "10.249.254.8")
+    lock.claim("Arseniy", "10.249.254.8")  # the same browser, now with a name
+    assert lock.blocks("Arseniy", "10.249.254.8") is None
+    assert lock.read()["holder"] == "Arseniy"
+
+
+def test_another_laptop_is_another_person_however_it_signs():
+    lock = commands.OperatorLock(clock=lambda: 1000.0)
+    lock.claim("Arseniy", "10.249.254.8")
+    for name in ("Arseniy", "Ivan", ""):
+        assert lock.blocks(name, "10.249.254.31") is not None
+
+
+def test_a_nameless_command_is_logged_under_its_address_once():
+    """"someone from 127.0.0.1" says one person twice; the address is the name."""
+    command = commands.Command(1, "mfc", {"n": 1, "mv": 1234}, actor="", origin="10.0.0.5")
+    line = commands.describe(command, commands.APPLIED, "")
+    assert line == "Remote: 10.0.0.5: H2 flow 1234 mV"
+    assert line.count("10.0.0.5") == 1
+
+    named = commands.Command(2, "mfc", {"n": 1, "mv": 1234}, actor="Arseniy", origin="10.0.0.5")
+    assert commands.describe(named, commands.APPLIED, "") == (
+        "Remote: Arseniy from 10.0.0.5: H2 flow 1234 mV"
+    )

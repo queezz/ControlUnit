@@ -201,7 +201,7 @@
 
         var take = root.querySelector('[data-role="take-over"]');
         if (take) {
-            take.disabled = !(state.remote && actor && !control.mine);
+            take.disabled = !(state.remote && !control.mine);
         }
         return control;
     }
@@ -223,14 +223,13 @@
 
         var why = "";
         if (!state.remote) why = "Setting is off until the switch on the rig is on.";
-        else if (!actor) why = "Setting is off until you save a name below.";
         else if (!state.acquiring) why = "Setting is off while no acquisition is running.";
         else if (!mine) why = "Setting is off until you take control below.";
         else why = "You may set what the rig holds.";
         var line = root.querySelector('[data-role="remote-why"]');
         if (line) line.textContent = why;
 
-        var allowed = Boolean(state.remote) && Boolean(actor) && Boolean(state.acquiring) && mine;
+        var allowed = Boolean(state.remote) && Boolean(state.acquiring) && mine;
         root.querySelectorAll(".page-main button, .page-main input").forEach(function (control) {
             control.disabled = !allowed;
         });

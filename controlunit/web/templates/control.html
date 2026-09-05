@@ -21,7 +21,7 @@
                right now, in words, once, never repeated on a row. #}
             <p class="muted remote-why" data-role="remote-why">Setting is off until the switch on the rig is on.</p>
             <button type="button" class="take-over" data-role="take-over"
-                    {{ '' if state.remote and actor and not state.control.mine else 'disabled' }}>Take over</button>
+                    {{ '' if state.remote and not state.control.mine else 'disabled' }}>Take over</button>
             {# One stable status line. It changes in place; nothing is ever
                inserted above the controls a reader is about to use again. #}
             <p class="remote-status mono" data-role="status" role="status"></p>
@@ -35,17 +35,19 @@
                        aria-label="The name written beside a command">
                 <button type="button" data-role="save-actor">Save</button>
             </div>
+            <p class="muted actor-note">Written in the log beside what you
+                set. Without one the log names this browser's address.</p>
         </section>
 
         <section class="rail-card rail-card--fit">
             <h2 class="rail-label">Always allowed</h2>
             <button type="button" class="stop-all" data-role="stop-all">Stop all outputs</button>
-            <p class="muted stop-note">Gas and cathode current to zero, name or no name, switch or no switch.</p>
+            <p class="muted stop-note">Gas and cathode current to zero, whoever has control, switch or no switch.</p>
         </section>
     </aside>
 
     <main class="page-main">
-        <h1>Control</h1>
+        <h1 class="sr-only">Control</h1>
 
         <section class="group" id="sec-acquisition">
             <h2>1 · Acquisition</h2>

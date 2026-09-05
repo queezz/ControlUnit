@@ -16,6 +16,31 @@ class MySwitch(QtWidgets.QPushButton):
         self.setMinimumWidth(66)
         self.setMinimumHeight(35)
 
+    def _label_font(self, painter, room):
+        """One font for both labels, shrunk only as far as the longer needs.
+
+        The label is drawn inside the sliding part and Qt clips it there, so
+        a word wider than that part arrives with its ends cut off: "REMOTE"
+        reached the rig's screen as "EMOT" (queezz, 2026-09-05), and "Exp OFF"
+        had been reading as "p OF" for as long as it has existed. Both of a
+        switch's labels are measured together, so the word does not change
+        size when the switch is thrown, and a label that already fits its
+        switch is left at the size it always had.
+        """
+        font = QtGui.QFont(painter.font())
+        size = font.pointSize()
+        if size <= 0:
+            size = QtGui.QFontInfo(font).pointSize() or 10
+        while size > 8:
+            font.setPointSize(size)
+            metrics = QtGui.QFontMetrics(font)
+            widest = max(metrics.boundingRect(word).width() for word in self.labels)
+            if widest <= room:
+                break
+            size -= 1
+        font.setPointSize(size)
+        return font
+
     def paintEvent(self, event):
         radius = self.radius
         width = self.width
@@ -44,6 +69,7 @@ class MySwitch(QtWidgets.QPushButton):
             sw_rect.moveLeft(-width)
 
         painter.drawRoundedRect(sw_rect, radius, radius)
+        painter.setFont(self._label_font(painter, sw_rect.width() - 2))
         painter.drawText(sw_rect, Qt.AlignCenter, label)
 
     def hitButton(self, pos: QPoint):
@@ -73,8 +99,10 @@ class RemoteSwitch(MySwitch):
     current move on it, so a person standing at the rig decides.
     """
 
+    # Wider than the on/off switch because its words are longer. Measured on
+    # the rig's own font, "LOCAL" is 80 px and the sliding part here is 88.
     radius = 14
-    width = 44
+    width = 74
 
     labels = ["REMOTE", "LOCAL"]
     colors = [QtGui.QColor("#e0a63a"), QtGui.QColor("#b89c76")]

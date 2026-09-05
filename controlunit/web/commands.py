@@ -70,7 +70,6 @@ REFUSED = "refused"
 
 #: The reasons a command is refused, in the words the reader is shown.
 NO_REMOTE = "the Remote switch on the rig's screen is off"
-NO_ACTOR = "no name is set in this browser"
 NO_ACQUISITION = "no acquisition running"
 NO_SAMPLES = "no samples to take a baseline from yet"
 TOO_MANY = "too many commands are already waiting"
@@ -150,7 +149,11 @@ class OperatorLock(object):
             return bool(self._holder) and self._is_holder(actor, origin)
 
     def _is_holder(self, actor, origin):
-        return self._holder == clean_actor(actor) and self._origin == (origin or "")
+        # One browser, one address: control is held by where a person is
+        # sitting, and the name is only what the log calls them. So saving a
+        # name after taking control does not lock anybody out of their own
+        # session, and two laptops are two people however they sign.
+        return self._origin == (origin or "")
 
     def blocks(self, actor, origin):
         """Whoever else holds control, or `None` when this browser may set.
@@ -165,31 +168,38 @@ class OperatorLock(object):
 
     def claim(self, actor, origin):
         """Take control if it is free; the first setter is what claims it."""
-        actor = clean_actor(actor)
-        if not actor:
+        identity = _identity(actor, origin)
+        if not identity:
             return False
         with self._lock:
+            if self._holder and self._is_holder(actor, origin):
+                # The same browser, perhaps with a name saved since it took
+                # control: keep the lock and call this person what they now
+                # call themselves.
+                self._holder = identity
+                return False
             if self._holder:
                 return False
-            self._holder = actor
+            self._holder = identity
             self._origin = origin or ""
             self._since = self._clock()
             return True
 
-    def take_over(self, actor, origin):
+    def take_over(self, actor, origin):  # noqa: D401
         """Move control here. Returns (whether it moved, who held it before).
 
         Taking over when nobody holds control simply takes it; taking over
         when you already hold it changes nothing, so the caller can answer
         without pretending anything happened.
         """
-        actor = clean_actor(actor)
+        identity = _identity(actor, origin)
         origin = origin or ""
         with self._lock:
-            if self._is_holder(actor, origin) and self._holder:
+            if self._holder and self._is_holder(actor, origin):
+                self._holder = identity
                 return False, self._holder
             previous = self._holder
-            self._holder = actor
+            self._holder = identity
             self._origin = origin
             self._since = self._clock()
             return True, previous
@@ -202,6 +212,14 @@ class OperatorLock(object):
             self._origin = ""
             self._since = None
             return previous
+
+
+def _identity(actor, origin):
+    """What the holder line calls a person: the name they typed, or, while
+    they have typed none, the address their browser is at. A name is a label
+    and never a credential, so the rig asks for one but never waits for it.
+    """
+    return clean_actor(actor) or (origin or "")
 
 
 def holder_sentence(control):
@@ -219,7 +237,9 @@ def holder_sentence(control):
     since = control.get("since")
     if since:
         parts.append("since {}".format(time.strftime("%H:%M", time.localtime(since))))
-    if control.get("origin"):
+    # Somebody who has typed no name is already named by their address;
+    # saying it twice reads as two facts about two people.
+    if control.get("origin") and control["origin"] != holder:
         parts.append("from {}".format(control["origin"]))
     return " ".join(parts)
 
@@ -401,21 +421,22 @@ def validate(kind, body, number=None):
 def refusal(kind, remote, actor, origin="", control=None):
     """Why this command may not be queued, or an empty string if it may.
 
-    Reading is open to anyone on the lab network. Setting needs three things
-    at once: a name chosen in the browser, so the log says who; the Remote
-    switch turned on beside the rig's own screen, so nobody moves gas or
-    cathode current past a person who is not there; and control of the rig,
-    so two people do not drive one plasma without seeing each other.
+    Reading is open to anyone on the lab network. Setting needs two things:
+    the Remote switch turned on beside the rig's own screen, so nobody moves
+    gas or cathode current past a person who is not there, and control of
+    the rig, so two people do not drive one plasma without seeing each
+    other. A name is asked for and never waited for (owner report
+    2026-09-05, "I toggled it on, but the browser doesn't allow my
+    control"): the switch is what authorises, and an unnamed person is
+    logged by the address they are sitting at.
 
-    The third is answered by `control`, an `OperatorLock`; without one the
-    first two are the whole gate, which is what a read-only run wants.
+    The second is answered by `control`, an `OperatorLock`; without one the
+    switch is the whole gate, which is what a read-only run wants.
     """
     if kind in ALWAYS_ALLOWED:
         return ""
     if not remote:
         return NO_REMOTE
-    if not clean_actor(actor):
-        return NO_ACTOR
     if kind in LOCKED and control is not None:
         blocker = control.blocks(actor, origin)
         if blocker:
@@ -568,8 +589,12 @@ def apply(app, command):
 
 def describe(command, outcome, reason):
     """The message-log line one command leaves behind, in plain ASCII."""
-    who = command.actor or "someone"
-    where = " from {}".format(command.origin) if command.origin else ""
+    # Whoever typed no name is already named by their address; saying it
+    # twice would read as two people.
+    who = _identity(command.actor, command.origin)
+    where = ""
+    if command.origin and command.origin != who:
+        where = " from {}".format(command.origin)
     # The summary is a whole clause ("H2 flow 1234 mV", "baseline of Bu
     # taken"), so nothing is prefixed to it that only fits a setpoint.
     if outcome == APPLIED:
