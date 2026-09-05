@@ -75,6 +75,14 @@ holds what is still undecided or unbuilt.
 
 ## Settled, kept here only until the next session reads them
 
+- Setting from a browser is gated by the switch on the rig and the operator
+  lock, and by nothing else (owner report 2026-09-05: a name requirement
+  made a rig with its switch thrown refuse everything). A name is a label
+  for the log; an unnamed browser holds control under its own address.
+- A switch's label is sized to fit its sliding part, because Qt clips it
+  there: "REMOTE" reached the rig as "EMOT" and "Exp OFF" as "p OF".
+- No tab prints its own name as a heading; the tab bar already says it.
+
 - The operator lock (queezz 2026-09-04, "go"): first browser to send a
   setter holds control by name and address, Take over is deliberate and
   logged, Stop all never gated, released on stop and on Remote off, no
