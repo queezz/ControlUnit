@@ -364,3 +364,54 @@ def test_state_body_survives_an_empty_rig():
     assert body["data"]["state"] == "idle"
     assert body["run"]["file"] == ""
     assert body["channels"] == []
+
+
+# -- the chart panels' own size, which is not the backing buffer's ------------
+
+
+def _live_js():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    return (
+        root / "controlunit" / "web" / "static" / "js" / "live.js"
+    ).read_text(encoding="utf-8")
+
+
+def test_the_chart_code_never_reads_a_panels_height_attribute_back():
+    """The Retina runaway, pinned where it can only come back deliberately.
+
+    `canvas.height` *is* the `height` attribute: setting the backing buffer
+    writes it. The old `prepare()` read that attribute as if it were the
+    layout height and multiplied it by the device pixel ratio again on every
+    redraw, so a 220px panel on the owner's Mac (ratio 2) reached a height
+    attribute of 1,802,240px and a document of 2,540,001px before the plot
+    failed white (PIHTI Log's audit, letter `20260907-023785d0`). At ratio 1
+    the same code was stable, which is why nothing here ever saw it.
+
+    The panel's height now comes from `data-height`, which nothing writes.
+    """
+    source = _live_js()
+    assert 'getAttribute("height")' not in source
+    assert "canvas.dataset.height" in source
+
+
+def test_the_backing_buffer_is_bounded_and_a_refused_context_is_survived():
+    """A browser refuses an oversized canvas and hands back nothing; the page
+    draws no panel rather than throwing on every poll."""
+    source = _live_js()
+    assert "MAX_BUFFER" in source
+    assert "if (!ctx) return null;" in source
+    assert "if (!box) return;" in source
+
+
+def test_every_chart_panel_declares_its_own_layout_height():
+    """Two facts, two attributes, on all three panels."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    page = (
+        root / "controlunit" / "web" / "templates" / "live.html"
+    ).read_text(encoding="utf-8")
+    assert page.count("data-height=") == 3
+    assert 'id="chart-plasma" height="220" data-height="220"' in page

@@ -107,12 +107,19 @@
             {% endfor %}
         </div>
 
+        {# `data-height` is how tall each panel stands on the page, and the
+           only place that says so. The `height` attribute beside it is the
+           backing buffer, which the page rewrites for the screen's own pixel
+           density; reading that back as the layout height is what grew a
+           220px panel to 1.8 million pixels on the owner's Retina Mac
+           (2026-09-07). Two facts, two attributes, and the drawing code
+           reads only the one nothing writes. #}
         <section class="chart" aria-label="Plasma current">
             <header class="chart-head">
                 <h2>Plasma current, A</h2>
                 <span class="chart-span muted" data-role="span-plasma"></span>
             </header>
-            <canvas id="chart-plasma" height="220" data-channels="Ip"></canvas>
+            <canvas id="chart-plasma" height="220" data-height="220" data-channels="Ip"></canvas>
         </section>
 
         <section class="chart" aria-label="Ion gauges">
@@ -120,7 +127,7 @@
                 <h2>Ion gauges, Torr</h2>
                 <span class="chart-span muted" data-role="span-ig"></span>
             </header>
-            <canvas id="chart-ig" height="200" data-channels="Pu,Pd"></canvas>
+            <canvas id="chart-ig" height="200" data-height="200" data-channels="Pu,Pd"></canvas>
         </section>
 
         <section class="chart" aria-label="Baratrons">
@@ -128,7 +135,7 @@
                 <h2>Baratrons, Torr</h2>
                 <span class="chart-span muted" data-role="span-bar"></span>
             </header>
-            <canvas id="chart-bar" height="200" data-channels="Bu,Bd"></canvas>
+            <canvas id="chart-bar" height="200" data-height="200" data-channels="Bu,Bd"></canvas>
         </section>
     </main>
 

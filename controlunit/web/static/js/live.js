@@ -422,17 +422,54 @@
         return ticks;
     }
 
+    /* The most a backing buffer may measure on either side. A browser
+       refuses a canvas past a few thousand pixels and hands back a context
+       that draws nothing, which a reader sees as a white panel. */
+    var MAX_BUFFER = 8192;
+
+    /* How tall a panel stands on the page, in CSS pixels.
+     *
+     * It is read from `data-height`, which nothing ever writes, and never
+     * from the `height` attribute, which *is* the backing buffer: setting
+     * `canvas.height` writes that attribute too. The old code read that
+     * attribute back as if it were the layout height and multiplied it by
+     * the device pixel ratio again on every redraw, so on a Retina Mac
+     * (ratio 2) every panel doubled every draw. Measured on the owner's Mac
+     * 2026-09-07: the plasma panel's height attribute at 1,802,240 px, the
+     * document at 2,540,001 px, doubling once more when he chose the 20 s
+     * window, then a white failed plot (PIHTI Log's audit, letter
+     * 20260907-023785d0). At ratio 1 the same code was stable, which is why
+     * the rig's own screen and every browser on this Windows box were fine.
+     */
+    function logicalHeight(canvas) {
+        var declared = Number(canvas.dataset.height);
+        return (isFinite(declared) && declared > 0) ? declared : 220;
+    }
+
+    /* The drawing context and the panel's size in CSS pixels, or null when
+       this browser would give no context at all. Every input is layout or
+       the device; nothing here reads back a value this function wrote. */
     function prepare(canvas) {
         var ratio = window.devicePixelRatio || 1;
+        if (!isFinite(ratio) || ratio <= 0) ratio = 1;
         var width = canvas.clientWidth || canvas.parentNode.clientWidth || 600;
-        var height = Number(canvas.getAttribute("height")) || 220;
+        if (!(width > 0)) width = 600;
+        var height = logicalHeight(canvas);
+        /* One scale for both sides, so a very wide window that would push
+           the buffer past what is allowed shrinks it evenly rather than
+           drawing the panel out of shape. */
+        var scale = Math.min(ratio, MAX_BUFFER / width, MAX_BUFFER / height);
+        if (!(scale > 0)) scale = 1;
+        var wanted = {w: Math.max(1, Math.round(width * scale)),
+                      h: Math.max(1, Math.round(height * scale))};
         canvas.style.height = height + "px";
-        if (canvas.width !== Math.round(width * ratio) || canvas.height !== Math.round(height * ratio)) {
-            canvas.width = Math.round(width * ratio);
-            canvas.height = Math.round(height * ratio);
+        if (canvas.width !== wanted.w || canvas.height !== wanted.h) {
+            canvas.width = wanted.w;
+            canvas.height = wanted.h;
         }
         var ctx = canvas.getContext("2d");
-        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        if (!ctx) return null;
+        ctx.setTransform(scale, 0, 0, scale, 0, 0);
         return {ctx: ctx, width: width, height: height};
     }
 
@@ -478,6 +515,9 @@
        nothing else, which is the whole reason there are three of them. */
     function draw(canvas, logScale) {
         var box = prepare(canvas);
+        // No context, no panel. The page keeps working; the chart is blank
+        // rather than the whole poll falling over on a thrown error.
+        if (!box) return;
         var ctx = box.ctx;
         var st = styles();
         var pad = {left: 64, right: 14, top: 10, bottom: 26};
