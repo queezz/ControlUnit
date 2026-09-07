@@ -312,6 +312,58 @@ def test_the_lab_page_asks_the_neighbours_route_for_its_refresh(client):
     assert "/api/neighbours" in script
 
 
+def test_the_lab_left_rail_carries_the_one_control_this_tab_has(lab):
+    """Controls left, on this tab as on every other: asking again is a press,
+    and the line beneath it says when this machine last heard back."""
+    card = lab[lab.index('class="rail-label">Check<'):]
+    card = card[:card.index("</section>")]
+    assert 'data-role="refresh"' in card
+    assert ">Ask again now</button>" in card
+    assert 'data-role="checked"' in card
+
+
+def test_the_lab_checked_line_says_so_before_anything_has_been_checked(tmp_path):
+    """Nothing has landed yet, which is not the same as an old answer."""
+    nowhere = tmp_path / "nowhere"
+    board = NeighbourBoard(home=nowhere, prober=lambda: None)
+    reader = create_app(board=board, roster=Roster(home=nowhere)).test_client()
+    assert "Not checked yet." in reader.get("/lab").get_data(as_text=True)
+
+
+def test_the_lab_checked_line_names_the_time_once_a_check_has_landed(tmp_path):
+    nowhere = tmp_path / "nowhere"
+    board = NeighbourBoard(home=nowhere, stamp=lambda: "14:02:57")
+    reader = create_app(board=board, roster=Roster(home=nowhere)).test_client()
+    reader.get("/lab")  # the first read starts the probe
+    assert board.wait(timeout=10)
+    assert "Checked 14:02:57." in reader.get("/lab").get_data(as_text=True)
+
+
+def test_a_service_card_says_its_version_what_it_said_and_how_it_starts(lab):
+    """The facts a person asks for, in the order they ask them."""
+    card = lab[lab.index('data-alias="controlunit"'):]
+    card = card[:card.index("</article>")]
+    for term in ("<dt>Version</dt>", "<dt>Says</dt>", "<dt>Runs</dt>", "<dt>Start</dt>"):
+        assert term in card
+    assert "scripts/run_controlunit.sh" in card
+    assert "This is the service you are reading." in card
+
+
+def test_a_neighbour_with_no_address_says_so_rather_than_linking_nowhere(lab):
+    card = lab[lab.index('data-alias="pihti-log"'):]
+    card = card[:card.index("</article>")]
+    assert "No address on this machine." in card
+    assert ">Open PIHTI Log</a>" in card  # rendered, hidden, and ready
+    assert 'data-role="open"' in card and "hidden>Open" in card
+
+
+def test_the_lab_page_can_ask_the_lan_again_without_waiting_for_it(client):
+    script = client.get("/static/js/lab.js").get_data(as_text=True)
+    assert "/api/neighbours?fresh=1" in script
+    assert "button.disabled = true" in script
+    assert "Not checked yet." in script
+
+
 def test_the_live_page_polls_state_and_series(client):
     script = client.get("/static/js/live.js").get_data(as_text=True)
     assert "/api/state" in script
@@ -388,7 +440,10 @@ def test_the_neighbour_states_are_explained_in_exactly_one_place(lab):
 def test_the_legend_carries_the_state_a_first_paint_can_show(lab):
     """A page served before the LAN answered shows `checking`, so the one
     place a state is explained has to explain that one too."""
-    assert 'class="chip chip-checking">checking</span>' in lab
+    card = lab[lab.index('class="rail-label">The ensemble<'):]
+    assert "<strong>checking</strong>" in card
+    for state in ("ok", "degraded", "down", "unreachable", "not configured"):
+        assert "<strong>{}</strong>".format(state) in card
 
 
 def test_the_lab_page_asks_again_while_a_state_is_still_checking(client):

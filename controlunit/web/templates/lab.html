@@ -7,11 +7,17 @@
 {% block content %}
 <div class="page">
 
-    {# The left rail is the control track on every tab that has controls. The
-       Lab tab has nothing to switch, so the track stands empty rather than
-       being filled with invented controls, and the reading column keeps the
-       same address it has on Live and Log. #}
-    <div class="rail rail-left" aria-hidden="true"></div>
+    {# Controls left, the same shape as the diagram's own Services board
+       (owner decision 2026-09-07, "I like the pihti-diagram way"). The one
+       control this tab has is asking again, and the line under it says when
+       this machine last heard back. #}
+    <aside class="rail rail-left">
+        <section class="rail-card rail-card--fit">
+            <h2 class="rail-label">Check</h2>
+            <button type="button" class="rail-press" data-role="refresh">Ask again now</button>
+            <p class="checked-line muted" data-role="checked">{% if checked_at %}Checked {{ checked_at }}.{% else %}Not checked yet.{% endif %}</p>
+        </section>
+    </aside>
 
     <main class="page-main">
         <h1 class="sr-only">The lab's three services</h1>
@@ -25,62 +31,59 @@
                           data-role="state">{{ service.state }}</span>
                 </header>
 
-                <p class="service-detail" data-role="detail">{{ service.detail }}</p>
-
+                {# Four facts, in the order a person asks them: which build,
+                   what it said of itself, where it runs, and the line that
+                   starts it there. `Runs` and `Start` come from this
+                   machine's own neighbours file and are never inferred from
+                   a name; a file that says nothing shows an em dash. #}
                 <dl class="facts">
                     <dt>Version</dt>
                     <dd class="mono" data-role="version">{{ service.version or '—' }}</dd>
+                    <dt>Says</dt>
+                    <dd class="says" data-role="detail">{{ service.detail or '—' }}</dd>
+                    <dt>Runs</dt>
+                    <dd data-role="where">{{ service.where or '—' }}</dd>
+                    <dt>Start</dt>
+                    <dd class="mono" data-role="start">{{ service.start or '—' }}</dd>
                 </dl>
 
-                <div class="service-actions">
+                <p class="service-actions">
                     {% if service.here %}
-                    <span class="here-note">You are reading it</span>
+                    <span class="service-note">This is the service you are reading.</span>
                     {% else %}
                     {# Another service is another site: it opens beside this
-                       page, never in its place, so the rig's view stays open. #}
+                       page, never in its place, so the rig's view stays open.
+                       Both answers are rendered and one is hidden, so the row
+                       keeps its height when an address appears or goes. #}
                     <a class="button" data-role="open" href="{{ service.url }}"
                        target="_blank" rel="noopener"
-                       {% if not service.url %}aria-disabled="true"{% endif %}>Open</a>
+                       {% if not service.url %}hidden{% endif %}>Open {{ service.name }}</a>
+                    <span class="service-note" data-role="no-address"
+                          {% if service.url %}hidden{% endif %}>No address on this machine.</span>
                     {% endif %}
-                </div>
-
-                {# How that service is started on the machine it runs on. A
-                   card whose config says nothing about it says nothing. #}
-                <div class="howto" {% if not (service.where or service.start) %}hidden{% endif %}>
-                    <p class="howto-meaning" data-role="where">{% if service.where %}Runs {{ service.where }}.{% endif %}</p>
-                    <button class="toggle" type="button" aria-expanded="false"
-                            aria-controls="start-{{ service.alias }}"
-                            data-shows="start-{{ service.alias }}"
-                            {% if not service.start %}hidden{% endif %}>show</button>
-                    <code class="howto-command" id="start-{{ service.alias }}" data-role="start" hidden>{{ service.start }}</code>
-                </div>
+                </p>
             </article>
             {% endfor %}
         </div>
     </main>
 
+    {# Context right, and the one place on this surface where a state is
+       explained. Every chip elsewhere states its word and nothing more. #}
     <aside class="rail rail-right">
-        <section class="rail-card rail-card--fit">
-            <h2 class="rail-label">Addresses this machine knows</h2>
-            <dl class="facts">
-                {% for service in services %}
-                <dt>{{ service.name }}</dt>
-                <dd class="mono" data-address="{{ service.alias }}">{{ service.url or 'not configured' }}</dd>
-                {% endfor %}
-            </dl>
-        </section>
-
-        {# The one place on the surface where a state is explained. Everywhere
-           else the chip stands alone. #}
-        <section class="rail-card rail-card--fit legend">
-            <h2 class="rail-label">What a state means</h2>
+        <section class="rail-card rail-card--fit ensemble">
+            <h2 class="rail-label">The ensemble</h2>
             <div class="scrolls">
-                <dl class="legend-list">
-                    {% for state, meaning in legend %}
-                    <dt><span class="chip chip-{{ state | replace(' ', '-') }}">{{ state }}</span></dt>
-                    <dd>{{ meaning }}</dd>
-                    {% endfor %}
-                </dl>
+                <p>Three surfaces stand side by side in this lab: this ControlUnit
+                    acquisition on the rig, the PIHTI Log journal, and the PIHTI
+                    diagram. Each one carries this tab, so from any of them you can
+                    reach the other two.</p>
+                <p>No service needs another in order to run. Each card is what this
+                    machine could learn just now.
+                    {%- for state, meaning in legend %}
+                    <strong>{{ state }}</strong> — {{ meaning }}.
+                    {%- endfor %}</p>
+                <p>A service that is not running is started on its own machine, with
+                    the line its card shows under Start.</p>
             </div>
         </section>
     </aside>

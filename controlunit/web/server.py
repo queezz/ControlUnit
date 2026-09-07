@@ -48,7 +48,11 @@ DEFAULT_PORT = 4187
 SELF_WHERE = "on the rig, beside its own screen"
 SELF_START = "scripts/run_controlunit.sh"
 
-#: Stated once, in the Lab tab's right rail, and nowhere else on the page.
+#: What each state means, one sentence each. It is rendered as the middle
+#: paragraph of the Lab tab's one context card and appears nowhere else on
+#: the surface: a data surface states, and one card teaches for the whole
+#: page (fleet's WEBUI.md, "Structure teaches; text states"). Every card's
+#: chip carries the word alone.
 STATE_LEGEND = (
     ("ok", "answered, and running the way it should"),
     ("degraded", "answered, but not fully working"),
@@ -273,6 +277,7 @@ def create_app(status=None, board=None, commands=None, roster=None, fence=None):
             "lab.html",
             active="lab",
             services=board_rows(),
+            checked_at=services.checked_at(),
             legend=STATE_LEGEND,
         )
 
@@ -284,7 +289,19 @@ def create_app(status=None, board=None, commands=None, roster=None, fence=None):
 
     @app.route("/api/neighbours")
     def neighbours():
-        return jsonify({"services": board_rows()})
+        """The three services, and when this machine last heard back.
+
+        `?fresh=1` is the "Ask again now" press: it throws the cached answer
+        away and answers immediately with `checking` rows while the probe it
+        started runs behind the reply. Like every other read of this route it
+        never waits for the LAN, so a press cannot hang the page it was
+        pressed on.
+        """
+        if request.args.get("fresh") not in (None, "", "0"):
+            services.invalidate()
+        return jsonify(
+            {"services": board_rows(), "checked_at": services.checked_at()}
+        )
 
     # -- what the Live and Log tabs poll ------------------------------------
 
