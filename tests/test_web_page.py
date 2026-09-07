@@ -468,7 +468,8 @@ def test_the_acting_as_field_offers_the_roster_when_this_machine_has_one(tmp_pat
     assert "— choose —" in card
     assert '<option value="Hashizuka Takuma"' in card
     assert '<option value="Arseniy Kuzmin"' in card
-    assert "Names come from the lab's roster." in card
+    # No note under the list: the list says where its names come from.
+    assert "Names come from the lab's roster." not in card
     assert '<input type="text" id="actor-name"' not in card
 
 

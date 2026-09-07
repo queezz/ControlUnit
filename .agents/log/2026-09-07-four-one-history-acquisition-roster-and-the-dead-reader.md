@@ -99,4 +99,34 @@ collected after their answers went into directions; letter
 to the Pi now runs through the Windows agent, which keeps the key across
 reboots; recorded in this session's memory.
 
+## Later the same day: 4.2.0, the fence and the services board
+
+Two more slices, both his live word. "Let's add `plasmabox` word just in
+case. Not security, just a fence one can walk over": the lab's word lives
+in `~/.controlunit/fence.txt` on the Pi (written there already, 4.1.0
+ignores it), a browser types it once on the Control tab, and every setter
+and Take over is refused with "type the lab's word first" until it has;
+Stop all outputs never is. Verified on a scratch rig with the fence set:
+setters 403 before, a wrong word 403, the right word 200 and the same
+setter 202, stop-all 202 throughout, the rail's reason line at its
+two-line height and no card moving.
+
+Then PIHTI Log's letter relaying "I like the pihti-diagram way for the
+services. And we need to sync that in all 3 siblings": the Lab tab is the
+diagram's board now — Check with Ask again now and the checked time on
+the left, one card per service with Version, Says, Runs, Start and Open,
+The ensemble explained once on the right with the six states — and the
+state meanings are shared: a refused connection or an HTTP error is
+`down`, a timeout or an unresolved name `unreachable`. It still paints at
+once and asks behind. On the scratch rig the first paint read `checking`
+and a warm cache read "Checked 17:08:46."; the refused case could not be
+shown on this Windows box, whose closed loopback ports time out instead
+of refusing (the Pi's Linux refuses, and seven monkeypatched cases pin
+the mapping). Two rail notes and the roster note were shortened or
+dropped so the Control rail fits a 700px window with the fence row; both
+rails measured at 76px at 0/25/50/75/100% scroll at 700px.
+
+397 tests, lint and strict docs green. Version 4.2.0. Letter
+`20260907-d526b38c-482393` collected and answered.
+
 agent: claude fable 5.1

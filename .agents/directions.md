@@ -127,9 +127,9 @@ Nothing waiting.
 - Who may set from a browser (order 2026-09-04, answered): "stop the flow
   is fine. How about a password, but not for security... to avoid 'Oh, I
   found this webui, let's push some buttons'." Built as the roster: a name
-  from the lab's list, the same list PIHTI Log reads, and that is the
-  whole of it (owner decision 2026-09-07, live in the chat: no shared
-  word on top).
+  from the lab's list, the same list PIHTI Log reads, plus, since the
+  evening, the lab's word typed once per browser (owner decision
+  2026-09-07, live: "a fence one can walk over. Fence is enough").
 - lab-cli removed the controlunit entry from its registry (its notes of
   2026-09-04, read 2026-09-07): the rig launches itself, so Lab never
   launched it and never could. Nothing here waits on lab-cli any more; a
@@ -140,6 +140,12 @@ Nothing waiting.
   Pi's logger ran the ampere code, answered by letter 2026-09-07 — the run
   file `cu_20260905_105520.csv`, started 2026-09-05 10:55 under 4.0.0, is
   the first; every file before that date is millivolts.
+- 4.2.0 (2026-09-07, evening): the lab's word `plasmabox` as a fence in
+  front of setting ("not security, just a fence one can walk over"), in
+  `~/.controlunit/fence.txt` on the Pi; and the Lab tab as the diagram's
+  Services board with the three siblings' shared state meanings (PIHTI
+  Log's letter `20260907-d526b38c-482393`, answered by
+  `20260907-d1c08989-87a3b7`).
 - The quit button coming back ten seconds after Stop (queezz, 2026-09-07)
   was the ADC worker sleeping a whole sampling period before reading its
   abort flag; from 4.1.0 a worker's sleep wakes within a tenth of a second

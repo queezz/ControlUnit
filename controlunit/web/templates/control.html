@@ -53,9 +53,10 @@
                 {% endif %}
                 <button type="button" data-role="save-actor">Save</button>
             </div>
-            {% if roster_names %}
-            <p class="muted actor-note">Names come from the lab's roster.</p>
-            {% else %}
+            {# A list of names says where they come from by being one; a
+               note saying so again cost the rail the three pixels that
+               clipped the Stop-all note at 700px. #}
+            {% if not roster_names %}
             <p class="muted actor-note">Written in the log beside what you
                 set. Without one the log names this browser's address.</p>
             {% endif %}
