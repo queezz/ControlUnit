@@ -156,6 +156,13 @@ Nothing waiting.
   Services board with the three siblings' shared state meanings (PIHTI
   Log's letter `20260907-d526b38c-482393`, answered by
   `20260907-d1c08989-87a3b7`).
+- 4.2.1 (2026-09-07, night): the board in the diagram's 0.8.0 shape —
+  start rows in plain words with the command behind a toggle that
+  survives refresh, ControlUnit's own card starting from the rig's screen
+  and never `lab controlunit`, the right rail a glance list of the six
+  chips with a More press (letters `20260907-e7d85b5b-507a68` and
+  `20260907-ad4abb91-ba7f13`, answered). The Pi's `neighbours.yml` wants a
+  `start_how` line per neighbour, plain words, when queezz says.
 - The quit button coming back ten seconds after Stop (queezz, 2026-09-07)
   was the ADC worker sleeping a whole sampling period before reading its
   abort flag; from 4.1.0 a worker's sleep wakes within a tenth of a second

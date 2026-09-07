@@ -129,4 +129,17 @@ rails measured at 76px at 0/25/50/75/100% scroll at 700px.
 397 tests, lint and strict docs green. Version 4.2.0. Letter
 `20260907-d526b38c-482393` collected and answered.
 
+## Night: 4.2.1, the board at a glance
+
+Two more letters relayed his corrections: ControlUnit starts from its own
+screen, never from lab; and the diagram's 0.8.0 explainer is a glance —
+one lead line, the chips with three-word meanings, the rest behind More —
+because three muted paragraphs were "too long and too quiet". Built and
+measured on the scratch rig at 700px: right rail 483px collapsed, 627px
+expanded, inside its 680px; More and Less at one position (445px); a start
+command shown stays shown across the board's refresh; the self card reads
+"From the rig's own screen: the desktop shortcut starts the whole program,
+web view included." 406 tests. A `start_how` line per neighbour in the
+Pi's `neighbours.yml` is the one machine-local follow-up.
+
 agent: claude fable 5.1
