@@ -1,9 +1,17 @@
-/* The Live tab: readouts, two strip charts, and the rails that drive them.
+/* The Live tab: readouts, three strip charts, and the rails that drive them.
  *
- * No framework, nothing fetched from the internet. The page polls the state
- * once a second and the series every two seconds, and every update writes
- * into elements that already exist and already have their room reserved in
- * CSS, so a value changing under the reader never moves anything.
+ * No framework, nothing fetched from the internet. Every update writes into
+ * elements that already exist and already have their room reserved in CSS,
+ * so a value changing under the reader never moves anything.
+ *
+ * This page keeps its own history. It fills once from the rig's ring when it
+ * opens (`window=0`), and after that asks only for what it has not seen
+ * (`since=<newest stamp held>`), appending into a per-channel store capped at
+ * a day. So the Pi is asked for a handful of rows a poll however long the
+ * page has been open, and the window buttons cut what is already here rather
+ * than sending anything: `Full` is what this browser has seen. A new run —
+ * a different start time or a different file — empties the store and refills
+ * it from the ring, because the old run's samples are not this run's.
  *
  * Two of the rail's choices are about how the page itself reads rather than
  * about what it draws. Big turns the five readouts into the column's lead,
@@ -13,8 +21,11 @@
  * is for a few minutes under the desk, and a page left open overnight must
  * not keep hammering the Pi.
  *
- * The charts are plain <canvas> panels: a faint grid, a log axis for
- * pressure, the rig's own five pen colours, and an emphasised end point.
+ * The charts are plain <canvas> panels: a faint grid, the rig's own five pen
+ * colours, and an emphasised end point. Three panels, because one pressure
+ * axis could not serve both kinds of gauge — the ion gauges cross decades
+ * and want a log axis, the Baratrons sit in a narrow band around their own
+ * offset and want a linear one, and drawn together neither was readable.
  * Nothing animates.
  */
 (function () {
@@ -25,6 +36,17 @@
     var FAST_MS = 250;
     var STORE_KEY = "controlunit.live";
 
+    /* The one fill on page open asks for the whole ring at this resolution;
+       the polls after it ask `since` and are answered with what arrived. */
+    var FILL_POINTS = 3000;
+
+    /* How much history this browser keeps, and a hard cap under it. The day
+       is the promise; the count is a guard, because a rig configured at
+       10 Hz would put nearly a million points a channel behind that promise
+       and no browser draws that. At the rig's own 0.1 Hz a day is 8 640. */
+    var STORE_SECONDS = 24 * 60 * 60;
+    var STORE_MAX = 20000;
+
     var root = document.getElementById("live");
     if (!root) return;
 
@@ -33,12 +55,12 @@
         JSON.parse(root.dataset.pens || "[]").forEach(function (pair) { pens[pair[0]] = pair[1]; });
     } catch (e) { /* the readouts still work without colour */ }
 
-    var PRESSURE = ["Pu", "Pd", "Bu", "Bd"];
-
     var view = {
         window: Number(root.dataset.defaultWindow || 300),
         channels: {Ip: true, Pu: true, Pd: true, Bu: true, Bd: true},
-        log: true,
+        igLog: true,
+        barLog: false,
+        smooth: 0,
         big: false
     };
 
@@ -47,9 +69,13 @@
        must not bring back. */
     var fast = false;
 
-    /* A remembered window, channel set, axis and readout size are
+    var SMOOTHING = [0, 5, 15, 51];
+
+    /* A remembered window, channel set, axes, smoothing and readout size are
        conveniences, never facts: the page renders correctly with none of
-       them stored. */
+       them stored. A store written before the pressure charts were split
+       carries one `log` boolean for both; it is simply not read, and the two
+       axes start at their own defaults. */
     function remember() {
         try { localStorage.setItem(STORE_KEY, JSON.stringify(view)); } catch (e) { /* fine */ }
     }
@@ -61,22 +87,187 @@
             if (kept.channels) Object.keys(view.channels).forEach(function (name) {
                 if (typeof kept.channels[name] === "boolean") view.channels[name] = kept.channels[name];
             });
-            if (typeof kept.log === "boolean") view.log = kept.log;
+            if (typeof kept.igLog === "boolean") view.igLog = kept.igLog;
+            if (typeof kept.barLog === "boolean") view.barLog = kept.barLog;
+            if (SMOOTHING.indexOf(Number(kept.smooth)) > 0) view.smooth = Number(kept.smooth);
             if (typeof kept.big === "boolean") view.big = kept.big;
         } catch (e) { /* fine */ }
     }
 
-    var series = {channels: {}, from: null, to: null};
+    // -- the browser's own history ------------------------------------------
+
+    /* name -> [[t, v], ...], oldest first. `newest` is the stamp every poll
+       asks from; `run` is which run these samples belong to. */
+    var store = {};
+    var newest = null;
+    var run = null;
+    var filling = false;
+
+    function runKey(state) {
+        var r = (state && state.run) || {};
+        return String(r.started_at) + "|" + String(r.file || "");
+    }
+
+    function forget() {
+        store = {};
+        newest = null;
+    }
+
+    function append(body) {
+        var channels = body && body.channels;
+        if (!channels) return;
+        Object.keys(channels).forEach(function (name) {
+            var kept = store[name] || (store[name] = []);
+            channels[name].forEach(function (point) {
+                var t = point[0];
+                if (t === null || t === undefined || !isFinite(t)) return;
+                if (kept.length && t <= kept[kept.length - 1][0]) return;
+                kept.push([t, point[1]]);
+            });
+        });
+        if (body.to !== null && body.to !== undefined && isFinite(body.to)) {
+            if (newest === null || body.to > newest) newest = body.to;
+        }
+        trim();
+    }
+
+    /* A day of samples per channel, and never more points than a browser can
+       draw. Both cuts take from the oldest end. */
+    function trim() {
+        if (newest === null) return;
+        var oldest = newest - STORE_SECONDS;
+        Object.keys(store).forEach(function (name) {
+            var kept = store[name];
+            var drop = 0;
+            while (drop < kept.length && kept[drop][0] < oldest) drop++;
+            if (kept.length - drop > STORE_MAX) drop = kept.length - STORE_MAX;
+            if (drop > 0) store[name] = kept.slice(drop);
+        });
+    }
+
+    function ask(query) {
+        return fetch("/api/series?" + query, {headers: {Accept: "application/json"}})
+            .then(function (r) { return r.ok ? r.json() : null; });
+    }
+
+    /* Everything the rig still holds, at full resolution, once. */
+    function fillFromRing() {
+        if (filling) return;
+        filling = true;
+        ask("window=0&points=" + FILL_POINTS)
+            .then(function (body) {
+                filling = false;
+                forget();
+                if (body) append(body);
+                drawAll();
+            })
+            .catch(function () { filling = false; });
+    }
+
+    function pollSeries() {
+        if (newest === null) { fillFromRing(); return; }
+        ask("since=" + encodeURIComponent(newest) + "&points=" + FILL_POINTS)
+            .then(function (body) {
+                if (!body) return;
+                append(body);
+                drawAll();
+            })
+            .catch(function () { /* keep the last drawing */ });
+    }
+
+    // -- smoothing -----------------------------------------------------------
+
+    /* A centred moving median over `size` samples. A median and not a mean
+       because the plasma current's fault is spikes: a mean drags the whole
+       neighbourhood towards one bad sample and smears a real step, a median
+       ignores it and keeps the step square. The window is clipped at the
+       ends of the slice rather than padded, so the line still starts and
+       ends where the data does. */
+    function median(points, size) {
+        if (!size || size < 2 || points.length < 2) return points;
+        var half = Math.floor(size / 2);
+        var out = [];
+        for (var i = 0; i < points.length; i++) {
+            var from = Math.max(0, i - half);
+            var to = Math.min(points.length - 1, i + half);
+            var bag = [];
+            for (var j = from; j <= to; j++) {
+                var v = points[j][1];
+                if (v !== null && v !== undefined && isFinite(v)) bag.push(v);
+            }
+            if (!bag.length) { out.push([points[i][0], null]); continue; }
+            bag.sort(function (a, b) { return a - b; });
+            out.push([points[i][0], bag[(bag.length - 1) >> 1]]);
+        }
+        return out;
+    }
+
+    /* What a readout shows while smoothing is on: the median of the newest
+       `size` samples this browser holds for that channel. */
+    function latestMedian(name, size) {
+        var kept = store[name];
+        if (!kept || !kept.length) return null;
+        var bag = [];
+        for (var i = Math.max(0, kept.length - size); i < kept.length; i++) {
+            var v = kept[i][1];
+            if (v !== null && v !== undefined && isFinite(v)) bag.push(v);
+        }
+        if (!bag.length) return null;
+        bag.sort(function (a, b) { return a - b; });
+        return bag[(bag.length - 1) >> 1];
+    }
 
     // -- formatting ---------------------------------------------------------
 
-    function fmtValue(value, unit) {
-        if (value === null || value === undefined || !isFinite(value)) return "—";
+    var SUPERS = {"0": "⁰", "1": "¹", "2": "²", "3": "³",
+        "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷",
+        "8": "⁸", "9": "⁹", "-": "⁻"};
+
+    /* An exponent in real superscript glyphs, for the canvas, which has no
+       markup to lift one with. */
+    function superText(exponent) {
+        return String(exponent).split("").map(function (c) {
+            return SUPERS[c] || c;
+        }).join("");
+    }
+
+    function exponential(value, digits) {
+        var parts = value.toExponential(digits).split("e");
+        return {mantissa: parts[0], exponent: Number(parts[1])};
+    }
+
+    function wantsExponent(value, unit) {
         var magnitude = Math.abs(value);
-        if (unit === "Torr" || (magnitude !== 0 && (magnitude < 0.01 || magnitude >= 1e5))) {
-            return value.toExponential(2).replace("e-", "e-").replace("e+", "e");
-        }
+        if (magnitude === 0) return false;
+        return unit === "Torr" || magnitude < 0.01 || magnitude >= 1e5;
+    }
+
+    function plain(value) {
+        var magnitude = Math.abs(value);
         return value.toFixed(magnitude >= 100 ? 0 : magnitude >= 10 ? 1 : 3);
+    }
+
+    /* A readout, as markup: `1.22×10⁻⁵` with a real superscript rather than
+       `1.22e-5`, which the owner called ugly and is. The <sup> is styled with
+       a zero line-height, so lifting the exponent cannot make the line box
+       taller and a value crossing between the plain and the exponent form
+       never changes the card's height. Zero reads `0`, never `0.00×10⁰`.
+       Plain values — a current in amperes — stay plain. */
+    function valueHtml(value, unit) {
+        if (value === null || value === undefined || !isFinite(value)) return "—";
+        if (value === 0) return "0";
+        if (!wantsExponent(value, unit)) return plain(value);
+        var e = exponential(value, 2);
+        return e.mantissa + "×10<sup>" + e.exponent + "</sup>";
+    }
+
+    /* The same number for the canvas, where the exponent is glyphs. */
+    function valueText(value, unit) {
+        if (value === null || value === undefined || !isFinite(value)) return "—";
+        if (value === 0) return "0";
+        if (!wantsExponent(value, unit)) return plain(value);
+        var e = exponential(value, 2);
+        return e.mantissa + "×10" + superText(e.exponent);
     }
 
     /* One axis, one kind of number. The readout formatter is not that: below
@@ -84,12 +275,16 @@
        1.00e-4, 2.00e-4 … above a plain 0.000, two notations on one scale.
        The tick step says how many decimals a label needs; only a step finer
        than a millionth falls back to an exponent, where a plain decimal
-       would be unreadable anyway. */
+       would be unreadable anyway — and that exponent is written the way the
+       readouts write theirs, 1.2×10⁻⁷, not 1.2e-7. */
     function fmtTick(value, step) {
         if (value === null || value === undefined || !isFinite(value)) return "";
         var size = Math.abs(step) || Math.abs(value) || 1;
         var decimals = -Math.floor(Math.log10(size));
-        if (decimals > 6) return value.toExponential(1).replace("e+", "e");
+        if (decimals > 6) {
+            var e = exponential(value, 1);
+            return e.mantissa + "×10" + superText(e.exponent);
+        }
         return value.toFixed(Math.max(0, decimals));
     }
 
@@ -116,18 +311,42 @@
     // -- state ---------------------------------------------------------------
 
     function paintState(state) {
+        var key = runKey(state);
+        if (run === null) run = key;
+        else if (key !== run) { run = key; forget(); fillFromRing(); }
+
+        var zeros = state.zeros || {};
         state.channels.forEach(function (channel) {
             var box = root.querySelector('.readout[data-readout="' + channel.name + '"]');
             if (!box) return;
-            box.querySelector('[data-role="value"]').textContent = fmtValue(channel.value, channel.unit);
+            /* With smoothing on the readout is the median of the newest N
+               samples this browser holds, so the number and the line beneath
+               it are the same reading; with it off the readout is the value
+               the rig last published, exactly as before. */
+            var value = channel.value;
+            if (view.smooth) {
+                var smoothed = latestMedian(channel.name, view.smooth);
+                if (smoothed !== null) value = smoothed;
+            }
+            box.querySelector('[data-role="value"]').innerHTML = valueHtml(value, channel.unit);
             box.querySelector('[data-role="unit"]').textContent = channel.unit || "";
+
+            /* What baseline this number already has taken off. The unit is
+               not repeated: it is on this card already, beside the name. */
+            var zero = box.querySelector('[data-role="zero"]');
+            if (zero) {
+                var held = Number(zeros[channel.name] || 0);
+                zero.innerHTML = held
+                    ? "zero " + valueHtml(held, channel.unit)
+                    : "as measured";
+            }
         });
 
-        var run = state.run || {};
-        text("file", run.file || "—");
-        text("started", fmtStarted(run.started_at, run.elapsed));
-        text("samples", run.samples !== undefined ? String(run.samples) : "—");
-        text("rate", run.rate || "—");
+        var runFacts = state.run || {};
+        text("file", runFacts.file || "—");
+        text("started", fmtStarted(runFacts.started_at, runFacts.elapsed));
+        text("samples", runFacts.samples !== undefined ? String(runFacts.samples) : "—");
+        text("rate", runFacts.rate || "—");
         text("hardware", state.dummy ? "dummy" : "real");
 
         var sp = state.setpoints || {};
@@ -166,21 +385,15 @@
             .catch(function () { /* keep what is on the page */ });
     }
 
-    function pollSeries() {
-        fetch("/api/series?window=" + encodeURIComponent(view.window), {headers: {Accept: "application/json"}})
-            .then(function (r) { return r.ok ? r.json() : null; })
-            .then(function (body) {
-                if (!body || !body.channels) return;
-                series = body;
-                drawAll();
-            })
-            .catch(function () { /* keep the last drawing */ });
-    }
-
     // -- charts --------------------------------------------------------------
 
     var plasma = document.getElementById("chart-plasma");
-    var pressure = document.getElementById("chart-pressure");
+    var gauges = document.getElementById("chart-ig");
+    var baratrons = document.getElementById("chart-bar");
+
+    function channelsOf(canvas) {
+        return String((canvas && canvas.dataset.channels) || "").split(",");
+    }
 
     function niceTicks(lo, hi, count) {
         if (!(hi > lo)) { hi = lo + 1; lo = lo - 1; }
@@ -233,8 +446,37 @@
         };
     }
 
-    /* Draw one panel: `names` in the given pens, `logScale` for the y axis. */
-    function draw(canvas, names, logScale) {
+    /* The newest and the oldest stamp this browser holds, across every
+       channel: the span `Full` means, and what a window is cut back from. */
+    function bounds() {
+        var first = null, last = null;
+        Object.keys(store).forEach(function (name) {
+            var kept = store[name];
+            if (!kept || !kept.length) return;
+            if (first === null || kept[0][0] < first) first = kept[0][0];
+            if (last === null || kept[kept.length - 1][0] > last) last = kept[kept.length - 1][0];
+        });
+        return {first: first, last: last};
+    }
+
+    /* The samples of one channel inside [from, to], smoothed if asked. The
+       slice is taken first, so the median costs what is on screen. */
+    function slice(name, from, to) {
+        var kept = store[name] || [];
+        var out = [];
+        for (var i = 0; i < kept.length; i++) {
+            var t = kept[i][0];
+            if (t < from) continue;
+            if (t > to) break;
+            out.push(kept[i]);
+        }
+        return median(out, view.smooth);
+    }
+
+    /* Draw one panel: the canvas's own channels, in their pens, `logScale`
+       for the y axis. Each panel scales to the channels it draws and to
+       nothing else, which is the whole reason there are three of them. */
+    function draw(canvas, logScale) {
         var box = prepare(canvas);
         var ctx = box.ctx;
         var st = styles();
@@ -244,12 +486,23 @@
 
         ctx.clearRect(0, 0, box.width, box.height);
 
+        var held = bounds();
+        var to = held.last, from = held.first;
+        if (to === null) {
+            to = Date.now() / 1000;
+            from = to - (view.window || 300);
+        }
+        if (view.window > 0) from = Math.max(from, to - view.window);
+        if (!(to > from)) to = from + 1;
+
         // Gather the points to draw and the y range they need.
         var lines = [];
+        var count = 0;
         var lo = Infinity, hi = -Infinity;
-        names.forEach(function (name) {
-            if (!view.channels[name]) return;
-            var points = (series.channels && series.channels[name]) || [];
+        channelsOf(canvas).forEach(function (name) {
+            if (!name || !view.channels[name]) return;
+            var points = slice(name, from, to);
+            if (points.length > count) count = points.length;
             var kept = [];
             points.forEach(function (p) {
                 var v = p[1];
@@ -264,14 +517,6 @@
             });
             lines.push({name: name, points: kept});
         });
-
-        var from = series.from, to = series.to;
-        if (from === null || from === undefined || to === null || to === undefined) {
-            from = Date.now() / 1000 - (view.window || 300);
-            to = Date.now() / 1000;
-        }
-        if (view.window > 0) from = Math.max(from, to - view.window);
-        if (!(to > from)) to = from + 1;
 
         if (!isFinite(lo)) { lo = logScale ? -8 : 0; hi = logScale ? 0 : 1; }
         if (hi - lo < 1e-12) { lo -= logScale ? 0.5 : (Math.abs(lo) * 0.05 || 0.5); hi += logScale ? 0.5 : (Math.abs(hi) * 0.05 || 0.5); }
@@ -295,7 +540,7 @@
         yTicks.forEach(function (v) {
             var yy = Math.round(y(v)) + 0.5;
             ctx.beginPath(); ctx.moveTo(pad.left, yy); ctx.lineTo(pad.left + plotW, yy); ctx.stroke();
-            var label = logScale ? "1e" + Math.round(v) : fmtTick(v, yStep);
+            var label = logScale ? "10" + superText(Math.round(v)) : fmtTick(v, yStep);
             ctx.fillText(label, pad.left - 8, yy);
         });
 
@@ -332,21 +577,23 @@
             ctx.fill();
         });
 
-        return {from: from, to: to, count: series.count || 0};
+        return {from: from, to: to, count: count};
     }
 
     function drawAll() {
-        var a = draw(plasma, ["Ip"], false);
-        var b = draw(pressure, PRESSURE, view.log);
-        var span = root.querySelector('[data-role="span-plasma"]');
-        var label = spanLabel(a);
-        if (span) span.textContent = label;
-        var span2 = root.querySelector('[data-role="span-pressure"]');
-        if (span2) span2.textContent = spanLabel(b);
+        span("span-plasma", draw(plasma, false));
+        span("span-ig", draw(gauges, view.igLog));
+        span("span-bar", draw(baratrons, view.barLog));
+    }
+
+    function span(role, drawn) {
+        var el = root.querySelector('[data-role="' + role + '"]');
+        if (el) el.textContent = spanLabel(drawn);
     }
 
     function spanLabel(drawn) {
         var tail = fast ? " · fast" : "";
+        if (view.smooth) tail = " · median " + view.smooth + tail;
         if (!drawn || !drawn.count) return "no samples yet" + tail;
         var seconds = Math.max(0, Math.round(drawn.to - drawn.from));
         return "last " + fmtSeconds(seconds) + " · " + drawn.count + " samples" + tail;
@@ -361,12 +608,14 @@
     }
 
     function setupRails() {
+        /* The window cuts what this browser already holds. Nothing is asked
+           of the rig: the samples are here, and Full is all of them. */
         root.querySelectorAll("[data-window]").forEach(function (button) {
             button.addEventListener("click", function () {
                 view.window = Number(button.dataset.window);
                 press("[data-window]", "window", view.window);
                 remember();
-                pollSeries();
+                drawAll();
             });
         });
         root.querySelectorAll("[data-channel]").forEach(function (button) {
@@ -378,12 +627,29 @@
                 drawAll();
             });
         });
-        root.querySelectorAll("[data-scale]").forEach(function (button) {
+        root.querySelectorAll("[data-scale-ig]").forEach(function (button) {
             button.addEventListener("click", function () {
-                view.log = button.dataset.scale === "log";
-                press("[data-scale]", "scale", view.log ? "log" : "lin");
+                view.igLog = button.dataset.scaleIg === "log";
+                press("[data-scale-ig]", "scaleIg", view.igLog ? "log" : "lin");
                 remember();
                 drawAll();
+            });
+        });
+        root.querySelectorAll("[data-scale-bar]").forEach(function (button) {
+            button.addEventListener("click", function () {
+                view.barLog = button.dataset.scaleBar === "log";
+                press("[data-scale-bar]", "scaleBar", view.barLog ? "log" : "lin");
+                remember();
+                drawAll();
+            });
+        });
+        root.querySelectorAll("[data-smooth]").forEach(function (button) {
+            button.addEventListener("click", function () {
+                view.smooth = Number(button.dataset.smooth);
+                press("[data-smooth]", "smooth", view.smooth);
+                remember();
+                drawAll();
+                pollState();   // the readouts follow the lines
             });
         });
         root.querySelectorAll("[data-display]").forEach(function (button) {
@@ -432,7 +698,9 @@
             var button = root.querySelector('[data-channel="' + name + '"]');
             if (button) button.setAttribute("aria-pressed", view.channels[name] ? "true" : "false");
         });
-        press("[data-scale]", "scale", view.log ? "log" : "lin");
+        press("[data-scale-ig]", "scaleIg", view.igLog ? "log" : "lin");
+        press("[data-scale-bar]", "scaleBar", view.barLog ? "log" : "lin");
+        press("[data-smooth]", "smooth", view.smooth);
         applyDisplay();
     }
 
@@ -442,7 +710,7 @@
         setupRails();
         drawAll();
         pollState();
-        pollSeries();
+        fillFromRing();
         applyPoll();
         var pending = null;
         window.addEventListener("resize", function () {
