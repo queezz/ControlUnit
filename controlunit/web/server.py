@@ -19,6 +19,7 @@ second person takes over in the open. Stopping every output is the one
 exception and is always allowed.
 """
 
+import math
 import threading
 
 from flask import Flask, jsonify, make_response, render_template, request
@@ -253,10 +254,22 @@ def create_app(status=None, board=None, commands=None, roster=None):
 
     @app.route("/api/series")
     def series():
+        """The ring, by span or by what a browser has not seen yet.
+
+        `since` is the Live tab's steady state: it fills its own history
+        from the ring once and then asks only for samples newer than the
+        newest stamp it holds, so a page left open all afternoon costs the
+        Pi a handful of rows per poll. `window` is unchanged and still
+        answers anyone who sends it; `since` wins when both arrive.
+        """
         window = _bounded_int(request.args.get("window"), DEFAULT_WINDOW, 0, 10**7)
         points = _bounded_int(request.args.get("points"), MAX_POINTS, 2, MAX_POINTS)
-        body = rig.series(window_seconds=window, max_points=points)
+        since = _epoch(request.args.get("since"))
+        body = rig.series(
+            window_seconds=window, max_points=points, since=since
+        )
         body["window"] = window
+        body["since"] = since
         return jsonify(body)
 
     @app.route("/api/log")
@@ -405,6 +418,24 @@ def _bounded_int(text, default, low, high):
     except (TypeError, ValueError):
         return default
     return max(low, min(high, value))
+
+
+def _epoch(text):
+    """An epoch-seconds query value, or `None` when there is not one.
+
+    `None` is the whole point: it is how the series route tells "this
+    browser holds nothing yet, give it the ring" from "this browser has
+    seen everything up to here".
+    """
+    if text is None or text == "":
+        return None
+    try:
+        value = float(text)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(value):
+        return None
+    return max(0.0, value)
 
 
 def serve_in_thread(status, commands=None, host=DEFAULT_HOST, port=DEFAULT_PORT):

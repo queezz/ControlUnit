@@ -316,6 +316,18 @@ input.find:focus, select.find:focus { border-color: var(--accent); outline: none
 
 .choice-caption { flex: 1 1 100%; color: var(--muted); font-size: 0.86rem; }
 
+/* A caption that names which of several rows this is rides on the row's own
+   line rather than above it. Two axis rows with captions above them cost the
+   Scales card 106px it does not have: the left rail carries six cards on the
+   Live tab and the last one clips before the rail scrolls. "Ion gauges" is
+   66px and the two buttons 78px against 242px of card, so the line has room
+   to spare. */
+.choice-caption--inline { flex: 0 0 auto; margin-right: 2px; }
+
+/* Two rows of choices in one card, without a gap property on the card that
+   would also space a caption from its own buttons. */
+.choice-row + .choice-row { margin-top: 6px; }
+
 .choice {
   padding: 4px 6px;
   font-size: 0.86rem;
@@ -404,38 +416,93 @@ dl.facts dd.wide { margin-top: -2px; }
   margin-bottom: 16px;
 }
 
-/* One value per box, in its pen's colour; the box is sized so a value that
-   grows a digit never pushes the charts beneath it. */
+/* One value per box, washed with its own pen so the eye finds the channel
+   before it reads the name, and the box is sized so a value that grows a
+   digit never pushes the charts beneath it. `--pen` is set on the element
+   from the same pen list the charts draw with, so a card and its curve
+   cannot drift apart. The wash is 14% and the border 45% of a colour that
+   is already muted: a hint, not a highlight. The plain declarations come
+   first, so a browser without color-mix keeps the panel and the hairline. */
 .readout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto auto;
+  grid-template-rows: auto auto auto;
   align-items: baseline;
   gap: 0 6px;
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--panel);
+  background: color-mix(in srgb, var(--pen, var(--panel)) 14%, var(--panel));
+  border-color: color-mix(in srgb, var(--pen, var(--line)) 45%, transparent);
   min-height: 4.6rem;
 }
 
-.readout-name { grid-column: 1; grid-row: 1; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.04em; }
+/* Large enough to read as the card's own label rather than a caption, and
+   in the pen, which is what the owner asked for: "name font made visible". */
+.readout-name {
+  grid-column: 1;
+  grid-row: 1;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--pen, var(--fg));
+}
 
 /* The unit rides beside the name, so the number below owns the card's whole
-   width. Five cards across a 1280 px window leave 94 px inside one; a
-   pressure reads 3.11e-4 and at worst -5.00e-3, which needs about 90 px of
-   that. Beside the unit it had only 66 px, broke mid-number onto a second
-   line, and made the whole readout row taller the moment a value crossed
-   into exponent form — the one thing this row must never do. */
+   width. Five cards across a 1280 px window leave 97 px inside one. The
+   widest number this page renders is -5.00×10⁻³: eight monospace characters
+   at 0.6 em each, plus a two-character exponent at 0.65 em, is 5.58 em —
+   against the eight characters, 4.8 em, that -5.00e-3 took. So the value
+   steps from 1.2rem to 1.05rem (93.7 px of 97.2) to pay for the superscript
+   without reaching past its own card. Beside the unit it would have only
+   66 px, break mid-number onto a second line, and make the whole readout row
+   taller the moment a value crossed into exponent form — the one thing this
+   row must never do. */
 .readout-unit { grid-column: 2; grid-row: 1; justify-self: end; color: var(--muted); font-size: 0.8rem; }
-.readout-value { grid-column: 1 / -1; grid-row: 2; font-size: 1.2rem; font-weight: 500; white-space: nowrap; }
+.readout-value { grid-column: 1 / -1; grid-row: 2; font-size: 1.05rem; font-weight: 500; white-space: nowrap; }
+
+/* The exponent is lifted with a line box of its own height zero, so a value
+   crossing between 0.031 and 1.22×10⁻⁵ cannot make the line — or the card —
+   one pixel taller. */
+.readout-value sup,
+.readout-zero sup {
+  font-size: 0.65em;
+  line-height: 0;
+  vertical-align: 0.42em;
+}
+
+/* What baseline this number already has taken off, on the three channels the
+   rig can zero, and nothing on the other two. Always present — "as measured"
+   when the baseline is zero — so the row never changes height under a poll,
+   and what a zero means is said once, in the Data card.
+
+   Two lines, always, and it wraps at its spaces rather than clipping. A
+   Baratron's zero is a Torr number, so the widest this line reads is
+   "zero -5.00×10⁻³": thirteen monospace characters at 0.6 em plus a
+   two-character exponent at 0.65 em, 101px at 0.74rem, against the 81px
+   inside a card at 1200px and 97px at 1280. It takes two lines at both, and
+   the number alone is 80px, so the wrap falls between "zero" and the value
+   and never inside it. The unit is not repeated here: it is already on this
+   card, beside the name. Two lines is 3em at a line-height of 1.5; 3.1em,
+   because a reservation that only equals its two line boxes leaves the two
+   rounding to different sub-pixels and the charts below drift by a
+   hundredth. */
+.readout-zero {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  min-height: 3.1em;
+  color: var(--dim);
+  font-size: 0.74rem;
+}
 
 /* Just above the rail breakpoint the two rails take their fixed 17rem each
-   out of a narrow window and the five cards are at their tightest: 78 px
-   inside one at 1200. The number steps down a size through that band rather
-   than reaching past its own card. */
+   out of a narrow window and the five cards are at their tightest: 81 px
+   inside one at 1200. At 5.58 em the number needs 0.88rem there (78.6 px)
+   where the old notation fitted at 1rem. The number steps down a size
+   through that band rather than reaching past its own card. */
 @media (min-width: 1200px) and (max-width: 1320px) {
-  .readout-value { font-size: 1rem; }
+  .readout-value { font-size: 0.88rem; }
 }
 
 /* -- big readouts (Display: big) --------------------------------------- */
@@ -455,19 +522,29 @@ dl.facts dd.wide { margin-top: -2px; }
 
 .live--big .readout {
   /* The value is sized from the card it stands in, so the widest a pressure
-     ever reads — -5.00e-3, eight characters — stays on one line at every
-     width this page is read at, phone included. */
+     ever reads — -5.00×10⁻³ — stays on one line at every width this page is
+     read at, phone included. */
   container-type: inline-size;
   padding: 12px 16px 14px;
   min-height: 7.4rem;
 }
 
 .live--big .readout-name,
-.live--big .readout-unit { font-size: 0.95rem; }
+.live--big .readout-unit { font-size: 1.05rem; }
+/* One line here, measured rather than assumed: the narrowest card this grid
+   makes in big is 15rem, 248px of content between the two rails at 1200px
+   and 262px on a 320px phone, against 123px for "zero -5.00×10⁻³" at
+   0.9rem. It cannot wrap, so it does not reserve a second line. */
+.live--big .readout-zero { font-size: 0.9rem; min-height: 1.6em; }
 
+/* 17cqi, not the 19cqi the old notation could afford: at 5.58 em for
+   -5.00×10⁻³ against a container of 100 cqi, 17 leaves 5% of the card
+   spare and 19 would overrun it by 6%. The rem fallback is measured the
+   same way against the narrowest card this grid makes, 15rem wide, whose
+   content box is 206 px: 5.58 × 33.6 px = 188 px. */
 .live--big .readout-value {
-  font-size: 2.2rem;            /* what a browser without cq units gets */
-  font-size: min(3.6rem, 19cqi);
+  font-size: 2.1rem;            /* what a browser without cq units gets */
+  font-size: min(3.6rem, 17cqi);
   font-weight: 600;
   line-height: 1.2;
 }

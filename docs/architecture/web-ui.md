@@ -176,12 +176,23 @@ a credential; the data file appears by name only.
 | `GET /api/roster` | `{"names": [...]}` — the lab's operator names this machine holds a copy of, empty when it holds none |
 | `GET /api/state` | latest values, setpoints, run facts, freshness, the Remote switch, the zeros, who has control and the last command; polled once a second, or four times a second under Poll: fast |
 | `GET /api/series?window=300&points=600` | thinned `[t, v]` pairs per channel over the last `window` seconds, `0` for all held |
+| `GET /api/series?since=1757200000&points=3000` | the same, but only samples strictly newer than that stamp; `since` wins over `window` |
 
 A window is cut by walking the ring backwards from the newest sample and
 stopping at the first one outside it, so twenty seconds costs two hundred
 rows however long the ring has grown, and the Live tab may ask four times a
 second without the Pi paying for two hours of samples each time. `window=0`
 still copies the whole ring, because the whole ring is what it asked for.
+
+`since` is the same walk against a stamp rather than a span, and it is what
+the Live tab actually sends. That tab keeps its own history: it fills once
+from the ring when the page opens (`window=0&points=3000`, which carries the
+whole ring at full resolution, two hours at the rig's 0.1 Hz being 720
+samples) and then asks only for what it has not seen. So a page left open all
+afternoon costs the Pi the handful of rows that arrived since it last asked,
+rather than the afternoon it already holds. Nothing newer is an empty answer,
+not an error. The reply carries both `window` and `since` back, so a reader
+of the response can tell which question was asked.
 | `GET /api/log?since=N` | log lines after sequence number `N` |
 | `POST /api/identify` | `{"name": "..."}` — remember, in this browser, the name to write beside a command |
 | `POST /api/take-over` | take control of the rig from whoever holds it; `200` either way, `403` without the switch |
@@ -198,17 +209,46 @@ still copies the whole ring, because the whole ring is what it asked for.
 ## Tabs
 
 - **Live** — the five signals the rig's own graph draws, in its own pen
-  colours, as readouts and two canvas strip charts: plasma current, and the
-  pressures on a log axis. The left rail chooses the window, the channels,
-  the pressure axis, the readout size and the poll rate; the right rail states
-  the run and how fresh the data is. Data is `live`, `stale` (no sample for
-  five sampling periods, never less than two seconds) or `idle` (acquisition
-  off). `Display: big` makes the five readouts the column's lead, for reading
-  the rig from a metre away, and is remembered per browser. `Poll: fast` asks
-  for state and series four times a second instead of once and twice, for
-  watching a value settle while a gauge is zeroed at the rig; it keeps
-  whatever window is chosen, and it is deliberately forgotten on reload so a
-  page left open overnight stops asking.
+  colours, as readouts and three canvas strip charts: plasma current, the
+  ion gauges (log axis by default) and the Baratrons (linear by default).
+  Two pressure panels rather than one, because one axis could not serve both
+  kinds of gauge: the ion gauges cross decades, the Baratrons sit in a narrow
+  band around their own offset, and drawn together neither was readable
+  (owner report 2026-09-06). Each panel scales to its own visible channels.
+  The left rail chooses the window, the channels, an axis for each pressure
+  panel, the smoothing, the readout size and the poll rate; the right rail
+  states the run and how fresh the data is. Data is `live`, `stale` (no
+  sample for five sampling periods, never less than two seconds) or `idle`
+  (acquisition off).
+
+    **The browser keeps its own history.** The page fills once from the ring
+    and then asks `since` (above), appending into a per-channel store capped
+    at a day. The window buttons cut that store and redraw without asking the
+    rig anything, so `Full` is what this browser has seen — said once, as an
+    aside on the Window card's heading. A new run — a different start time or
+    a different file — empties the store and refills it from the ring.
+
+    **Readouts.** A value reads as `1.22×10⁻⁵`, mantissa and a real
+    superscript exponent, never `1.22e-5`; zero reads `0`; a current in
+    amperes stays plain. Each card is washed with its own pen at 14% and
+    bordered with it at 45%, so the eye finds a channel before it reads the
+    name. On Ip, Bu and Bd one always-present line says what baseline the
+    number has already taken off — `zero -0.345 A`, or `as measured` — and
+    what a zero is is explained once, in the right rail's Data card.
+
+    **Smoothing** is a centred moving median over `off | 5 | 15 | 51`
+    samples, applied to every line and to the five readouts, for the plasma
+    current's spikes until the hardware RC filter arrives. A median and not a
+    mean: it drops a spike without smearing the step when a setpoint really
+    moves.
+
+    `Display: big` makes the five readouts the column's lead, for reading
+    the rig from a metre away, and is remembered per browser. `Poll: fast`
+    asks for state and series four times a second instead of once and twice,
+    for watching a value settle while a gauge is zeroed at the rig; it keeps
+    whatever window is chosen, and it is deliberately forgotten on reload so a
+    page left open overnight stops asking. Every other choice in that rail is
+    remembered.
 - **Log** — the same message log the Qt Log dock shows, newest first, with a
   Find and an order switch.
 - **Lab** — the three services of the lab ensemble with a state each: `ok`,

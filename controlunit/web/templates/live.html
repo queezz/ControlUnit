@@ -12,7 +12,10 @@
     {# Controls live left: what changes what the main column shows. #}
     <aside class="rail rail-left">
         <section class="rail-card rail-card--fit">
-            <h2 class="rail-label">Window</h2>
+            {# The window cuts a history this browser keeps for itself, so
+               Full is this browser's own memory rather than the rig's ring.
+               Said once, on the heading's line, where it costs no height. #}
+            <h2 class="rail-label">Window <span class="rail-aside">· Full is what this browser has seen</span></h2>
             <div class="choice-grid" role="group" aria-label="Window">
                 {% for label, seconds in windows %}
                 <button type="button" class="choice" data-window="{{ seconds }}"
@@ -32,12 +35,32 @@
             </div>
         </section>
 
+        {# One axis per panel: ion gauges cross decades and read as a log
+           axis, Baratrons sit in a narrow band around their own offset and
+           read as a linear one. Each panel scales to its own channels. #}
         <section class="rail-card rail-card--fit">
             <h2 class="rail-label">Scales</h2>
-            <div class="choice-row" role="group" aria-label="Pressure axis">
-                <span class="choice-caption">Pressure axis</span>
-                <button type="button" class="choice" data-scale="log" aria-pressed="true">log</button>
-                <button type="button" class="choice" data-scale="lin" aria-pressed="false">lin</button>
+            <div class="choice-row" role="group" aria-label="Ion gauge axis">
+                <span class="choice-caption choice-caption--inline">Ion gauges</span>
+                <button type="button" class="choice" data-scale-ig="log" aria-pressed="true">log</button>
+                <button type="button" class="choice" data-scale-ig="lin" aria-pressed="false">lin</button>
+            </div>
+            <div class="choice-row" role="group" aria-label="Baratron axis">
+                <span class="choice-caption choice-caption--inline">Baratrons</span>
+                <button type="button" class="choice" data-scale-bar="log" aria-pressed="false">log</button>
+                <button type="button" class="choice" data-scale-bar="lin" aria-pressed="true">lin</button>
+            </div>
+        </section>
+
+        {# A median, not a mean: it drops the plasma-current spikes without
+           smearing the step when a setpoint actually moves. #}
+        <section class="rail-card rail-card--fit">
+            <h2 class="rail-label">Smoothing <span class="rail-aside">· median of N samples, lines and readouts</span></h2>
+            <div class="choice-row" role="group" aria-label="Smoothing">
+                <button type="button" class="choice" data-smooth="0" aria-pressed="true">off</button>
+                <button type="button" class="choice" data-smooth="5" aria-pressed="false">5</button>
+                <button type="button" class="choice" data-smooth="15" aria-pressed="false">15</button>
+                <button type="button" class="choice" data-smooth="51" aria-pressed="false">51</button>
             </div>
         </section>
 
@@ -67,13 +90,19 @@
     <main class="page-main">
         <h1 class="sr-only">Live</h1>
 
-        {# Readouts: the value, in the pen's colour, and nothing beside it. #}
+        {# Readouts: the value, in its own pen, and — on the three channels the
+           rig can zero — what baseline the number already has taken off. #}
         <div class="readouts">
             {% for name, colour in pens %}
-            <div class="readout" data-readout="{{ name }}">
-                <span class="readout-name" style="color: {{ colour }}">{{ name }}</span>
+            <div class="readout" data-readout="{{ name }}" style="--pen: {{ colour }}">
+                <span class="readout-name">{{ name }}</span>
                 <span class="readout-value mono" data-role="value">—</span>
                 <span class="readout-unit" data-role="unit"></span>
+                {# Which channels can be zeroed is the rig's own answer, read
+                   from the zeros it carries, never a list kept here too. #}
+                {% if name in state.zeros %}
+                <span class="readout-zero mono" data-role="zero">as measured</span>
+                {% endif %}
             </div>
             {% endfor %}
         </div>
@@ -83,15 +112,23 @@
                 <h2>Plasma current, A</h2>
                 <span class="chart-span muted" data-role="span-plasma"></span>
             </header>
-            <canvas id="chart-plasma" height="220"></canvas>
+            <canvas id="chart-plasma" height="220" data-channels="Ip"></canvas>
         </section>
 
-        <section class="chart" aria-label="Pressure">
+        <section class="chart" aria-label="Ion gauges">
             <header class="chart-head">
-                <h2>Pressure, Torr</h2>
-                <span class="chart-span muted" data-role="span-pressure"></span>
+                <h2>Ion gauges, Torr</h2>
+                <span class="chart-span muted" data-role="span-ig"></span>
             </header>
-            <canvas id="chart-pressure" height="280"></canvas>
+            <canvas id="chart-ig" height="200" data-channels="Pu,Pd"></canvas>
+        </section>
+
+        <section class="chart" aria-label="Baratrons">
+            <header class="chart-head">
+                <h2>Baratrons, Torr</h2>
+                <span class="chart-span muted" data-role="span-bar"></span>
+            </header>
+            <canvas id="chart-bar" height="200" data-channels="Bu,Bd"></canvas>
         </section>
     </main>
 
@@ -128,6 +165,11 @@
             <p class="muted data-key"><span class="mono">stale</span> after
                 <span data-role="stale-after">{{ '%g' % state.data.stale_after }}</span> s without a sample ·
                 <span class="mono">idle</span> when acquisition is off</p>
+            {# The one place the zero is explained; each card only states its
+               own. What the rig subtracts to show a number is not what it
+               writes to disk, and that is the question this answers. #}
+            <p class="muted data-key">Ip, Bu and Bd read minus the zero taken at the rig
+                or on Control; the data file keeps the signal as measured</p>
         </section>
     </aside>
 

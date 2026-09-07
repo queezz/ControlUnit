@@ -63,7 +63,67 @@ def test_live_is_home_and_shows_the_five_pens(live):
     for name in ("Ip", "Pu", "Pd", "Bu", "Bd"):
         assert 'data-readout="{}"'.format(name) in live
     assert 'id="chart-plasma"' in live
-    assert 'id="chart-pressure"' in live
+
+
+def test_the_two_kinds_of_gauge_get_a_panel_each(live):
+    """One axis could not serve both, so neither was readable."""
+    assert "Ion gauges, Torr" in live
+    assert "Baratrons, Torr" in live
+    assert 'id="chart-ig"' in live
+    assert 'id="chart-bar"' in live
+    assert 'data-channels="Pu,Pd"' in live
+    assert 'data-channels="Bu,Bd"' in live
+    assert "chart-pressure" not in live
+
+
+def test_the_scales_card_offers_an_axis_for_each_panel(live):
+    for choice in ("log", "lin"):
+        assert 'data-scale-ig="{}"'.format(choice) in live
+        assert 'data-scale-bar="{}"'.format(choice) in live
+    assert "Ion gauges<" in live
+    assert "Baratrons<" in live
+    # Log leads the ion gauges, linear the Baratrons, because of the
+    # offsets a Baratron reads around.
+    assert 'data-scale-ig="log" aria-pressed="true"' in live
+    assert 'data-scale-bar="lin" aria-pressed="true"' in live
+
+
+def test_live_offers_the_smoothing_the_current_needs(live):
+    assert 'class="rail-label">Smoothing ' in live
+    for samples in (0, 5, 15, 51):
+        assert 'data-smooth="{}"'.format(samples) in live
+    # What the choice does is said once, on the card's own heading line.
+    assert live.count("median of N samples") == 1
+
+
+def test_the_three_zeroable_channels_say_what_they_took_off(live):
+    """A reader must not have to guess whether a value is adjusted."""
+    for name in ("Ip", "Bu", "Bd"):
+        card = live[live.index('data-readout="{}"'.format(name)):]
+        card = card[:card.index("</div>")]
+        assert 'data-role="zero"' in card
+    for name in ("Pu", "Pd"):
+        card = live[live.index('data-readout="{}"'.format(name)):]
+        card = card[:card.index("</div>")]
+        assert 'data-role="zero"' not in card
+    assert live.count('data-role="zero"') == 3
+    # Reserved on all three, whatever the rig currently holds, so a zero
+    # taken while the page is open moves nothing.
+    assert live.count(">as measured<") == 3
+
+
+def test_the_zero_is_explained_in_exactly_one_place(live):
+    assert live.count("the data file keeps the signal as measured") == 1
+
+
+def test_the_readout_cards_carry_their_own_pen(live):
+    """The card's colour comes from the pen list the charts draw with."""
+    for colour in ("#8d3de3", "#c9004d", "#6ac600", "#ffb405", "#00a3af"):
+        assert "--pen: {}".format(colour) in live
+
+
+def test_the_window_says_once_that_full_is_this_browser(live):
+    assert live.count("Full is what this browser has seen") == 1
 
 
 def test_live_offers_the_same_windows_as_the_rig(live):
@@ -243,6 +303,29 @@ def test_the_live_page_polls_state_and_series(client):
     script = client.get("/static/js/live.js").get_data(as_text=True)
     assert "/api/state" in script
     assert "/api/series" in script
+
+
+def test_the_live_page_fills_once_and_then_asks_only_for_the_new(client):
+    """A page open all afternoon costs the Pi the newest rows, not the
+    afternoon it already holds."""
+    script = client.get("/static/js/live.js").get_data(as_text=True)
+    assert "window=0&points=" in script
+    assert '"since=" + encodeURIComponent(newest)' in script
+    # The window cuts what is already here; it sends nothing.
+    assert "STORE_SECONDS = 24 * 60 * 60" in script
+
+
+def test_the_readouts_are_written_as_a_real_power_of_ten(client):
+    script = client.get("/static/js/live.js").get_data(as_text=True)
+    css = client.get("/static/css/controlunit.css").get_data(as_text=True)
+    assert '"×10<sup>"' in script
+    # The canvas has no markup to lift an exponent with, so its axis
+    # labels carry the superscript glyphs themselves.
+    assert '"10" + superText(' in script
+    # The lift cannot make the line box taller, so a value crossing into
+    # exponent form never changes the card's height.
+    assert ".readout-value sup" in css
+    assert "line-height: 0" in css
 
 
 def test_an_unconfigured_neighbour_says_nothing_about_starting(lab):
