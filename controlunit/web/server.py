@@ -7,8 +7,9 @@ services how they are, and — for the Control tab — appends checked commands
 to a queue the main thread drains on its own timer.
 
 Four tabs are served. Live is the rig's values and two strip charts; Control
-sets what the rig holds; Log is the same message log the Qt Log dock shows;
-Lab is the three services of the lab ensemble and how each is started.
+starts and stops a run and sets what the rig holds; Log is the same message
+log the Qt Log dock shows; Lab is the three services of the lab ensemble and
+how each is started.
 
 Reading is open to anyone on the lab network. Setting needs a name chosen in
 the browser, the Remote switch turned on beside the rig's own screen so that
@@ -205,6 +206,7 @@ def create_app(status=None, board=None, commands=None):
             ),
             mfc_max=command_desk.MFC_MAX_MV,
             plasma_max=command_desk.PLASMA_MAX_A,
+            sampling_choices=command_desk.sampling_choices(),
             actor=command_desk.clean_actor(request.cookies.get(ACTOR_COOKIE)),
         )
 
@@ -290,6 +292,10 @@ def create_app(status=None, board=None, commands=None):
             return jsonify({"reason": refused}), 403
         if command_desk.needs_acquisition(kind) and not snapshot.get("acquiring"):
             return jsonify({"reason": command_desk.NO_ACQUISITION}), 409
+        # Starting is the one command that means something only while idle,
+        # so it is the one refused for the opposite fact.
+        if command_desk.needs_idle(kind) and snapshot.get("acquiring"):
+            return jsonify({"reason": command_desk.ALREADY_ACQUIRING}), 409
 
         try:
             value = command_desk.validate(kind, _json_body(), number=number)
@@ -327,6 +333,18 @@ def create_app(status=None, board=None, commands=None):
     @app.route("/api/stop-all", methods=["POST"])
     def stop_all():
         return send("stop_all")
+
+    @app.route("/api/acquisition/start", methods=["POST"])
+    def acquisition_start():
+        return send("start")
+
+    @app.route("/api/acquisition/stop", methods=["POST"])
+    def acquisition_stop():
+        return send("stop")
+
+    @app.route("/api/sampling", methods=["POST"])
+    def sampling():
+        return send("sampling")
 
     @app.route("/api/mfc/<int:number>", methods=["POST"])
     def mfc(number):

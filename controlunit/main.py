@@ -240,22 +240,47 @@ class MainApp(QtCore.QObject, UIWindow):
 
     def __onoff(self):
         """
-        Start and stop worker threads
+        The on/off switch on the rig's own screen. It asks before stopping,
+        and then takes the same two paths a browser takes, so a run begins
+        and ends the same way whoever asked for it.
         """
         if self.control_dock.OnOffSW.isChecked():
-            self.prep_threads()
-            self.web_status.set_acquiring(True)
-            self.control_dock.quitBtn.setEnabled(False)
+            self.start_acquisition()
             return
 
         question = "Are you sure you want to stop data acquisition?"
         if self.popup_confirmation_window(question):
-            self.abort_all_threads()
-            self.web_status.set_acquiring(False)
-            self._force_remote_off()
-            self.control_dock.quitBtn.setEnabled(True)
+            self.stop_acquisition()
         else:
             self.control_dock.OnOffSW.setChecked(True)
+
+    def start_acquisition(self):
+        """
+        Start the worker threads and say so, whoever asked.
+
+        The switch on the rig's screen calls this, and so does a browser's
+        Start through the command queue; the browser's half sets the switch
+        to match first, so the rig's own screen agrees with what was done.
+        """
+        self.prep_threads()
+        self.web_status.set_acquiring(True)
+        self.control_dock.quitBtn.setEnabled(False)
+
+    def stop_acquisition(self):
+        """
+        Stop the worker threads and say so, whoever asked.
+
+        The Remote switch is deliberately left exactly as the person at the
+        rig set it. It used to be forced off here, so that a laptop could not
+        hold a gate over a rig that is not running; a browser that can now
+        press Stop would be stranded by a switch that turned itself off
+        behind it. The switch is still the only way in, and still only
+        turnable on at the rig. The operator lock is let go of instead, in
+        `abort_all_threads`, so nobody silently holds an idle rig.
+        """
+        self.abort_all_threads()
+        self.web_status.set_acquiring(False)
+        self.control_dock.quitBtn.setEnabled(True)
 
     # MARK: Remote control
     def _toggle_remote(self):
@@ -263,24 +288,15 @@ class MainApp(QtCore.QObject, UIWindow):
 
         The switch is the whole gate on a browser changing anything: with it
         off the web view reads and nothing more. It cannot be turned on from
-        a browser, only here, and stopping acquisition puts it back off.
+        a browser, only here, and it stays exactly where this person put it:
+        stopping acquisition no longer takes it down, because a browser may
+        now stop a run and would otherwise lock itself out of restarting it.
         """
         on = self.control_dock.remoteSW.isChecked()
         self.web_status.set_remote(on)
         self.log_message("Remote control {}".format("on" if on else "off"))
         if not on:
             web_commands.release(self, "Remote switch off")
-
-    def _force_remote_off(self):
-        """Acquisition stopping takes browser control down with it."""
-        if self.control_dock.remoteSW.isChecked():
-            self.control_dock.remoteSW.setChecked(False)
-            self.web_status.set_remote(False)
-            self.log_message("Remote control off (acquisition stopped)")
-        else:
-            self.web_status.set_remote(False)
-        # Nobody is left holding control of a rig that is not listening.
-        web_commands.release(self, "acquisition stopped")
 
     def _drain_web_commands(self):
         """Run what a browser queued, here on the thread that owns the workers."""
@@ -466,9 +482,11 @@ class MainApp(QtCore.QObject, UIWindow):
         self.turn_off_voltages()
         self.terminate_existing_threads()
         self.web_status.set_acquiring(False)
-        # No workers, no browser control: the switch goes back to LOCAL so a
-        # laptop cannot be left holding a gate over a rig that is not running.
-        self._force_remote_off()
+        # Nobody is left holding control of a rig that is not listening. The
+        # Remote switch itself stays as the person at the rig set it: it is
+        # theirs, and a browser that has just stopped a run must still be
+        # able to start one.
+        web_commands.release(self, "acquisition stopped")
 
     # MARK: logging
     def generate_time_stamp(self):
@@ -929,12 +947,28 @@ class MainApp(QtCore.QObject, UIWindow):
     @QtCore.pyqtSlot()
     def __set_sampling(self):
         """
-        Set sampling time for all threads
+        The Settings dock's Set button: read the combo, then the one path.
         """
         if not self.workers:
             return
         txt = self.settings_dock.samplingCb.currentText()
-        value = float(txt.split(" ")[0])
+        self.set_sampling(float(txt.split(" ")[0]))
+
+    def set_sampling(self, seconds):
+        """
+        Set sampling time for all threads, whoever asked.
+
+        The dock's combo is set to the matching item first, so the rig's own
+        screen agrees with what a browser did; the choices a browser may send
+        are the combo's own (`web.commands.SAMPLING_CHOICES`, held equal to
+        the dock by a test).
+        """
+        if not self.workers:
+            return
+        value = float(seconds)
+        index = self.settings_dock.samplingCb.findText(f"{value:g} s")
+        if index >= 0:
+            self.settings_dock.samplingCb.setCurrentIndex(index)
         self.sampling = value
         self.update_plot_timewindow()
         self.workers["ADC"]["worker"].set_sampling_time(value)

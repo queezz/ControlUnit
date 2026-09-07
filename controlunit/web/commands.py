@@ -5,7 +5,9 @@ and is the only caller of a worker slot; the web thread must therefore never
 call one. So a browser's request becomes a small record on a plain
 `queue.Queue`, and the main thread drains that queue on a timer and calls the
 very methods its own buttons call. A setpoint has one code path whether it
-came from the rig's touchscreen or from a laptop.
+came from the rig's touchscreen or from a laptop, and so does a run: `start`
+and `stop` reach the same two methods the on/off switch on the rig's own
+screen reaches, and set that switch to match on the way through.
 
 Who may send one is a second question, and the operator lock below answers
 it: the first browser to send a setter holds control, everyone else sees by
@@ -25,22 +27,48 @@ import threading
 import time
 
 #: Every kind of command a browser may send, in operating order.
-KINDS = ("stop_all", "take_over", "mfc", "plasma", "gauge", "sync", "zero")
+KINDS = (
+    "stop_all",
+    "take_over",
+    "start",
+    "stop",
+    "sampling",
+    "mfc",
+    "plasma",
+    "gauge",
+    "sync",
+    "zero",
+)
 
 #: Stopping the outputs is always allowed: it only ever drives the hardware
 #: to zero, and a person who can see the rig must be able to do it whether
 #: or not they typed a name and whether or not the switch on the rig is on.
+#: Starting and stopping a run is not in here: a run is the whole point of
+#: the switch on the rig, so it is gated like every other setter.
 ALWAYS_ALLOWED = ("stop_all",)
 
 #: Everything else needs workers running to mean anything. Taking control is
-#: not one of them: it moves a lock, it does not touch the hardware.
-NEEDS_ACQUISITION = ("mfc", "plasma", "gauge", "sync", "zero")
+#: not one of them: it moves a lock, it does not touch the hardware. Nor is
+#: `start`, which is the one command that means something only while idle.
+NEEDS_ACQUISITION = ("stop", "sampling", "mfc", "plasma", "gauge", "sync", "zero")
 
-#: The setters the operator lock is about — everything that moves gas,
-#: cathode current, the gauge or the sync line. Stopping the outputs is never
-#: gated by it, and taking control is how the lock is moved, not something
-#: the lock may refuse.
-LOCKED = ("mfc", "plasma", "gauge", "sync", "zero")
+#: The commands that mean something only while nothing is running. Just the
+#: one, and it is refused with its own reason rather than the idle one, so a
+#: person who pressed Start twice is told which of the two facts is in the
+#: way.
+NEEDS_IDLE = ("start",)
+
+#: The setters the operator lock is about — everything that starts, stops or
+#: moves gas, cathode current, the gauge or the sync line. Stopping the
+#: outputs is never gated by it, and taking control is how the lock is moved,
+#: not something the lock may refuse.
+LOCKED = ("start", "stop", "sampling", "mfc", "plasma", "gauge", "sync", "zero")
+
+#: The sampling times the rig offers, in seconds, exactly the choices the Qt
+#: Settings dock's combo carries (`ui/docks/settings.py`). A test builds that
+#: dock and holds the two lists equal, so a browser can never ask for a
+#: sampling time the rig's own screen does not offer.
+SAMPLING_CHOICES = (10.0, 1.0, 0.1, 0.01)
 
 #: The channels whose baseline can be zeroed from the browser.
 ZERO_CHANNELS = ("Ip", "Bu", "Bd")
@@ -71,6 +99,7 @@ REFUSED = "refused"
 #: The reasons a command is refused, in the words the reader is shown.
 NO_REMOTE = "the Remote switch on the rig's screen is off"
 NO_ACQUISITION = "no acquisition running"
+ALREADY_ACQUIRING = "acquisition is already running"
 NO_SAMPLES = "no samples to take a baseline from yet"
 TOO_MANY = "too many commands are already waiting"
 
@@ -398,10 +427,61 @@ def validate_stop_all(body):
     return {}
 
 
+def validate_start(body):
+    """Nothing to say: the one meaning is start acquiring."""
+    _body(body)
+    return {}
+
+
+def validate_stop(body):
+    """Nothing to say: the one meaning is stop acquiring."""
+    _body(body)
+    return {}
+
+
+def sampling_label(seconds):
+    """How the rig writes one sampling time: `10 s`, `0.1 s`, `0.01 s`."""
+    return "{:g} s".format(float(seconds))
+
+
+def sampling_choices():
+    """The sampling times on offer, as (value, label) pairs for the page."""
+    return [("{:g}".format(s), sampling_label(s)) for s in SAMPLING_CHOICES]
+
+
+def validate_sampling(body):
+    """`{"seconds": 10|1|0.1|0.01}`: one of the rig's own sampling times."""
+    body = _body(body)
+    if "seconds" not in body:
+        raise Invalid("a sampling time needs a value in seconds")
+    try:
+        seconds = float(body["seconds"])
+    except (TypeError, ValueError):
+        seconds = None
+    # The rig's ADC batches its rows by sampling time, so only the four the
+    # Settings dock offers are known to behave; anything else is refused in
+    # the words of the four on offer.
+    if seconds is None or not any(
+        abs(seconds - choice) < 1e-9 for choice in SAMPLING_CHOICES
+    ):
+        raise Invalid(
+            "the sampling time is one of {}".format(
+                ", ".join(sampling_label(s) for s in SAMPLING_CHOICES)
+            )
+        )
+    return {"seconds": float(seconds)}
+
+
 def validate(kind, body, number=None):
     """Check one body by kind. Raises `Invalid` with the reason to show."""
     if kind == "stop_all":
         return validate_stop_all(body)
+    if kind == "start":
+        return validate_start(body)
+    if kind == "stop":
+        return validate_stop(body)
+    if kind == "sampling":
+        return validate_sampling(body)
     if kind == "mfc":
         return validate_mfc(number, body)
     if kind == "plasma":
@@ -449,6 +529,11 @@ def needs_acquisition(kind):
     return kind in NEEDS_ACQUISITION
 
 
+def needs_idle(kind):
+    """True when the command has no meaning while the workers are running."""
+    return kind in NEEDS_IDLE
+
+
 # -- what the reader is told a command was ------------------------------------
 
 _GAS = {1: "H2", 2: "O2"}
@@ -468,6 +553,12 @@ def summarise(kind, value):
         if previous:
             return "took control from {}".format(previous)
         return "took control"
+    if kind == "start":
+        return "acquisition started"
+    if kind == "stop":
+        return "acquisition stopped"
+    if kind == "sampling":
+        return "sampling {}".format(sampling_label(value.get("seconds", 0)))
     if kind == "mfc":
         return "{} flow {} mV".format(_GAS.get(value.get("n"), "gas"), value.get("mv"))
     if kind == "plasma":
@@ -513,6 +604,43 @@ def _apply_stop_all(app):
     app.gasflow_dock.resetSpinBoxes(2)
     if not running:
         return APPLIED, "nothing was running; the outputs are off"
+    return APPLIED, ""
+
+
+def _apply_start(app, value):
+    """Start a run the way the switch on the rig's own screen starts one.
+
+    That the rig is not already running was decided twice by the time this
+    runs — once in the web thread against the status record, once in `apply`
+    against the workers themselves — because the two are one poll apart and a
+    person who pressed Start twice must not be handed a second set of workers
+    over the first.
+
+    `setChecked` emits no `clicked`, so the switch agreeing with what a
+    browser did cannot re-enter the switch's own handler.
+    """
+    app.control_dock.OnOffSW.setChecked(True)
+    app.start_acquisition()
+    return APPLIED, ""
+
+
+def _apply_stop(app, value):
+    """Stop a run, and leave the Remote switch exactly as it was.
+
+    Stopping used to force the switch back to LOCAL. It no longer does: the
+    browser that just pressed Stop would have been stranded by a switch that
+    turned itself off, and the switch belongs to the person at the rig. The
+    operator lock is still let go of, in `abort_all_threads`, so nobody is
+    left silently holding a rig that is not running.
+    """
+    app.control_dock.OnOffSW.setChecked(False)
+    app.stop_acquisition()
+    return APPLIED, ""
+
+
+def _apply_sampling(app, value):
+    """One sampling time, through the one method the Set button calls."""
+    app.set_sampling(value["seconds"])
     return APPLIED, ""
 
 
@@ -567,6 +695,9 @@ def _apply_take_over(app, value):
 
 _APPLIERS = {
     "take_over": _apply_take_over,
+    "start": _apply_start,
+    "stop": _apply_stop,
+    "sampling": _apply_sampling,
     "mfc": _apply_mfc,
     "plasma": _apply_plasma,
     "gauge": _apply_gauge,
@@ -579,6 +710,8 @@ def apply(app, command):
     """Run one command on the Qt main thread. Returns (outcome, reason)."""
     if needs_acquisition(command.kind) and not getattr(app, "workers", None):
         return REFUSED, NO_ACQUISITION
+    if needs_idle(command.kind) and getattr(app, "workers", None):
+        return REFUSED, ALREADY_ACQUIRING
     if command.kind == "stop_all":
         return _apply_stop_all(app)
     worker = _APPLIERS.get(command.kind)

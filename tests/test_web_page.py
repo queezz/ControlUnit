@@ -110,6 +110,8 @@ def test_control_carries_its_five_groups_as_jump_targets(control):
 
 def test_control_offers_every_command_the_slice_built(control):
     assert 'data-role="stop-all"' in control
+    assert 'data-role="acq-start"' in control
+    assert 'data-role="acq-stop"' in control
     for number in (1, 2):
         assert 'data-mfc="{}"'.format(number) in control
     assert 'data-role="plasma-set"' in control
@@ -124,6 +126,33 @@ def test_control_offers_every_command_the_slice_built(control):
 def test_control_offers_the_same_gauge_range_the_rig_does(control):
     for decade in range(-8, -2):
         assert 'data-range="{}"'.format(decade) in control
+
+
+def test_control_offers_the_same_sampling_times_the_rig_does(control):
+    """The four the Settings dock offers, written the way it writes them."""
+    for value in ("10", "1", "0.1", "0.01"):
+        assert 'data-seconds="{}"'.format(value) in control
+        assert ">{} s<".format(value) in control
+    assert control.count('data-role="sampling"') == 4
+    assert control.count('data-role="sampling-now"') == 1
+
+
+def test_acquisition_no_longer_says_it_can_only_be_run_from_the_rig(control):
+    """The group's note is the one place the new rule is stated."""
+    assert "never from here" not in control
+    assert control.count(
+        "Started and stopped here or at the rig; stopping closes the data "
+        "file and turns every output off."
+    ) == 1
+
+
+def test_the_run_controls_sit_under_the_run_s_own_facts(control):
+    """Nothing is inserted above a control the reader will press again."""
+    group = control[control.index('id="sec-acquisition"'):]
+    group = group[:group.index("</section>")]
+    assert group.index('data-fact="samples"') < group.index('data-role="acq-start"')
+    assert group.index('data-role="acq-start"') < group.index('data-role="acq-stop"')
+    assert group.index('data-role="acq-stop"') < group.index('data-role="sampling"')
 
 
 def test_the_gate_is_explained_in_exactly_one_place(control):
@@ -156,6 +185,9 @@ def test_control_asks_state_and_posts_the_command_routes(client):
         "/api/identify",
         "/api/take-over",
         "/api/stop-all",
+        "/api/acquisition/start",
+        "/api/acquisition/stop",
+        "/api/sampling",
         "/api/mfc/",
         "/api/plasma-current",
         "/api/gauge",
@@ -163,6 +195,22 @@ def test_control_asks_state_and_posts_the_command_routes(client):
         "/api/zero",
     ):
         assert route in script
+
+
+def test_stopping_a_run_from_the_browser_asks_once_before_it_sends(client):
+    """The one destructive press on the page, in the group's own words."""
+    script = client.get("/static/js/control.js").get_data(as_text=True)
+    assert "window.confirm(STOP_QUESTION)" in script
+    assert "closes the data file and turns every output off" in script
+    assert script.count("STOP_QUESTION") == 2  # declared once, asked once
+
+
+def test_start_is_the_one_control_the_idle_rig_enables(client):
+    """Every other control needs a run; the reason says so in one place."""
+    script = client.get("/static/js/control.js").get_data(as_text=True)
+    assert "Nothing is running; you may start acquisition." in script
+    assert 'root.querySelector(\'[data-role="acq-start"]\')' in script
+    assert "!state.acquiring" in script
 
 
 def test_the_lab_page_names_the_three_services(lab):

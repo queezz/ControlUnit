@@ -22,8 +22,10 @@ main thread keeps up to date from methods it already runs:
 | `_adc_step` | the samples that step delivered, converted and zero-adjusted as the screen shows them |
 | `log_message` | one message-log line, tags stripped |
 | `update_current_values`, the plasma and gauge setters | the setpoints the rig holds |
-| `__onoff`, `abort_all_threads` | whether acquisition runs |
-| `_toggle_remote`, `_force_remote_off` | whether a browser may set anything, and letting go of the operator lock |
+| `start_acquisition`, `stop_acquisition`, `abort_all_threads` | whether acquisition runs |
+| `set_sampling` | the sampling time the run holds |
+| `_toggle_remote` | whether a browser may set anything |
+| `abort_all_threads`, `_toggle_remote` | letting go of the operator lock |
 | `_adjust_zeros` | the baselines the display subtracts |
 | the command drain | what became of the last command a browser sent |
 
@@ -60,9 +62,18 @@ its own request succeeded.
 
 **Who may press what.** Setting needs the **Remote** switch turned on in the
 Qt control dock, on the rig's own screen, beside the on/off switch. It rests
-off, cannot be turned on from a browser, and is forced off whenever
-acquisition stops. That switch is the whole authorisation: a person standing
-at the rig decides whether the network may move anything.
+off and cannot be turned on from a browser. That switch is the whole
+authorisation: a person standing at the rig decides whether the network may
+move anything.
+
+The switch stays exactly where that person put it. It used to be forced off
+whenever acquisition stopped, so that a laptop could not hold a gate over a
+rig that is not running; now that a browser may start and stop a run, a
+switch that turned itself off would strand the very person who had just
+pressed Stop, so the stop path no longer touches it. The operator lock below
+is still let go of when acquisition stops, which is the part of that design
+that answers *who*; the browser that stopped the run claims the lock again
+with its next setter, and Start is one.
 
 A name is asked for and never waited for. `POST /api/identify` sets an
 `actor` cookie and the Control tab's left rail has an "Acting as" field, but
@@ -174,6 +185,9 @@ still copies the whole ring, because the whole ring is what it asked for.
 | `POST /api/identify` | `{"name": "..."}` — remember, in this browser, the name to write beside a command |
 | `POST /api/take-over` | take control of the rig from whoever holds it; `200` either way, `403` without the switch |
 | `POST /api/stop-all` | every output to zero; always allowed |
+| `POST /api/acquisition/start` | begin a run; `409` when one is already running |
+| `POST /api/acquisition/stop` | end the run, close the data file, drop every output |
+| `POST /api/sampling` | `{"seconds": 10\|1\|0.1\|0.01}` — the sampling times the Settings dock offers |
 | `POST /api/mfc/<1\|2>` | `{"mv": 0..5000}` — a gas flow setpoint; `0` is the Zero button |
 | `POST /api/plasma-current` | `{"a": 0..3}` or `{"off": true}` |
 | `POST /api/gauge` | `{"mode": "Torr"\|"Pa"}` and/or `{"range": -8..-3}` |
@@ -199,10 +213,15 @@ still copies the whole ring, because the whole ring is what it asked for.
 - **Lab** — the three services of the lab ensemble with a state each: `ok`,
   `degraded`, `down` (it answered and said so), `unreachable` (nothing
   answered from this machine) and `not configured`.
-- **Control** — five headed groups in operating order: Acquisition (read
-  only; a run is still started and stopped at the rig), Gas flow, Plasma
-  current, Gauge and sync, and Baselines. Every row shows the setpoint the
-  rig holds beside the value it measures. The left rail carries the gate —
+- **Control** — five headed groups in operating order: Acquisition, Gas
+  flow, Plasma current, Gauge and sync, and Baselines. Acquisition states
+  the run's facts and carries the two presses that begin and end it, and
+  the four sampling times the rig's own Settings dock offers; **Stop** asks
+  once in the browser before it sends, in the same words the group's note
+  uses. Every other row shows the setpoint the rig holds beside the value it
+  measures. **Start** is the one control enabled while nothing is running —
+  the switch and control of the rig are still needed — and every other
+  control needs a run as before. The left rail carries the gate —
   the switch's state, who has control and the Take over button, the one
   reason setting is off right now, the name, and
   the always-allowed Stop all outputs; the right rail carries this run and
