@@ -11,6 +11,7 @@ import pytest
 from controlunit._version import __version__
 from controlunit.web import commands
 from controlunit.web.neighbours import NeighbourBoard
+from controlunit.web.roster import Roster
 from controlunit.web.server import create_app
 from controlunit.web.status import RigStatus
 
@@ -638,11 +639,13 @@ def rig(remote=False, acquiring=True):
     return status
 
 
-def app_for(status, tmp_path, desk=None):
+def app_for(status, tmp_path, desk=None, home=None):
+    nowhere = tmp_path / "nowhere"
     return create_app(
         status=status,
-        board=NeighbourBoard(home=tmp_path / "nowhere"),
+        board=NeighbourBoard(home=nowhere),
         commands=desk if desk is not None else commands.CommandQueue(),
+        roster=Roster(home=nowhere if home is None else home),
     )
 
 
@@ -737,6 +740,58 @@ def test_identify_sets_the_name_this_browser_carries(tmp_path):
 def test_identify_refuses_an_empty_name(tmp_path):
     client = app_for(rig(remote=True), tmp_path).test_client()
     assert client.post("/api/identify", json={"name": "   "}).status_code == 400
+
+
+ROSTER = """\
+{"schema": "pihti-operators/v1",
+ "operators": [{"username": "hashizuka", "display_name": "Hashizuka Takuma"},
+               {"username": "queezz", "display_name": "Arseniy Kuzmin"}]}
+"""
+
+
+def with_roster(tmp_path):
+    home = tmp_path / ".controlunit"
+    home.mkdir()
+    (home / "operators.json").write_text(ROSTER, encoding="utf-8")
+    return app_for(rig(remote=True), tmp_path, home=home).test_client()
+
+
+def test_identify_takes_a_name_the_lab_roster_carries(tmp_path):
+    response = with_roster(tmp_path).post(
+        "/api/identify", json={"name": "Hashizuka Takuma"}
+    )
+    assert response.status_code == 200
+    assert response.get_json()["actor"] == "Hashizuka Takuma"
+    assert "actor=" in response.headers["Set-Cookie"]
+
+
+def test_identify_sends_an_unknown_name_back_to_the_roster(tmp_path):
+    """The list is a courtesy so one person is spelled one way, so a name
+    beside it is refused with the one thing worth saying about it."""
+    response = with_roster(tmp_path).post("/api/identify", json={"name": "Somebody"})
+    assert response.status_code == 400
+    assert response.get_json()["reason"] == "choose a name from the lab's roster"
+    assert "Set-Cookie" not in response.headers
+
+
+def test_identify_takes_any_name_on_a_machine_with_no_roster(tmp_path):
+    """A name is a label for the log, never a credential: a rig that has
+    never been handed the roster still lets a person say who they are."""
+    client = app_for(rig(remote=True), tmp_path).test_client()
+    response = client.post("/api/identify", json={"name": "Somebody"})
+    assert response.status_code == 200
+    assert response.get_json()["actor"] == "Somebody"
+
+
+def test_the_roster_route_lists_the_names_this_machine_holds(tmp_path):
+    assert with_roster(tmp_path).get("/api/roster").get_json() == {
+        "names": ["Hashizuka Takuma", "Arseniy Kuzmin"]
+    }
+
+
+def test_the_roster_route_is_empty_where_there_is_no_roster(tmp_path):
+    client = app_for(rig(remote=True), tmp_path).test_client()
+    assert client.get("/api/roster").get_json() == {"names": []}
 
 
 def test_state_carries_the_switch_the_zeros_and_the_last_command(tmp_path):

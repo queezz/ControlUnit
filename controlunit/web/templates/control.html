@@ -29,14 +29,32 @@
 
         <section class="rail-card rail-card--fit">
             <h2 class="rail-label">Acting as</h2>
+            {# Where this machine holds a copy of the lab's roster the name is
+               chosen from it, so one person is spelled one way across the
+               lab's logs; where it holds none the field is free text, exactly
+               as it has always been. #}
             <div class="actor-row">
+                {% if roster_names %}
+                <select id="actor-name" class="find"
+                        aria-label="The name written beside a command">
+                    <option value="">— choose —</option>
+                    {% for person in roster_names %}
+                    <option value="{{ person }}" {% if person == actor %}selected{% endif %}>{{ person }}</option>
+                    {% endfor %}
+                </select>
+                {% else %}
                 <input type="text" id="actor-name" class="find" maxlength="24"
                        value="{{ actor }}" placeholder="your name"
                        aria-label="The name written beside a command">
+                {% endif %}
                 <button type="button" data-role="save-actor">Save</button>
             </div>
+            {% if roster_names %}
+            <p class="muted actor-note">Names come from the lab's roster.</p>
+            {% else %}
             <p class="muted actor-note">Written in the log beside what you
                 set. Without one the log names this browser's address.</p>
+            {% endif %}
         </section>
 
         <section class="rail-card rail-card--fit">

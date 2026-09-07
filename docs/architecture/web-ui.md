@@ -162,6 +162,7 @@ a credential; the data file appears by name only.
 | `GET /lab` | the Lab tab |
 | `GET /api/health` | `{service, version, status, detail}` — the ensemble's contract; `ok` only while acquiring on real hardware |
 | `GET /api/neighbours` | this service and its two neighbours, each with a state; answers from what this machine already knows and asks the LAN behind the answer |
+| `GET /api/roster` | `{"names": [...]}` — the lab's operator names this machine holds a copy of, empty when it holds none |
 | `GET /api/state` | latest values, setpoints, run facts, freshness, the Remote switch, the zeros, who has control and the last command; polled once a second, or four times a second under Poll: fast |
 | `GET /api/series?window=300&points=600` | thinned `[t, v]` pairs per channel over the last `window` seconds, `0` for all held |
 
@@ -211,7 +212,8 @@ still copies the whole ring, because the whole ring is what it asked for.
   current, Gauge and sync, and Baselines. Every row shows the setpoint the
   rig holds beside the value it measures. The left rail carries the gate —
   the switch's state, who has control and the Take over button, the one
-  reason setting is off right now, the name, and
+  reason setting is off right now, the name — chosen from the lab's roster
+  where this machine holds a copy of one, typed where it does not — and
   the always-allowed Stop all outputs; the right rail carries this run and
   an index of the five groups. A control the gate would refuse is disabled
   and still visibly bordered, and the reason is stated once in the rail,
@@ -239,6 +241,37 @@ nothing about starting. This is a separate file on purpose: the program
 treats a local `~/.controlunit/settings.yml` as a complete replacement for
 the packaged settings, so a settings file holding only neighbours would stop
 the rig from starting.
+
+### The lab's roster of names
+
+The name written beside a command is chosen from a list where the machine
+serving the page has one, so that one person is spelled one way across the
+lab's logs. The list is `~/.controlunit/operators.json`, a copy of the
+names-only roster PIHTI Log reads from the Obsidian vault,
+`<vault>/People/operators.json`, in that program's own schema:
+
+```json
+{"schema": "pihti-operators/v1",
+ "operators": [{"username": "hashizuka", "display_name": "Hashizuka Takuma"}]}
+```
+
+Only `pihti-operators/v1` is read, and only `display_name` reaches the page,
+since the log prints display names. The file is reread whenever its
+modification time or size changes, and never looked at more than once a
+second. A missing, unreadable or malformed file means no names, and the
+Acting-as field stays the free-text box it has always been.
+
+The Pi has no Dropbox and no vault, so the copy is made by hand — one line
+from the office PC, and it stays a courtesy list rather than a credential or
+a list of who may drive the rig:
+
+```powershell
+scp "$env:USERPROFILE\Dropbox\Obsidian\pihti\People\operators.json" pi@pihti:.controlunit/operators.json
+```
+
+`POST /api/identify` still takes any cleaned name where the machine has no
+roster; where it has one, a name that is not on it is refused `400` with
+"choose a name from the lab's roster".
 
 ## Off-rig development
 
