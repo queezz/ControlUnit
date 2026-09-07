@@ -244,7 +244,7 @@ of the response can tell which question was asked.
 
     `Size: big`, in the Readouts card, makes the five readouts the column's lead, for reading
     the rig from a metre away, and is remembered per browser. `Poll: fast`, in the same card,
-    asks for state and series four times a second instead of once and twice,
+    asks for state and series four times a second instead of once a second and once every two seconds,
     for watching a value settle while a gauge is zeroed at the rig; it keeps
     whatever window is chosen, and it is deliberately forgotten on reload so a
     page left open overnight stops asking. Every other choice in that rail is

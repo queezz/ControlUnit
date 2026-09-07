@@ -36,7 +36,10 @@
                     {% if service.here %}
                     <span class="here-note">You are reading it</span>
                     {% else %}
+                    {# Another service is another site: it opens beside this
+                       page, never in its place, so the rig's view stays open. #}
                     <a class="button" data-role="open" href="{{ service.url }}"
+                       target="_blank" rel="noopener"
                        {% if not service.url %}aria-disabled="true"{% endif %}>Open</a>
                     {% endif %}
                 </div>

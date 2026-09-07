@@ -47,8 +47,14 @@ The web view stays off unless `--web` is passed, and the launcher passes it.
 When on, it answers on the lab network by default at `http://pihti:4187/`
 (owner decision 2026-09-04, "the whole point is LAN": the rig is one machine
 and the view is read from a laptop or a phone); `--host 127.0.0.1` narrows a
-run to the Pi itself. The view is read-only either way - it reads a small
-status record the main thread writes, and never touches a worker.
+run to the Pi itself. The view reads a small status record the main thread
+writes and never touches a worker; what a browser may set goes through a
+queue the main thread drains, behind the Remote switch on the rig's screen.
+
+The Control tab offers names from the lab's roster when the Pi holds a copy
+of it at `~/.controlunit/operators.json`. Names are people and never enter
+git; `scripts/push_roster.ps1` (or `.sh`) copies the vault's file to the Pi,
+and is run again whenever the roster changes.
 
 ## Read first
 
@@ -74,8 +80,10 @@ Commit directly to `master` when asked, stage paths deliberately, and end every
 agent-written commit with the bare trailer `agent: <the agent that wrote it>`.
 Do not add `Co-Authored-By` trailers or create tags unless the owner asks.
 
-Pushing is not gated in this repository (owner decision 2026-09-04). A session
-that has run the gates may push its own commits, `master` included. Fleet's
-`RULES.md` §1 reserves pushes for queezz so that no session puts work on a
-remote he has not seen; that still holds in the fleet repository, and he named
-it an unnecessary gate here. Tags remain his.
+A session pushes `master` when queezz says so in the chat, and not on its
+own (owner decision 2026-09-07, narrowing his 2026-09-04 ruling that pushes
+were not gated here; he pushed 4.1.0 himself and said "you can push when I
+tell you to"). Fleet's `RULES.md` §1 reserves pushes for queezz so that no
+session puts work on a remote he has not seen; his word in the chat is that
+seeing. Tags remain his. Pulling to the rig's idle checkout is a session's,
+as `.agents/README.md` says.

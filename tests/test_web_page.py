@@ -415,3 +415,9 @@ def test_the_data_card_shows_one_pill_only(live):
     card = live[live.index('class="rail-label">Data<'):]
     card = card[:card.index("</section>")]
     assert card.count('class="chip') == 1
+
+
+def test_a_neighbour_opens_beside_this_page_not_in_its_place(lab):
+    """The rig's view stays open when a neighbour is opened (walk 2026-09-07)."""
+    assert 'data-role="open"' in lab
+    assert lab.count('target="_blank" rel="noopener"') == lab.count('data-role="open"')

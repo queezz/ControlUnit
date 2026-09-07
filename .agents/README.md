@@ -29,14 +29,21 @@ across every project. Nothing here overrides either.
    data file or log lands in the owner's own folders. Run the cookbook's
    Perimeter Walk, all ten steps, before calling a UI change done.
 4. Run the gates in `AGENTS.md`, stage by path, commit with a sentence-case
-   imperative title and the bare trailer `agent: <name>`. Pushing is not
-   gated here; tags are queezz's.
+   imperative title and the bare trailer `agent: <name>`. Push when
+   queezz says so in the chat; tags are queezz's.
 5. Write the log entry, trim `directions.md` to what is still open, and
    send anything meant for another project as a letter through fleet post.
 
 ## Deploying to the rig
 
-Nothing deploys itself. The Pi's checkouts pull from `master` and the rig
-is restarted from its desktop shortcut, which calls
-`scripts/run_controlunit.sh`. Both are queezz's to do, on a rig that is not
-acquiring, and a handoff names the exact commands rather than running them.
+The rig's checkout, `~/work/aktest` on the Pi, pulls from `master`, and the
+rig is restarted from its desktop shortcut, which calls
+`scripts/run_controlunit.sh`. The restart is queezz's, always. The pull is a
+session's to do (owner decision 2026-09-07, amending the earlier rule that
+kept both for him) once master is on the remote and the rig is not
+acquiring: check over SSH that no `controlunit.main` process is running,
+`git -C ~/work/aktest pull --ff-only`, and confirm the commit matches
+master. Pushing master is done when queezz says so, in this chat, and not
+otherwise; a session never pulls a checkout that is ahead of the remote.
+The names roster reaches the Pi by `scripts/push_roster.ps1`, which is
+also a session's to run on his word.
