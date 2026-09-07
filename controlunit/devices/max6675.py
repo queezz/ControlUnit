@@ -146,7 +146,10 @@ class MAX6675(DeviceThread):
         step = 0
 
         while not (self._abort):
-            time.sleep(self.sampling_time)
+            # Wakes within a tenth of a second of an abort, however long the
+            # sampling time; a stop must not wait out a whole period.
+            if not self.pause(self.sampling_time):
+                break
             self.read_thermocouple()
             self.update_dataframe()
 

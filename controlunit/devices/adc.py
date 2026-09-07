@@ -385,7 +385,10 @@ class ADC(DeviceThread):
         # self.set_cathode_current(325)
 
         while not (self._abort):
-            time.sleep(self.sampling_time)
+            # Wakes within a tenth of a second of an abort, however long the
+            # sampling time; a stop must not wait out a whole period.
+            if not self.pause(self.sampling_time):
+                break
             self.set_adc_datarate()
             self.collect_data()
             self.put_new_data_in_dataframe()

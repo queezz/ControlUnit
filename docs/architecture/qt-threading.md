@@ -162,6 +162,14 @@ This sequence is the product of being bitten: `_mfc_presets` is zeroed in
 multiple places, and `turn_off_voltages` is callable any time including before
 workers are started. The hardware stop always precedes the software stop.
 
+`thread.wait()` lasts as long as the worker takes to notice its abort flag.
+The ADC and thermocouple loops used to sleep one whole sampling period
+between steps and look at the flag only afterwards, so at the rig's
+ten-second sampling the quit button came back ten seconds after Stop (owner
+report 2026-09-07). A worker now sleeps through `DeviceThread.pause`, which
+looks at the flag every tenth of a second (`sleep_unless_aborted` in
+`devices/device.py`), and a stop is answered within that.
+
 > *"Haha — yes, guilty. It may still be somewhere in the Qt signals."* — Arseniy
 
 ---

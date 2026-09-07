@@ -8,6 +8,29 @@ from PyQt5 import QtCore
 TEST = False
 PRINTTHREADINFO = False
 
+#: How often a sleeping worker looks at its abort flag. A stop is answered
+#: within this, whatever the sampling time.
+ABORT_CHECK_SECONDS = 0.1
+
+
+def sleep_unless_aborted(seconds, aborted, slice_seconds=ABORT_CHECK_SECONDS):
+    """Sleep `seconds`, looking at `aborted()` every `slice_seconds`.
+
+    A worker that sleeps a whole sampling period and only then looks at its
+    abort flag holds the main thread's `thread.wait()` for that whole period:
+    at the rig's ten-second sampling the quit button took ten seconds to come
+    back (owner report 2026-09-07). Returns True if the sleep ran its course
+    and False if it was cut short by an abort.
+    """
+    end = time.monotonic() + max(0.0, float(seconds))
+    while True:
+        if aborted():
+            return False
+        left = end - time.monotonic()
+        if left <= 0:
+            return True
+        time.sleep(min(slice_seconds, left))
+
 
 # MARK: Worker
 class DeviceThread(QtCore.QObject):
@@ -61,6 +84,10 @@ class DeviceThread(QtCore.QObject):
         main.py MainWidget.start_thread()
         """
         pass
+
+    def pause(self, seconds):
+        """Sleep between steps, but wake at once when told to abort."""
+        return sleep_unless_aborted(seconds, lambda: self._abort)
 
     def abort(self):
         message = f"<font color='blue'>{self.device_name}</font> aborting acquisition"
