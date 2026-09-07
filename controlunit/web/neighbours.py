@@ -17,6 +17,10 @@ the same rows and starts nothing. `checking` is a sixth state and not a
 sixth kind of failure: a neighbour this machine has no address for is `not
 configured` from the first paint, because that answer needs no one.
 
+"Ask again now" on the page is `invalidate()` and nothing more: the cached
+answer is dropped and the next read starts a probe behind `checking` rows,
+so the press is answered in the same breath as any other read.
+
 Addresses come only from a machine-local file the repository never carries,
 `~/.controlunit/neighbours.yml`::
 
@@ -42,6 +46,7 @@ when `neighbours.yml` is absent, for a machine that already has one.
 
 import json
 import os
+import socket
 import threading
 import time
 import urllib.error
@@ -63,8 +68,13 @@ DISPLAY_NAMES = {
     "pihti-diagram": "PIHTI diagram",
 }
 
-#: Six states, never conflated. `down` means a service answered and said so;
-#: `unreachable` means nothing answered from this machine at all; `not
+#: Six states, never conflated, and worded the same way in all three
+#: surfaces of the ensemble (owner decision 2026-09-07, after the three had
+#: drifted). `down` means something answered and the answer was bad — an
+#: error status, or a refused connection, which is a machine that is there
+#: with nothing listening on the port. `unreachable` means nothing answered
+#: this machine at all: the wait ran out, or the name did not resolve.
+#: `degraded` means the answer arrived and was not a health report. `not
 #: configured` means this machine was never told where the service lives;
 #: `checking` means this machine is asking now and has not heard back.
 STATE_OK = "ok"
@@ -140,6 +150,34 @@ def read_addresses(home=None):
     return {alias: entry["url"] for alias, entry in read_neighbours(home).items()}
 
 
+def _failure(error):
+    """What a failed request means: (state, detail), told apart by why.
+
+    A refused connection is not silence. Something on the other end answered
+    the knock — the host is up, the port is closed — so it is `down`, beside
+    an HTTP error status, and never `unreachable`. Nothing answering at all,
+    whether because the wait ran out or because the name never resolved to an
+    address to wait on, is `unreachable`.
+
+    `urlopen` wraps most of these in a `URLError` carrying the real one as
+    its `reason`, so the wrapper is unwrapped before it is read; a `URLError`
+    whose reason is a plain string is nothing more specific than silence.
+
+    The chip names the state and the rail explains it once, so each sentence
+    here adds only the fact neither carries: which failure this was.
+    """
+    reason = getattr(error, "reason", None)
+    if isinstance(reason, BaseException):
+        error = reason
+    if isinstance(error, ConnectionRefusedError):
+        return STATE_DOWN, "refused the connection"
+    if isinstance(error, socket.gaierror):
+        return STATE_UNREACHABLE, "the name did not resolve"
+    # A timeout — `socket.timeout`, which is `TimeoutError` — and anything
+    # else that left this machine with nothing: it waited its two seconds.
+    return STATE_UNREACHABLE, "no answer within two seconds"
+
+
 def _read_health(url, timeout=TIMEOUT_SECONDS):
     """Fetch one neighbour's health report. Returns (state, version, detail)."""
     target = url.rstrip("/") + HEALTH_PATH
@@ -153,11 +191,9 @@ def _read_health(url, timeout=TIMEOUT_SECONDS):
             "",
             "answered with an error, code {}".format(getattr(error, "code", "?")),
         )
-    except Exception:
-        # The chip already names the state and the rail legend explains it
-        # once; this sentence only adds the fact neither carries — how long
-        # this machine waited.
-        return STATE_UNREACHABLE, "", "no answer within two seconds"
+    except Exception as error:
+        state, detail = _failure(error)
+        return state, "", detail
 
     try:
         report = json.loads(payload.decode("utf-8"))
@@ -189,6 +225,16 @@ def _row(alias, entry, state, version="", detail=""):
     }
 
 
+def _wall_stamp():
+    """This machine's own clock, to the second. The rig's clock, on the rig.
+
+    The cache is timed on a monotonic clock, which is the right one for
+    "how old is this" and the wrong one for "when was that": a reader wants
+    the time their own watch would have shown.
+    """
+    return time.strftime("%H:%M:%S")
+
+
 class NeighbourBoard:
     """The two neighbours' states, answered now and refreshed behind the answer.
 
@@ -205,16 +251,21 @@ class NeighbourBoard:
         home=None,
         clock=time.monotonic,
         prober=None,
+        stamp=None,
     ):
         self._cache_seconds = cache_seconds
         self._home = home
         self._clock = clock
+        #: What a reader's watch says, for the one line that reports a time
+        #: rather than an age. Injectable for the same reason `clock` is.
+        self._stamp = stamp if stamp is not None else _wall_stamp
         #: What one refresh does. Injectable so a test can make it slow, or
         #: count it, without a real neighbour and without a real wait.
         self._prober = prober if prober is not None else self._probe_all
         self._lock = threading.RLock()
         self._cached = None
         self._cached_at = None
+        self._checked_at = None
         self._probing = False
         self._thread = None
 
@@ -275,6 +326,7 @@ class NeighbourBoard:
             if rows is not None:
                 self._cached = rows
                 self._cached_at = self._clock()
+                self._checked_at = self._stamp()
             self._probing = False
 
     def wait(self, timeout=None):
@@ -290,6 +342,32 @@ class NeighbourBoard:
             thread.join(timeout)
         with self._lock:
             return not self._probing
+
+    def checked_at(self):
+        """When the last probe finished, on this machine's clock, or None.
+
+        `None` means no probe has ever finished here — nothing has been
+        checked yet — and is not the same as an old time.
+        """
+        with self._lock:
+            return self._checked_at
+
+    def invalidate(self):
+        """Throw the cached answer away, so the next read asks the LAN again.
+
+        What is dropped is the answer, not the record of when the last one
+        landed: `checked_at()` still says when this machine last heard back
+        while every row says `checking`. Two facts about two different
+        things, and neither is allowed to stand in for the other.
+
+        Nothing is started here. The probe begins on the next `neighbours()`,
+        which is the same call the page makes anyway, so a reader pressing
+        "Ask again now" is answered at once with `checking` rather than held
+        while the LAN is asked.
+        """
+        with self._lock:
+            self._cached = None
+            self._cached_at = None
 
     def neighbours(self):
         """The two neighbours, answered from what this machine already knows."""

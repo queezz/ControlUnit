@@ -806,65 +806,46 @@ dl.facts dd.wide { margin-top: -2px; }
 
 .service-head h2 { margin: 0; }
 
-/* Two lines of room whether the sentence is long or short, so a refresh
-   never shifts the rows below it. Two lines is 3em at a line-height of 1.5,
-   not 2.9em: at 2.9em the reservation was 43.5px against a 45px pair of
-   lines, and a detail that wrapped moved the rows under it by 1.5px. */
-.service-detail {
-  color: var(--muted);
-  min-height: 3.1em;
-  margin: 0 0 10px;
-}
+/* What a service said of itself is the one fact on the card that changes
+   under the reader, so its row is two lines of room whether the sentence is
+   long or short. Two lines is 3.1em and not 3em at a line-height of 1.5:
+   3em is 43.2px against a 43.2px pair of lines, and two boxes that only
+   equal each other round to different sub-pixels, which moved the rows
+   beneath by a hair on every refresh. */
+.facts dd.says { min-height: 3.1em; }
 
+/* Either an Open link or the sentence saying there is no address to open —
+   never both, never neither — and both wear the same height, so the line
+   does not resize if a neighbours file gains an address. */
 .service-actions { margin: 12px 0 0; }
 
-.here-note {
+.service-note {
   display: inline-block;
   padding: 5px 0;
-  color: var(--dim);
+  color: var(--muted);
   font-size: 0.9rem;
 }
 
-.howto {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line-soft);
-}
+/* -- the Lab tab's rails ----------------------------------------------- */
 
-/* Meaning leads; the line to type sits behind the toggle. The toggle keeps
-   one position whether the command is shown or hidden. */
-.howto-meaning { margin: 0; flex: 1 1 16rem; color: var(--muted); font-size: 0.9rem; }
-/* One width for both words, so the button does not shift sideways under the
-   pointer when "show" becomes "hide". */
-.howto .toggle { flex: 0 0 auto; font-size: 0.82rem; min-width: 5rem; text-align: center; }
+/* Asking the LAN again is deliberate and is this tab's only control, so it
+   is a full-width button under its own heading, never a word beside one. */
+.rail-press { display: block; width: 100%; margin: 0 0 10px; }
 
-.howto-command {
-  flex: 1 1 100%;
-  font-family: var(--mono);
-  font-size: 0.86rem;
-  color: var(--fg);
-  background: var(--inset);
-  border: 1px solid var(--line-soft);
-  border-radius: 8px;
-  padding: 8px 11px;
-}
+/* Always present, so the answer landing never moves the card under it:
+   "Not checked yet." and "Checked 14:02:57." are both one line at this
+   width, and the reservation is a hair past the 1.5 line box for the same
+   sub-pixel reason the Says row above is 3.1em rather than 3em. */
+.checked-line { margin: 0; font-size: 0.86rem; min-height: 1.6em; }
 
-/* -- the one legend ---------------------------------------------------- */
-
-.legend-list {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 7px 10px;
-  margin: 0;
-  font-size: 0.86rem;
-}
-
-.legend-list dt { margin: 0; }
-.legend-list dd { margin: 0; color: var(--muted); }
+/* The one place on this surface where a state is explained. The card
+   teaches once, for the whole page; every chip elsewhere only states. */
+.ensemble p { margin: 0 0 10px; font-size: 0.86rem; color: var(--muted); }
+.ensemble p:last-child { margin-bottom: 0; }
+/* The state's own word, lifted out of the prose so the eye can find the
+   line it wants without reading the paragraph. Not a chip: a chip is what
+   a card wears to report its own state, and this is not a report. */
+.ensemble strong { color: var(--fg); font-weight: 600; }
 
 /* -- below the rail breakpoint ----------------------------------------- */
 

@@ -74,6 +74,16 @@ def test_the_card_says_how_that_service_starts_or_nothing(tmp_path, monkeypatch)
     assert rows["pihti-log"]["where"] == ""
 
     page = client.get("/lab").get_data(as_text=True)
-    assert "sudo systemctl start pihti.service" in page
-    assert "Runs on this Pi, as a system service." in page
+    diagram = page[page.index('data-alias="pihti-diagram"'):]
+    diagram = diagram[:diagram.index("</article>")]
+    assert "sudo systemctl start pihti.service" in diagram
+    assert "on this Pi, as a system service" in diagram
+
+    # The other entry gives neither, so its card says neither. A start line
+    # is copied from this file or it is an em dash; it is never invented
+    # from the service's own name.
+    journal = page[page.index('data-alias="pihti-log"'):]
+    journal = journal[:journal.index("</article>")]
+    assert 'data-role="start">—<' in journal
+    assert 'data-role="where">—<' in journal
     assert "lab pihti-log" not in page

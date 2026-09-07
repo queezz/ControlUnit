@@ -172,7 +172,8 @@ a credential; the data file appears by name only.
 | `GET /log` | the Log tab |
 | `GET /lab` | the Lab tab |
 | `GET /api/health` | `{service, version, status, detail}` — the ensemble's contract; `ok` only while acquiring on real hardware |
-| `GET /api/neighbours` | this service and its two neighbours, each with a state; answers from what this machine already knows and asks the LAN behind the answer |
+| `GET /api/neighbours` | `{services: [...], checked_at: "HH:MM:SS"\|null}` — this service and its two neighbours, each with a state, and when the last probe finished on this machine's clock; answers from what this machine already knows and asks the LAN behind the answer |
+| `GET /api/neighbours?fresh=1` | the same, with the cached answer thrown away first: every row comes back `checking` and the probe runs behind the reply, so the press never waits for the LAN |
 | `GET /api/roster` | `{"names": [...]}` — the lab's operator names this machine holds a copy of, empty when it holds none |
 | `GET /api/state` | latest values, setpoints, run facts, freshness, the Remote switch, the zeros, who has control and the last command; polled once a second, or four times a second under Poll: fast |
 | `GET /api/series?window=300&points=600` | thinned `[t, v]` pairs per channel over the last `window` seconds, `0` for all held |
@@ -251,16 +252,42 @@ of the response can tell which question was asked.
     remembered.
 - **Log** — the same message log the Qt Log dock shows, newest first, with a
   Find and an order switch.
-- **Lab** — the three services of the lab ensemble with a state each: `ok`,
-  `degraded`, `down` (it answered and said so), `unreachable` (nothing
-  answered from this machine), `not configured`, and `checking` (this machine
-  is asking now and has not heard back). The page never waits for the LAN:
-  it is served from what the machine already knows — the last answers,
-  however old, or `checking` when there are none — and the neighbours are
-  asked on a background thread behind that. The tab asks again every two
-  seconds while any card still says `checking`, and every thirty once they
-  have all resolved. A neighbour this machine has no address for is `not
-  configured` from the first paint, because that answer needs nobody.
+- **Lab** — the lab ensemble's own board, built in the PIHTI diagram's shape
+  so the three surfaces read the same (owner decision 2026-09-07, "I like the
+  pihti-diagram way for the services, and we need to sync that in all 3
+  siblings"). One card per service, this one first: a head carrying the name
+  and the state, then four facts — **Version**, **Says** (what the service's
+  own health report said), **Runs** (the machine it runs on) and **Start**
+  (the line that starts it there) — then either an Open button, the sentence
+  *"This is the service you are reading."*, or *"No address on this machine."*
+  The left rail holds the one control this tab has, **Ask again now**, with a
+  line beneath it reading *"Not checked yet."* or *"Checked 14:02:57."*; the
+  right rail holds one card, **The ensemble**, which is where a state is
+  explained, once, for the whole page. Every chip elsewhere states its word
+  and nothing more.
+
+    **The six states.** `ok`, `degraded` and `down` are what a service said
+    of itself, and `down` covers a refused connection too — a machine that
+    is there with nothing listening on the port answered the knock.
+    `unreachable` is nothing answering from this machine at all: the two
+    seconds ran out, or the name never resolved. `degraded` also covers an
+    answer that was not a health report. `not configured` means this machine
+    has no address for that service, and `checking` means it is asking now
+    and has not heard back. The three surfaces word these the same way.
+
+    **The page never waits for the LAN.** It is served from what the machine
+    already knows — the last answers, however old, or `checking` when there
+    are none — and the neighbours are asked on a background thread behind
+    that. The tab asks again every two seconds while any card still says
+    `checking`, every thirty once they have all resolved, and not at all
+    while the tab is hidden, asking once the moment it is looked at again.
+    **Ask again now** throws the cached answer away and is answered in the
+    same breath, with `checking` rows and the probe running behind them; the
+    button is disabled until that answer lands. The checked line keeps saying
+    when the last answer landed while a new one is on its way, because when
+    this machine last heard back and what it is doing now are two different
+    facts. A neighbour this machine has no address for is `not configured`
+    from the first paint, because that answer needs nobody.
 - **Control** — five headed groups in operating order: Acquisition, Gas
   flow, Plasma current, Gauge and sync, and Baselines. Acquisition states
   the run's facts and carries the two presses that begin and end it, and
@@ -294,9 +321,13 @@ pihti-log:
   start: lab pihti-log
 ```
 
-`url` is required. `where` and `start` are optional and describe how that
-service is started on the machine it runs on; a card with neither says
-nothing about starting. This is a separate file on purpose: the program
+`url` is required. `where` and `start` are optional and become the **Runs**
+and **Start** facts on that service's card: `where` is the machine it runs
+on, and `start` is the literal line that starts it *there*, copied onto the
+card exactly as this file writes it. Neither is ever guessed — a card whose
+entry says nothing shows an em dash rather than a command invented from the
+service's name, because a line that does not work on that machine is worse
+than no line at all. This is a separate file on purpose: the program
 treats a local `~/.controlunit/settings.yml` as a complete replacement for
 the packaged settings, so a settings file holding only neighbours would stop
 the rig from starting.

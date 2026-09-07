@@ -4,10 +4,15 @@
 neither is "not configured". These tests hold the three apart, and hold the
 board to answering without waiting for any of them: the probe runs behind
 the answer, and `wait()` is what stands still for it here.
+
+The mapping from a failure to a state is the ensemble's shared word, so each
+branch of it is pinned here against a stand-in `urlopen` rather than left to
+whatever the LAN happens to do on the day.
 """
 
 import io
 import json
+import socket
 import threading
 import urllib.error
 
@@ -168,6 +173,61 @@ def test_an_answer_that_is_not_a_health_report_is_degraded(tmp_path, monkeypatch
     rows = probed(NeighbourBoard(home=home))
     assert rows["pihti-log"]["state"] == "degraded"
     assert rows["pihti-log"]["detail"] == "answered, but not with a health report"
+
+
+@pytest.mark.parametrize(
+    "failure, state, detail",
+    [
+        (
+            ConnectionRefusedError(111, "Connection refused"),
+            "down",
+            "refused the connection",
+        ),
+        (
+            urllib.error.URLError(ConnectionRefusedError(111, "Connection refused")),
+            "down",
+            "refused the connection",
+        ),
+        (
+            socket.gaierror(-2, "Name or service not known"),
+            "unreachable",
+            "the name did not resolve",
+        ),
+        (
+            urllib.error.URLError(socket.gaierror(-2, "Name or service not known")),
+            "unreachable",
+            "the name did not resolve",
+        ),
+        (socket.timeout("timed out"), "unreachable", "no answer within two seconds"),
+        (
+            urllib.error.URLError(socket.timeout("timed out")),
+            "unreachable",
+            "no answer within two seconds",
+        ),
+        (
+            urllib.error.HTTPError(
+                "http://vault.example:4310/api/health", 503, "busy", {}, None
+            ),
+            "down",
+            "answered with an error, code 503",
+        ),
+    ],
+)
+def test_a_failure_is_named_by_what_actually_failed(
+    tmp_path, monkeypatch, failure, state, detail
+):
+    """A refused connection is a machine that answered the knock with a shut
+    door, so it is `down`; nothing answering at all is `unreachable`. The
+    three surfaces of the ensemble word these the same way."""
+    home = write_settings(tmp_path / ".controlunit")
+    monkeypatch.setattr(
+        neighbourhood.urllib.request,
+        "urlopen",
+        answering({"vault.example": failure, "rig.example": failure}),
+    )
+    rows = probed(NeighbourBoard(home=home))
+    assert rows["pihti-log"]["state"] == state
+    assert rows["pihti-log"]["detail"] == detail
 
 
 def test_the_board_is_cached_so_a_poll_does_not_hammer_the_lan(tmp_path, monkeypatch):
@@ -371,3 +431,113 @@ def test_the_route_answers_without_waiting_for_the_lan(tmp_path):
     assert [row["state"] for row in rows[1:]] == ["checking", "checking"]
     release.set()
     board.wait(timeout=10)
+
+
+# -- when this machine last heard back, and asking again ----------------------
+
+
+def stamps(times):
+    """A wall clock that hands out the given times, in order."""
+    given = list(times)
+    return lambda: given.pop(0) if len(given) > 1 else given[0]
+
+
+def test_nothing_has_been_checked_until_a_probe_has_finished(tmp_path):
+    """`None` is "no answer has ever landed here", not "an old one did"."""
+    board = NeighbourBoard(
+        home=write_settings(tmp_path / ".controlunit"),
+        prober=lambda: ROWS,
+        stamp=stamps(["14:02:57"]),
+    )
+    assert board.checked_at() is None
+    board.neighbours()
+    assert board.wait(timeout=10)
+    assert board.checked_at() == "14:02:57"
+
+
+def test_asking_again_drops_the_answer_and_keeps_when_the_last_one_landed(tmp_path):
+    """Two facts, neither standing in for the other: every row says it is
+    being asked again, and the line still says when the last answer came."""
+    now = [0.0]
+    board = NeighbourBoard(
+        home=write_settings(tmp_path / ".controlunit"),
+        clock=lambda: now[0],
+        prober=lambda: ROWS,
+        stamp=stamps(["14:02:57", "14:03:20"]),
+    )
+    board.neighbours()
+    assert board.wait(timeout=10)
+    assert [row["state"] for row in board.neighbours()] == ["ok", "unreachable"]
+
+    board.invalidate()
+    assert board.checked_at() == "14:02:57"
+    assert [row["state"] for row in board.neighbours()] == ["checking", "checking"]
+    assert board.wait(timeout=10)
+    assert board.checked_at() == "14:03:20"
+
+
+def test_the_route_carries_the_time_of_the_last_check(tmp_path):
+    started, release, counted = threading.Event(), threading.Event(), []
+    board = NeighbourBoard(
+        home=write_settings(tmp_path / ".controlunit"),
+        prober=slow_prober(started, release, ROWS, counted),
+        stamp=stamps(["14:02:57"]),
+    )
+    client = create_app(board=board).test_client()
+    # The first read is served while the probe it started is still out.
+    assert client.get("/api/neighbours").get_json()["checked_at"] is None
+    release.set()
+    assert board.wait(timeout=10)
+    assert client.get("/api/neighbours").get_json()["checked_at"] == "14:02:57"
+
+
+def test_fresh_answers_at_once_with_checking_rows(tmp_path):
+    """The press must not hang the page it was pressed on: `?fresh=1` starts
+    the probe behind an answer it does not wait for."""
+    home = write_settings(tmp_path / ".controlunit")
+    started, release, counted = threading.Event(), threading.Event(), []
+    board = NeighbourBoard(
+        home=home, prober=slow_prober(started, release, ROWS, counted)
+    )
+    client = create_app(board=board).test_client()
+
+    client.get("/api/neighbours")
+    release.set()
+    assert board.wait(timeout=10)
+    assert [row["state"] for row in board.neighbours()] == ["ok", "unreachable"]
+
+    started.clear()
+    release.clear()
+    payload = client.get("/api/neighbours?fresh=1").get_json()
+    assert [row["state"] for row in payload["services"][1:]] == ["checking", "checking"]
+    assert started.wait(10)
+    assert counted == [1, 1]  # the press asked the LAN again, exactly once
+
+    release.set()
+    board.wait(timeout=10)
+
+
+def test_a_plain_read_does_not_ask_again(tmp_path):
+    """Only the press invalidates; a poll inside the window asks nobody."""
+    now = [0.0]
+    counted = []
+
+    def probe():
+        counted.append(1)
+        return ROWS
+
+    board = NeighbourBoard(
+        home=write_settings(tmp_path / ".controlunit"),
+        clock=lambda: now[0],
+        prober=probe,
+    )
+    client = create_app(board=board).test_client()
+    client.get("/api/neighbours")
+    assert board.wait(timeout=10)
+    client.get("/api/neighbours")
+    assert board.wait(timeout=10)
+    assert counted == [1]
+
+    client.get("/api/neighbours?fresh=1")
+    assert board.wait(timeout=10)
+    assert counted == [1, 1]
