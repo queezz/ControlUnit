@@ -68,6 +68,16 @@ Nothing waiting.
   PC whenever that service answers and keep the last copy when it does
   not, so nobody runs the push script again. Asked of `code/pihti-log` by
   letter 2026-09-07; waiting on another ship.
+- Sync the rig's data to the NAS (queezz, 2026-09-07: "we need later to
+  build the sync to NAS feature. But not today"). The record is
+  `~/work/cudata` on the Pi — one CSV per run, 1324 files today, plus
+  `controlunit.log` — and nothing copies it anywhere. Needs from queezz
+  before the first line: the NAS address and share, whether the Pi pushes
+  (a timed `rsync` from the Pi, credentials in a machine-local file, never
+  in git) or the office PC pulls, how often, and whether a finished run
+  should be marked so a half-written file is never taken. The web view
+  would then say on the Lab or Control tab when the last sync ran and
+  whether it succeeded, one line, never a second state vocabulary.
 - The upstream ion gauge: per-channel ionization-gauge mode and range in the
   ADC worker instead of one shared pair, its exponent set from the web
   Control tab's Gauge group, a mode and scale column for it in the CSV, and
