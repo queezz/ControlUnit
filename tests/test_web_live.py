@@ -128,6 +128,59 @@ def test_full_window_costs_the_same_as_a_short_one():
         assert len(body["channels"][name]) <= 601
 
 
+def test_since_answers_only_what_is_newer_than_the_stamp():
+    """The Live tab holds its own history and asks for the rest."""
+    status = rig()
+    feed(status, 0.0, 1000)  # 100 s at 10 Hz
+    body = status.series(since=99.05, max_points=600)
+    stamps = [point[0] for point in body["channels"]["Ip"]]
+    assert stamps[0] == pytest.approx(99.1)
+    assert stamps[-1] == pytest.approx(99.9)
+    assert body["from"] == pytest.approx(99.1)
+    assert body["to"] == pytest.approx(99.9)
+    assert body["count"] == 9
+
+
+def test_since_is_thinned_the_way_a_window_is():
+    status = rig()
+    feed(status, 0.0, 1000)
+    body = status.series(since=0.0, max_points=50)
+    assert body["count"] == 999
+    assert len(body["channels"]["Ip"]) <= 51
+    assert body["channels"]["Ip"][-1][0] == pytest.approx(99.9)
+
+
+def test_since_is_empty_when_nothing_is_newer():
+    status = rig()
+    feed(status, 0.0, 100)
+    for mark in (10.0, 1000.0):
+        body = status.series(since=mark)
+        assert body == {
+            "from": None,
+            "to": None,
+            "count": 0,
+            "channels": {},
+        }
+
+
+def test_since_never_walks_the_rows_it_is_not_asked_for():
+    """A browser an hour into a run costs the Pi the newest few rows."""
+    status = rig()
+    feed(status, 0.0, 72000)  # two hours at 10 Hz, the ring at its fullest
+    status._times = CountingRing(status._times)
+
+    status.series(since=7199.0, max_points=600)
+
+    assert status._times.visited <= 20
+
+
+def test_since_wins_over_a_window_that_came_with_it():
+    status = rig()
+    feed(status, 0.0, 1000)
+    body = status.series(window_seconds=20, since=99.05, max_points=600)
+    assert body["count"] == 9
+
+
 def test_a_value_that_is_not_a_number_is_kept_as_null():
     status = rig()
     status.record_samples([1.0], {"Ip": ["nope"], "Pu": [None]})
@@ -252,7 +305,44 @@ def test_series_honours_the_window_and_the_point_cap(client):
 def test_series_clamps_nonsense_to_its_defaults(client):
     body = client.get("/api/series?window=banana&points=99999").get_json()
     assert body["window"] == 300
+    assert body["since"] is None
     assert len(body["channels"]["Ip"]) <= 301
+
+
+def test_series_since_carries_only_the_newer_samples(client):
+    """What the Live tab asks once it holds a history of its own."""
+    whole = client.get("/api/series?window=0&points=3000").get_json()
+    mark = whole["channels"]["Ip"][-4][0]
+
+    body = client.get("/api/series?since={}".format(mark)).get_json()
+
+    assert body["since"] == pytest.approx(mark)
+    assert body["count"] == 3
+    assert len(body["channels"]["Ip"]) == 3
+    assert body["channels"]["Ip"][-1] == whole["channels"]["Ip"][-1]
+    assert body["from"] > mark
+
+
+def test_series_since_is_empty_when_the_browser_is_up_to_date(client):
+    whole = client.get("/api/series?window=0").get_json()
+    body = client.get("/api/series?since={}".format(whole["to"])).get_json()
+    assert body["count"] == 0
+    assert body["channels"] == {}
+    assert body["to"] is None
+
+
+def test_series_since_ignores_a_stamp_that_is_not_one(client):
+    body = client.get("/api/series?since=banana&window=10").get_json()
+    assert body["since"] is None
+    assert body["to"] - body["from"] <= 10.0 + 0.11
+
+
+def test_series_carries_the_whole_ring_at_full_resolution(client):
+    """The one fill on page open must not thin what the rig holds."""
+    assert status_module.MAX_POINTS == 3000
+    body = client.get("/api/series?window=0&points=3000").get_json()
+    assert body["count"] == 300
+    assert len(body["channels"]["Ip"]) == 300
 
 
 def test_log_route_reads_from_a_sequence_number(client):

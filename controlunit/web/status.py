@@ -42,9 +42,13 @@ MAX_SAMPLES = 200_000
 #: How many message-log lines the Log tab can read back.
 LOG_LINES = 1000
 
-#: The most points a series answer carries per channel. Six hundred is more
-#: than a strip chart a few hundred pixels wide can draw distinctly.
-MAX_POINTS = 600
+#: The most points a series answer carries per channel. The Live tab fills
+#: its own history from the ring once, when the page opens, and asks only
+#: for what is newer after that; three thousand carries the whole ring at
+#: full resolution in that one fill, because two hours at the rig's 0.1 Hz
+#: is 720 samples. A larger cap costs nothing on the poll that follows,
+#: which asks `since` and is answered with the handful of new rows.
+MAX_POINTS = 3000
 
 #: The channels whose baseline the screen, the plots and the web subtract.
 #: The CSV on disk is never adjusted; a zero is a way of reading, not data.
@@ -243,8 +247,10 @@ class RigStatus:
                 "now": now,
             }
 
-    def series(self, window_seconds=0, max_points=MAX_POINTS, names=None):
-        """Thinned `[t, v]` pairs per channel over the last `window_seconds`.
+    def series(
+        self, window_seconds=0, max_points=MAX_POINTS, names=None, since=None
+    ):
+        """Thinned `[t, v]` pairs per channel, by window or by `since`.
 
         A window of zero or less means everything the ring holds. Thinning
         keeps every `skip`-th point plus the last one, the same arithmetic the
@@ -257,11 +263,38 @@ class RigStatus:
         the rig, and the Pi should not pay for two hours of samples to answer
         a question about the last twenty. `Full` still copies everything,
         because everything is what it asked for.
+
+        `since` is the same walk against a stamp rather than a span: only
+        samples strictly newer than it come back, the walk stopping at the
+        first stamp that is not. It is what the Live tab asks on every poll
+        once it holds a history of its own, so a browser that has been open
+        an hour costs the Pi the few rows that arrived since it last asked
+        rather than the hour it already has. Nothing newer is an empty
+        answer, not an error. `since` wins over `window_seconds`.
         """
         with self._lock:
             if not self._times:
                 return {"from": None, "to": None, "count": 0, "channels": {}}
-            if window_seconds and window_seconds > 0:
+            if since is not None:
+                mark = float(since)
+                times = []
+                rows = []
+                walk = zip(reversed(self._times), reversed(self._rows))
+                for stamp, row in walk:
+                    if stamp <= mark:
+                        break
+                    times.append(stamp)
+                    rows.append(row)
+                times.reverse()
+                rows.reverse()
+                if not times:
+                    return {
+                        "from": None,
+                        "to": None,
+                        "count": 0,
+                        "channels": {},
+                    }
+            elif window_seconds and window_seconds > 0:
                 cutoff = self._times[-1] - float(window_seconds)
                 times = []
                 rows = []
