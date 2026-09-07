@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- A periodic-table tile that is not an element: the control unit's own
+       two letters in the tab's amber on its charcoal, a small era number
+       where the atomic number goes, and one plasma-purple dot. Hand-drawn,
+       no icon set, so the tab reads as this tool at a glance. -->
+  <rect x="3" y="3" width="58" height="58" rx="10" fill="#1f2329" stroke="#e0a63a" stroke-width="4"/>
+  <text x="11" y="21" font-family="ui-monospace, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" fill="#e0a63a" opacity="0.7">4</text>
+  <circle cx="51" cy="15" r="4.5" fill="#8d3de3"/>
+  <text x="32" y="47" text-anchor="middle" font-family="'Segoe UI', Aptos, system-ui, sans-serif" font-size="30" font-weight="700" fill="#e0a63a">CU</text>
+</svg>

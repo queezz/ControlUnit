@@ -630,3 +630,18 @@ def test_control_posts_the_fence_route(client):
     script = client.get("/static/js/control.js").get_data(as_text=True)
     assert "/api/fence" in script
     assert "the fence is open" in script
+
+
+def test_every_page_carries_the_tile_favicon(live, log, lab, control):
+    """One icon, the tool's own, on every page (queezz, 2026-09-07)."""
+    for page in (live, log, lab, control):
+        assert 'rel="icon" type="image/svg+xml"' in page
+        assert "/static/favicon.svg?v=" in page
+
+
+def test_the_favicon_is_served_and_hand_drawn(client):
+    answer = client.get("/static/favicon.svg")
+    assert answer.status_code == 200
+    body = answer.get_data(as_text=True)
+    assert "<svg" in body and ">CU<" in body
+    assert answer.headers["Cache-Control"] == "no-store"

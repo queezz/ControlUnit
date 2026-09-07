@@ -6,6 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}ControlUnit{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/controlunit.css') }}?v={{ app_version }}">
+    {# A tile in the tool's own colours, so the tab is found among the lab's
+       others at a glance. SVG, hand-drawn, the same on every page. #}
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}?v={{ app_version }}">
     {% block scripts %}{% endblock %}
 </head>
 
