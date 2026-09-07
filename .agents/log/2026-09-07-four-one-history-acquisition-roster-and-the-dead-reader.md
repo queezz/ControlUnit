@@ -142,4 +142,16 @@ command shown stays shown across the board's refresh; the self card reads
 web view included." 406 tests. A `start_how` line per neighbour in the
 Pi's `neighbours.yml` is the one machine-local follow-up.
 
+## Late: 4.2.2 and 4.3.0
+
+A favicon, the tool's own tile — CU in amber on charcoal, nothing smaller,
+because a dot vanished at 16px. Then his "averages are cheap and good":
+at one second and slower the reader converts every 0.2 s through the
+period and records one row of means, raw voltages averaged and then
+converted so a file row stays self-consistent; below a second nothing
+changes; an abort mid-period records no partial row. 418 tests, the
+MainApp end-to-end at 1 s sampling among them. Untested on the real ADC:
+whether nine channels convert inside 0.2 s on the Pi; if not, the period
+simply yields fewer readings and still ends on time.
+
 agent: claude fable 5.1
