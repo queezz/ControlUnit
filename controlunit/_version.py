@@ -19,16 +19,18 @@
 # the lab network. The second number moves for a feature, the third for a
 # fix; pyproject.toml carries the same number and a test holds them equal.
 # docs/history.md tells the eras in full.
-__version__ = "4.2.2"
+__version__ = "4.3.0"
 
 __about__ = """
 Version 4: the rig on the lab network.
 
 Three devices are read and driven: the I2C ADC for signal records, the
 DAC8532 board for the mass-flow controllers, and the MCP4725 DAC for the
-plasma current. Beside the Qt window an optional web view, started with
---web and on by default from the rig's launcher, serves a health report for
-the lab's ensemble of three services and four tabs: Live, the rig's values
+plasma current. At one second and slower each sample is the mean of the
+period, not one instant of it. Beside the Qt window an optional web view,
+started with --web and on by default from the rig's launcher, serves a
+health report for the lab's ensemble of three services and four tabs:
+Live, the rig's values
 and three strip charts (plasma current, the ion gauges, the Baratrons) with
 big readouts, a fast poll, a median smoothing and a day of history kept in
 the browser; Control, which lets a browser start and stop acquisition, set

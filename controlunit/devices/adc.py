@@ -16,6 +16,38 @@ from controlunit.devices.adc_setter import AIO_32_0RA_IRC as adc
 from .device import DeviceThread
 
 
+#: The sampling time at which the reader starts averaging. Below it one
+#: conversion per period is the right measurement: fast sampling is for
+#: watching transients, and the instant is the point. At and above it the
+#: period is long enough that a single ~1 ms conversion records whatever
+#: noise sat on the line at that instant, while the run is an overnight or
+#: weekend log where the period's mean is the truer number (owner decision
+#: 2026-09-07).
+AVERAGE_FROM_SECONDS = 1.0
+
+#: How often the reader converts inside an averaged period. Fifty readings
+#: fill the rig's ten-second period; five fill a one-second one.
+INNER_SECONDS = 0.2
+
+
+def mean_of_readings(readings):
+    """The per-channel mean of one period's raw voltage readings.
+
+    Each reading is a dict of channel name to voltage, all with the same
+    keys and in the same order; the order is kept, because the recorded row
+    is built from `self.adc_voltages.values()`. A single reading averages to
+    itself. An empty list returns None: a period that recorded nothing has
+    no sample to offer, and the caller records no row.
+    """
+    if not readings:
+        return None
+    count = len(readings)
+    return {
+        name: sum(reading[name] for reading in readings) / count
+        for name in readings[0]
+    }
+
+
 # MARK: ADC
 class ADC(DeviceThread):
     __IGmode = 0  # Torr
@@ -368,8 +400,71 @@ class ADC(DeviceThread):
             ch.name: self.aio.analog_read_volt(ch.channel, *self.adc_datarate, ch.gain)
             for _, ch in self.adc_channels.items()
         }
+        self.hold_voltages(self.adc_voltages)
+
+    def hold_voltages(self, voltages):
+        """Hold one set of raw voltages as the sample about to be recorded.
+
+        One reading and a period's mean both arrive here, so the plasma
+        current the PID sees is taken from whichever of the two is going
+        into the row.
+        """
+        self.adc_voltages = voltages
         self.plasma_current = self.adc_voltages["Ip"]
-        self.plasma_current_converted = self.adc_channels["Ip"].conversion(self.plasma_current)
+        self.plasma_current_converted = self.adc_channels["Ip"].conversion(
+            self.plasma_current
+        )
+
+    def collect_one_reading(self):
+        """The fast path's whole measurement: wait a period, convert once."""
+        if not self.pause(self.sampling_time):
+            return False
+        self.set_adc_datarate()
+        self.collect_data()
+        return True
+
+    def collect_period_average(self, period):
+        """Convert every `INNER_SECONDS` through `period` and hold the mean.
+
+        The mean of the *raw* voltages becomes `self.adc_voltages`, and is
+        then converted exactly as a single reading is. Averaging the raw
+        voltages and converting the mean, rather than converting each
+        reading and averaging the results, keeps a recorded row
+        self-consistent: converting the raw column of the CSV reproduces the
+        converted column beside it, which is what anyone re-analysing the
+        file will do. The other order would break that wherever the
+        conversion is not linear, and the ion gauges are logarithmic.
+
+        The period is measured with `time.monotonic()` and each conversion is
+        due at a fixed offset from the period's start, so the conversions'
+        own time comes out of the waits: N inner readings plus their
+        overhead still sum to `period`, not to `period` plus overhead.
+
+        Returns False if an abort cut the period short. Nothing is recorded
+        then: a partial mean is not the sample the period promised.
+        """
+        started = time.monotonic()
+        end = started + period
+        readings = []
+        while not self._abort:
+            self.set_adc_datarate()
+            self.collect_data()
+            readings.append(dict(self.adc_voltages))
+            now = time.monotonic()
+            if now >= end:
+                break
+            due = min(started + INNER_SECONDS * len(readings), end)
+            if due > now and not self.pause(due - now):
+                return False
+            if time.monotonic() >= end:
+                break
+        if self._abort:
+            return False
+        mean = mean_of_readings(readings)
+        if mean is None:
+            return False
+        self.hold_voltages(mean)
+        return True
 
     # MARK: main loop
     def acquisition_loop(self):
@@ -377,6 +472,10 @@ class ADC(DeviceThread):
         Reads ADC raw signals in a loop.
         Convert voltage to units.
         Send data back to main thread for ploting ad saving.
+
+        One row per period either way. Below `AVERAGE_FROM_SECONDS` a period
+        is one conversion; at and above it the period is filled with
+        conversions and the row holds their mean.
         """
         totalStep = 0
         step = 0
@@ -385,12 +484,16 @@ class ADC(DeviceThread):
         # self.set_cathode_current(325)
 
         while not (self._abort):
-            # Wakes within a tenth of a second of an abort, however long the
-            # sampling time; a stop must not wait out a whole period.
-            if not self.pause(self.sampling_time):
+            # Read afresh, so a sampling time changed mid-run through
+            # `set_sampling_time` takes effect at the next period.
+            period = self.sampling_time
+            # Either path wakes within a tenth of a second of an abort,
+            # however long the period; a stop must not wait one out.
+            if period >= AVERAGE_FROM_SECONDS:
+                if not self.collect_period_average(period):
+                    break
+            elif not self.collect_one_reading():
                 break
-            self.set_adc_datarate()
-            self.collect_data()
             self.put_new_data_in_dataframe()
             self.update_processed_signals_dataframe()
 
