@@ -6,7 +6,7 @@ record the Qt main thread keeps up to date, asks the two neighbouring
 services how they are, and — for the Control tab — appends checked commands
 to a queue the main thread drains on its own timer.
 
-Four tabs are served. Live is the rig's values and two strip charts; Control
+Four tabs are served. Live is the rig's values and three strip charts; Control
 starts and stops a run and sets what the rig holds; Log is the same message
 log the Qt Log dock shows; Lab is the three services of the lab ensemble and
 how each is started.

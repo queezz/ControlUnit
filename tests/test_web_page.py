@@ -132,8 +132,9 @@ def test_live_offers_the_same_windows_as_the_rig(live):
 
 
 def test_live_offers_a_readout_size_and_a_poll_rate(live):
-    assert 'class="rail-label">Display<' in live
-    assert 'class="rail-label">Poll ' in live
+    # One card for both, because six rail cards outgrew a 700px window.
+    assert 'class="rail-label">Readouts ' in live
+    assert 'aria-label="Readout size"' in live and 'aria-label="Poll rate"' in live
     for choice in ("display", "poll"):
         assert 'data-{}="normal"'.format(choice) in live
     assert 'data-display="big"' in live

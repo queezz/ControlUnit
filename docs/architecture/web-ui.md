@@ -242,8 +242,8 @@ of the response can tell which question was asked.
     mean: it drops a spike without smearing the step when a setpoint really
     moves.
 
-    `Display: big` makes the five readouts the column's lead, for reading
-    the rig from a metre away, and is remembered per browser. `Poll: fast`
+    `Size: big`, in the Readouts card, makes the five readouts the column's lead, for reading
+    the rig from a metre away, and is remembered per browser. `Poll: fast`, in the same card,
     asks for state and series four times a second instead of once and twice,
     for watching a value settle while a gauge is zeroed at the rig; it keeps
     whatever window is chosen, and it is deliberately forgotten on reload so a
@@ -320,13 +320,24 @@ modification time or size changes, and never looked at more than once a
 second. A missing, unreadable or malformed file means no names, and the
 Acting-as field stays the free-text box it has always been.
 
-The Pi has no Dropbox and no vault, so the copy is made by hand — one line
-from the office PC, and it stays a courtesy list rather than a credential or
-a list of who may drive the rig:
+The Pi has no Dropbox and no vault, so the copy is pushed from a machine
+that has the vault, by the script kept beside the rig's launcher. Names are
+people, so the file itself never enters git; the script does. Run it again
+whenever the roster changes, and the Control tab picks the new list up
+within a second, no restart needed. It stays a courtesy list rather than a
+credential or a list of who may drive the rig.
 
 ```powershell
-scp "$env:USERPROFILE\Dropbox\Obsidian\pihti\People\operators.json" pi@pihti:.controlunit/operators.json
+scripts\push_roster.ps1
 ```
+
+```bash
+scripts/push_roster.sh
+```
+
+Both take the vault and the rig as optional arguments (`-Vault`, `-Rig`;
+positional in the shell form) and default to the vault under Dropbox and
+`pi@pihti`.
 
 `POST /api/identify` still takes any cleaned name where the machine has no
 roster; where it has one, a name that is not on it is refused `400` with
