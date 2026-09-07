@@ -5,19 +5,7 @@ holds what is still undecided or unbuilt.
 
 ## Decisions waiting on queezz
 
-- Whether a name chosen from the lab's roster is the whole answer to "how
-  do we stop a passer-by pushing buttons", or whether you still want a
-  shared word typed once per browser as well — the owner's call.
-  Stakes: today (4.1.0) setting needs the Remote switch on the rig, control
-  of the rig, and, where the Pi holds a roster copy, a name chosen from that
-  list; nothing else. A shared word would be one more field on the Control
-  tab and one more thing to tell a student.
-  Recommendation: the roster alone. You asked for a password "not for
-  security, more for controlling if you are told" (order 2026-09-04) and
-  then, on 2026-09-07, for the roster the siblings use; picking your own
-  name from the lab's list is that same "you were told" in a form nobody
-  has to remember.
-  Safe default: the roster alone, which is what is built.
+Nothing waiting.
 
 ## Work only queezz can do
 
@@ -139,8 +127,9 @@ holds what is still undecided or unbuilt.
 - Who may set from a browser (order 2026-09-04, answered): "stop the flow
   is fine. How about a password, but not for security... to avoid 'Oh, I
   found this webui, let's push some buttons'." Built as the roster: a name
-  from the lab's list, the same list PIHTI Log reads. The open question
-  above asks only whether that is the whole of it.
+  from the lab's list, the same list PIHTI Log reads, and that is the
+  whole of it (owner decision 2026-09-07, live in the chat: no shared
+  word on top).
 - lab-cli removed the controlunit entry from its registry (its notes of
   2026-09-04, read 2026-09-07): the rig launches itself, so Lab never
   launched it and never could. Nothing here waits on lab-cli any more; a
