@@ -202,12 +202,19 @@ and still separate from the pull.
 
 ## Fleet
 
-Letters `20260907-f9a313ab` (the board's breakpoints) and `20260907-95bde394`
-(the rig's operating state) collected after their substance was recorded
-here; notes `20260907-2e0205ef` (PIHTI Log's roster route) and
-`20260907-6f353ea0` (the owner's notes on Live and Control) logged, both
-acted on. Notes posted to `code/pihti-log`, `code/2024-interactive-diagram`
-and `code/fleet`.
+Four letters collected after their substance was recorded here:
+`20260907-f9a313ab` (the board's breakpoints), `20260907-95bde394` (the
+rig's operating state), `20260907-2e0205ef` (PIHTI Log's roster route) and
+`20260907-6f353ea0` (the owner's notes on Live and Control). All four are
+action mail — the last two were described as notes in this session's own
+packet and Fleet refused `--logged` for both, which is the store being
+right and the packet being loose.
+
+Notes posted: `20260907-87a6d0f9` to `code/pihti-log` (the roster consumer
+is built), `20260907-db04b74c` to `code/2024-interactive-diagram` (the
+board's numbers are theirs now), and `20260907-13caa10a` to `code/fleet`
+(the rail-law crossing above, and what the Live and Control work still
+owes).
 
 Usage receipt: provider Anthropic, model Claude Opus 5, task "commander run
 round 2: pihti trio / ControlUnit", child agents 0, provider usage
