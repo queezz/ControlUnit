@@ -381,9 +381,14 @@ def health_detail(snapshot):
     """One short sentence a lab person can read, or an empty string."""
     channels = snapshot.get("channels") or 0
     rate = _rate_phrase(snapshot.get("sampling"))
-    hardware = "dummy hardware" if snapshot.get("dummy") else "real hardware"
     if not snapshot.get("acquiring"):
-        return "idle, {}".format(hardware)
+        # Idle says what the rig is doing — nothing — rather than what it
+        # is not doing wrong (owner correction 2026-09-07: "It's up and not
+        # doing a thing"). The hardware standing in is the second fact and
+        # only when it is standing in.
+        if snapshot.get("dummy"):
+            return "idle, dummy hardware"
+        return "idle, not recording"
     if channels and rate:
         acquiring = "acquiring {:d} channels at {}".format(channels, rate)
     elif channels:
@@ -396,17 +401,66 @@ def health_detail(snapshot):
         parts.append("plasma PID on")
     if snapshot.get("dummy"):
         parts.append("dummy hardware")
+    stalled = stalled_for(snapshot)
+    if stalled is not None:
+        parts.append("no new reading for {:d} s".format(int(stalled)))
     return ", ".join(parts)
+
+
+def stalled_for(snapshot):
+    """How long a running acquisition has delivered nothing, or None.
+
+    None is "nothing measured", and it covers two different innocent
+    facts: the rig is not acquiring at all, and a run whose first sample
+    has not landed yet — at ten seconds a sample, that gap is ordinary and
+    saying `degraded` through it would cry wolf every time somebody presses
+    Start. A stall is only ever claimed from a sample that did arrive and
+    then stopped being followed.
+    """
+    if not snapshot.get("acquiring"):
+        return None
+    age = snapshot.get("age")
+    if age is None:
+        return None
+    return age if age > stale_after(snapshot.get("sampling")) else None
+
+
+def health_status(snapshot):
+    """`ok`, `degraded` or `down` for the shared board of three.
+
+    Idle is `ok`. The rig sitting up and recording nothing is the rig
+    waiting for somebody to press Start, and calling that degraded made the
+    lab's board amber all night for no reason (owner correction 2026-09-07,
+    relayed as letter `20260907-86d2c305-2815fa`: "It's up and not doing a
+    thing, not degraded"). `degraded` is kept for a capability that is
+    actually impaired, and there are two of those this record can see:
+
+    * a run that has stopped delivering samples — the reader died between
+      two of them, which is exactly what happened to Mizuno-kun's
+      depositions on 2026-08-19, and the one failure this report can name
+      today without the watchdog that is still to be built;
+    * a process standing dummy devices in for the instruments, which is
+      honest about what it cannot do rather than an invented failure: the
+      web server is fine and there is nothing attached to it. That is an
+      off-rig run or a test, never the Pi.
+
+    `down` is not returned from here. A service that is down does not
+    answer, and the reader asking is the one who finds that out.
+    """
+    if stalled_for(snapshot) is not None:
+        return "degraded"
+    if snapshot.get("dummy"):
+        return "degraded"
+    return "ok"
 
 
 def health_body(status, version):
     """The health report, exactly the shape the ensemble agreed on."""
     snapshot = status.read()
-    healthy = bool(snapshot.get("acquiring")) and not snapshot.get("dummy")
     return {
         "service": SERVICE,
         "version": version,
-        "status": "ok" if healthy else "degraded",
+        "status": health_status(snapshot),
         "detail": health_detail(snapshot),
     }
 

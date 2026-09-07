@@ -34,15 +34,58 @@ def test_acquiring_on_real_hardware_is_ok(real_hardware):
     assert body["detail"] == "acquiring 9 channels at 10 Hz"
 
 
-def test_stopped_acquisition_is_degraded(real_hardware):
+def test_online_and_idle_is_ok_never_degraded(real_hardware):
+    """The rig up and recording nothing is the rig waiting to be started.
+
+    Owner correction 2026-09-07, relayed as letter `20260907-86d2c305-2815fa`:
+    "It's up and not doing a thing, not degraded." Inactivity is not a
+    failure, and an idle rig used to paint the lab's shared board amber all
+    night.
+    """
     rig = RigStatus(channels=9, sampling=0.1)
     rig.set_acquiring(False)
     body = health_body(rig, __version__)
+    assert body["status"] == "ok"
+    assert body["detail"] == "idle, not recording"
+
+
+def test_a_run_that_stopped_delivering_samples_is_degraded(real_hardware):
+    """The one failure this record can name today: the reader died.
+
+    A run whose last sample is older than the stale bound has an impaired
+    capability — it is recording nothing while believing it is recording —
+    which is what happened to Mizuno-kun's depositions on 2026-08-19.
+    """
+    clock = [1000.0]
+    rig = RigStatus(channels=9, sampling=0.1, clock=lambda: clock[0])
+    rig.set_acquiring(True)
+    rig.record_samples([1000.0], {"Ip": [0.5]})
+    assert health_body(rig, __version__)["status"] == "ok"
+    clock[0] = 1100.0
+    body = health_body(rig, __version__)
     assert body["status"] == "degraded"
-    assert body["detail"] == "idle, real hardware"
+    assert "no new reading" in body["detail"]
 
 
-def test_dummy_hardware_is_degraded_even_while_acquiring(dummy_hardware):
+def test_a_run_whose_first_sample_has_not_landed_is_not_called_degraded(real_hardware):
+    """Nothing measured is not a failure measured.
+
+    At ten seconds a sample, the gap between Start and the first reading is
+    ordinary; degrading through it would cry wolf every time somebody
+    presses Start.
+    """
+    rig = RigStatus(channels=9, sampling=10.0)
+    rig.set_acquiring(True)
+    assert health_body(rig, __version__)["status"] == "ok"
+
+
+def test_dummy_hardware_is_degraded_because_nothing_is_attached(dummy_hardware):
+    """Not an invented failure: a capability this process really lacks.
+
+    Dummy devices stand in for the instruments off the rig, so the web
+    server is perfectly well and there is nothing for it to read. The board
+    says so in the state and names it in the detail; the Pi never sees it.
+    """
     rig = RigStatus(channels=9, sampling=0.1)
     rig.set_acquiring(True)
     body = health_body(rig, __version__)
@@ -50,7 +93,7 @@ def test_dummy_hardware_is_degraded_even_while_acquiring(dummy_hardware):
     assert body["detail"] == "acquiring 9 channels at 10 Hz, dummy hardware"
 
 
-def test_idle_on_dummy_hardware_says_so(dummy_hardware):
+def test_idle_on_dummy_hardware_names_the_stand_in(dummy_hardware):
     body = health_body(RigStatus(channels=9, sampling=0.1), __version__)
     assert body["status"] == "degraded"
     assert body["detail"] == "idle, dummy hardware"
