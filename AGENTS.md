@@ -54,7 +54,10 @@ queue the main thread drains, behind the Remote switch on the rig's screen.
 The Control tab offers names from the lab's roster when the Pi holds a copy
 of it at `~/.controlunit/operators.json`. Names are people and never enter
 git; `scripts/push_roster.ps1` (or `.sh`) copies the vault's file to the Pi,
-and is run again whenever the roster changes.
+and is run again whenever the roster changes. Beside it, `~/.controlunit/fence.txt`
+may hold one line, the lab's word, which a browser types once before it may
+set anything — a fence one may walk over, never anybody's password, and
+absent on every machine that has not been given one.
 
 ## Read first
 

@@ -5,6 +5,7 @@ import re
 import pytest
 
 from controlunit._version import __version__
+from controlunit.web.fence import Fence
 from controlunit.web.neighbours import NeighbourBoard
 from controlunit.web.roster import Roster
 from controlunit.web.server import create_app
@@ -15,14 +16,25 @@ ROSTER = """\
                {"username": "queezz", "display_name": "Arseniy Kuzmin"}]}
 """
 
+WORD = "plasmabox"
 
-def app_for(tmp_path, home=None):
+
+def app_for(tmp_path, home=None, fence_home=None):
     """A client whose machine knows nothing it was not given here."""
     nowhere = tmp_path / "nowhere"
     return create_app(
         board=NeighbourBoard(home=nowhere),
         roster=Roster(home=nowhere if home is None else home),
+        fence=Fence(home=nowhere if fence_home is None else fence_home),
     ).test_client()
+
+
+def with_a_word(tmp_path):
+    """A machine that holds the lab's word, as the rig will."""
+    fence_home = tmp_path / ".controlunit-fence"
+    fence_home.mkdir()
+    (fence_home / "fence.txt").write_text(WORD + "\n", encoding="utf-8")
+    return app_for(tmp_path, fence_home=fence_home)
 
 
 @pytest.fixture
@@ -421,3 +433,64 @@ def test_a_neighbour_opens_beside_this_page_not_in_its_place(lab):
     """The rig's view stays open when a neighbour is opened (walk 2026-09-07)."""
     assert 'data-role="open"' in lab
     assert lab.count('target="_blank" rel="noopener"') == lab.count('data-role="open"')
+
+
+# -- the lab's word ------------------------------------------------------------
+
+
+def test_no_fence_row_on_a_machine_that_holds_no_word(control):
+    """Every off-rig run is exactly the page it was before this existed."""
+    assert 'id="fence-word"' not in control
+    assert 'data-role="save-fence"' not in control
+    assert "the lab's word" not in control
+
+
+def test_the_fence_row_appears_only_where_the_machine_holds_a_word(tmp_path):
+    page = with_a_word(tmp_path).get("/control").get_data(as_text=True)
+    card = page[page.index('class="rail-label">Acting as<'):]
+    card = card[:card.index("</section>")]
+    assert '<input type="password" id="fence-word"' in card
+    assert 'data-role="save-fence"' in card
+    assert 'placeholder="the lab&#39;s word"' in card
+
+
+def test_the_word_is_explained_once_and_named_a_fence_not_a_secret(tmp_path):
+    page = with_a_word(tmp_path).get("/control").get_data(as_text=True)
+    assert page.count("A word from the lab, not a secret") == 1
+    assert page.count('data-role="save-fence"') == 1
+
+
+def test_a_browser_past_the_fence_still_has_a_field_to_type_in(tmp_path):
+    """A word changed in the lab has to be typable again."""
+    client = with_a_word(tmp_path)
+    assert client.post("/api/fence", json={"word": WORD}).status_code == 200
+    page = client.get("/control").get_data(as_text=True)
+    assert '<input type="password" id="fence-word"' in page
+    assert 'placeholder="word saved"' in page
+
+
+def test_the_take_over_button_is_shut_behind_the_fence_too(tmp_path):
+    page = with_a_word(tmp_path).get("/control").get_data(as_text=True)
+    card = page[page.index('class="rail-label">Remote control<'):]
+    card = card[:card.index("</section>")]
+    assert 'data-role="take-over"' in card
+    assert "disabled" in card
+
+
+def test_the_gate_states_the_word_as_one_more_reason_in_one_place(client):
+    """The reason order is the switch, then the word, then the run and the
+    lock; each is a sentence the Remote card says once."""
+    script = client.get("/static/js/control.js").get_data(as_text=True)
+    assert script.count(
+        "Setting is off until you type the lab's word below."
+    ) == 1
+    switch = script.index("Setting is off until the switch on the rig is on.")
+    word = script.index("Setting is off until you type the lab's word below.")
+    running = script.index("Setting is off while no acquisition is running.")
+    assert switch < word < running
+
+
+def test_control_posts_the_fence_route(client):
+    script = client.get("/static/js/control.js").get_data(as_text=True)
+    assert "/api/fence" in script
+    assert "the fence is open" in script

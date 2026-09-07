@@ -13,10 +13,11 @@ how each is started.
 
 Reading is open to anyone on the lab network. Setting needs a name chosen in
 the browser, the Remote switch turned on beside the rig's own screen so that
-gas flow and cathode current never move past a person who is not there, and
-control of the rig, which the first browser to send a setter holds and a
-second person takes over in the open. Stopping every output is the one
-exception and is always allowed.
+gas flow and cathode current never move past a person who is not there, the
+lab's word where the machine serving the page holds one, and control of the
+rig, which the first browser to send a setter holds and a second person takes
+over in the open. Stopping every output is the one exception and is always
+allowed.
 """
 
 import math
@@ -26,6 +27,7 @@ from flask import Flask, jsonify, make_response, render_template, request
 
 from controlunit._version import __version__
 from controlunit.web import commands as command_desk
+from controlunit.web import fence as fence_line
 from controlunit.web import neighbours as neighbourhood
 from controlunit.web import roster as people_list
 from controlunit.web.status import (
@@ -92,6 +94,11 @@ TABS = (
 ACTOR_COOKIE = "actor"
 ACTOR_MAX_AGE = 60 * 60 * 24 * 30
 
+#: The lab's word this browser has typed, where the machine serving the page
+#: asks for one. It is carried rather than proved: a fence one may walk over,
+#: kept for the same thirty days as the name, and never anybody's password.
+FENCE_COOKIE = "fence"
+
 #: The Control tab's own groups, in operating order. The right rail's index
 #: is built from this, so the page cannot promise a section it does not have.
 SECTIONS = (
@@ -106,7 +113,7 @@ SECTIONS = (
 GASES = ((1, "H₂"), (2, "O₂"))
 
 
-def create_app(status=None, board=None, commands=None, roster=None):
+def create_app(status=None, board=None, commands=None, roster=None, fence=None):
     """Build the application.
 
     `status` is the record the Qt thread writes; `commands` is the queue it
@@ -114,11 +121,14 @@ def create_app(status=None, board=None, commands=None, roster=None):
     answers 409, which is what a test client and a read-only run both want.
     `roster` is the lab's list of operator names, when this machine has a
     copy of one; without it the Acting-as field is free text, as before.
+    `fence` is the lab's word, when this machine holds one; a machine that
+    holds none has no fence and every route behaves as it always has.
     """
     rig = status if status is not None else RigStatus()
     services = board if board is not None else neighbourhood.NeighbourBoard()
     desk = commands if commands is not None else command_desk.CommandQueue()
     people = roster if roster is not None else people_list.Roster()
+    barrier = fence if fence is not None else fence_line.Fence()
 
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
@@ -126,6 +136,7 @@ def create_app(status=None, board=None, commands=None, roster=None):
     app.config["NEIGHBOUR_BOARD"] = services
     app.config["COMMAND_QUEUE"] = desk
     app.config["ROSTER"] = people
+    app.config["FENCE"] = barrier
 
     @app.after_request
     def freshness_and_safety(response):
@@ -182,8 +193,37 @@ def create_app(status=None, board=None, commands=None, roster=None):
         body["line"] = command_desk.holder_sentence(body)
         return body
 
+    def fence_now():
+        """Whether this machine asks for the lab's word, and whether this
+        browser has typed it. Answered here for the same reason
+        `control.mine` is: a page cannot see its own cookies, so the rig
+        says where the reader stands rather than the page guessing.
+        """
+        word = barrier.word()
+        if not word:
+            return {"needed": False, "passed": False}
+        carried = request.cookies.get(FENCE_COOKIE) if request else None
+        return {"needed": True, "passed": str(carried or "").strip() == word}
+
+    def fence_refusal(kind):
+        """Why the lab's word stands in the way, or an empty string.
+
+        It gates exactly what the switch gates — every locked kind and the
+        taking of control — and nothing else. **Stop all outputs is never
+        fenced**: a person who can see the rig must be able to zero it,
+        whether or not they have been told a word.
+        """
+        if kind not in command_desk.LOCKED and kind != "take_over":
+            return ""
+        standing = fence_now()
+        if standing["needed"] and not standing["passed"]:
+            return command_desk.NO_FENCE_WORD
+        return ""
+
     def page_state():
-        return state_body(rig, __version__, control=control_now())
+        return state_body(
+            rig, __version__, control=control_now(), fence=fence_now()
+        )
 
     # -- pages ---------------------------------------------------------------
 
@@ -311,6 +351,32 @@ def create_app(status=None, board=None, commands=None, roster=None):
         )
         return answer
 
+    @app.route("/api/fence", methods=["POST"])
+    def fence_word():
+        """Pass the lab's word once, and carry it in this browser after.
+
+        A machine with no word says so and stores nothing, so a browser may
+        always ask and a page always knows where it stands. A wrong word is
+        `403` and nothing else happens: the failed try is not written to the
+        message log, because the log belongs to the Qt main thread and this
+        is the web thread — and because a stranger's typing is not worth a
+        line beside the gas flows.
+        """
+        word = barrier.word()
+        if not word:
+            return jsonify({"fenced": False})
+        if not barrier.opens(_json_body().get("word")):
+            return jsonify({"reason": command_desk.WRONG_FENCE_WORD}), 403
+        answer = make_response(jsonify({"fenced": True}))
+        answer.set_cookie(
+            FENCE_COOKIE,
+            word,
+            max_age=ACTOR_MAX_AGE,
+            samesite="Lax",
+            httponly=True,
+        )
+        return answer
+
     def send(kind, number=None):
         """Check a command, weigh the gate, and queue it. One shape for all.
 
@@ -324,6 +390,12 @@ def create_app(status=None, board=None, commands=None, roster=None):
         refused = command_desk.refusal(
             kind, snapshot.get("remote"), actor, origin=origin, control=desk.control
         )
+        if refused:
+            return jsonify({"reason": refused}), 403
+        # The lab's word stands beside the switch, and behind it: a rig whose
+        # switch is off says so first, because that is the fact a person can
+        # do something about by walking to the machine.
+        refused = fence_refusal(kind)
         if refused:
             return jsonify({"reason": refused}), 403
         if command_desk.needs_acquisition(kind) and not snapshot.get("acquiring"):
@@ -353,6 +425,9 @@ def create_app(status=None, board=None, commands=None, roster=None):
         """
         actor, origin = who_is_asking()
         refused = command_desk.refusal("take_over", rig.read().get("remote"), actor)
+        if refused:
+            return jsonify({"reason": refused}), 403
+        refused = fence_refusal("take_over")
         if refused:
             return jsonify({"reason": refused}), 403
         changed, previous = desk.control.take_over(actor, origin)

@@ -19,7 +19,7 @@
 # the lab network. The second number moves for a feature, the third for a
 # fix; pyproject.toml carries the same number and a test holds them equal.
 # docs/history.md tells the eras in full.
-__version__ = "4.1.0"
+__version__ = "4.2.0"
 
 __about__ = """
 Version 4: the rig on the lab network.
@@ -35,8 +35,8 @@ the browser; Control, which lets a browser start and stop acquisition, set
 the sampling time, gas flow, plasma current, gauge mode and range, the QMS
 sync line and the Ip/Bu/Bd baselines behind a Remote switch on the rig's
 own screen, with Stop all outputs always allowed, acting under a name from
-the lab's roster; Log, the message log; and Lab, the three services and how
-each is started, drawn at once and asked in the background. Every browser
-command is queued and run by the Qt main thread through the same methods
-the rig's own buttons call.
+the lab's roster and behind the lab's word; Log, the message log; and Lab,
+the three services and how each is started, drawn at once and asked in the
+background. Every browser command is queued and run by the Qt main thread
+through the same methods the rig's own buttons call.
 """

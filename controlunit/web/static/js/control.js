@@ -32,6 +32,9 @@
     var status = root.querySelector('[data-role="status"]');
     var actorInput = document.getElementById("actor-name");
     var actor = (root.dataset.actor || "").trim();
+    /* Only on a machine that holds a word of its own; elsewhere the row was
+       never rendered and everything below simply finds nothing. */
+    var fenceInput = document.getElementById("fence-word");
 
     /* The command this browser is waiting to hear about. The rig answers
        through /api/state, so the wait ends when that record names this id. */
@@ -218,21 +221,30 @@
        way. Whether the reader is the holder is answered by the rig too: a
        browser cannot see its own address, and nothing here carries one
        except this line. */
+    /* The lab's word: a fence, not a secret. Where the machine serving this
+       page holds one, a browser types it once and carries it after; whether
+       this browser is past it is the rig's answer, in /api/state, because a
+       page cannot see its own cookies. */
+    function fenceClosed(state) {
+        var fence = state.fence || {};
+        return Boolean(fence.needed) && !fence.passed;
+    }
+
     function paintControl(state) {
         var control = state.control || {};
         set('[data-role="holder"]', control.line || "Nobody has control");
 
         var take = root.querySelector('[data-role="take-over"]');
         if (take) {
-            take.disabled = !(state.remote && !control.mine);
+            take.disabled = !(state.remote && !control.mine && !fenceClosed(state));
         }
         return control;
     }
 
     /* The gate, in one place. Setting needs the switch on the rig's own
-       screen, a name in this browser, workers running, and control of the
-       rig; the reason is stated here once and never repeated beside a
-       control. */
+       screen, the lab's word where this machine asks for one, workers
+       running, and control of the rig; the reason is stated here once and
+       never repeated beside a control. */
     function paintGate(state, control) {
         var chip = root.querySelector('[data-role="remote-chip"]');
         if (chip) {
@@ -243,9 +255,16 @@
         /* Control that nobody holds is there for the taking: the first
            setpoint sent claims it. */
         var mine = !control.holder || Boolean(control.mine);
+        var fenced = fenceClosed(state);
+        /* The field never disappears once the word is in: a word that
+           changed has to be typable again. Only what it says changes. */
+        if (fenceInput) {
+            fenceInput.placeholder = fenced ? "the lab's word" : "word saved";
+        }
 
         var why = "";
         if (!state.remote) why = "Setting is off until the switch on the rig is on.";
+        else if (fenced) why = "Setting is off until you type the lab's word below.";
         else if (!state.acquiring) {
             /* Idle is no longer a dead end for the reader who has control:
                it is the one moment Start means something. */
@@ -257,7 +276,7 @@
         var line = root.querySelector('[data-role="remote-why"]');
         if (line) line.textContent = why;
 
-        var allowed = Boolean(state.remote) && Boolean(state.acquiring) && mine;
+        var allowed = Boolean(state.remote) && !fenced && Boolean(state.acquiring) && mine;
         root.querySelectorAll(".page-main button, .page-main input").forEach(function (control) {
             control.disabled = !allowed;
         });
@@ -267,7 +286,7 @@
            an exception written into it. */
         var start = root.querySelector('[data-role="acq-start"]');
         if (start) {
-            start.disabled = !(Boolean(state.remote) && mine && !state.acquiring);
+            start.disabled = !(Boolean(state.remote) && !fenced && mine && !state.acquiring);
         }
     }
 
@@ -320,6 +339,23 @@
                     say("acting as " + actor);
                 } else {
                     say("refused: " + (answer.body.reason || "that name will not do"));
+                }
+                pollState();
+            }).catch(function () { say("the rig did not answer"); });
+        });
+
+        /* The lab's word, passed once and carried after. The box is emptied
+           on the way out: what is typed here is not a name to keep on the
+           page, and the placeholder says whether the fence is behind us. */
+        var saveFence = root.querySelector('[data-role="save-fence"]');
+        if (saveFence && fenceInput) saveFence.addEventListener("click", function () {
+            say("saving the word …");
+            post("/api/fence", {word: fenceInput.value || ""}).then(function (answer) {
+                if (answer.status === 200) {
+                    fenceInput.value = "";
+                    say(answer.body.fenced ? "the fence is open" : "this rig asks for no word");
+                } else {
+                    say("refused: " + (answer.body.reason || "that is not the lab's word"));
                 }
                 pollState();
             }).catch(function () { say("the rig did not answer"); });
