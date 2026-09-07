@@ -25,6 +25,7 @@ from flask import Flask, jsonify, make_response, render_template, request
 from controlunit._version import __version__
 from controlunit.web import commands as command_desk
 from controlunit.web import neighbours as neighbourhood
+from controlunit.web import roster as people_list
 from controlunit.web.status import (
     MAX_POINTS,
     RigStatus,
@@ -50,6 +51,7 @@ STATE_LEGEND = (
     ("down", "answered, and said it is not working"),
     ("unreachable", "nothing answered from this machine"),
     ("not configured", "this machine has no address for it"),
+    ("checking", "this machine is asking now and has not heard back"),
 )
 
 #: The live window choices, the same ones the Qt control dock offers.
@@ -102,22 +104,26 @@ SECTIONS = (
 GASES = ((1, "H₂"), (2, "O₂"))
 
 
-def create_app(status=None, board=None, commands=None):
+def create_app(status=None, board=None, commands=None, roster=None):
     """Build the application.
 
     `status` is the record the Qt thread writes; `commands` is the queue it
     drains. Without a queue the Control tab still renders and every setter
     answers 409, which is what a test client and a read-only run both want.
+    `roster` is the lab's list of operator names, when this machine has a
+    copy of one; without it the Acting-as field is free text, as before.
     """
     rig = status if status is not None else RigStatus()
     services = board if board is not None else neighbourhood.NeighbourBoard()
     desk = commands if commands is not None else command_desk.CommandQueue()
+    people = roster if roster is not None else people_list.Roster()
 
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
     app.config["RIG_STATUS"] = rig
     app.config["NEIGHBOUR_BOARD"] = services
     app.config["COMMAND_QUEUE"] = desk
+    app.config["ROSTER"] = people
 
     @app.after_request
     def freshness_and_safety(response):
@@ -206,6 +212,7 @@ def create_app(status=None, board=None, commands=None):
             mfc_max=command_desk.MFC_MAX_MV,
             plasma_max=command_desk.PLASMA_MAX_A,
             actor=command_desk.clean_actor(request.cookies.get(ACTOR_COOKIE)),
+            roster_names=people.names(),
         )
 
     @app.route("/log")
@@ -257,12 +264,28 @@ def create_app(status=None, board=None, commands=None):
 
     # -- what the Control tab sends -----------------------------------------
 
+    @app.route("/api/roster")
+    def roster_names():
+        """The lab's operator names, so a page can refresh without a reload."""
+        return jsonify({"names": people.names()})
+
     @app.route("/api/identify", methods=["POST"])
     def identify():
-        """Remember, in this browser, the name to write beside a command."""
+        """Remember, in this browser, the name to write beside a command.
+
+        A name is a label for the log and never a credential, so a machine
+        with no roster takes whatever was typed, exactly as before. Where
+        there *is* a roster the field offers it, and a name that is not on it
+        is refused — not to keep anyone out, but so the lab's logs spell one
+        person one way. The comparison is between cleaned names, so a roster
+        entry that `clean_actor` would shorten still matches itself.
+        """
         name = command_desk.clean_actor(_json_body().get("name"))
         if not name:
             return jsonify({"reason": "type a name first"}), 400
+        known = [command_desk.clean_actor(person) for person in people.names()]
+        if known and name not in known:
+            return jsonify({"reason": "choose a name from the lab's roster"}), 400
         answer = make_response(jsonify({"actor": name}))
         answer.set_cookie(
             ACTOR_COOKIE,

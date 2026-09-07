@@ -6,12 +6,28 @@ import pytest
 
 from controlunit._version import __version__
 from controlunit.web.neighbours import NeighbourBoard
+from controlunit.web.roster import Roster
 from controlunit.web.server import create_app
+
+ROSTER = """\
+{"schema": "pihti-operators/v1",
+ "operators": [{"username": "hashizuka", "display_name": "Hashizuka Takuma"},
+               {"username": "queezz", "display_name": "Arseniy Kuzmin"}]}
+"""
+
+
+def app_for(tmp_path, home=None):
+    """A client whose machine knows nothing it was not given here."""
+    nowhere = tmp_path / "nowhere"
+    return create_app(
+        board=NeighbourBoard(home=nowhere),
+        roster=Roster(home=nowhere if home is None else home),
+    ).test_client()
 
 
 @pytest.fixture
 def client(tmp_path):
-    return create_app(board=NeighbourBoard(home=tmp_path / "nowhere")).test_client()
+    return app_for(tmp_path)
 
 
 @pytest.fixture
@@ -220,8 +236,41 @@ def test_the_neighbour_states_are_explained_in_exactly_one_place(lab):
     for meaning in (
         "nothing answered from this machine",
         "answered, and said it is not working",
+        "this machine is asking now and has not heard back",
     ):
         assert lab.count(meaning) == 1
+
+
+def test_the_legend_carries_the_state_a_first_paint_can_show(lab):
+    """A page served before the LAN answered shows `checking`, so the one
+    place a state is explained has to explain that one too."""
+    assert 'class="chip chip-checking">checking</span>' in lab
+
+
+def test_the_lab_page_asks_again_while_a_state_is_still_checking(client):
+    script = client.get("/static/js/lab.js").get_data(as_text=True)
+    assert '"checking"' in script
+
+
+def test_the_acting_as_field_is_free_text_without_a_roster(control):
+    card = control[control.index('class="rail-label">Acting as<'):]
+    assert '<input type="text" id="actor-name"' in card
+    assert "Written in the log beside what you" in card
+    assert "the lab's roster" not in card
+
+
+def test_the_acting_as_field_offers_the_roster_when_this_machine_has_one(tmp_path):
+    home = tmp_path / ".controlunit"
+    home.mkdir()
+    (home / "operators.json").write_text(ROSTER, encoding="utf-8")
+    page = app_for(tmp_path, home=home).get("/control").get_data(as_text=True)
+    card = page[page.index('class="rail-label">Acting as<'):]
+    assert '<select id="actor-name"' in card
+    assert "— choose —" in card
+    assert '<option value="Hashizuka Takuma"' in card
+    assert '<option value="Arseniy Kuzmin"' in card
+    assert "Names come from the lab's roster." in card
+    assert '<input type="text" id="actor-name"' not in card
 
 
 def test_the_data_states_are_explained_in_exactly_one_place(live):

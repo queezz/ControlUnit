@@ -267,14 +267,20 @@
     // -- controls -------------------------------------------------------------
 
     function wire() {
+        /* The field is a text box on a machine with no roster and a list of
+           the lab's names on one that has a copy. Both answer to `.value`,
+           so the saving is the same either way. */
         var save = root.querySelector('[data-role="save-actor"]');
-        if (save) save.addEventListener("click", function () {
+        if (save && actorInput) save.addEventListener("click", function () {
             var name = (actorInput.value || "").trim();
             say("saving the name …");
             post("/api/identify", {name: name}).then(function (answer) {
                 if (answer.status === 200) {
                     actor = answer.body.actor || "";
-                    actorInput.value = actor;
+                    /* A list keeps the name that was chosen from it; writing
+                       the cleaned name back would blank it if cleaning had
+                       changed so much as a character. */
+                    if (actorInput.tagName === "INPUT") actorInput.value = actor;
                     say("acting as " + actor);
                 } else {
                     say("refused: " + (answer.body.reason || "that name will not do"));

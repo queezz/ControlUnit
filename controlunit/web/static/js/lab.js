@@ -1,5 +1,11 @@
 /* The Lab tab: one show/hide toggle per service, and a refresh that updates
- * the three states in place every thirty seconds.
+ * the three states in place.
+ *
+ * The page is served before the LAN has answered, so a card may arrive
+ * saying `checking`. This asks again straight away, then every two seconds
+ * while any card is still checking, and settles to every thirty once every
+ * state has resolved — the fast rate exists only for the few seconds a first
+ * answer takes, not for the hours the tab may be left open.
  *
  * No framework, nothing fetched from the internet. Every update writes into
  * elements that already exist and already have their room reserved in CSS,
@@ -9,6 +15,10 @@
     "use strict";
 
     var REFRESH_MS = 30000;
+    var CHECKING_MS = 2000;
+
+    var timer = null;
+    var waiting = false;
 
     /* Meaning stays visible; only the line to type appears and disappears,
        beneath a toggle that never changes position. */
@@ -60,6 +70,11 @@
         if (address) address.textContent = service.url || "not configured";
     }
 
+    function again() {
+        if (timer) window.clearTimeout(timer);
+        timer = window.setTimeout(refresh, waiting ? CHECKING_MS : REFRESH_MS);
+    }
+
     /* A failed refresh leaves the last answer standing rather than blanking
        the page: the reader is told nothing new, not told something false. */
     function refresh() {
@@ -68,13 +83,18 @@
             .then(function (payload) {
                 if (!payload || !Array.isArray(payload.services)) return;
                 payload.services.forEach(paint);
+                waiting = payload.services.some(function (service) {
+                    return service.state === "checking";
+                });
             })
-            .catch(function () { /* keep what is on the page */ });
+            .catch(function () { /* keep what is on the page */ })
+            .then(again);
     }
 
     function setup() {
         setupToggles();
-        window.setInterval(refresh, REFRESH_MS);
+        waiting = document.querySelector('[data-role="state"].chip-checking') !== null;
+        refresh();
     }
 
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", setup);
