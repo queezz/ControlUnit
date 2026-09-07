@@ -538,7 +538,7 @@ def test_the_lab_page_asks_again_while_a_state_is_still_checking(client):
 
 
 def test_the_acting_as_field_is_free_text_without_a_roster(control):
-    card = control[control.index('class="rail-label">Acting as<'):]
+    card = control[control.index('class="rail-label">Acting as '):]
     assert '<input type="text" id="actor-name"' in card
     assert "Written in the log beside what you" in card
     assert "the lab's roster" not in card
@@ -549,7 +549,7 @@ def test_the_acting_as_field_offers_the_roster_when_this_machine_has_one(tmp_pat
     home.mkdir()
     (home / "operators.json").write_text(ROSTER, encoding="utf-8")
     page = app_for(tmp_path, home=home).get("/control").get_data(as_text=True)
-    card = page[page.index('class="rail-label">Acting as<'):]
+    card = page[page.index('class="rail-label">Acting as '):]
     assert '<select id="actor-name"' in card
     assert "— choose —" in card
     assert '<option value="Hashizuka Takuma"' in card
@@ -564,11 +564,24 @@ def test_the_data_states_are_explained_in_exactly_one_place(live):
         assert live.count(meaning) == 1
 
 
-def test_the_data_card_shows_one_pill_only(live):
-    """The chip is the reading; the other states are words, never pills."""
-    card = live[live.index('class="rail-label">Data<'):]
+def test_the_rail_card_that_explains_the_pills_carries_none(live):
+    """The pills state at the head of the column; the rail teaches beside
+    them. A second copy of a chip inside the words that explain it is the
+    duplicate this house has been corrected for more than once."""
+    card = live[live.index('class="rail-label">Reading this page<'):]
     card = card[:card.index("</section>")]
-    assert card.count('class="chip') == 1
+    assert 'class="chip' not in card
+
+
+def test_the_head_of_the_column_carries_the_two_readings(live):
+    """What the rig is doing, and how fresh the numbers are. Two pills,
+    each stated once on the page (owner direction 2026-09-07)."""
+    pills = live[live.index('class="pills"'):]
+    pills = pills[:pills.index("</div>")]
+    assert pills.count('class="chip') == 2
+    assert 'data-role="operating"' in pills
+    assert 'data-role="operating-outputs"' in pills
+    assert live.count('data-role="data-state"') == 1
 
 
 def test_a_neighbour_opens_beside_this_page_not_in_its_place(lab):
@@ -589,7 +602,7 @@ def test_no_fence_row_on_a_machine_that_holds_no_word(control):
 
 def test_the_fence_row_appears_only_where_the_machine_holds_a_word(tmp_path):
     page = with_a_word(tmp_path).get("/control").get_data(as_text=True)
-    card = page[page.index('class="rail-label">Acting as<'):]
+    card = page[page.index('class="rail-label">Acting as '):]
     card = card[:card.index("</section>")]
     assert '<input type="password" id="fence-word"' in card
     assert 'data-role="save-fence"' in card
@@ -691,19 +704,43 @@ def test_a_filter_that_matches_nothing_says_so_rather_than_looking_empty(log):
 # -- the board of three, as all three surfaces draw it ------------------------
 
 
-def test_the_three_service_cards_stand_across_the_reading_column():
-    """Stacked full width, the third service sat below a Mac's viewport and
-    had to be hunted for (owner direction 2026-09-07, from the three boards
-    side by side). Across, the ensemble is one glance."""
+def _stylesheet():
     from pathlib import Path
 
-    css = (
+    return (
         Path(__file__).resolve().parents[1]
         / "controlunit" / "web" / "static" / "css" / "controlunit.css"
     ).read_text(encoding="utf-8")
+
+
+def test_the_board_breaks_where_the_other_two_surfaces_break():
+    """One board across three surfaces means one set of numbers.
+
+    The card width, the gap between cards and the rails on either side are
+    the whole arithmetic of where the board goes from two-plus-one to three
+    across. This surface carried its own numbers for one release — 190px
+    cards between 17rem rails — and broke 32px later than the diagram and
+    the journal, which put the owner's 1440px Mac on the wrong side of the
+    line (Commander's correction 2026-09-07). These four values are the
+    reference's own.
+    """
+    css = _stylesheet()
     board = css[css.index(".services {"):]
     board = board[:board.index("}")]
-    assert "repeat(auto-fit, minmax(190px, 1fr))" in board
+    assert "repeat(auto-fit, minmax(260px, 1fr))" in board
+    assert "gap: 14px" in board
+    assert "--rail-w: 16rem" in css
+
+
+def test_a_service_card_reads_its_facts_across_not_down():
+    """At the reference's card width a label stands beside its value.
+
+    They were stacked for one release, when a 203px card left the value a
+    hundred pixels; at 260px and up the two-column list the rest of this
+    page uses fits, so the card does not need a list shape of its own.
+    """
+    css = _stylesheet()
+    assert ".service dl.facts {" not in css
 
 
 def test_a_card_says_which_address_your_own_browser_will_open(lab):

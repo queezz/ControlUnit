@@ -51,6 +51,27 @@ run to the Pi itself. The view reads a small status record the main thread
 writes and never touches a worker; what a browser may set goes through a
 queue the main thread drains, behind the Remote switch on the rig's screen.
 
+### Before pulling a new version onto the Pi
+
+A pull and a restart take the rig away from whoever is using it, and "not
+acquiring" was never the same as "safe". On 2026-08-19 the ADC reader died
+mid-run and the plasma kept going, because the cathode DAC held the voltage
+it had been given: nothing was being recorded and the apparatus was still
+driven. So a session reads the rig's own operating state before it pulls:
+
+```powershell
+curl http://pihti:4187/api/health
+```
+
+The `detail` says one of three things. `idle, not recording` is stopped, and
+a pull may go ahead. `acquiring …` is a run in progress: do not pull, and
+say so — the restart is queezz's to schedule. Anything containing `outputs
+live:` means gas or the cathode is holding something, recording or not:
+**refuse the pull**, name the outputs the report listed, and leave the rig
+alone until a person has turned them off at the rig or from the Control tab.
+The same three states are the left pill at the head of the Live tab, and
+`/api/state` carries them as `operating.state` and `operating.outputs`.
+
 The Control tab offers names from the lab's roster when the Pi holds a copy
 of it at `~/.controlunit/operators.json`. Names are people and never enter
 git; `scripts/push_roster.ps1` (or `.sh`) copies the vault's file to the Pi,

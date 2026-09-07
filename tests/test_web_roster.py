@@ -227,3 +227,193 @@ def test_names_nobody_shares_are_never_decorated(home):
         "Arseniy Kuzmin",
         "Sasaki Rei",
     ]
+
+
+# -- the copy refreshes itself over the LAN -----------------------------------
+#
+# PIHTI Log 0.38.0 serves the vault's roster at GET /api/roster on the same
+# origin this rig already asks /api/health of (letter
+# `20260907-2e0205ef-f3c730`). The rig reads it behind its own neighbour
+# probe, so nobody runs the push script again after the first time.
+
+
+class FakeAnswer:
+    """What `urlopen` hands back: a context manager with `read`."""
+
+    def __init__(self, payload):
+        self._payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def read(self, size=None):
+        return self._payload
+
+
+def opener_for(payload, seen=None):
+    def opener(url, timeout=None):
+        if seen is not None:
+            seen.append((url, timeout))
+        if isinstance(payload, Exception):
+            raise payload
+        return FakeAnswer(payload)
+
+    return opener
+
+
+SERVED = (
+    b'{"schema": "pihti-operators/v1", "operators": ['
+    b'{"username": "hashizuka", "display_name": "Hashizuka Takuma"},'
+    b'{"username": "queezz", "display_name": "Arseniy Kuzmin"}]}'
+)
+
+
+def test_the_roster_is_asked_of_the_neighbours_own_origin():
+    seen = []
+    people = roster_module.fetch_roster(
+        "http://ak-office.local:4310/", opener=opener_for(SERVED, seen)
+    )
+    assert [person["display_name"] for person in people] == [
+        "Hashizuka Takuma",
+        "Arseniy Kuzmin",
+    ]
+    assert seen == [("http://ak-office.local:4310/api/roster", 2.0)]
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        b"not json at all",
+        b'{"schema": "some-other-thing/v1", "operators": []}',
+        b'{"schema": "pihti-operators/v1", "operators": "everyone"}',
+        OSError("the office PC is off"),
+    ],
+)
+def test_every_kind_of_no_answer_is_one_answer(payload):
+    """A 404 from a vault with no roster, silence, and a body that is not a
+    roster all mean the same thing to the caller: nothing new to write."""
+    assert roster_module.fetch_roster("http://host", opener=opener_for(payload)) is None
+
+
+def test_a_refresh_writes_the_copy_this_machine_reads(home):
+    mirror = roster_module.RosterMirror(
+        home=home,
+        fetch=lambda url: [{"username": "sasaki", "display_name": "Sasaki Rei"}],
+        stamp=lambda: "14:02:57",
+    )
+    assert mirror.refresh("http://host") is True
+    # The very file `Roster` already reads, in the shape it already parses.
+    assert read_roster(home) == [{"username": "sasaki", "display_name": "Sasaki Rei"}]
+    assert mirror.report() == {"source": "PIHTI Log", "at": "14:02:57", "names": 1}
+
+
+def test_the_last_copy_survives_a_neighbour_that_does_not_answer(home):
+    write(home, GOOD)
+    before = (home / "operators.json").read_bytes()
+    mirror = roster_module.RosterMirror(home=home, fetch=lambda url: None)
+    assert mirror.refresh("http://host") is False
+    assert (home / "operators.json").read_bytes() == before
+    # Never asked and asked-and-nothing-came-back are not the same fact, and
+    # neither of them is a time this copy was confirmed.
+    assert mirror.report() is None
+
+
+def test_an_empty_roster_never_erases_the_names_this_machine_has(home):
+    """A vault answering with nobody in it is not a reason to forget the
+    people this rig has been spelling correctly for a month."""
+    write(home, GOOD)
+    mirror = roster_module.RosterMirror(home=home, fetch=lambda url: [])
+    assert mirror.refresh("http://host") is False
+    assert len(read_roster(home)) == 3
+
+
+def test_the_copy_is_never_written_in_halves(home, monkeypatch):
+    """The file is written beside itself and moved over in one step, so a
+    write that falls over leaves the old roster whole."""
+    write(home, GOOD)
+
+    def explode(*args, **kwargs):
+        raise OSError("the card filled up")
+
+    monkeypatch.setattr(roster_module.os, "replace", explode)
+    assert roster_module.write_copy(
+        [{"username": "x", "display_name": "Somebody Else"}], home
+    ) is False
+    assert len(read_roster(home)) == 3
+    # And the half-written file it was going to move is not left lying about.
+    assert [p.name for p in home.iterdir()] == ["operators.json"]
+
+
+def test_a_copy_that_already_says_this_is_not_rewritten(home):
+    people = [{"username": "sasaki", "display_name": "Sasaki Rei"}]
+    assert roster_module.write_copy(people, home) is True
+    stamp = (home / "operators.json").stat().st_mtime_ns
+    assert roster_module.write_copy(people, home) is True
+    assert (home / "operators.json").stat().st_mtime_ns == stamp
+
+
+def test_only_the_neighbour_that_keeps_the_roster_is_asked_for_it(tmp_path):
+    """The mirror rides on the neighbour probe: one ask per probe at most,
+    for the one service that serves a roster, and none of its own."""
+    from controlunit.web.server import ROSTER_SOURCE, _roster_follower
+
+    asked = []
+
+    class Counter:
+        def refresh(self, url):
+            asked.append(url)
+
+    follow = _roster_follower(Counter())
+    follow("pihti-diagram", "http://pihti:5000")
+    assert asked == []
+    follow(ROSTER_SOURCE, "http://ak-office.local:4310")
+    assert asked == ["http://ak-office.local:4310"]
+
+
+def test_the_probe_asks_for_names_only_when_a_neighbour_answered(tmp_path):
+    from controlunit.web.neighbours import NeighbourBoard
+
+    (tmp_path / "neighbours.yml").write_text(
+        "pihti-log:\n  url: http://ak-office.local:4310\n"
+        "pihti-diagram:\n  url: http://pihti:5000\n",
+        encoding="utf-8",
+    )
+    asked = []
+    answers = {
+        "http://ak-office.local:4310": ("ok", "0.38.0", "idle"),
+        "http://pihti:5000": ("unreachable", "", "no answer within two seconds"),
+    }
+    import controlunit.web.neighbours as neighbours_module
+
+    original = neighbours_module._read_health
+    neighbours_module._read_health = lambda url, timeout=None: answers[url]
+    try:
+        board = NeighbourBoard(
+            home=tmp_path, after_health=lambda alias, url: asked.append(alias)
+        )
+        board.neighbours()
+        board.wait(5)
+    finally:
+        neighbours_module._read_health = original
+    # The diagram was unreachable, so nothing was asked of it.
+    assert asked == ["pihti-log"]
+
+
+def test_the_state_route_says_when_the_names_last_refreshed(tmp_path):
+    from controlunit.web.server import create_app
+
+    mirror = roster_module.RosterMirror(
+        home=tmp_path,
+        fetch=lambda url: [{"username": "sasaki", "display_name": "Sasaki Rei"}],
+        stamp=lambda: "14:02:57",
+    )
+    client = create_app(mirror=mirror).test_client()
+    assert client.get("/api/state").get_json()["roster"] is None
+    mirror.refresh("http://host")
+    body = client.get("/api/state").get_json()["roster"]
+    assert body == {"source": "PIHTI Log", "at": "14:02:57", "names": 1}
+    # A count and a time. No address, and no names.
+    assert "ak-office" not in repr(body) and "Sasaki" not in repr(body)

@@ -97,6 +97,20 @@ PENS = (
     ("Bd", "#00a3af"),
 )
 
+#: The three strip charts, each with the channels it draws and how tall it
+#: stands. One list rather than three blocks of markup, so a panel's
+#: channels are named once and its own legend cannot drift from what its
+#: canvas actually draws: `(id, title, channels, height, span role)`.
+#:
+#: Three panels and not one, because one pressure axis could not serve both
+#: kinds of gauge — the ion gauges cross decades and want a log axis, the
+#: Baratrons sit in a narrow band and want a linear one.
+PANELS = (
+    ("chart-plasma", "Plasma current, A", ("Ip",), 220, "span-plasma"),
+    ("chart-ig", "Ion gauges, Torr", ("Pu", "Pd"), 200, "span-ig"),
+    ("chart-bar", "Baratrons, Torr", ("Bu", "Bd"), 200, "span-bar"),
+)
+
 #: The tabs, in bar order. A tab with no endpoint is named and not built.
 TABS = (
     ("live", "Live", "live"),
@@ -129,7 +143,31 @@ SECTIONS = (
 GASES = ((1, "H₂"), (2, "O₂"))
 
 
-def create_app(status=None, board=None, commands=None, roster=None, fence=None):
+#: Which of the two neighbours keeps the lab's list of names: the journal.
+#: The roster lives in the Obsidian vault on the office PC, and PIHTI Log
+#: serves it at `/api/roster` on the same origin this rig already asks
+#: `/api/health` of (its 0.38.0, letter `20260907-2e0205ef-f3c730`).
+ROSTER_SOURCE = "pihti-log"
+
+
+def _roster_follower(mirror):
+    """Refresh this machine's copy of the names whenever the journal answers.
+
+    Handed to the neighbour board as its `after_health`, so the ask rides on
+    the probe the board already makes and never keeps a beat of its own.
+    Every neighbour but the one that serves a roster is ignored here.
+    """
+
+    def follow(alias, url):
+        if alias == ROSTER_SOURCE:
+            mirror.refresh(url)
+
+    return follow
+
+
+def create_app(
+    status=None, board=None, commands=None, roster=None, fence=None, mirror=None
+):
     """Build the application.
 
     `status` is the record the Qt thread writes; `commands` is the queue it
@@ -137,11 +175,19 @@ def create_app(status=None, board=None, commands=None, roster=None, fence=None):
     answers 409, which is what a test client and a read-only run both want.
     `roster` is the lab's list of operator names, when this machine has a
     copy of one; without it the Acting-as field is free text, as before.
+    `mirror` keeps that copy up from the journal over the LAN, and rides on
+    the neighbour probe rather than on a timer; a caller that brings its own
+    `board` brings its own arrangement, and none is wired in for it.
     `fence` is the lab's word, when this machine holds one; a machine that
     holds none has no fence and every route behaves as it always has.
     """
     rig = status if status is not None else RigStatus()
-    services = board if board is not None else neighbourhood.NeighbourBoard()
+    names_copy = mirror if mirror is not None else people_list.RosterMirror()
+    services = (
+        board
+        if board is not None
+        else neighbourhood.NeighbourBoard(after_health=_roster_follower(names_copy))
+    )
     desk = commands if commands is not None else command_desk.CommandQueue()
     people = roster if roster is not None else people_list.Roster()
     barrier = fence if fence is not None else fence_line.Fence()
@@ -152,6 +198,7 @@ def create_app(status=None, board=None, commands=None, roster=None, fence=None):
     app.config["NEIGHBOUR_BOARD"] = services
     app.config["COMMAND_QUEUE"] = desk
     app.config["ROSTER"] = people
+    app.config["ROSTER_MIRROR"] = names_copy
     app.config["FENCE"] = barrier
 
     @app.after_request
@@ -254,7 +301,11 @@ def create_app(status=None, board=None, commands=None, roster=None, fence=None):
 
     def page_state():
         return state_body(
-            rig, __version__, control=control_now(), fence=fence_now()
+            rig,
+            __version__,
+            control=control_now(),
+            fence=fence_now(),
+            roster=names_copy.report(),
         )
 
     # -- pages ---------------------------------------------------------------
@@ -267,6 +318,8 @@ def create_app(status=None, board=None, commands=None, roster=None, fence=None):
             windows=WINDOWS,
             default_window=DEFAULT_WINDOW,
             pens=PENS,
+            panels=PANELS,
+            pen_colour=dict(PENS),
             state=page_state(),
         )
 

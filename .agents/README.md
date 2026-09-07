@@ -40,8 +40,10 @@ The rig's checkout, `~/work/aktest` on the Pi, pulls from `master`, and the
 rig is restarted from its desktop shortcut, which calls
 `scripts/run_controlunit.sh`. The restart is queezz's, always. The pull is a
 session's to do (owner decision 2026-09-07, amending the earlier rule that
-kept both for him) once master is on the remote and the rig is not
-acquiring: check over SSH that no `controlunit.main` process is running,
+kept both for him) once master is on the remote and the rig is neither
+acquiring nor driving an output — read `/api/health` first and refuse while
+it says `outputs live:`, the check `AGENTS.md` writes out in full: check
+over SSH that no `controlunit.main` process is running,
 `git -C ~/work/aktest pull --ff-only`, and confirm the commit matches
 master. Pushing master is done when queezz says so, in this chat, and not
 otherwise; a session never pulls a checkout that is ahead of the remote.

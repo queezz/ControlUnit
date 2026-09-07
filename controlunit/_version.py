@@ -19,7 +19,7 @@
 # the lab network. The second number moves for a feature, the third for a
 # fix; pyproject.toml carries the same number and a test holds them equal.
 # docs/history.md tells the eras in full.
-__version__ = "4.4.0"
+__version__ = "4.5.0"
 
 __about__ = """
 Version 4: the rig on the lab network.
@@ -32,8 +32,12 @@ started with --web and on by default from the rig's launcher, serves a
 health report for the lab's ensemble of three services and four tabs:
 Live, the rig's values
 and three strip charts (plasma current, the ion gauges, the Baratrons) with
-big readouts, a fast poll, a median smoothing and a day of history kept in
-the browser; Control, which lets a browser start and stop acquisition, set
+big readouts, a fast poll, a median smoothing, a day of history kept in
+the browser, one switch per curve in its own chart's legend, and two pills
+saying whether the rig is stopped, measuring only, or holding gas or the
+cathode — the same three states the health report carries, so anyone about
+to restart the rig can read them from the lab network;
+Control, which lets a browser start and stop acquisition, set
 the sampling time, gas flow, plasma current, gauge mode and range, the QMS
 sync line and the Ip/Bu/Bd baselines behind a Remote switch on the rig's
 own screen, with Stop all outputs always allowed, acting under a name from

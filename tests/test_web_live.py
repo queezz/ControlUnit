@@ -247,11 +247,18 @@ def test_the_log_keeps_only_its_tail():
 
 
 def test_health_mentions_the_plasma_pid_when_it_is_on(real_hardware):
+    """The PID is one of the outputs the report names, not a fact of its own.
+
+    It used to be the only one, worded "plasma PID on"; the rig can also be
+    holding gas open or driving the cathode directly, and a person deciding
+    whether the apparatus is safe to touch needs one list rather than one
+    special case (owner direction 2026-09-07).
+    """
     status = rig()
     status.set_acquiring(True)
     status.record_setpoints(plasma_a=1.2)
     assert health_body(status, __version__)["detail"] == (
-        "acquiring 5 channels at 10 Hz, plasma PID on"
+        "acquiring 5 channels at 10 Hz, outputs live: plasma current PID"
     )
 
 
@@ -405,13 +412,76 @@ def test_the_backing_buffer_is_bounded_and_a_refused_context_is_survived():
     assert "if (!box) return;" in source
 
 
-def test_every_chart_panel_declares_its_own_layout_height():
-    """Two facts, two attributes, on all three panels."""
-    from pathlib import Path
+def test_every_chart_panel_declares_its_own_layout_height(client):
+    """Two facts, two attributes, on all three panels.
 
-    root = Path(__file__).resolve().parents[1]
-    page = (
-        root / "controlunit" / "web" / "templates" / "live.html"
-    ).read_text(encoding="utf-8")
-    assert page.count("data-height=") == 3
-    assert 'id="chart-plasma" height="220" data-height="220"' in page
+    The three panels are one loop over a list on the server now, so this
+    reads the rendered page rather than the template: what matters is that
+    every canvas that reaches a browser carries both attributes and that
+    they agree, not how the markup was written.
+    """
+    import re
+
+    page = client.get("/").get_data(as_text=True)
+    canvases = re.findall(r"<canvas[^>]*>", page)
+    assert len(canvases) == 3
+    for canvas in canvases:
+        height = re.search(r'\bheight="(\d+)"', canvas).group(1)
+        declared = re.search(r'data-height="(\d+)"', canvas).group(1)
+        assert height == declared
+    assert 'id="chart-plasma"' in page and 'data-height="220"' in page
+
+
+# -- each chart carries its own curves' switches -------------------------------
+#
+# Owner report 2026-09-07: "all the little toggles on the Live view, hard to
+# find the one I need", and "we need toggles, like in GUI, to show/hide
+# plots". The five channel switches stood together in the left rail, away
+# from the curves they turned off; each one now stands in the legend of the
+# chart it belongs to.
+
+
+def test_each_curve_has_exactly_one_switch_and_it_is_in_its_own_chart(client):
+    import re
+
+    page = client.get("/").get_data(as_text=True)
+    for name in ("Ip", "Pu", "Pd", "Bu", "Bd"):
+        assert page.count('data-channel="{}"'.format(name)) == 1
+    # And each switch stands inside the panel that draws that curve.
+    for block in re.findall(r'<section class="chart".*?</section>', page, re.S):
+        drawn = re.search(r'data-channels="([^"]*)"', block).group(1).split(",")
+        switches = re.findall(r'data-channel="([^"]*)"', block)
+        assert switches == drawn
+
+
+def test_no_channel_switch_is_left_in_the_rail(client):
+    page = client.get("/").get_data(as_text=True)
+    rail = page[page.index('class="rail rail-left"'):]
+    rail = rail[:rail.index("<main")]
+    assert "data-channel=" not in rail
+
+
+def test_a_flat_curve_leaves_the_axis_to_the_ones_that_move():
+    """The broken SingleGauge sits at 1e-5 while the downstream gauge reads
+    1e-8, and on one log axis the owner "can't see either" (2026-09-07). A
+    curve whose whole excursion is smaller than its own last useful digit is
+    left off the panel and out of its range, and says so beside its name.
+    """
+    source = _live_js()
+    assert "FLAT_DECADES" in source and "FLAT_FRACTION" in source
+    # Never on a panel that would empty itself: collapsing needs another
+    # curve still moving.
+    assert "moving.length && isFlat(s, logScale)" in source
+    # The axis is computed from what is drawn, not from what was gathered.
+    assert 'lines = series.filter(function (s) { return s.state === "drawn"; });' in source
+    # Four states, each with its own word, and `drawn` says nothing at all.
+    assert 'LEGEND_ASIDE = {off: "off", absent: "no data", flat: "flat", drawn: ""}' in source
+
+
+def test_a_collapsed_curve_does_not_print_a_second_copy_of_its_value():
+    """Every number on this page is read in its readout card; the legend
+    says why a curve is missing, never what it last read."""
+    source = _live_js()
+    aside = source[source.index("function paintLegend"):]
+    aside = aside[:aside.index("function drawAll")]
+    assert "valueHtml" not in aside and "valueText" not in aside

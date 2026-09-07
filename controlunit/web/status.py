@@ -100,6 +100,13 @@ class RigStatus:
             "mfc1_v": 0.0,
             "mfc2_v": 0.0,
             "plasma_a": 0.0,
+            # What the cathode DAC is holding, in millivolts, whether the
+            # PID put it there or the rig's own output-voltage box did. It
+            # is a separate fact from `plasma_a` on purpose: setting the DAC
+            # directly turns the PID off and leaves the cathode driven, and
+            # a record that carried only the PID setpoint called that
+            # combination "nothing running" (see `live_outputs`).
+            "cathode_mv": 0.0,
             "ig_mode": None,
             "ig_range": None,
             "sync": False,
@@ -377,18 +384,89 @@ def data_state(snapshot):
     return DATA_LIVE
 
 
+#: The outputs the rig can be holding, in the order a person would say
+#: them, each with the plain words that name it. Every one of them is a
+#: setpoint the main thread already records; nothing here reaches for a
+#: worker or a device.
+#:
+#: `cathode_mv` is beside `plasma_a` and not folded into it because they are
+#: two different ways for the cathode to be driven: the PID holds a current,
+#: and the output-voltage box on the rig's own screen holds a voltage with
+#: the PID off. On 2026-08-19 the second one is what kept Mizuno-kun's
+#: plasma running after the reader died.
+LIVE_OUTPUTS = (
+    ("mfc1_v", "gas flow H₂"),
+    ("mfc2_v", "gas flow O₂"),
+    ("cathode_mv", "cathode drive"),
+    ("plasma_a", "plasma current PID"),
+)
+
+#: What the rig is doing, in three words a person can act on. `stopped` is
+#: nothing running and nothing driven; `measuring` is recording with every
+#: output at zero; `outputs live` is at least one output holding something,
+#: whether or not anything is being recorded.
+OPERATING_STOPPED = "stopped"
+OPERATING_MEASURING = "measuring"
+OPERATING_LIVE = "outputs live"
+
+
+def live_outputs(snapshot):
+    """Which of the rig's outputs are holding something other than zero.
+
+    Plain words, in a fixed order, and never a value: this answer travels
+    into the health report the other two surfaces read, and what a reader
+    needs there is which output is live, not what it is set to.
+    """
+    setpoints = snapshot.get("setpoints") or {}
+    live = []
+    for key, words in LIVE_OUTPUTS:
+        try:
+            value = float(setpoints.get(key) or 0.0)
+        except (TypeError, ValueError):
+            continue
+        if value:
+            live.append(words)
+    return live
+
+
+def operating_state(snapshot):
+    """`stopped`, `measuring` or `outputs live`, and outputs win.
+
+    "Not acquiring" was never "safe to restart" (owner direction 2026-09-07:
+    "If the rig is running. And if it's measuring only or have some
+    gas/plasma on"). The rig can hold gas open and the cathode driven with
+    nothing recording at all — that is exactly what the 2026-08-19 reader
+    death left behind — so a live output outranks the acquisition flag here
+    rather than being mentioned after it.
+    """
+    if live_outputs(snapshot):
+        return OPERATING_LIVE
+    if snapshot.get("acquiring"):
+        return OPERATING_MEASURING
+    return OPERATING_STOPPED
+
+
 def health_detail(snapshot):
     """One short sentence a lab person can read, or an empty string."""
     channels = snapshot.get("channels") or 0
     rate = _rate_phrase(snapshot.get("sampling"))
+    outputs = live_outputs(snapshot)
     if not snapshot.get("acquiring"):
         # Idle says what the rig is doing — nothing — rather than what it
         # is not doing wrong (owner correction 2026-09-07: "It's up and not
         # doing a thing"). The hardware standing in is the second fact and
         # only when it is standing in.
+        if not outputs:
+            if snapshot.get("dummy"):
+                return "idle, dummy hardware"
+            return "idle, not recording"
+        # Recording nothing while the apparatus is driven. It is not a
+        # fault of this program's — nobody has pressed Start — and it is the
+        # one thing a person about to restart the rig must see.
+        parts = ["not recording", "outputs live: " + ", ".join(outputs)]
         if snapshot.get("dummy"):
-            return "idle, dummy hardware"
-        return "idle, not recording"
+            parts.append("dummy hardware")
+        return ", ".join(parts)
     if channels and rate:
         acquiring = "acquiring {:d} channels at {}".format(channels, rate)
     elif channels:
@@ -396,9 +474,8 @@ def health_detail(snapshot):
     else:
         acquiring = "acquiring"
     parts = [acquiring]
-    setpoints = snapshot.get("setpoints") or {}
-    if setpoints.get("plasma_a"):
-        parts.append("plasma PID on")
+    if outputs:
+        parts.append("outputs live: " + ", ".join(outputs))
     if snapshot.get("dummy"):
         parts.append("dummy hardware")
     stalled = stalled_for(snapshot)
@@ -481,7 +558,7 @@ NO_CONTROL = {
 NO_FENCE = {"needed": False, "passed": False}
 
 
-def state_body(status, version, control=None, fence=None):
+def state_body(status, version, control=None, fence=None, roster=None):
     """What every tab polls once a second: values, run facts, freshness.
 
     `control` is who holds the operator lock, read from the command queue by
@@ -512,6 +589,14 @@ def state_body(status, version, control=None, fence=None):
         "version": version,
         "acquiring": bool(snapshot.get("acquiring")),
         "dummy": bool(snapshot.get("dummy")),
+        # What the rig is doing, for the reader and for a session about to
+        # pull a new version onto the Pi: stopped, measuring only, or
+        # outputs live and which. Names only — a setpoint's value belongs to
+        # the row that sets it, on Control.
+        "operating": {
+            "state": operating_state(snapshot),
+            "outputs": live_outputs(snapshot),
+        },
         "data": {
             "state": data_state(snapshot),
             "age": snapshot.get("age"),
@@ -543,5 +628,10 @@ def state_body(status, version, control=None, fence=None):
         # never carried: the page needs to know where it stands, not what
         # the fence is made of.
         "fence": dict(fence) if fence else dict(NO_FENCE),
+        # When this machine's copy of the lab's names was last confirmed
+        # against the service that keeps them, or `None` for never. A count
+        # and a time; no address, and no names — the names are the roster's
+        # own route and the Acting-as field's business.
+        "roster": dict(roster) if roster else None,
         "channels": channels,
     }

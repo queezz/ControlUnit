@@ -24,16 +24,11 @@
             </div>
         </section>
 
-        <section class="rail-card rail-card--fit">
-            <h2 class="rail-label">Channels</h2>
-            <div class="choice-grid choice-grid--pens" role="group" aria-label="Channels">
-                {% for name, colour in pens %}
-                <button type="button" class="choice choice--pen" data-channel="{{ name }}" aria-pressed="true">
-                    <span class="pen-dot" style="background: {{ colour }}"></span>{{ name }}
-                </button>
-                {% endfor %}
-            </div>
-        </section>
+        {# The channel switches used to stand here, five in a row, and were
+           the ones queezz could not find: "all the little toggles on the
+           Live view, hard to find the one I need" (2026-09-07). Each one
+           now stands in the legend of the chart it belongs to, where the
+           curve it turns off is. One control, in one place. #}
 
         {# One axis per panel: ion gauges cross decades and read as a log
            axis, Baratrons sit in a narrow band around their own offset and
@@ -90,6 +85,24 @@
     <main class="page-main">
         <h1 class="sr-only">Live</h1>
 
+        {# What the rig is doing, at the head of the column it describes
+           (owner direction 2026-09-07: "If the rig is running. And if it's
+           measuring only or have some gas/plasma on"). Two readings and no
+           control: the left pill is the apparatus — stopped, measuring, or
+           outputs live and which — and the right one is how fresh the
+           numbers below are. Each is stated once on this page; what the
+           states mean is explained once, in the rail.
+
+           The rig can hold gas and cathode with nothing recording, which is
+           what the 2026-08-19 reader death left behind, so the left pill is
+           never read off the acquisition flag. #}
+        <div class="pills" aria-label="What the rig is doing">
+            <span class="chip chip-idle" data-role="operating">stopped</span>
+            <span class="pill-note" data-role="operating-outputs"></span>
+            <span class="chip chip-{{ state.data.state }}" data-role="data-state">{{ state.data.state }}</span>
+            <span class="mono muted" data-role="data-age"></span>
+        </div>
+
         {# Readouts: the value, in its own pen, and — on the three channels the
            rig can zero — what baseline the number already has taken off. #}
         <div class="readouts">
@@ -107,36 +120,42 @@
             {% endfor %}
         </div>
 
-        {# `data-height` is how tall each panel stands on the page, and the
+        {# One list of panels on the server, drawn here in one loop, so a
+           chart's legend and the channels its canvas actually draws cannot
+           drift apart.
+
+           `data-height` is how tall each panel stands on the page, and the
            only place that says so. The `height` attribute beside it is the
            backing buffer, which the page rewrites for the screen's own pixel
            density; reading that back as the layout height is what grew a
            220px panel to 1.8 million pixels on the owner's Retina Mac
            (2026-09-07). Two facts, two attributes, and the drawing code
-           reads only the one nothing writes. #}
-        <section class="chart" aria-label="Plasma current">
-            <header class="chart-head">
-                <h2>Plasma current, A</h2>
-                <span class="chart-span muted" data-role="span-plasma"></span>
-            </header>
-            <canvas id="chart-plasma" height="220" data-height="220" data-channels="Ip"></canvas>
-        </section>
+           reads only the one nothing writes.
 
-        <section class="chart" aria-label="Ion gauges">
+           Each panel carries its own legend, and a legend entry is the
+           switch for that curve. A curve that is switched off, has nothing
+           in the window, or is flat says so beside its own name; its last
+           value is in its readout card above, which is where every value on
+           this page is read, so the legend does not print a second copy. #}
+        {% for id, title, channels, height, span in panels %}
+        <section class="chart" aria-label="{{ title }}">
             <header class="chart-head">
-                <h2>Ion gauges, Torr</h2>
-                <span class="chart-span muted" data-role="span-ig"></span>
+                <h2>{{ title }}</h2>
+                <span class="chart-span muted" data-role="{{ span }}"></span>
             </header>
-            <canvas id="chart-ig" height="200" data-height="200" data-channels="Pu,Pd"></canvas>
+            <div class="pen-legend" role="group" aria-label="Curves in {{ title }}">
+                {% for name in channels %}
+                <button type="button" class="pen" data-channel="{{ name }}"
+                        style="--pen: {{ pen_colour[name] }}" aria-pressed="true">
+                    <span class="pen-dot"></span><span>{{ name }}</span>
+                    <span class="pen-aside" data-role="pen-aside"></span>
+                </button>
+                {% endfor %}
+            </div>
+            <canvas id="{{ id }}" height="{{ height }}" data-height="{{ height }}"
+                    data-channels="{{ channels | join(',') }}"></canvas>
         </section>
-
-        <section class="chart" aria-label="Baratrons">
-            <header class="chart-head">
-                <h2>Baratrons, Torr</h2>
-                <span class="chart-span muted" data-role="span-bar"></span>
-            </header>
-            <canvas id="chart-bar" height="200" data-height="200" data-channels="Bu,Bd"></canvas>
-        </section>
+        {% endfor %}
     </main>
 
     {# Context lives right: this run, and how fresh what you see is. #}
@@ -162,13 +181,13 @@
         </section>
 
         <section class="rail-card rail-card--fit">
-            <h2 class="rail-label">Data</h2>
-            <p class="freshness">
-                <span class="chip chip-{{ state.data.state }}" data-role="data-state">{{ state.data.state }}</span>
-                <span class="mono muted" data-role="data-age"></span>
-            </p>
-            {# The one place the other two states are explained: in words,
-               never as a second pill beside the one that is the reading. #}
+            <h2 class="rail-label">Reading this page</h2>
+            {# The one place the pills above are explained. They state; this
+               teaches, once, for the whole surface — never a second copy of
+               a pill beside the words that explain it. #}
+            <p class="muted data-key"><span class="mono">measuring</span> is recording with
+                every output at zero · <span class="mono">outputs live</span> names gas or
+                cathode holding something, recording or not</p>
             <p class="muted data-key"><span class="mono">stale</span> after
                 <span data-role="stale-after">{{ '%g' % state.data.stale_after }}</span> s without a sample ·
                 <span class="mono">idle</span> when acquisition is off</p>

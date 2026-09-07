@@ -466,7 +466,7 @@ class MainApp(QtCore.QObject, UIWindow):
 
         self.workers["ADC"]["worker"].set_plasma_current.emit(0)
         self.workers["PlasmaCurrent"]["worker"].output_voltage_signal.emit(0)
-        self.web_status.record_setpoints(plasma_a=0.0)
+        self.web_status.record_setpoints(plasma_a=0.0, cathode_mv=0.0)
 
         self._mfc_presets = {1: 0, 2: 0}
         self.update_current_values()
@@ -825,7 +825,7 @@ class MainApp(QtCore.QObject, UIWindow):
         self.plasma_control_dock.ampere_spin_box.setValue(0.0)
         self.workers["ADC"]["worker"].set_plasma_current.emit(0)
         self.workers["PlasmaCurrent"]["worker"].output_voltage_signal.emit(0)
-        self.web_status.record_setpoints(plasma_a=0.0)
+        self.web_status.record_setpoints(plasma_a=0.0, cathode_mv=0.0)
         self.log_message("Plasma current PID turned off")
 
     @QtCore.pyqtSlot(float)
@@ -833,12 +833,18 @@ class MainApp(QtCore.QObject, UIWindow):
         """
         Set voltage, recived from ADC worker in PlasmaCurrent worker
         For PID control
+
+        The web record follows the DAC rather than the PID's setpoint: this
+        is the only place that knows what the cathode is actually being
+        driven with while the loop is closed, and "is anything driven" is
+        the question the rig's operating state answers.
         """
         if not self.workers:
             return
         self.workers["PlasmaCurrent"]["worker"].output_voltage_signal.emit(
             control_voltage
         )
+        self.web_status.record_setpoints(cathode_mv=float(control_voltage))
 
     # MARK: ADC controls
     def _set_zero_ip(self):
@@ -983,7 +989,11 @@ class MainApp(QtCore.QObject, UIWindow):
         value = self.settings_dock.output_voltage_spinbox.value() * 1000
         self.workers["ADC"]["worker"].set_plasma_current.emit(0)
         self.workers["PlasmaCurrent"]["worker"].output_voltage_signal.emit(value)
-        self.web_status.record_setpoints(plasma_a=0.0)
+        # The PID is off and the cathode is driven: the exact pair that read
+        # as "nothing running" until the record carried the DAC as its own
+        # fact, and the pair that kept a plasma on after the reader died on
+        # 2026-08-19.
+        self.web_status.record_setpoints(plasma_a=0.0, cathode_mv=float(value))
         self.log_message(f"Plasma DAC output set to {value/1000:.3f} V")
 
     @QtCore.pyqtSlot()
@@ -994,6 +1004,7 @@ class MainApp(QtCore.QObject, UIWindow):
         self.settings_dock.output_voltage_spinbox.setValue(0.0)
         self.workers["ADC"]["worker"].set_plasma_current.emit(0)
         self.workers["PlasmaCurrent"]["worker"].output_voltage_signal.emit(0)
+        self.web_status.record_setpoints(plasma_a=0.0, cathode_mv=0.0)
         self.log_message("Plasma DAC output turned off")
 
 

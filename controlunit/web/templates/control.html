@@ -32,7 +32,16 @@
         </section>
 
         <section class="rail-card rail-card--fit">
-            <h2 class="rail-label">Acting as</h2>
+            {# When this machine's copy of the lab's names was last confirmed
+               against the journal that keeps them. It rides on the heading's
+               own line, where it costs the rail no height: three cards and
+               the rig's fence row already fill a 700px window exactly, and a
+               line of its own took the rail 2px past its box, which clips
+               the Stop-all note at the bottom of a short screen.
+
+               The push script still works and is still what a new Pi needs
+               once; this is how you can tell whether it is needed again. #}
+            <h2 class="rail-label">Acting as <span class="rail-aside" data-role="roster-line">{% if state.roster %}· {{ state.roster.source }} {{ state.roster.at }}{% else %}· names not read yet{% endif %}</span></h2>
             {# Where this machine holds a copy of the lab's roster the name is
                chosen from it, so one person is spelled one way across the
                lab's logs; where it holds none the field is free text, exactly

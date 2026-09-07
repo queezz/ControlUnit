@@ -182,11 +182,11 @@ a credential; the data file appears by name only.
 | `GET /control` | the Control tab |
 | `GET /log` | the Log tab |
 | `GET /lab` | the Lab tab |
-| `GET /api/health` | `{service, version, status, detail}` — the ensemble's contract; `ok` whenever the rig is up, idle included, `degraded` only for something actually impaired |
+| `GET /api/health` | `{service, version, status, detail}` — the ensemble's contract; `ok` whenever the rig is up, idle included, `degraded` only for something actually impaired. `detail` says what the rig is doing: `idle, not recording`, `acquiring 9 channels at 10 Hz`, and — whether or not anything is being recorded — `outputs live:` with the outputs named |
 | `GET /api/neighbours` | `{services: [...], checked_at: "HH:MM:SS"\|null}` — this service and its two neighbours, each with a state, and when the last probe finished on this machine's clock; answers from what this machine already knows and asks the LAN behind the answer. Every row carries `alias`, `name`, `url` (where a browser opens), `probe_url` (where this rig asked), `opens_at`, `state`, `version`, `detail`, `where`, `start_how`, `start` and `here` — starting is two keys and not one, the plain words and the literal line |
 | `GET /api/neighbours?fresh=1` | the same, with the cached answer thrown away first: every row comes back `checking` and the probe runs behind the reply, so the press never waits for the LAN |
 | `GET /api/roster` | `{"names": [...]}` — the lab's operator names this machine holds a copy of, empty when it holds none |
-| `GET /api/state` | latest values, setpoints, run facts, freshness, the Remote switch, the zeros, who has control, whether this machine asks for the lab's word and whether this browser has typed it (`fence`), and the last command; polled once a second, or four times a second under Poll: fast |
+| `GET /api/state` | latest values, setpoints, run facts, freshness, what the rig is doing (`operating: {state, outputs}`), the Remote switch, the zeros, who has control, whether this machine asks for the lab's word and whether this browser has typed it (`fence`), when this machine's copy of the roster last refreshed (`roster`, or `null` for never), and the last command; polled once a second, or four times a second under Poll: fast |
 | `GET /api/series?window=300&points=600` | thinned `[t, v]` pairs per channel over the last `window` seconds, `0` for all held |
 | `GET /api/series?since=1757200000&points=3000` | the same, but only samples strictly newer than that stamp; `since` wins over `window` |
 
@@ -228,11 +228,41 @@ of the response can tell which question was asked.
   kinds of gauge: the ion gauges cross decades, the Baratrons sit in a narrow
   band around their own offset, and drawn together neither was readable
   (owner report 2026-09-06). Each panel scales to its own visible channels.
-  The left rail chooses the window, the channels, an axis for each pressure
+  The left rail chooses the window, an axis for each pressure
   panel, the smoothing, the readout size and the poll rate; the right rail
-  states the run and how fresh the data is. Data is `live`, `stale` (no
-  sample for five sampling periods, never less than two seconds) or `idle`
-  (acquisition off).
+  states the run and explains how the page is read.
+
+    **Two pills at the head of the column, and no third.** The left one is
+    the apparatus — `stopped`, `measuring`, or `outputs live` with the
+    outputs named beside it — and the right one is how fresh the numbers
+    below are: `live`, `stale` (no sample for five sampling periods, never
+    less than two seconds) or `idle` (acquisition off). They state; the
+    right rail's *Reading this page* card explains them once, for the whole
+    surface. The apparatus pill is never read off the acquisition flag: the
+    rig can hold gas open and the cathode driven with nothing recording at
+    all, which is what the 2026-08-19 reader death left behind.
+
+    **Each chart carries its own curves' switches.** A legend entry under
+    the chart head is the switch for that curve, in that curve's own pen.
+    The five switches used to stand together in the left rail, away from the
+    lines they turned off, and were the ones the owner could not find
+    (2026-09-07: "all the little toggles on the Live view, hard to find the
+    one I need"). A switch beside its own curve needs no hunting, and the
+    choice is still remembered per browser.
+
+    **A curve that says nothing is left off its panel, and says why.** A
+    switched-off curve reads `off`; one with nothing in the window reads
+    `no data`; one whose whole excursion over the window is smaller than its
+    own last useful digit reads `flat` — under a twentieth of a decade on a
+    log axis, under 2% of its own value on a linear one. A collapsed curve
+    is out of the panel's range as well as off it, which is the point: the
+    broken upstream gauge sits at 1e-5 while the downstream one reads 1e-8,
+    and on one axis the owner "can't see either" (2026-09-07). Collapsing
+    only ever happens while another curve on the same panel is still moving,
+    so a panel never empties itself, and turning the moving one off brings
+    the flat one back. The last value is not printed in the legend: it is in
+    that channel's readout card above, where every number on this page is
+    read.
 
     **A panel's height and its backing buffer are two facts, and the code
     reads only the one nothing writes.** `data-height` on each `<canvas>` is
@@ -292,10 +322,18 @@ of the response can tell which question was asked.
   service's own health report said) and **Start** (how it is started on the
   machine it runs on) — then either an Open button with the address it
   opens beneath it, the sentence *"This is the service you are reading."*, or
-  *"No address on this machine."* Inside a card the fact labels stand above
-  their values rather than beside them: three cards across leave each one
-  about 208px at a 1280px window, and a two-column list there broke every
-  sentence after two words. The left rail holds the one control this tab has,
+  *"No address on this machine."*
+
+    **The board's own arithmetic is the reference's, to the pixel.** 16rem
+    rails, a 20px page gap, 260px cards and 14px between them — the numbers
+    the diagram and the journal carry, so all three break at the same window
+    widths: two cards across and the third below at 1280px (cards at x 296,
+    640 and 296), three across from about 1415px, which the owner's Mac has.
+    A surface that picks its own numbers breaks somewhere else, which is
+    what happened for one release. At the reference's card width the fact
+    labels stand beside their values, as they do on the other two.
+
+  The left rail holds the one control this tab has,
   **Ask again now**, with a line beneath it reading *"Not checked yet."* or
   *"Checked 14:02:57."*; the right rail holds one card, **The ensemble**,
   which is where a state is explained, once, for the whole page. Every chip
@@ -463,10 +501,31 @@ modification time or size changes, and never looked at more than once a
 second. A missing, unreadable or malformed file means no names, and the
 Acting-as field stays the free-text box it has always been.
 
-The Pi has no Dropbox and no vault, so the copy is pushed from a machine
-that has the vault, by the script kept beside the rig's launcher. Names are
+The Pi has no Dropbox and no vault, so the copy comes over the LAN. PIHTI
+Log serves the vault's roster at `GET /api/roster` on the same origin this
+rig already asks `/api/health` of, and whenever the neighbour probe finds
+that service answering, the rig fetches the roster behind it and rewrites
+its own copy. The ask rides on that probe and keeps no clock of its own, so
+the rig asks the office PC for names exactly as often as it already asks it
+how it is — at most once in ten seconds, with the same two-second
+patience — and never more.
+
+Three rules that copy holds to. It is never written in halves: the file is
+written beside itself and moved into place in one step, so a reader sees
+the whole old roster or the whole new one. A copy that already says the
+same thing is left alone, so an unchanged roster costs no write. And the
+last copy stands whenever the answer is anything but a complete roster — no
+answer, a `404` from a vault with no roster, a body that is not a roster, an
+empty list — because a name the log has been spelling correctly for a month
+should not disappear because the office PC is off. When this machine's copy
+was last confirmed is on the Control tab, on the Acting-as card's own
+heading line: *"· PIHTI Log 14:02:57"*, or *"· names not read yet"*.
+
+The push script stays. It is what a brand-new Pi needs once, and what a
+machine that cannot reach the office PC uses. Names are
 people, so the file itself never enters git; the script does. Run it again
-whenever the roster changes, and the Control tab picks the new list up
+whenever the roster changes and the rig cannot reach the journal, and the
+Control tab picks the new list up
 within a second, no restart needed. It stays a courtesy list rather than a
 credential or a list of who may drive the rig.
 

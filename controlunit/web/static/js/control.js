@@ -230,6 +230,19 @@
         return Boolean(fence.needed) && !fence.passed;
     }
 
+    /* When this machine's copy of the lab's names was last confirmed against
+       the journal that keeps them. It rides on the Acting-as heading's own
+       line, so it costs the rail no height — which this rail has none of at
+       a 700px window — and changing it moves nothing below it. */
+    function paintRoster(state) {
+        var line = root.querySelector('[data-role="roster-line"]');
+        if (!line) return;
+        var copy = state.roster;
+        line.textContent = copy
+            ? "· " + copy.source + " " + copy.at
+            : "· names not read yet";
+    }
+
     function paintControl(state) {
         var control = state.control || {};
         set('[data-role="holder"]', control.line || "Nobody has control");
@@ -309,6 +322,7 @@
         paintGauge(state);
         paintBaselines(state, map);
         paintGate(state, paintControl(state));
+        paintRoster(state);
         paintOutcome(state);
     }
 

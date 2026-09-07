@@ -314,10 +314,19 @@ class NeighbourBoard:
         clock=time.monotonic,
         prober=None,
         stamp=None,
+        after_health=None,
     ):
         self._cache_seconds = cache_seconds
         self._home = home
         self._clock = clock
+        #: Called `(alias, url)` for each neighbour that answered with a
+        #: health report, on this probe's own thread and behind a page that
+        #: has already been answered. It is how the roster mirror asks the
+        #: office PC for names on exactly the beat this board already asks
+        #: it how it is, instead of keeping a timer of its own. It learns
+        #: nothing the board did not already know, and whatever it raises is
+        #: dropped: a neighbour's own state is not its business.
+        self._after_health = after_health
         #: What a reader's watch says, for the one line that reports a time
         #: rather than an age. Injectable for the same reason `clock` is.
         self._stamp = stamp if stamp is not None else _wall_stamp
@@ -349,6 +358,13 @@ class NeighbourBoard:
                 continue
             state, version, detail = _read_health(entry["url"])
             rows.append(_row(alias, entry, state, version, detail))
+            if self._after_health is not None and state in (STATE_OK, STATE_DEGRADED):
+                try:
+                    self._after_health(alias, entry["url"])
+                except Exception:
+                    # A follower's failure is its own. The board answers for
+                    # neighbours and nothing else.
+                    pass
         return rows
 
     def _checking_rows(self):

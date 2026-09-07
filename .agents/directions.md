@@ -9,17 +9,23 @@ Nothing waiting.
 
 ## Work only queezz can do
 
-- Restart the rig onto 4.4.0, on a rig that is not acquiring — owner work
-  pending. `master` in the office checkout is at 4.4.0 and has not been
-  pushed; say the word and a session pushes it, pulls the Pi's checkout at
-  `~/work/aktest`, and leaves the restart to you. On restart: the Live
-  charts stop growing on a Retina Mac, an idle rig reads `ok` instead of
-  `degraded` on all three service boards, the Lab tab is the trio board
-  three cards across, the Log's counts stop contradicting each other, and
-  two colleagues spelled the same way are told apart in the Acting-as list.
-  Done when: `http://pihti:4187/api/health` reports 4.4.0 and, with
-  acquisition off, `status` reads `ok` with the detail "idle, not
-  recording".
+- Restart the rig onto 4.5.0, on a rig that is not acquiring and not
+  holding gas or the cathode — owner work pending. `master` in the office
+  checkout is at 4.5.0 and none of it has been pushed; say the word and a
+  session pushes it, pulls the Pi's checkout at `~/work/aktest`, and leaves
+  the restart to you. On restart: the Live charts stop growing on a Retina
+  Mac; an idle rig reads `ok` instead of `degraded` on all three service
+  boards; the rig says whether it is stopped, measuring only, or holding
+  gas or the cathode, on its own Live tab and on all three service boards;
+  the Lab tab breaks where the other two boards break; each chart carries
+  the switches for its own curves and a flat curve steps out of the way of
+  the one that is moving; the Log's counts stop contradicting each other;
+  two colleagues spelled the same way are told apart; and the lab's names
+  refresh themselves from the journal instead of waiting for the push
+  script.
+  Done when: `http://pihti:4187/api/health` reports 4.5.0 and, with
+  acquisition off and every output at zero, `status` reads `ok` with the
+  detail "idle, not recording".
 - Add the Mac-reachable address to the Pi's neighbours file — owner work
   pending. On your Mac the Pi's bare name `pihti` does not resolve, while
   `pihti.local` and the numeric address do, so the diagram's Open link on
@@ -38,10 +44,12 @@ Nothing waiting.
   worked.
 - Push the lab's roster to the rig once, from the office PC — owner work
   pending. `scripts\push_roster.ps1` copies the vault's
-  `People\operators.json` to the Pi's `~/.controlunit/`; run it again
-  whenever the roster changes.
+  `People\operators.json` to the Pi's `~/.controlunit/`. Only once now: from
+  4.5.0 the rig refreshes its own copy from PIHTI Log whenever that service
+  answers, so this is the first copy on a Pi that has none, and the fallback
+  for a day the office PC is unreachable.
   Done when: the Control tab's Acting-as field is a list of names rather
-  than a text box.
+  than a text box, and its heading says "· PIHTI Log" with a time.
 
 ## Ready to build
 
@@ -83,11 +91,56 @@ Nothing waiting.
   diagnosis (his other ask that day: "an option to show raw voltages for
   diagnosis"). Needs the ring to carry raw volts beside converted values
   (`_publish_step` has both; the CSV already writes both columns).
-- The roster over the LAN instead of by hand: if PIHTI Log exposes its
-  names at `GET /api/roster`, the rig can refresh its copy from the office
-  PC whenever that service answers and keep the last copy when it does
-  not, so nobody runs the push script again. Asked of `code/pihti-log` by
-  letter 2026-09-07; waiting on another ship.
+- Monitor and Control modes on the Live tab, designed and not built
+  (queezz, 2026-09-07: "Mode. Monitor: plots only, even hide the rails.
+  Only keep some indicator pills about status and all. Control: again, hide
+  the rails (but make them come back, a drawer?) and use full viewport real
+  estate. Maybe even full screen"). The first half of that night's work — a
+  switch per curve in each chart's own legend, and a flat curve stepping out
+  of the axis's way — shipped in 4.5.0; the modes did not, for budget.
+  What is already true and makes the rest cheap: the two status pills he
+  asked to keep are built and stand at the head of the reading column, not
+  in a rail, so hiding the rails leaves them where they are. What is left: a
+  `?mode=monitor` in the address, so a second laptop can bookmark its own
+  screen; one press that hides both rails and the tab bar; and a way to
+  bring them back — an edge drawer is the shape the diagram already uses
+  below 1199px, in `2024-interactive-diagram`'s `styles.css`, and copying
+  its drawer rather than inventing one keeps the three surfaces alike.
+  Measured constraints for whoever builds it: the reading column is 673px of
+  a 1280px window with both rails and about 1225px without them, so the
+  charts roughly double in width; the rails are 16rem each and the tab bar
+  56px; and the whole Perimeter Walk has to run again at 1280×700,
+  1280×1000, 1440×900 and 390px, because hiding the rails changes every
+  measurement in it.
+- The Control tab's density, his other complaint the same night: "I don't
+  have many controls, but they are spread nicely but thin. Not on a glance.
+  Need better UX." Not built, and not designed either — it wants his eye on
+  the page before anyone moves a row. What is measured: the five groups
+  stand in one column 673px wide at 1280px, each row a name, a field, a
+  holding value, a measured value and its presses, and the page is 1248px
+  tall at 1280×1000, so about a third of it is below the fold. The obvious
+  moves are two columns of groups at wide widths, or the side-by-side of
+  control and plots he asked about — "Ideally control plus plots should live
+  side by side. Like in the GUI. For real operation. But that's maybe too
+  crowded." Both are the same question as the modes above and should be
+  answered with them rather than separately.
+- Presets for what the Live tab shows (the Commander's suggestion,
+  2026-09-07, offered rather than ordered, and queezz has not ruled on it):
+  a Vacuum preset and a Plasma preset choosing which curves and which panels
+  are shown, remembered per browser, so the page is set for the work rather
+  than curve by curve. Worth building after the modes above, and worth
+  asking him first whether the per-curve switches already cover it — 4.5.0
+  may have answered the complaint that prompted it.
+- A noise floor per channel, so the current with no plasma can step out of
+  the way too (queezz, 2026-09-07: the current plot with no plasma is "a
+  noisy waste of space"). 4.5.0 collapses a curve whose excursion is smaller
+  than its own last useful digit, which catches the broken upstream gauge
+  stuck at 1e-5 but not this one: noise around zero has a large excursion
+  relative to its own size, and nothing in the browser can tell it from a
+  real small current. Needs from queezz: below what current, in amperes, Ip
+  is not worth a panel — and the same question for any other channel with a
+  meaningful floor. One number each, and the existing rule then covers both
+  cases.
 - Sync the rig's data to the NAS (queezz, 2026-09-07: "we need later to
   build the sync to NAS feature. But not today"). The record is
   `~/work/cudata` on the Pi — one CSV per run, 1324 files today, plus
@@ -176,6 +229,20 @@ Nothing waiting.
   Services board with the three siblings' shared state meanings (PIHTI
   Log's letter `20260907-d526b38c-482393`, answered by
   `20260907-d1c08989-87a3b7`).
+- 4.5.0 (2026-09-07, night): the Lab board's own numbers are the diagram's
+  and the journal's — 16rem rails, 260px cards, a 14px gap — so all three
+  break at the same window widths (two across and one below at 1280, three
+  across from about 1415, which his Mac has), with the fact labels beside
+  their values again; the rig says whether it is stopped, measuring only, or
+  holding gas or the cathode, in `/api/health`'s detail, in `/api/state`, on
+  the Live tab's own pills and in the check `AGENTS.md` now writes into the
+  Pi-update recipe; the lab's names refresh themselves from PIHTI Log's
+  `/api/roster` behind the neighbour probe, keeping the last copy when it
+  does not answer, with the push script kept as the fallback; and every
+  chart carries the switches for its own curves, with a switched-off, empty
+  or flat curve saying so and stepping out of the axis's way. Letters
+  `20260907-f9a313ab` and `20260907-95bde394` collected; notes
+  `20260907-2e0205ef` and `20260907-6f353ea0` logged and acted on.
 - 4.4.0 (2026-09-07): PIHTI Log's Mac audit and three owner directions of
   that day, all shipped — the Live charts no longer grow on a Retina screen
   (a panel's layout height and its drawing buffer are two attributes now);

@@ -45,7 +45,14 @@
      so nothing moves the instant stickiness engages. */
   --bar: 56px;
   --content-gap: 20px;
-  --rail-w: 17rem;
+  /* 16rem, the width the diagram and the journal both use. The three
+     surfaces share one board and must break at the same window widths: at
+     17rem this rig's rails took 32px more out of the reading column than
+     theirs, so its board went three-across 32px later — past the owner's
+     own 1440px Mac, which showed three on the other two and two-plus-one
+     here (Commander's correction 2026-09-07). The rails are the arithmetic
+     behind the breakpoint, so they are part of the contract. */
+  --rail-w: 16rem;
   --page-max: 1500px;
   /* A headed group's own inset: its 14px top padding plus its 1px border.
      An anchor's landing subtracts this so the heading, not the card's edge,
@@ -305,8 +312,6 @@ input.find:focus, select.find:focus { border-color: var(--accent); outline: none
   gap: 6px;
 }
 
-.choice-grid--pens { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-
 .choice-row {
   display: flex;
   align-items: center;
@@ -343,13 +348,6 @@ input.find:focus, select.find:focus { border-color: var(--accent); outline: none
   font-weight: 600;
 }
 
-.choice--pen {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
 .pen-dot {
   display: inline-block;
   width: 9px;
@@ -357,10 +355,6 @@ input.find:focus, select.find:focus { border-color: var(--accent); outline: none
   border-radius: 50%;
   flex: 0 0 auto;
 }
-
-/* A channel switched off keeps its place and its dot, dimmed. */
-.choice--pen[aria-pressed="false"] { opacity: 0.55; }
-.choice--pen[aria-pressed="true"] { color: var(--fg); background: var(--accent-wash); border-color: var(--accent); font-weight: 500; }
 
 /* -- facts lists ------------------------------------------------------- */
 
@@ -406,6 +400,13 @@ dl.facts dd.wide { margin-top: -2px; }
    fault, but in the brighter --muted, so a state still on its way does not
    read as one this machine was never told about. */
 .chip-checking { color: var(--muted); border-style: dotted; border-color: var(--muted); background: none; }
+/* The apparatus is driven. Not a fault — somebody meant to open the gas —
+   so it is the page's own accent rather than the alarm colour, and it is
+   the loudest thing in the pill row because it is what a person about to
+   restart the rig has to see. */
+.chip-outputs { color: var(--accent); border-color: rgba(224, 166, 58, 0.55); background: var(--accent-wash); font-weight: 600; }
+.chip-measuring { color: var(--live); border-color: rgba(92, 191, 143, 0.45); background: var(--live-wash); }
+.chip-stopped { color: var(--dim); border-style: dotted; border-color: var(--dim); background: none; }
 
 /* -- readouts and charts (Live) ---------------------------------------- */
 
@@ -570,8 +571,66 @@ dl.facts dd.wide { margin-top: -2px; }
 
 .chart canvas { display: block; width: 100%; }
 
-.freshness { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; min-height: 1.6em; }
-.data-key { margin: 0; font-size: 0.86rem; }
+/* Each chart's own legend, and each entry is the switch for that curve —
+   the five channel switches used to stand together in the rail, which is
+   where the owner could not find the one he wanted (2026-09-07: "all the
+   little toggles on the Live view, hard to find the one I need"). A switch
+   beside the curve it turns off needs no hunting.
+
+   The dot carries the curve's own pen through the `--pen` variable the
+   markup sets, so a legend entry and its line cannot drift apart. */
+.pen-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+}
+
+.pen {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.84rem;
+  letter-spacing: 0.02em;
+}
+
+.pen .pen-dot { background: var(--pen, currentColor); }
+.pen[aria-pressed="true"] { color: var(--pen, var(--fg)); border-color: color-mix(in srgb, var(--pen, var(--line)) 45%, transparent); }
+/* A curve switched off keeps its place and its dot, dimmed: the reader
+   turned it off and must be able to find it again. */
+.pen[aria-pressed="false"] { opacity: 0.5; }
+
+/* Why this curve is not on the panel, in one word beside its own name.
+   Never its value: every value on this page is read in the readout card
+   above, and a second copy here would be the same number twice. */
+.pen-aside { color: var(--muted); font-size: 0.78rem; }
+
+/* The two readings at the head of the reading column. Both chips reserve
+   the width of the longest state either can hold — `outputs live` at 12
+   characters, `unreachable` at 11 — so a state changing under a poll never
+   moves the pill beside it. The freshness pair is pushed to the far end of
+   the row, so the outputs note between them can grow to name three outputs
+   without shifting anything a reader is looking at. */
+.pills {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 0 0 16px;
+  min-height: 1.9em;
+}
+
+.pills .chip { min-width: 12ch; }
+/* By role and not by class: the state class on this chip is rewritten on
+   every poll, and an attribute the page never writes cannot be wiped. */
+.pills [data-role="data-state"] { margin-left: auto; }
+.pill-note { font-size: 0.88rem; color: var(--muted); }
+
+.data-key { margin: 0 0 8px; font-size: 0.86rem; }
+.data-key:last-child { margin-bottom: 0; }
 
 /* -- the Control tab --------------------------------------------------- */
 
@@ -793,17 +852,22 @@ dl.facts dd.wide { margin-top: -2px; }
 
 /* -- service cards (Lab) ----------------------------------------------- */
 
-/* Three cards across, the same board the diagram and the journal draw
-   (owner direction 2026-09-07, from the three surfaces side by side: "they
-   should be identical"). Stacked full-width, the third service sat below a
-   Mac's viewport and had to be hunted for; across, the whole ensemble is
-   one glance. The reading column is 656px wide at a 1280px window, so each
-   card is about 208px there and the same three still fit; below the rail
-   breakpoint the tracks fall to one and the cards stack. */
+/* The same board the diagram and the journal draw, down to the arithmetic
+   (owner direction 2026-09-07: "they should be identical"). These three
+   numbers and the 16rem rails above decide where the board breaks, so all
+   three surfaces must carry the same ones or they break at different window
+   widths — which is what happened: 190px cards went three-across at 1280
+   where the reference lays two across and one below, and the fact labels
+   had to stack to survive a 203px card.
+
+   What the reference does, and now this one too: the reading column is
+   673px at a 1280px window, so two 329px cards stand across and the third
+   falls below them; three fit from about 1415px, which the owner's Mac
+   has. Below the rail breakpoint the tracks fall to one and they stack. */
 .services {
   display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
 /* A bounded card is wayfinding, not decoration: the eye jumps to the
@@ -825,23 +889,11 @@ dl.facts dd.wide { margin-top: -2px; }
 
 .service-head h2 { margin: 0; font-size: 1.02rem; }
 
-/* Three cards across the reading column leaves each one about 208px at a
-   1280px window, and a two-column facts list there gives the value barely a
-   hundred pixels to live in — every sentence broke after two words. Inside
-   a service card the label stands above its value: the same three facts,
-   read down the card rather than across it. */
-.service dl.facts {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 2px 0;
-}
-
-.service dl.facts dt {
-  font-size: 0.78rem;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-.service dl.facts dd + dt { margin-top: 10px; }
+/* The labels stand beside their values, the way the reference draws them.
+   They were stacked above for one release, when a 203px card left the value
+   about a hundred pixels and broke every sentence after two words; at the
+   reference's own card width — 329px at 1280, and never below 260px — the
+   label column takes about 55px and the value keeps the rest. */
 
 /* What a service said of itself is the one fact on the card that changes
    under the reader, so its row is two lines of room whether the sentence is
@@ -998,7 +1050,6 @@ dl.facts dd.wide { margin-top: -2px; }
   .rail-card > .scrolls { overflow: visible; }
 
   .choice-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
-  .choice-grid--pens { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
 
 @media (max-width: 620px) {

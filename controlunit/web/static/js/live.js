@@ -361,6 +361,23 @@
         var mfc2 = sp.mfc2_v !== undefined ? Math.round(Number(sp.mfc2_v)) : 0;
         text("mfc", "H₂ " + mfc1 + " mV · O₂ " + mfc2 + " mV");
 
+        /* What the rig is doing, which is not what the acquisition flag
+           says: gas and cathode can be held with nothing recording. The
+           chip's class is the state with its space taken out, so `outputs
+           live` wears `chip-outputs`. */
+        var operating = state.operating || {};
+        var doing = operating.state || "stopped";
+        var rig = root.querySelector('[data-role="operating"]');
+        if (rig) {
+            rig.textContent = doing;
+            rig.className = "chip chip-" + doing.split(" ")[0];
+        }
+        var outputs = root.querySelector('[data-role="operating-outputs"]');
+        if (outputs) {
+            var named = operating.outputs || [];
+            outputs.textContent = named.length ? named.join(" · ") : "";
+        }
+
         var data = state.data || {};
         var chip = root.querySelector('[data-role="data-state"]');
         if (chip) {
@@ -535,15 +552,20 @@
         if (view.window > 0) from = Math.max(from, to - view.window);
         if (!(to > from)) to = from + 1;
 
-        // Gather the points to draw and the y range they need.
-        var lines = [];
+        /* Gather every curve this panel could draw, then decide which of
+           them the axis is for. A curve that is switched off, empty in this
+           window, or flat is left out of the range as well as off the
+           panel: the whole point of leaving it out is that the axis then
+           belongs to the curves that are actually moving. */
+        var series = [];
         var count = 0;
-        var lo = Infinity, hi = -Infinity;
         channelsOf(canvas).forEach(function (name) {
-            if (!name || !view.channels[name]) return;
-            var points = slice(name, from, to);
+            if (!name) return;
+            var chosen = view.channels[name] !== false;
+            var points = chosen ? slice(name, from, to) : [];
             if (points.length > count) count = points.length;
             var kept = [];
+            var lo = Infinity, hi = -Infinity;
             points.forEach(function (p) {
                 var v = p[1];
                 if (v === null || v === undefined || !isFinite(v)) return;
@@ -555,7 +577,33 @@
                 if (v < lo) lo = v;
                 if (v > hi) hi = v;
             });
-            lines.push({name: name, points: kept});
+            series.push({name: name, chosen: chosen, points: kept, lo: lo, hi: hi});
+        });
+
+        /* Flat is decided against a curve's own size, not against a number
+           picked here: a change of less than 2% of the value on a linear
+           axis, or less than a twentieth of a decade on a log one. Both are
+           far below anything a person would call a trend and far above the
+           last digit of an ADC.
+
+           Collapsing only ever happens while another curve on the same
+           panel is still moving, so a panel never empties itself, and a
+           reader who wants the flat one back turns the other one off. */
+        var moving = series.filter(function (s) {
+            return s.chosen && s.points.length && !isFlat(s, logScale);
+        });
+        series.forEach(function (s) {
+            s.state = !s.chosen ? "off"
+                : !s.points.length ? "absent"
+                : (moving.length && isFlat(s, logScale)) ? "flat"
+                : "drawn";
+        });
+
+        var lines = series.filter(function (s) { return s.state === "drawn"; });
+        var lo = Infinity, hi = -Infinity;
+        lines.forEach(function (s) {
+            if (s.lo < lo) lo = s.lo;
+            if (s.hi > hi) hi = s.hi;
         });
 
         if (!isFinite(lo)) { lo = logScale ? -8 : 0; hi = logScale ? 0 : 1; }
@@ -617,13 +665,57 @@
             ctx.fill();
         });
 
-        return {from: from, to: to, count: count};
+        return {from: from, to: to, count: count, series: series};
+    }
+
+    /* A curve whose whole excursion over the drawn window is smaller than
+       its own last digit of interest. On a log axis the points are already
+       decades, so the bound is a span; on a linear one it is a fraction of
+       the value itself, because 2% means nothing without a magnitude.
+
+       Three points, not two: a pair that happens to be equal is not
+       evidence of anything, and a curve that has only just started drawing
+       must not be called flat before it has had room to move. */
+    var FLAT_DECADES = 0.05;
+    var FLAT_FRACTION = 0.02;
+
+    function isFlat(s, logScale) {
+        if (s.points.length < 3) return false;
+        var span = s.hi - s.lo;
+        if (!isFinite(span)) return false;
+        if (logScale) return span < FLAT_DECADES;
+        var size = Math.max(Math.abs(s.hi), Math.abs(s.lo));
+        if (!(size > 0)) return true;
+        return span / size < FLAT_FRACTION;
+    }
+
+    /* Why a curve is not on its panel, beside its own name. `drawn` says
+       nothing: a curve that is there needs no caption. The value is not
+       repeated here — it is in that channel's readout card above, which is
+       where every number on this page is read. */
+    var LEGEND_ASIDE = {off: "off", absent: "no data", flat: "flat", drawn: ""};
+
+    function paintLegend(canvas, drawn) {
+        if (!canvas || !drawn) return;
+        var legend = canvas.parentNode.querySelector(".pen-legend");
+        if (!legend) return;
+        drawn.series.forEach(function (s) {
+            var button = legend.querySelector('[data-channel="' + s.name + '"]');
+            if (!button) return;
+            button.setAttribute("aria-pressed", s.chosen ? "true" : "false");
+            var aside = button.querySelector('[data-role="pen-aside"]');
+            if (aside) aside.textContent = LEGEND_ASIDE[s.state] || "";
+        });
     }
 
     function drawAll() {
-        span("span-plasma", draw(plasma, false));
-        span("span-ig", draw(gauges, view.igLog));
-        span("span-bar", draw(baratrons, view.barLog));
+        [[plasma, "span-plasma", false],
+         [gauges, "span-ig", view.igLog],
+         [baratrons, "span-bar", view.barLog]].forEach(function (panel) {
+            var drawn = draw(panel[0], panel[2]);
+            span(panel[1], drawn);
+            paintLegend(panel[0], drawn);
+        });
     }
 
     function span(role, drawn) {
