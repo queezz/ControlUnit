@@ -60,13 +60,13 @@ holds what is still undecided or unbuilt.
   "reader lost" is what makes that press meaningful; the automatic retry
   inside the reader is what makes it rare. And the launcher keeps the
   program's error output in a file beside the data, so the next death
-  leaves its traceback. Fifth, if the plasma box thermocouple is on the
-  Pi (queezz asked 2026-09-07; the MAX6675 worker exists on SPI CS0 but
-  its line in `define_devices` is commented out, so nothing reads it
-  today — needs from queezz: whether that thermocouple is wired to CS0):
-  start the worker again and add two warnings to the same alarm, "no
-  thermocouple signal" and "temperature rising", the second against a
-  slope over a few minutes rather than a threshold.
+  leaves its traceback. Fifth, later, the plasma box thermocouple (queezz, 2026-09-07): it
+  is not on the Pi at all — the MAX6675 worker in the code was the old
+  membrane heater's, not this one — and reading it needs a thermocouple
+  amplifier module wired in first, his hardware work. Once it reads, two
+  warnings join the same alarm: "no thermocouple signal" and "temperature
+  rising", the second against a slope over a few minutes rather than a
+  threshold.
 
 - A diagnostics tab for the ADC and the DACs (queezz, 2026-09-07: "it'd be
   nice to have a diagnostic tab for ADC/DAC. ADC one showing all channels"):
