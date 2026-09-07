@@ -96,6 +96,62 @@ def test_stop_all_says_nothing_and_needs_nothing():
     assert commands.validate_stop_all({"anything": 1}) == {}
 
 
+def test_starting_and_stopping_a_run_say_nothing_either():
+    assert commands.validate_start(None) == {}
+    assert commands.validate_start({"anything": 1}) == {}
+    assert commands.validate_stop(None) == {}
+    assert commands.validate_stop({"anything": 1}) == {}
+
+
+def test_a_sampling_time_is_one_of_the_four_the_rig_offers():
+    for seconds in commands.SAMPLING_CHOICES:
+        assert commands.validate_sampling({"seconds": seconds}) == {"seconds": seconds}
+    # A browser sends JSON; a number that arrived as text is still a number.
+    assert commands.validate_sampling({"seconds": "0.1"}) == {"seconds": 0.1}
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {},
+        {"seconds": 0},
+        {"seconds": 5},
+        {"seconds": -1},
+        {"seconds": 0.5},
+        {"seconds": "fast"},
+        {"seconds": None},
+    ],
+)
+def test_a_sampling_time_the_rig_does_not_offer_is_refused(body):
+    with pytest.raises(commands.Invalid) as refused:
+        commands.validate_sampling(body)
+    # The reason names the four on offer, in the reader's own words.
+    assert "10 s" in str(refused.value) or "seconds" in str(refused.value)
+
+
+def test_the_sampling_choices_are_written_the_way_the_dock_writes_them():
+    assert [label for _, label in commands.sampling_choices()] == [
+        "10 s",
+        "1 s",
+        "0.1 s",
+        "0.01 s",
+    ]
+    assert [value for value, _ in commands.sampling_choices()] == [
+        "10",
+        "1",
+        "0.1",
+        "0.01",
+    ]
+
+
+def test_the_three_new_summaries_read_as_the_log_will_print_them():
+    assert commands.summarise("start", {}) == "acquisition started"
+    assert commands.summarise("stop", {}) == "acquisition stopped"
+    assert commands.summarise("sampling", {"seconds": 10.0}) == "sampling 10 s"
+    assert commands.summarise("sampling", {"seconds": 0.1}) == "sampling 0.1 s"
+    assert commands.summarise("sampling", {"seconds": 0.01}) == "sampling 0.01 s"
+
+
 def test_an_unknown_kind_is_refused():
     with pytest.raises(commands.Invalid):
         commands.validate("launch", {})
@@ -111,7 +167,11 @@ def test_a_name_is_reduced_to_something_safe_to_print():
 # -- who may press what -------------------------------------------------------
 
 
-@pytest.mark.parametrize("kind", ["mfc", "plasma", "gauge", "sync", "zero"])
+#: Every kind the switch and the operator lock stand in front of.
+GATED = ["start", "stop", "sampling", "mfc", "plasma", "gauge", "sync", "zero"]
+
+
+@pytest.mark.parametrize("kind", GATED)
 def test_setting_needs_the_switch_and_nothing_else(kind):
     """The switch on the rig authorises; a name is a label, never a gate."""
     assert commands.refusal(kind, False, "queezz") == commands.NO_REMOTE
@@ -161,7 +221,7 @@ def test_stopping_the_outputs_neither_takes_control_nor_needs_it():
     )
 
 
-@pytest.mark.parametrize("kind", ["mfc", "plasma", "gauge", "sync", "zero"])
+@pytest.mark.parametrize("kind", GATED)
 def test_a_second_person_is_refused_with_the_holder_sentence(kind):
     desk = commands.CommandQueue()
     desk.submit("mfc", {"n": 1, "mv": 100}, actor="Arseniy", origin="10.249.254.30")
@@ -252,10 +312,26 @@ def test_a_browser_with_neither_name_nor_address_takes_nothing():
     assert desk.control.read()["holder"] == ""
 
 
-def test_only_stopping_works_without_the_workers():
+def test_starting_a_run_claims_control_like_any_other_setter():
+    """Whoever stopped the run takes the lock back by starting the next one."""
+    desk = commands.CommandQueue()
+    desk.submit("start", {}, actor="Arseniy", origin="10.249.254.30")
+    assert desk.control.read()["holder"] == "Arseniy"
+
+
+def test_only_stopping_and_starting_work_without_the_workers():
     assert commands.needs_acquisition("stop_all") is False
-    for kind in ("mfc", "plasma", "gauge", "sync", "zero"):
+    # Starting is the one command that means something only while idle.
+    assert commands.needs_acquisition("start") is False
+    for kind in ("stop", "sampling", "mfc", "plasma", "gauge", "sync", "zero"):
         assert commands.needs_acquisition(kind) is True
+
+
+def test_starting_is_the_one_command_that_wants_an_idle_rig():
+    assert commands.needs_idle("start") is True
+    for kind in commands.KINDS:
+        if kind != "start":
+            assert commands.needs_idle(kind) is False
 
 
 # -- the queue ----------------------------------------------------------------
@@ -305,6 +381,9 @@ class ComboBox(object):
     def currentText(self):
         return self.items[self.index]
 
+    def findText(self, text):
+        return self.items.index(text) if text in self.items else -1
+
 
 class Switch(object):
     def __init__(self):
@@ -342,6 +421,16 @@ class ControlDock(object):
         self.IGmode = ComboBox(["Torr", "Pa"])
         self.IGrange = SpinBox(-3)
         self.qmsSigSw = Switch()
+        self.OnOffSW = Switch()
+
+
+class SettingsDock(object):
+    def __init__(self):
+        self.samplingCb = ComboBox(
+            [commands.sampling_label(s) for s in commands.SAMPLING_CHOICES]
+        )
+        # The real dock rests on 0.1 s, its third item.
+        self.samplingCb.setCurrentIndex(2)
 
 
 class FakeApp(object):
@@ -352,13 +441,39 @@ class FakeApp(object):
         self.gasflow_dock = GasFlowDock()
         self.plasma_control_dock = PlasmaDock()
         self.control_dock = ControlDock()
+        self.settings_dock = SettingsDock()
         self.web_status = RigStatus(names=NAMES)
+        self.web_status.set_acquiring(running)
+        self.control_dock.OnOffSW.setChecked(running)
         self.web_commands = commands.CommandQueue()
         self.calls = []
         self.messages = []
 
     def turn_off_voltages(self):
         self.calls.append(("turn_off_voltages",))
+
+    #: The two halves of what the on/off switch on the rig's screen does, as
+    #: `MainApp` splits them, standing in for the workers they start and stop.
+    def start_acquisition(self):
+        self.workers = {"ADC": object()}
+        self.web_status.set_acquiring(True)
+        self.calls.append(("start_acquisition",))
+
+    def stop_acquisition(self):
+        self.workers = {}
+        self.web_status.set_acquiring(False)
+        # What `abort_all_threads` does, and all it does, to browser control:
+        # the Remote switch is never touched here.
+        commands.release(self, "acquisition stopped")
+        self.calls.append(("stop_acquisition",))
+
+    def set_sampling(self, seconds):
+        index = self.settings_dock.samplingCb.findText(
+            commands.sampling_label(seconds)
+        )
+        if index >= 0:
+            self.settings_dock.samplingCb.setCurrentIndex(index)
+        self.calls.append(("set_sampling", seconds))
 
     def set_mfc_goal(self, number):
         self.calls.append(("set_mfc_goal", number, self.gasflow_dock.millivolts(number)))
@@ -482,6 +597,88 @@ def test_stop_all_turns_the_outputs_off_and_zeroes_the_screen():
     assert app.calls == [("turn_off_voltages",)]
     assert app.plasma_control_dock.ampere_spin_box.value() == 0.0
     assert app.gasflow_dock.millivolts(1) == 0
+
+
+def test_starting_a_run_sets_the_switch_then_takes_the_switch_s_own_path():
+    app = FakeApp(running=False)
+    app.web_commands.submit("start", {}, actor="queezz")
+    commands.drain(app)
+    assert app.calls == [("start_acquisition",)]
+    # The rig's own screen agrees with what the browser did.
+    assert app.control_dock.OnOffSW.isChecked() is True
+    assert app.web_status.read()["acquiring"] is True
+    assert app.messages[-1] == "Remote: queezz: acquisition started"
+
+
+def test_starting_a_run_that_is_already_running_is_refused_on_the_main_thread():
+    """A second press, one poll apart, must not lay workers over workers."""
+    app = FakeApp(running=True)
+    app.web_commands.submit("start", {}, actor="queezz")
+    commands.drain(app)
+    assert app.calls == []
+    record = app.web_status.read()["last_command"]
+    assert record["outcome"] == commands.REFUSED
+    assert record["reason"] == commands.ALREADY_ACQUIRING
+
+
+def test_stopping_a_run_sets_the_switch_then_takes_the_switch_s_own_path():
+    app = FakeApp(running=True)
+    app.web_commands.submit("stop", {}, actor="queezz")
+    commands.drain(app)
+    assert app.calls == [("stop_acquisition",)]
+    assert app.control_dock.OnOffSW.isChecked() is False
+    assert app.web_status.read()["acquiring"] is False
+    assert app.messages[-1] == "Remote: queezz: acquisition stopped"
+
+
+def test_stopping_a_run_leaves_the_remote_switch_exactly_where_it_was():
+    """The switch is the rig's own; a browser's Stop never takes it down."""
+    app = FakeApp(running=True)
+    app.web_status.set_remote(True)
+    app.web_commands.submit("stop", {}, actor="queezz", origin="10.0.0.5")
+    commands.drain(app)
+    assert app.web_status.read()["remote"] is True
+    # Control is let go of, though, so the next browser is not shut out.
+    assert app.web_commands.control.read()["holder"] == ""
+    assert "Control released (acquisition stopped)" in app.messages
+
+
+def test_stopping_a_run_that_is_not_running_is_refused():
+    app = FakeApp(running=False)
+    app.web_commands.submit("stop", {}, actor="queezz")
+    commands.drain(app)
+    assert app.calls == []
+    record = app.web_status.read()["last_command"]
+    assert record["outcome"] == commands.REFUSED
+    assert record["reason"] == commands.NO_ACQUISITION
+
+
+def test_a_sampling_command_sets_the_combo_then_the_one_method():
+    app = FakeApp(running=True)
+    app.web_commands.submit("sampling", {"seconds": 10.0}, actor="queezz")
+    commands.drain(app)
+    assert app.calls == [("set_sampling", 10.0)]
+    assert app.settings_dock.samplingCb.currentText() == "10 s"
+    assert app.messages[-1] == "Remote: queezz: sampling 10 s"
+
+
+def test_a_sampling_command_without_a_run_is_refused():
+    app = FakeApp(running=False)
+    app.web_commands.submit("sampling", {"seconds": 1.0}, actor="queezz")
+    commands.drain(app)
+    assert app.calls == []
+    assert app.web_status.read()["last_command"]["reason"] == commands.NO_ACQUISITION
+
+
+def test_a_browser_may_stop_and_start_again_in_one_drain():
+    """The pair a person actually presses: end the run, begin the next."""
+    app = FakeApp(running=True)
+    app.web_commands.submit("stop", {}, actor="queezz")
+    app.web_commands.submit("start", {}, actor="queezz")
+    assert commands.drain(app) == 2
+    assert [call[0] for call in app.calls] == ["stop_acquisition", "start_acquisition"]
+    assert app.web_status.read()["acquiring"] is True
+    assert app.control_dock.OnOffSW.isChecked() is True
 
 
 def test_commands_run_in_the_order_they_were_queued():
@@ -650,6 +847,8 @@ def app_for(status, tmp_path, desk=None, home=None):
 
 
 SETTERS = [
+    ("/api/acquisition/stop", {}),
+    ("/api/sampling", {"seconds": 1}),
     ("/api/mfc/1", {"mv": 1000}),
     ("/api/plasma-current", {"a": 1.0}),
     ("/api/gauge", {"mode": "Pa"}),
@@ -698,9 +897,50 @@ def test_a_setter_with_no_acquisition_is_a_conflict(path, body, tmp_path):
     assert response.get_json()["reason"] == commands.NO_ACQUISITION
 
 
+def test_a_browser_may_start_a_run_on_an_idle_rig(tmp_path):
+    desk = commands.CommandQueue()
+    client = app_for(rig(remote=True, acquiring=False), tmp_path, desk).test_client()
+    client.set_cookie("actor", "queezz")
+    response = client.post("/api/acquisition/start", json={})
+    assert response.status_code == 202
+    assert response.get_json()["value"] == "acquisition started"
+    assert [c.kind for c in desk.take_all()] == ["start"]
+
+
+def test_starting_a_run_that_already_runs_is_a_conflict(tmp_path):
+    """The one command refused for the opposite fact, in its own words."""
+    desk = commands.CommandQueue()
+    client = app_for(rig(remote=True, acquiring=True), tmp_path, desk).test_client()
+    client.set_cookie("actor", "queezz")
+    response = client.post("/api/acquisition/start", json={})
+    assert response.status_code == 409
+    assert response.get_json()["reason"] == commands.ALREADY_ACQUIRING
+    assert desk.take_all() == []
+
+
+def test_starting_a_run_still_needs_the_switch_on_the_rig(tmp_path):
+    client = app_for(rig(remote=False, acquiring=False), tmp_path).test_client()
+    client.set_cookie("actor", "queezz")
+    response = client.post("/api/acquisition/start", json={})
+    assert response.status_code == 403
+    assert response.get_json()["reason"] == commands.NO_REMOTE
+
+
+def test_a_sampling_time_the_rig_does_not_offer_is_a_four_hundred(tmp_path):
+    client = app_for(rig(remote=True), tmp_path).test_client()
+    client.set_cookie("actor", "queezz")
+    response = client.post("/api/sampling", json={"seconds": 3})
+    assert response.status_code == 400
+    reason = response.get_json()["reason"]
+    assert reason and reason[0].islower()
+    assert "0.01 s" in reason
+
+
 @pytest.mark.parametrize(
     "path, body",
     [
+        ("/api/sampling", {}),
+        ("/api/sampling", {"seconds": "quick"}),
         ("/api/mfc/1", {"mv": 9999}),
         ("/api/mfc/9", {"mv": 10}),
         ("/api/plasma-current", {"a": 9}),
@@ -979,7 +1219,16 @@ def test_an_untouched_rig_says_nobody_has_control(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "path", ["/api/stop-all", "/api/gauge", "/api/identify", "/api/take-over"]
+    "path",
+    [
+        "/api/stop-all",
+        "/api/gauge",
+        "/api/identify",
+        "/api/take-over",
+        "/api/acquisition/start",
+        "/api/acquisition/stop",
+        "/api/sampling",
+    ],
 )
 def test_a_command_route_answers_nothing_to_a_get(path, tmp_path):
     client = app_for(rig(remote=True), tmp_path).test_client()

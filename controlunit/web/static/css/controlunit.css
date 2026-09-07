@@ -582,8 +582,14 @@ dl.facts dd.wide { margin-top: -2px; }
 
 .setpoint:focus { border-color: var(--accent); outline: none; }
 
-/* The Acquisition group's facts run wide: this group is read, not pressed. */
+/* The Acquisition group's facts run wide: they are what the group's own two
+   rows of presses are read against, above them and never between them. */
 .facts--wide { grid-template-columns: auto minmax(0, 1fr); }
+
+/* A group whose facts are followed by rows needs the same air between them
+   that a heading gives its first row, or the run's numbers sit on the Start
+   button. */
+.facts + .rows { margin-top: 12px; }
 
 /* -- the Control tab's left rail --------------------------------------- */
 
@@ -600,10 +606,14 @@ dl.facts dd.wide { margin-top: -2px; }
    button under the reason it answers, never a word beside it. */
 .take-over { display: block; width: 100%; margin: 0 0 10px; }
 
-/* The gate's one reason, and the room for the longest of the four. Three of
-   them ("Setting is off until the switch on the rig is on.", "… until you
-   save a name below.", "… while no acquisition is running.") take two lines
-   in this rail; the fourth ("You may set what the rig holds.") takes one.
+/* The gate's one reason, and the room for the longest of the five. Four of
+   them ("Setting is off until the switch on the rig is on." at 48
+   characters, "… until you take control below." at 44, "… while no
+   acquisition is running." at 46, and "Nothing is running; you may start
+   acquisition." at 46) take two lines in this rail; the fifth ("You may set
+   what the rig holds.") takes one. The card's text column is 17rem less its
+   own padding, about 244px, and this line is 0.88rem, so a third line needs
+   past seventy characters — none of the five comes near it.
    With no reservation at all the card shrank by a line the moment the gate
    opened, and the Acting-as and Stop-all-outputs cards below it jumped 21px
    — at exactly the moment the switch on the rig was thrown, which is when

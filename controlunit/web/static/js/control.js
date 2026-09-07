@@ -18,6 +18,14 @@
 
     var STATE_MS = 1000;
 
+    /* Stopping ends the run, so it is asked once, here, in the browser's own
+       words — the same sentence the group's note carries, because a person
+       must not read one thing and be asked another. The rig's own switch
+       asks the same question in a Qt popup. */
+    var STOP_QUESTION =
+        "Stopping closes the data file and turns every output off. " +
+        "Stop acquisition?";
+
     var root = document.getElementById("control");
     if (!root) return;
 
@@ -111,6 +119,21 @@
             chip.textContent = word;
             chip.className = "chip chip-" + word;
         }
+
+        /* The sampling time the rig holds, and the rate it works out to —
+           the same two facts the right rail carries, said here beside the
+           buttons that change them. */
+        var sampling = run.sampling === null || run.sampling === undefined
+            ? null
+            : Number(run.sampling);
+        set('[data-role="sampling-now"]',
+            sampling === null || !isFinite(sampling)
+                ? "—"
+                : String(sampling) + " s" + (run.rate ? " · " + run.rate : ""));
+        root.querySelectorAll('[data-role="sampling"]').forEach(function (button) {
+            var held = sampling !== null && Number(button.dataset.seconds) === sampling;
+            button.setAttribute("aria-pressed", held ? "true" : "false");
+        });
     }
 
     function readings(state) {
@@ -223,8 +246,13 @@
 
         var why = "";
         if (!state.remote) why = "Setting is off until the switch on the rig is on.";
-        else if (!state.acquiring) why = "Setting is off while no acquisition is running.";
-        else if (!mine) why = "Setting is off until you take control below.";
+        else if (!state.acquiring) {
+            /* Idle is no longer a dead end for the reader who has control:
+               it is the one moment Start means something. */
+            why = mine
+                ? "Nothing is running; you may start acquisition."
+                : "Setting is off while no acquisition is running.";
+        } else if (!mine) why = "Setting is off until you take control below.";
         else why = "You may set what the rig holds.";
         var line = root.querySelector('[data-role="remote-why"]');
         if (line) line.textContent = why;
@@ -233,6 +261,14 @@
         root.querySelectorAll(".page-main button, .page-main input").forEach(function (control) {
             control.disabled = !allowed;
         });
+
+        /* Start is the one control the run's absence enables rather than
+           disables, so it is set after the blanket above rather than being
+           an exception written into it. */
+        var start = root.querySelector('[data-role="acq-start"]');
+        if (start) {
+            start.disabled = !(Boolean(state.remote) && mine && !state.acquiring);
+        }
     }
 
     function paintOutcome(state) {
@@ -309,6 +345,29 @@
             // sitting there inviting the setpoint to be sent again.
             root.querySelectorAll(".setpoint").forEach(function (box) { box.value = 0; });
             send("/api/stop-all", {}, "stop all outputs");
+        });
+
+        var start = root.querySelector('[data-role="acq-start"]');
+        if (start) start.addEventListener("click", function () {
+            send("/api/acquisition/start", {}, "the start of acquisition");
+        });
+
+        var stopRun = root.querySelector('[data-role="acq-stop"]');
+        if (stopRun) stopRun.addEventListener("click", function () {
+            // Ending a run closes the file and drops every output, so it is
+            // asked once here and sent only on yes.
+            if (!window.confirm(STOP_QUESTION)) return;
+            send("/api/acquisition/stop", {}, "the stop of acquisition");
+        });
+
+        root.querySelectorAll('[data-role="sampling"]').forEach(function (button) {
+            button.addEventListener("click", function () {
+                send(
+                    "/api/sampling",
+                    {seconds: Number(button.dataset.seconds)},
+                    "the sampling time"
+                );
+            });
         });
 
         root.querySelectorAll("[data-mfc]").forEach(function (row) {
