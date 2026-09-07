@@ -3,7 +3,7 @@
 ## ADC acquisition cycle (per 0.1 s tick)
 
 1. `ADC.acquisition_loop()` runs in its own `QThread`.
-2. `time.sleep(self.sampling_time)` (default 0.1 s).
+2. `self.pause(self.sampling_time)` (default 0.1 s) — an abort-aware sleep.
 3. `collect_data()` reads N channels via
    `aio.analog_read_volt(channel, datarate, gain)`.
    The PCA9554 mux is reconfigured only when the channel range demands it.
@@ -16,6 +16,31 @@
    `data_ready([dataframe, device_name])`.
    `MainApp.on_worker_step` routes to `_adc_step`, appends to
    `self.datadict["ADC"]`, calls `save_data` (CSV append), triggers plot update.
+
+## Averaging at slow sampling
+
+A period of one second or longer is not read once. From
+`AVERAGE_FROM_SECONDS = 1.0` upwards (`controlunit/devices/adc.py`) the
+reader converts every `INNER_SECONDS = 0.2` seconds through the period and
+records one row at the period's end whose raw voltages are the mean of those
+readings — fifty of them fill the rig's ten-second setting. Below the
+threshold nothing changed: one conversion per period, because fast sampling
+is for watching transients and the instant is the point. Slow sampling is an
+overnight or weekend log, where a single ~1 ms conversion records whatever
+noise sat on the line at that instant and the period's mean is the truer
+number (owner decision 2026-09-07).
+
+The mean is taken over the *raw* voltages and converted afterwards, exactly
+as one reading is converted, so a row stays self-consistent: converting the
+raw column of the CSV reproduces the converted column beside it. The columns,
+the timestamp (the period's end) and the one-row-per-period shape are
+unchanged, so the CSV, the web ring and PIHTI Log see nothing new. The period
+is measured with `time.monotonic()` and each inner conversion is due at a
+fixed offset from its start, so the conversions' own time comes out of the
+waits and ten seconds of sampling still take ten seconds. Both the inner
+cadence and the period wait through `DeviceThread.pause`; an abort mid-period
+ends the loop at once and the half-measured period records nothing. The
+plasma-current PID runs once per recorded row, on the averaged value.
 
 ## STEP batching
 

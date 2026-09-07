@@ -120,3 +120,31 @@ def test_a_browser_starts_stops_and_retimes_a_real_run(qt_app, home):
         assert widget.web_status.read()["acquiring"] is True
     finally:
         widget.abort_all_threads()
+
+
+def test_a_real_run_at_one_second_sampling_delivers_averaged_samples(qt_app, home):
+    """The averaging path, end to end, in a real worker thread.
+
+    At one second and slower the ADC worker fills each period with
+    conversions and records their mean. Here the point is only that the
+    rows still arrive, one per period, through the same Qt signal as
+    before; what the mean is made of is checked in `test_adc_average.py`.
+    """
+    import time
+
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        widget.start_acquisition()
+        widget.set_sampling(1.0)
+        assert widget.workers["ADC"]["worker"].sampling_time == 1.0
+
+        deadline = time.monotonic() + 6.0
+        while time.monotonic() < deadline and len(widget.datadict["ADC"]) < 2:
+            qt_app.processEvents()
+            time.sleep(0.02)
+
+        assert len(widget.datadict["ADC"]) >= 2
+    finally:
+        widget.abort_all_threads()
