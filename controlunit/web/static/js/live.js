@@ -708,14 +708,47 @@
         });
     }
 
+    /* Whether any of a panel's own curves is switched on. A panel with none
+       has nothing to draw and gives up its drawing area, which is what a
+       preset that hides a chart actually does. */
+    function anyChosen(canvas) {
+        return channelsOf(canvas).some(function (name) {
+            return name && view.channels[name] !== false;
+        });
+    }
+
+    /* A collapsed panel's legend still says, per curve, that it is off: the
+       switches stay exactly where the reader left them, so the panel comes
+       back with the same press that sent it away. */
+    function collapsedLegend(canvas) {
+        var legend = canvas.parentNode.querySelector(".pen-legend");
+        if (!legend) return;
+        legend.querySelectorAll("[data-channel]").forEach(function (button) {
+            button.setAttribute("aria-pressed", "false");
+            var aside = button.querySelector('[data-role="pen-aside"]');
+            if (aside) aside.textContent = LEGEND_ASIDE.off;
+        });
+    }
+
     function drawAll() {
         [[plasma, "span-plasma", false],
          [gauges, "span-ig", view.igLog],
          [baratrons, "span-bar", view.barLog]].forEach(function (panel) {
-            var drawn = draw(panel[0], panel[2]);
+            var canvas = panel[0];
+            if (!canvas) return;
+            var section = canvas.parentNode;
+            var shown = anyChosen(canvas);
+            if (section) section.classList.toggle("chart--collapsed", !shown);
+            if (!shown) {
+                collapsedLegend(canvas);
+                span(panel[1], null);
+                return;
+            }
+            var drawn = draw(canvas, panel[2]);
             span(panel[1], drawn);
-            paintLegend(panel[0], drawn);
+            paintLegend(canvas, drawn);
         });
+        reflectPreset();
     }
 
     function span(role, drawn) {
@@ -726,9 +759,179 @@
     function spanLabel(drawn) {
         var tail = fast ? " · fast" : "";
         if (view.smooth) tail = " · median " + view.smooth + tail;
-        if (!drawn || !drawn.count) return "no samples yet" + tail;
+        if (!drawn) return "no curves shown";
+        if (!drawn.count) return "no samples yet" + tail;
         var seconds = Math.max(0, Math.round(drawn.to - drawn.from));
         return "last " + fmtSeconds(seconds) + " · " + drawn.count + " samples" + tail;
+    }
+
+    // -- presets -------------------------------------------------------------
+
+    /* A preset is a named set of the per-curve switches and nothing else: it
+       changes what this browser draws, never what the rig records, and it is
+       remembered exactly the way the switches themselves already are —
+       there is no second stored value to drift from them.
+
+       So which preset is pressed is *derived* from the switches rather than
+       kept beside them: turn one curve off by hand and the page simply
+       stops claiming to be showing a preset, which is the honest answer. */
+    function presetChannels(button) {
+        return String((button && button.dataset.channels) || "").split(",");
+    }
+
+    function matchesPreset(button) {
+        var wanted = presetChannels(button);
+        return Object.keys(view.channels).every(function (name) {
+            return view.channels[name] === (wanted.indexOf(name) >= 0);
+        });
+    }
+
+    function reflectPreset() {
+        root.querySelectorAll("[data-preset]").forEach(function (button) {
+            button.setAttribute("aria-pressed", matchesPreset(button) ? "true" : "false");
+        });
+    }
+
+    function applyPreset(button) {
+        var wanted = presetChannels(button);
+        Object.keys(view.channels).forEach(function (name) {
+            view.channels[name] = wanted.indexOf(name) >= 0;
+        });
+        remember();
+        reflectChannels();
+        drawAll();
+    }
+
+    function reflectChannels() {
+        Object.keys(view.channels).forEach(function (name) {
+            root.querySelectorAll('[data-channel="' + name + '"]').forEach(function (button) {
+                button.setAttribute("aria-pressed", view.channels[name] ? "true" : "false");
+            });
+        });
+    }
+
+    // -- modes and the rails as drawers --------------------------------------
+
+    /* The page's shape is in the address, so a laptop propped up beside the
+       rig can be bookmarked in the shape it is wanted in. The server renders
+       it on the first paint; a press moves the address with `pushState`, so
+       Back, Forward and a reload all land on the mode a reader expects and
+       the charts keep the history this browser has gathered. */
+    var mode = document.body.dataset.mode === "monitor" ? "monitor" : "normal";
+
+    function modeInAddress() {
+        var asked = new URLSearchParams(window.location.search).get("mode");
+        return asked === "monitor" ? "monitor" : "normal";
+    }
+
+    function applyMode() {
+        document.body.dataset.mode = mode;
+        press("[data-mode]", "mode", mode);
+        var actions = root.querySelector('[data-role="mode-actions"]');
+        if (actions) actions.hidden = mode === "normal";
+        if (mode === "normal") closeDrawers();
+        drawAll();   // the reading column just changed width
+    }
+
+    function setMode(next) {
+        if (next !== "monitor") next = "normal";
+        if (next === mode) return;
+        mode = next;
+        var url = new URL(window.location.href);
+        if (next === "normal") url.searchParams.delete("mode");
+        else url.searchParams.set("mode", next);
+        window.history.pushState({mode: next}, "", url.toString());
+        applyMode();
+    }
+
+    function closeDrawers() {
+        root.querySelectorAll(".rail.drawer-open").forEach(function (rail) {
+            rail.classList.remove("drawer-open");
+        });
+        root.querySelectorAll("[data-drawer]").forEach(function (button) {
+            button.setAttribute("aria-expanded", "false");
+        });
+        var backdrop = document.querySelector(".drawer-backdrop");
+        if (backdrop) backdrop.hidden = true;
+    }
+
+    function openDrawer(id) {
+        if (mode === "normal") return;   // the rails are on the page already
+        closeDrawers();
+        var rail = document.getElementById(id);
+        var backdrop = document.querySelector(".drawer-backdrop");
+        if (!rail || !backdrop) return;
+        rail.classList.add("drawer-open");
+        var button = root.querySelector('[data-drawer="' + id + '"]');
+        if (button) button.setAttribute("aria-expanded", "true");
+        backdrop.hidden = false;
+        rail.setAttribute("tabindex", "-1");
+        rail.focus({preventScroll: true});
+    }
+
+    /* The browser's own full screen, for the second laptop. It costs one
+       call and one event; a browser that refuses is left exactly as it was
+       rather than told anything, because nothing about the page depends on
+       it. */
+    function toggleFullscreen() {
+        var page = document.documentElement;
+        if (document.fullscreenElement) {
+            if (document.exitFullscreen) document.exitFullscreen();
+            return;
+        }
+        if (page.requestFullscreen) {
+            var asked = page.requestFullscreen();
+            if (asked && asked.catch) asked.catch(function () { /* refused */ });
+        }
+    }
+
+    function reflectFullscreen() {
+        var button = root.querySelector('[data-role="fullscreen"]');
+        if (!button) return;
+        var on = !!document.fullscreenElement;
+        button.setAttribute("aria-pressed", on ? "true" : "false");
+        button.textContent = on ? "Leave full screen" : "Full screen";
+    }
+
+    function setupModes() {
+        root.querySelectorAll("[data-preset]").forEach(function (button) {
+            button.addEventListener("click", function () { applyPreset(button); });
+        });
+        root.querySelectorAll("[data-mode]").forEach(function (button) {
+            button.addEventListener("click", function () { setMode(button.dataset.mode); });
+        });
+        root.querySelectorAll('[data-role="leave-mode"]').forEach(function (button) {
+            button.addEventListener("click", function () { setMode("normal"); });
+        });
+        root.querySelectorAll("[data-drawer]").forEach(function (button) {
+            button.addEventListener("click", function () {
+                var rail = document.getElementById(button.dataset.drawer);
+                if (rail && rail.classList.contains("drawer-open")) closeDrawers();
+                else openDrawer(button.dataset.drawer);
+            });
+        });
+        root.querySelectorAll(".drawer-close").forEach(function (button) {
+            button.addEventListener("click", closeDrawers);
+        });
+        var backdrop = document.querySelector(".drawer-backdrop");
+        if (backdrop) backdrop.addEventListener("click", closeDrawers);
+        var full = root.querySelector('[data-role="fullscreen"]');
+        if (full) full.addEventListener("click", toggleFullscreen);
+        document.addEventListener("fullscreenchange", reflectFullscreen);
+
+        /* Escape always gets the reader out of wherever they are: out of an
+           open drawer first, and out of the mode itself when none is open,
+           so a mode is never a room without a door. */
+        document.addEventListener("keydown", function (event) {
+            if (event.key !== "Escape") return;
+            if (root.querySelector(".rail.drawer-open")) { closeDrawers(); return; }
+            if (mode !== "normal") setMode("normal");
+        });
+
+        window.addEventListener("popstate", function () {
+            mode = modeInAddress();
+            applyMode();
+        });
     }
 
     // -- rail controls -------------------------------------------------------
@@ -826,10 +1029,8 @@
 
     function reflectView() {
         press("[data-window]", "window", view.window);
-        Object.keys(view.channels).forEach(function (name) {
-            var button = root.querySelector('[data-channel="' + name + '"]');
-            if (button) button.setAttribute("aria-pressed", view.channels[name] ? "true" : "false");
-        });
+        reflectChannels();
+        reflectPreset();
         press("[data-scale-ig]", "scaleIg", view.igLog ? "log" : "lin");
         press("[data-scale-bar]", "scaleBar", view.barLog ? "log" : "lin");
         press("[data-smooth]", "smooth", view.smooth);
@@ -840,6 +1041,9 @@
         recall();
         reflectView();
         setupRails();
+        setupModes();
+        applyMode();
+        reflectFullscreen();
         drawAll();
         pollState();
         fillFromRing();

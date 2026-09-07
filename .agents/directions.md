@@ -5,13 +5,26 @@ holds what is still undecided or unbuilt.
 
 ## Decisions waiting on queezz
 
-Nothing waiting.
+- Should the Live tab's Plasma preset keep an ion gauge beside the two
+  Baratrons, or is the current plus the Baratrons the right set? — the
+  owner's call. 4.6.0 shipped two presets over the per-curve switches and
+  this session chose their curve lists, because the design did not name
+  them: **Vacuum** shows Pu, Pd, Bu and Bd and hides the current chart, and
+  **Plasma** shows Ip, Bu and Bd and hides both ion gauges — on the reading
+  that during a discharge the chamber sits at a pressure the Baratrons read
+  while the ion gauges are off scale or switched off.
+  Stakes: only which curves are on screen after one press; a wrong list
+  costs an extra press and never a measurement.
+  Recommendation: run a discharge once with Plasma pressed and say whether
+  you missed the downstream gauge Pd.
+  Safe default: the lists stand as they are. Either way it is one line in
+  `PRESETS` in `controlunit/web/server.py`.
 
 ## Work only queezz can do
 
-- Restart the rig onto 4.5.0, on a rig that is not acquiring and not
+- Restart the rig onto 4.6.0, on a rig that is not acquiring and not
   holding gas or the cathode — owner work pending. `master` in the office
-  checkout is at 4.5.0 and none of it has been pushed; say the word and a
+  checkout is at 4.6.0 and none of it has been pushed; say the word and a
   session pushes it, pulls the Pi's checkout at `~/work/aktest`, and leaves
   the restart to you. On restart: the Live charts stop growing on a Retina
   Mac; an idle rig reads `ok` instead of `degraded` on all three service
@@ -20,10 +33,13 @@ Nothing waiting.
   the Lab tab breaks where the other two boards break; each chart carries
   the switches for its own curves and a flat curve steps out of the way of
   the one that is moving; the Log's counts stop contradicting each other;
-  two colleagues spelled the same way are told apart; and the lab's names
+  two colleagues spelled the same way are told apart; the lab's names
   refresh themselves from the journal instead of waiting for the push
-  script.
-  Done when: `http://pihti:4187/api/health` reports 4.5.0 and, with
+  script; the Live tab has a Monitor mode that gives the charts the whole
+  window, and a Vacuum and a Plasma preset over the curve switches; and the
+  Control tab's presses stand in one faceplate with their numbers beside
+  them.
+  Done when: `http://pihti:4187/api/health` reports 4.6.0 and, with
   acquisition off and every output at zero, `status` reads `ok` with the
   detail "idle, not recording".
 - Add the Mac-reachable address to the Pi's neighbours file — owner work
@@ -91,46 +107,35 @@ Nothing waiting.
   diagnosis (his other ask that day: "an option to show raw voltages for
   diagnosis"). Needs the ring to carry raw volts beside converted values
   (`_publish_step` has both; the CSV already writes both columns).
-- Monitor and Control modes on the Live tab, designed and not built
-  (queezz, 2026-09-07: "Mode. Monitor: plots only, even hide the rails.
-  Only keep some indicator pills about status and all. Control: again, hide
-  the rails (but make them come back, a drawer?) and use full viewport real
-  estate. Maybe even full screen"). The first half of that night's work — a
-  switch per curve in each chart's own legend, and a flat curve stepping out
-  of the axis's way — shipped in 4.5.0; the modes did not, for budget.
-  What is already true and makes the rest cheap: the two status pills he
-  asked to keep are built and stand at the head of the reading column, not
-  in a rail, so hiding the rails leaves them where they are. What is left: a
-  `?mode=monitor` in the address, so a second laptop can bookmark its own
-  screen; one press that hides both rails and the tab bar; and a way to
-  bring them back — an edge drawer is the shape the diagram already uses
-  below 1199px, in `2024-interactive-diagram`'s `styles.css`, and copying
-  its drawer rather than inventing one keeps the three surfaces alike.
-  Measured constraints for whoever builds it: the reading column is 673px of
-  a 1280px window with both rails and about 1225px without them, so the
-  charts roughly double in width; the rails are 16rem each and the tab bar
-  56px; and the whole Perimeter Walk has to run again at 1280×700,
-  1280×1000, 1440×900 and 390px, because hiding the rails changes every
-  measurement in it.
-- The Control tab's density, his other complaint the same night: "I don't
-  have many controls, but they are spread nicely but thin. Not on a glance.
-  Need better UX." Not built, and not designed either — it wants his eye on
-  the page before anyone moves a row. What is measured: the five groups
-  stand in one column 673px wide at 1280px, each row a name, a field, a
-  holding value, a measured value and its presses, and the page is 1248px
-  tall at 1280×1000, so about a third of it is below the fold. The obvious
-  moves are two columns of groups at wide widths, or the side-by-side of
-  control and plots he asked about — "Ideally control plus plots should live
-  side by side. Like in the GUI. For real operation. But that's maybe too
-  crowded." Both are the same question as the modes above and should be
-  answered with them rather than separately.
-- Presets for what the Live tab shows (the Commander's suggestion,
-  2026-09-07, offered rather than ordered, and queezz has not ruled on it):
-  a Vacuum preset and a Plasma preset choosing which curves and which panels
-  are shown, remembered per browser, so the page is set for the work rather
-  than curve by curve. Worth building after the modes above, and worth
-  asking him first whether the per-curve switches already cover it — 4.5.0
-  may have answered the complaint that prompted it.
+- Control and the plots side by side, the second step of the Control tab's
+  density (queezz, 2026-09-07: "Ideally control plus plots should live side
+  by side. Like in the GUI. For real operation. But that's maybe too
+  crowded"). 4.6.0 built the first step — every press in one 384px faceplate
+  with its readings beside it — and shipped Monitor mode, so the machinery
+  the second step needs already exists: a mode in the address, the rails as
+  edge drawers, and `MODES` in `controlunit/web/server.py` takes a third
+  entry. The shape: `?mode=control` on the Control tab, the faceplate in its
+  fixed narrow column and the Live charts filling the rest, rails in the
+  drawer.
+  What is measured, so nobody re-measures it: with both rails away the
+  reading column is 1225px of a 1280px window, which is the faceplate's
+  384px and 827px of charts. The faceplate itself is 840px tall, against
+  644px of usable height at 1280×700 and 844px at 1280×900 — so the mode
+  fixes the width and not the height, and on a short window the faceplate
+  still scrolls beside the charts. Two things would have to be settled
+  first: whether the charts in that mode are the Live tab's three or a
+  chosen one, and whether the faceplate scrolls on its own or with the page.
+  It also wants the plotting code on the Control page, which today only
+  Live loads.
+- Why "at a glance at 1280×700" was not reached on Control, for whoever
+  wants the last of it: the faceplate is 840px of presses against 644px of
+  window. What is left to cut is structural, not cosmetic — the gauge and
+  baseline groups behind a disclosure (about 180px, at the cost of hiding
+  controls), or dropping the left rail on Control so the faceplate's groups
+  can run two-up (about 360px, at the cost of the reading column's left edge
+  jumping between tabs, which the house's rail law warns against). Both are
+  worth queezz's eye before anyone builds them; neither is worth doing
+  quietly.
 - A noise floor per channel, so the current with no plasma can step out of
   the way too (queezz, 2026-09-07: the current plot with no plasma is "a
   noisy waste of space"). 4.5.0 collapses a curve whose excursion is smaller
@@ -202,6 +207,19 @@ Nothing waiting.
 
 ## Settled, kept here only until the next session reads them
 
+- 4.6.0 (2026-09-08): the Live tab has a Monitor mode — `?mode=monitor` in
+  the address, the tab bar and both rails away, the charts across the whole
+  window (673px of reading column becomes 1225px), the two status pills
+  where they were, and the rails back as edge drawers in the diagram's own
+  shape, with Escape leaving the drawer first and the mode second; a Vacuum
+  and a Plasma preset over the per-curve switches, remembered per browser,
+  changing what is drawn and nothing that is recorded, with a panel whose
+  curves are all off keeping its legend; the Live rail's Scales and
+  Smoothing merged into one Lines card to make room, at 604 === 604 with no
+  slack left; and the Control tab's presses gathered into one 384px
+  faceplate with their readings beside it, taking the page from 1248px to
+  1024px at 1280×1000. The name and the lab's word stand outside the block
+  the gate disables, because they are how the gate is opened.
 - Finding PIHTI Log (order 2026-09-04, answered): "the IPs are quite
   static-ish for years on our Optical Lab VLAN. So writing it down." The
   Pi's `neighbours.yml` names the office PC as `AK-office.local`; if that

@@ -95,6 +95,10 @@ p { margin: 0 0 10px; }
 
 [hidden] { display: none !important; }
 
+/* A rail is a rail until a mode turns it into a drawer; until then its
+   Close and the backdrop behind it are not on the page at all. */
+.drawer-close, .drawer-backdrop { display: none; }
+
 /* The tab bar already says which page this is, so a heading repeating it
    would be the same word twice in two sizes (owner report 2026-09-05). The
    heading stays for whoever reads the page through a screen reader, and
@@ -632,6 +636,25 @@ dl.facts dd.wide { margin-top: -2px; }
 .data-key { margin: 0 0 8px; font-size: 0.86rem; }
 .data-key:last-child { margin-bottom: 0; }
 
+/* The strip's own controls, in a mode where this strip is the page's only
+   chrome. Small, at the end of the row, and never present on the ordinary
+   page, where the rails and the tab bar they stand for are already there. */
+.mode-actions { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.mode-actions button { padding: 3px 10px; font-size: 0.84rem; }
+.mode-actions button[aria-pressed="true"] {
+  color: #171a1f;
+  background: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+/* A panel whose every curve is switched off keeps its heading and its
+   legend and gives up only its drawing area — so the switches that bring
+   the curves back are exactly where the reader left them, and no control
+   vanishes under a press (fleet's WEBUI.md, the rail law's corollary). */
+.chart--collapsed canvas { display: none; }
+.chart--collapsed { padding-bottom: 4px; }
+
 /* -- the Control tab --------------------------------------------------- */
 
 /* Every group is a jump target of the right rail's index, and lands its own
@@ -646,6 +669,142 @@ dl.facts dd.wide { margin-top: -2px; }
 [id^="sec-"] {
   scroll-margin-top: calc(var(--bar) + 16px - var(--group-inset));
 }
+
+/* -- the Control faceplate --------------------------------------------- */
+
+/* queezz, 2026-09-07: the controls "are spread nicely but thin. Not on a
+   glance." Measured then: five bordered groups down one 673px column and a
+   1248px page at 1280×1000, a third of it below the fold. The presses now
+   stand together in one narrow panel and the numbers they are read against
+   stand beside it, so the whole tab is one screen.
+
+   The faceplate's width is fixed rather than a fraction: a press column
+   that grows with the window puts the same six buttons further apart, which
+   is the complaint, not the fix. 384px is what the widest row needs — a
+   name, a 5.5rem setpoint box, its unit and two presses — and the readings
+   take whatever the window leaves. */
+.faceplate-row {
+  display: grid;
+  grid-template-columns: 384px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+/* One bordered panel for the whole instrument, with flat headed groups
+   inside it: never a frame drawn around each group inside the frame. */
+.faceplate {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  padding: 14px 16px 16px;
+}
+
+.faceplate .gate { margin-bottom: 12px; }
+
+/* The switch, its state and the one press that moves control share a line:
+   three facts about the same thing, and a line each was 34px of a panel
+   that has to fit a window. */
+.faceplate .remote-line { flex-wrap: wrap; margin-bottom: 6px; }
+.faceplate .take-over { display: inline-block; width: auto; margin: 0 0 0 auto; padding: 3px 10px; font-size: 0.84rem; }
+
+/* The reservations are the same idea as the rail's — a line that changes
+   under the reader must not move what is below it — measured again for this
+   panel's own width. The faceplate's text column is 384px less its padding,
+   352px, against the rail's 244px, so the longest holder sentence
+   ("Kuwahata has had the rig since 14:02, from 192.168.1.23", 54
+   characters) and the longest refusal ("refused: a flow setpoint is a whole
+   number of millivolts from 0 to 5000", 71) both take two lines here where
+   they took three in the rail. Two lines is 3.1em and not 3em: two boxes
+   that only equal each other round to different sub-pixels. */
+.faceplate .holder-line { min-height: 3.1em; margin-bottom: 6px; }
+.faceplate .remote-why { min-height: 3.1em; margin-bottom: 0; }
+.faceplate .remote-status { min-height: 3.1em; margin-top: 12px; }
+
+/* A headed group inside the faceplate: a hairline above it and its own
+   heading, and nothing else — the panel is already the box. */
+.fgroup {
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+  /* The anchor lands this group's own heading clear of the fixed bar, so
+     the offset subtracts the group's own top padding rather than the
+     bordered card's inset the standalone groups used. */
+  scroll-margin-top: calc(var(--bar) + 16px - 12px);
+}
+
+.fgroup h2 { margin: 0 0 7px; font-size: 0.9rem; }
+.fgroup .group-note { margin: -2px 0 8px; font-size: 0.84rem; }
+
+/* The one thing an Acting-as row cannot say for itself — when the lab's
+   names were last read from the journal — rides on its heading's line,
+   where it costs the faceplate no height. */
+.fgroup-aside {
+  margin-left: 6px;
+  font-weight: 400;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+/* One press row: a name at a fixed width so the fields line up down the
+   whole faceplate, then the field, then the presses. */
+.frow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin-bottom: 8px;
+}
+
+.fgroup .frow:last-child { margin-bottom: 0; }
+
+/* 4.6rem, measured rather than chosen: the widest row name here is "QMS
+   sync" at 60px, and the gauge's six decades need 266px of the 350px the
+   panel's own padding leaves — 73.6 + 8 + 266 = 347.6, with 2px to spare.
+   At 4.8rem the range row was 1px over and wrapped to a second line. */
+.frow .row-name { flex: 0 0 4.6rem; }
+.frow .row-field { flex: 0 0 auto; }
+.frow .setpoint { width: 5rem; }
+.frow .row-actions { flex: 1 1 auto; gap: 5px; }
+.frow button { padding: 4px 10px; font-size: 0.88rem; }
+
+/* The gauge's six decades on one line rather than two, which is 26px of a
+   panel that is trying to fit a window: measured, the widest of them
+   (`1e-8`) is 40px at this padding, so six of them and their five gaps take
+   265px of the 267px the name leaves of a 352px column. */
+.frow .choice { padding: 3px 6px; font-size: 0.82rem; }
+
+/* -- what the rig is holding, beside the presses ----------------------- */
+
+.faceplate-readings { display: flex; flex-direction: column; gap: 14px; }
+
+.reads {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  padding: 12px 14px;
+}
+
+/* Two numbers per line — what the rig was told and what it reads back —
+   under one pair of headings rather than a caption on every value. */
+.rtable {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
+  gap: 4px 10px;
+  align-items: baseline;
+  font-size: 0.9rem;
+}
+
+.rhead {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+  text-align: right;
+}
+
+.rtable .rhead:first-child { text-align: left; }
+.rname { color: var(--fg); }
+.rvalue { text-align: right; overflow-wrap: anywhere; }
 
 /* Flat headed groups: one bordered panel per group, plain headings inside,
    never a second frame drawn around a row. The inset above is this padding
@@ -1052,6 +1211,14 @@ dl.facts dd.wide { margin-top: -2px; }
   .choice-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
 }
 
+/* No room for the presses and their readings side by side: the readings
+   fall under the faceplate, in the same order, and the faceplate gives up
+   its fixed width rather than overflowing the page. */
+@media (max-width: 760px) {
+  .faceplate-row { grid-template-columns: minmax(0, 1fr); }
+  .faceplate { max-width: 420px; }
+}
+
 @media (max-width: 620px) {
   .container { padding: 0 12px; }
   .tabbar .tab { padding: 10px 8px; font-size: 0.9rem; }
@@ -1062,6 +1229,91 @@ dl.facts dd.wide { margin-top: -2px; }
   .row-name { flex: 0 0 100%; }
   .row-actions { margin-left: 0; }
 }
+
+/* -- Monitor: the charts, and only what says the rig is safe ------------ */
+
+/* queezz, 2026-09-07: "Monitor: plots only, even hide the rails. Only keep
+   some indicator pills about status and all."
+ *
+ * The tab bar and both rails leave the page and the reading column takes the
+ * whole window — 673px of a 1280px window becomes about 1225px, so the
+ * charts roughly double in width. Nothing is removed from the DOM and no
+ * control is duplicated: the rails are the same elements, summoned from
+ * their own edge, in the shape the diagram already uses below its own rail
+ * breakpoint (`2024-interactive-diagram`, `styles.css`). The pills stay
+ * exactly where they were, at the head of the column they describe, because
+ * whether the rig is holding gas is what this screen exists to say.
+ *
+ * These rules carry a body attribute and so outrank the narrow-window rules
+ * above whatever the order: a monitor screen is a monitor screen on a phone
+ * too. */
+
+body[data-mode="monitor"] .tabbar { display: none; }
+
+/* The bar's own bottom margin went with it, so the strip gets its own air
+   rather than sitting flush against the top of the window. */
+body[data-mode="monitor"] .container { padding-top: 14px; }
+
+body[data-mode="monitor"] .page { grid-template-columns: minmax(0, 1fr); }
+
+body[data-mode="monitor"] .rail {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  z-index: 40;
+  width: min(340px, 92vw);
+  /* Flush and full height, attached to the edge it came from. The rail's own
+     `align-self: start` still reaches this box in Chrome and collapses it to
+     its content, leaving a drawer that stops short of the bottom of the
+     window; stretching it here is what makes `top: 0` and `bottom: 0` mean
+     what they say. */
+  align-self: stretch;
+  height: auto;
+  padding: 10px 0 20px;
+  gap: 0;
+  background: var(--header);
+  box-shadow: 0 0 40px rgb(0 0 0 / 0.5);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  visibility: hidden;
+  transition: transform 0.18s ease, visibility 0.18s;
+}
+
+body[data-mode="monitor"] .rail-left { left: 0; border-right: 1px solid var(--line); transform: translateX(-100%); }
+body[data-mode="monitor"] .rail-right { right: 0; border-left: 1px solid var(--line); transform: translateX(100%); }
+body[data-mode="monitor"] .rail.drawer-open { transform: none; visibility: visible; }
+
+/* Inside a drawer the cards go back to hairline sections, the way the
+   diagram draws them: the drawer is already a bounded panel, and a card
+   border inside it would be a frame around a frame. */
+body[data-mode="monitor"] .rail .rail-card {
+  border: 0;
+  border-radius: 0;
+  border-top: 1px solid var(--line-soft);
+  background: none;
+  padding: 14px 18px;
+  flex: 0 0 auto;
+}
+
+body[data-mode="monitor"] .drawer-close {
+  display: block;
+  margin: 0 18px 4px auto;
+  padding: 5px 11px;
+  font-size: 0.85rem;
+}
+
+body[data-mode="monitor"] .drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+body[data-mode="monitor"] .drawer-backdrop:not([hidden]) { display: block; }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }

@@ -111,6 +111,58 @@ PANELS = (
     ("chart-bar", "Baratrons, Torr", ("Bu", "Bd"), 200, "span-bar"),
 )
 
+#: What the Live tab shows, as a whole shape rather than a curve at a time
+#: (queezz, 2026-09-07: "Mode. Monitor: plots only, even hide the rails.
+#: Only keep some indicator pills about status and all").
+#:
+#: `normal` is the page as it has always been. `monitor` is for the second
+#: laptop propped up beside the rig: the tab bar and both rails step out of
+#: the way, the charts take the whole width, and the two pills stay where
+#: they are, because whether the rig is holding gas is the one thing that
+#: screen exists to say. The rails come back as edge drawers.
+#:
+#: A mode is in the address, so a screen can be bookmarked in the shape it
+#: is wanted in, and the server renders it on the first paint.
+MODES = (
+    ("normal", "Normal"),
+    ("monitor", "Monitor"),
+)
+DEFAULT_MODE = "normal"
+
+
+def clean_mode(asked):
+    """The mode named in the address, or the ordinary page.
+
+    Anything unknown is the ordinary page rather than an error: a mistyped
+    bookmark should still show the rig.
+    """
+    wanted = str(asked or "").strip().lower()
+    for name, _label in MODES:
+        if name == wanted:
+            return name
+    return DEFAULT_MODE
+
+
+#: Which curves a preset shows, and so which panels have anything to draw
+#: (the Commander's 2026-09-07 suggestion, built 2026-09-08). A preset is
+#: nothing but a named set of the per-curve switches 4.5.0 put in each
+#: chart's own legend: it changes what this browser draws and never what the
+#: rig records, and it is remembered per browser like every other choice in
+#: that rail.
+#:
+#: The two lists are this session's reading of the rig and are recorded in
+#: `.agents/directions.md` for queezz to correct. Vacuum is pumping and leak
+#: hunting: both ion gauges and both Baratrons, and no current chart. Plasma
+#: is a discharge running: the current, and the Baratrons that read the gas
+#: pressure a discharge actually sits at — the ion gauges are a vacuum
+#: instrument and are off scale or switched off by then.
+PRESETS = (
+    ("all", "All", ("Ip", "Pu", "Pd", "Bu", "Bd")),
+    ("vacuum", "Vacuum", ("Pu", "Pd", "Bu", "Bd")),
+    ("plasma", "Plasma", ("Ip", "Bu", "Bd")),
+)
+
+
 #: The tabs, in bar order. A tab with no endpoint is named and not built.
 TABS = (
     ("live", "Live", "live"),
@@ -131,12 +183,15 @@ FENCE_COOKIE = "fence"
 
 #: The Control tab's own groups, in operating order. The right rail's index
 #: is built from this, so the page cannot promise a section it does not have.
+#: Acting as is the sixth since 4.6.0, when the name and the lab's word moved
+#: from the left rail into the foot of the faceplate they open.
 SECTIONS = (
     ("sec-acquisition", "Acquisition"),
     ("sec-gas", "Gas flow"),
     ("sec-plasma", "Plasma current"),
     ("sec-gauge", "Gauge and sync"),
     ("sec-baselines", "Baselines"),
+    ("sec-who", "Acting as"),
 )
 
 #: The two gas lines, by the gas each carries on this rig.
@@ -213,7 +268,9 @@ def create_app(
 
     @app.context_processor
     def page_constants():
-        return {"app_version": __version__, "tabs": TABS}
+        # Every page renders in the ordinary shape unless its own route says
+        # otherwise, so `data-mode` is never absent from the body.
+        return {"app_version": __version__, "tabs": TABS, "page_mode": DEFAULT_MODE}
 
     def self_row():
         report = health_body(rig, __version__)
@@ -320,6 +377,9 @@ def create_app(
             pens=PENS,
             panels=PANELS,
             pen_colour=dict(PENS),
+            modes=MODES,
+            page_mode=clean_mode(request.args.get("mode")),
+            presets=PRESETS,
             state=page_state(),
         )
 

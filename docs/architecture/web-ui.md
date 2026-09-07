@@ -178,7 +178,7 @@ a credential; the data file appears by name only.
 
 | Route | Answers |
 | --- | --- |
-| `GET /` | the Live tab |
+| `GET /` | the Live tab; `?mode=monitor` renders it with the tab bar and both rails out of the way and the charts across the whole window, anything unknown renders the ordinary page |
 | `GET /control` | the Control tab |
 | `GET /log` | the Log tab |
 | `GET /lab` | the Lab tab |
@@ -228,9 +228,11 @@ of the response can tell which question was asked.
   kinds of gauge: the ion gauges cross decades, the Baratrons sit in a narrow
   band around their own offset, and drawn together neither was readable
   (owner report 2026-09-06). Each panel scales to its own visible channels.
-  The left rail chooses the window, an axis for each pressure
-  panel, the smoothing, the readout size and the poll rate; the right rail
-  states the run and explains how the page is read.
+  The left rail chooses the window, an axis for each pressure panel and the
+  smoothing (one card, **Lines**), the readout size and the poll rate
+  (**Readouts**), and what shape the page itself is in (**View**: a preset
+  and a mode); the right rail states the run and explains how the page is
+  read.
 
     **Two pills at the head of the column, and no third.** The left one is
     the apparatus — `stopped`, `measuring`, or `outputs live` with the
@@ -306,6 +308,45 @@ of the response can tell which question was asked.
     whatever window is chosen, and it is deliberately forgotten on reload so a
     page left open overnight stops asking. Every other choice in that rail is
     remembered.
+
+    **A preset sets the page for a kind of work.** `Show: All | Vacuum |
+    Plasma`, in the View card, is a named set of exactly the per-curve
+    switches described above and nothing more: it changes what this browser
+    draws, never one byte of what the rig records, and it is remembered the
+    same way the switches are. **Vacuum** shows both ion gauges and both
+    Baratrons and turns the current off; **Plasma** shows the current and the
+    two Baratrons, which are what read the gas pressure a discharge actually
+    sits at, and turns the ion gauges off — a vacuum instrument, off scale or
+    switched off by then. Which preset is pressed is *derived* from the
+    switches rather than stored beside them, so turning one curve off by hand
+    simply leaves no preset claimed. A panel whose every curve is off keeps
+    its heading and its legend and gives up only its drawing area, so the
+    switches that bring it back are exactly where the reader left them; its
+    span line reads `no curves shown`. The two curve lists are
+    `server.py`'s `PRESETS` and are one edit to change.
+
+    **Monitor mode gives the charts the window.** queezz, 2026-09-07:
+    *"Monitor: plots only, even hide the rails. Only keep some indicator
+    pills about status and all."* `Mode: Normal | Monitor` in the View card,
+    and `?mode=monitor` in the address, so the second laptop propped up
+    beside the rig can bookmark its own screen — the server renders that
+    shape on the first paint rather than flashing the other one, and Back,
+    Forward and a reload all land where a reader expects. The tab bar and
+    both rails leave the page and the reading column grows from 673px to
+    1225px at a 1280px window, so the charts roughly double in width. The two
+    pills stay exactly where they were, at the head of the column they
+    describe, because whether the rig is holding gas is what that screen
+    exists to say; beside them the strip carries the way back to each rail,
+    a **Full screen** press (the browser's own Fullscreen API, silent where a
+    browser refuses it) and **Leave monitor**.
+
+    The rails in that mode are the same elements summoned from their own
+    edge, in the drawer shape the PIHTI diagram already uses below its rail
+    breakpoint — same DOM, different placement, nothing duplicated. One
+    drawer at a time, dismissed by its Close, by the backdrop, or by Escape;
+    Escape with no drawer open leaves the mode, so a mode is never a room
+    without a door. An unknown `?mode=` is the ordinary page and never an
+    error.
 - **Log** — the same message log the Qt Log dock shows, newest first, with a
   Find and an order switch.
 - **Lab** — the lab ensemble's own board, built in the PIHTI diagram's shape
@@ -410,23 +451,47 @@ of the response can tell which question was asked.
     this machine last heard back and what it is doing now are two different
     facts. A neighbour this machine has no address for is `not configured`
     from the first paint, because that answer needs nobody.
-- **Control** — five headed groups in operating order: Acquisition, Gas
-  flow, Plasma current, Gauge and sync, and Baselines. Acquisition states
-  the run's facts and carries the two presses that begin and end it, and
-  the four sampling times the rig's own Settings dock offers; **Stop** asks
-  once in the browser before it sends, in the same words the group's note
-  uses. Every other row shows the setpoint the rig holds beside the value it
-  measures. **Start** is the one control enabled while nothing is running —
-  the switch and control of the rig are still needed — and every other
-  control needs a run as before. The left rail carries the gate —
-  the switch's state, who has control and the Take over button, the one
-  reason setting is off right now, the name — chosen from the lab's roster
-  where this machine holds a copy of one, typed where it does not — the
-  lab's word, where this machine asks for one, and the always-allowed
-  Stop all outputs; the right rail carries this run and
-  an index of the five groups. A control the gate would refuse is disabled
-  and still visibly bordered, and the reason is stated once in the rail,
-  never on a row.
+- **Control** — one faceplate of presses, and the numbers they are read
+  against beside it. Until 4.6.0 the tab was five bordered groups down one
+  673px column, each row carrying a name, a field, a holding value, a
+  measured value and its presses, with the gate and the name in the left
+  rail: 1248px of page at 1280×1000, a third of it below the fold, and the
+  owner's verdict was *"I don't have many controls, but they are spread
+  nicely but thin. Not on a glance. Need better UX."* (2026-09-07).
+
+    The presses now stand together in one panel 384px wide — flat headed
+    groups inside one bordered box, never a frame drawn around each group
+    inside the frame — in the same operating order: the gate, then
+    Acquisition, Gas flow, Plasma current, Gauge and sync, Baselines, and
+    Acting as at the foot. Beside it, in the width the window leaves, the
+    readings: what the rig is holding and what it measures, the gauge and
+    sync it holds, and each baseline against what that channel reads. A row
+    is a press and a reading is a reading, so a number changing under the
+    poll never moves a control a reader is aiming at.
+
+    **The gate is at the head of the panel it opens**: the switch's state,
+    who has control and the Take over button on one line, then who holds the
+    rig, then the one reason setting is off right now. **Acting as and the
+    lab's word stand outside the block the gate shuts**, deliberately — they
+    are how a person opens it, so the blanket that disables the setting
+    controls names that block rather than the whole column. **Stop all
+    outputs stays in the left rail**: it is allowed when nothing else is, and
+    it must be findable without reading anything. The right rail carries this
+    run — the file, when it started and whether the boards are real, which is
+    what the faceplate does not carry — and an index of the six groups.
+
+    Everything else is as it was. **Stop** asks once in the browser before it
+    sends. **Start** is the one control enabled while nothing is running; the
+    switch and control of the rig are still needed. A control the gate would
+    refuse is disabled and still visibly bordered, and the reason is stated
+    once, never on a row.
+
+    Measured at 1280×1000: the page fell from 1248px to 1024px and the whole
+    faceplate stands above the fold. At 1440×900 its foot is 16px below the
+    window; at 1280×700 it still scrolls, which the group index in the right
+    rail is for. Control and the plots side by side — the owner's *"Ideally
+    control plus plots should live side by side. Like in the GUI"* — is the
+    second step and is not built.
 
 ## Machine-local configuration
 

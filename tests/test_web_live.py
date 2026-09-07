@@ -485,3 +485,163 @@ def test_a_collapsed_curve_does_not_print_a_second_copy_of_its_value():
     aside = source[source.index("function paintLegend"):]
     aside = aside[:aside.index("function drawAll")]
     assert "valueHtml" not in aside and "valueText" not in aside
+
+
+# -- Monitor mode, and the presets that set the page for a kind of work -------
+
+
+def _pressed(page, attribute):
+    """Whether a button carrying `attribute` is pressed, however the
+    template happened to wrap its attributes across lines."""
+    button = page[page.index(attribute):]
+    button = button[:button.index("</button>")]
+    start = button.index('aria-pressed="') + len('aria-pressed="')
+    return button[start:button.index('"', start)]
+
+
+def _client():
+    from pathlib import Path
+
+    from controlunit.web.roster import Roster
+    from controlunit.web.fence import Fence
+
+    nowhere = Path(__file__).resolve().parent / "nowhere-there-is-none"
+    return create_app(
+        board=NeighbourBoard(home=nowhere),
+        roster=Roster(home=nowhere),
+        fence=Fence(home=nowhere),
+    ).test_client()
+
+
+def test_the_ordinary_page_is_the_ordinary_page():
+    """No mode in the address is the page as it has always been."""
+    page = _client().get("/").get_data(as_text=True)
+    assert '<body data-mode="normal">' in page
+    assert _pressed(page, 'class="choice" data-mode="monitor"') == "false"
+
+
+def test_a_bookmarked_monitor_address_renders_in_that_shape_first(client=None):
+    """A second laptop propped up beside the rig bookmarks its own screen,
+    and the server paints that shape rather than flashing the other one
+    (queezz, 2026-09-07: "Monitor: plots only, even hide the rails")."""
+    page = _client().get("/?mode=monitor").get_data(as_text=True)
+    assert '<body data-mode="monitor">' in page
+    assert _pressed(page, 'class="choice" data-mode="monitor"') == "true"
+
+
+def test_a_mistyped_mode_is_the_ordinary_page_and_never_an_error():
+    response = _client().get("/?mode=cockpit")
+    assert response.status_code == 200
+    assert '<body data-mode="normal">' in response.get_data(as_text=True)
+
+
+def test_every_tab_carries_a_mode_and_only_live_offers_the_switch():
+    """The body attribute is never absent, so nothing renders half-shaped;
+    the mode itself belongs to the tab that has charts to give the window."""
+    client = _client()
+    for path in ("/", "/control", "/log", "/lab"):
+        page = client.get(path).get_data(as_text=True)
+        assert "<body data-mode=" in page
+    for path in ("/control", "/log", "/lab"):
+        page = client.get(path).get_data(as_text=True)
+        assert 'data-mode="monitor"' not in page
+
+
+def test_monitor_keeps_the_two_pills_and_hides_the_rest():
+    """Only the rails and the tab bar step aside: what the rig is doing is
+    the one thing that screen exists to say."""
+    page = _client().get("/?mode=monitor").get_data(as_text=True)
+    pills = page[page.index('class="pills"'):]
+    pills = pills[:pills.index("</div>")]
+    assert 'data-role="operating"' in pills
+    assert 'data-role="data-state"' in pills
+    # And the way back to both rails and out of the mode is in that strip,
+    # because in that mode it is the only chrome on the page.
+    assert 'data-drawer="live-controls"' in pills
+    assert 'data-drawer="live-context"' in pills
+    assert 'data-role="leave-mode"' in pills
+    assert 'data-role="fullscreen"' in pills
+
+
+def test_the_rails_are_the_same_rails_summoned_from_their_own_edge():
+    """The drawer is the diagram's own shape and the same DOM: nothing is
+    duplicated for the mode, so no control can drift from its twin."""
+    page = _client().get("/").get_data(as_text=True)
+    assert 'class="rail rail-left" id="live-controls"' in page
+    assert 'class="rail rail-right" id="live-context"' in page
+    assert page.count('class="drawer-close"') == 2
+    assert page.count('class="drawer-backdrop"') == 1
+    css = _client().get("/static/css/controlunit.css").get_data(as_text=True)
+    assert 'body[data-mode="monitor"] .tabbar { display: none; }' in css
+    assert 'body[data-mode="monitor"] .rail.drawer-open' in css
+
+
+def test_the_view_card_teaches_the_one_thing_its_rows_cannot_say():
+    """A data surface states and one line teaches, once for the whole
+    surface: that a mode is in the address is what a reader cannot see from
+    the buttons, and it is said nowhere else on this page."""
+    page = _client().get("/").get_data(as_text=True)
+    assert page.count("a mode stays in the address, so a screen can be bookmarked") == 1
+    # And nothing here explains a second time what the zero card already
+    # teaches about the page and the file.
+    assert page.count("the data file keeps the signal as measured") == 1
+
+
+def test_the_mode_lives_in_the_address_so_back_and_reload_keep_it():
+    source = _live_js()
+    assert "window.history.pushState" in source
+    assert 'url.searchParams.set("mode", next)' in source
+    assert 'window.addEventListener("popstate"' in source
+
+
+def test_escape_leaves_the_drawer_first_and_then_the_mode():
+    """A mode is never a room without a door."""
+    source = _live_js()
+    escape = source[source.index('if (event.key !== "Escape") return;'):]
+    escape = escape[:escape.index("});")]
+    assert escape.index("closeDrawers(); return;") < escape.index('setMode("normal")')
+
+
+def test_the_two_presets_are_the_curves_the_work_needs():
+    """A preset is a named set of the per-curve switches and nothing else.
+    Vacuum is pumping and leak hunting; Plasma is a discharge running, where
+    the Baratrons read the pressure and the ion gauges are off scale."""
+    page = _client().get("/").get_data(as_text=True)
+    for name, channels in (
+        ("all", "Ip,Pu,Pd,Bu,Bd"),
+        ("vacuum", "Pu,Pd,Bu,Bd"),
+        ("plasma", "Ip,Bu,Bd"),
+    ):
+        button = page[page.index('data-preset="{}"'.format(name)):]
+        button = button[:button.index("</button>")]
+        assert 'data-channels="{}"'.format(channels) in button
+
+
+def test_a_preset_changes_what_is_drawn_and_nothing_the_rig_records():
+    """It writes the same browser-local choice the legend switches write,
+    and posts nothing at all."""
+    source = _live_js()
+    applied = source[source.index("function applyPreset"):]
+    applied = applied[:applied.index("function reflectChannels")]
+    assert "view.channels[name]" in applied
+    assert "remember()" in applied
+    assert "fetch(" not in applied and "post(" not in applied
+
+
+def test_which_preset_is_pressed_is_derived_from_the_switches():
+    """Turn one curve off by hand and the page stops claiming a preset,
+    rather than keeping a second stored value that could drift."""
+    source = _live_js()
+    assert "function matchesPreset" in source
+    assert "view.preset" not in source
+
+
+def test_a_panel_with_every_curve_off_keeps_its_legend():
+    """The switches that bring the curves back stay where the reader left
+    them; only the drawing area is given up."""
+    source = _live_js()
+    assert "function collapsedLegend" in source
+    assert 'section.classList.toggle("chart--collapsed", !shown)' in source
+    assert 'if (!drawn) return "no curves shown";' in source
+    css = _client().get("/static/css/controlunit.css").get_data(as_text=True)
+    assert ".chart--collapsed canvas { display: none; }" in css

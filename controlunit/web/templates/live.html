@@ -9,8 +9,12 @@
      data-default-window="{{ default_window }}"
      data-pens='{{ pens | tojson }}'>
 
-    {# Controls live left: what changes what the main column shows. #}
-    <aside class="rail rail-left">
+    {# Controls live left: what changes what the main column shows. In a mode
+       that gives the charts the whole window this same rail is summoned from
+       the edge instead, which is why it carries an id and a Close: the same
+       DOM in a different placement, never a second copy of a control. #}
+    <aside class="rail rail-left" id="live-controls" aria-label="Live controls">
+        <button class="drawer-close" type="button">Close</button>
         <section class="rail-card rail-card--fit">
             {# The window cuts a history this browser keeps for itself, so
                Full is this browser's own memory rather than the rig's ring.
@@ -30,11 +34,25 @@
            now stands in the legend of the chart it belongs to, where the
            curve it turns off is. One control, in one place. #}
 
-        {# One axis per panel: ion gauges cross decades and read as a log
+        {# How the curves themselves are drawn: one axis per panel, and how
+           hard the lines are smoothed.
+
+           The two used to be two cards. They are one because this rail took
+           a fifth card for the view's own shape and a 700px window fits four
+           of these plus that one exactly; the three rows are the same three
+           controls in the same order, and nothing about them changed.
+
+           One axis per panel: ion gauges cross decades and read as a log
            axis, Baratrons sit in a narrow band around their own offset and
-           read as a linear one. Each panel scales to its own channels. #}
+           read as a linear one. Each panel scales to its own channels.
+
+           A median, not a mean: it drops the plasma-current spikes without
+           smearing the step when a setpoint actually moves. The one thing
+           its own row cannot say — that it also changes the numbers in the
+           readouts above — rides on the heading's line, where it costs the
+           rail no height. #}
         <section class="rail-card rail-card--fit">
-            <h2 class="rail-label">Scales</h2>
+            <h2 class="rail-label">Lines <span class="rail-aside">· the median moves the readouts too</span></h2>
             <div class="choice-row" role="group" aria-label="Ion gauge axis">
                 <span class="choice-caption choice-caption--inline">Ion gauges</span>
                 <button type="button" class="choice" data-scale-ig="log" aria-pressed="true">log</button>
@@ -45,13 +63,8 @@
                 <button type="button" class="choice" data-scale-bar="log" aria-pressed="false">log</button>
                 <button type="button" class="choice" data-scale-bar="lin" aria-pressed="true">lin</button>
             </div>
-        </section>
-
-        {# A median, not a mean: it drops the plasma-current spikes without
-           smearing the step when a setpoint actually moves. #}
-        <section class="rail-card rail-card--fit">
-            <h2 class="rail-label">Smoothing <span class="rail-aside">· median of N samples, lines and readouts</span></h2>
             <div class="choice-row" role="group" aria-label="Smoothing">
+                <span class="choice-caption choice-caption--inline">Median</span>
                 <button type="button" class="choice" data-smooth="0" aria-pressed="true">off</button>
                 <button type="button" class="choice" data-smooth="5" aria-pressed="false">5</button>
                 <button type="button" class="choice" data-smooth="15" aria-pressed="false">15</button>
@@ -80,6 +93,31 @@
                 <button type="button" class="choice" data-poll="fast" aria-pressed="false">fast</button>
             </div>
         </section>
+
+        {# What shape the page itself is in. Show sets the whole page for a
+           kind of work in one press instead of a curve at a time — the same
+           per-curve switches as the legends, named — and Mode gives the
+           charts the window when the page is being read rather than driven.
+
+           Both are remembered per browser, and neither changes one byte of
+           what the rig records: this card sets what is drawn here. #}
+        <section class="rail-card rail-card--fit">
+            <h2 class="rail-label">View <span class="rail-aside">· a mode stays in the address, so a screen can be bookmarked</span></h2>
+            <div class="choice-row" role="group" aria-label="What to show">
+                <span class="choice-caption choice-caption--inline">Show</span>
+                {% for name, label, channels in presets %}
+                <button type="button" class="choice" data-preset="{{ name }}"
+                        data-channels="{{ channels | join(',') }}" aria-pressed="false">{{ label }}</button>
+                {% endfor %}
+            </div>
+            <div class="choice-row" role="group" aria-label="View mode">
+                <span class="choice-caption choice-caption--inline">Mode</span>
+                {% for name, label in modes %}
+                <button type="button" class="choice" data-mode="{{ name }}"
+                        aria-pressed="{{ 'true' if name == page_mode else 'false' }}">{{ label }}</button>
+                {% endfor %}
+            </div>
+        </section>
     </aside>
 
     <main class="page-main">
@@ -101,6 +139,22 @@
             <span class="pill-note" data-role="operating-outputs"></span>
             <span class="chip chip-{{ state.data.state }}" data-role="data-state">{{ state.data.state }}</span>
             <span class="mono muted" data-role="data-age"></span>
+
+            {# In a mode with no tab bar and no rails on the page, this strip
+               is all the chrome there is, so it carries the way back to both
+               rails and out of the mode. It is rendered here always and
+               shown only in such a mode: in the ordinary page the rails are
+               already open beside the reader and the tab bar is above, so
+               these would be second copies of controls that are not missing.
+               The same arrangement the diagram uses for its own drawers. #}
+            <span class="mode-actions" data-role="mode-actions" hidden>
+                <button type="button" data-drawer="live-controls"
+                        aria-controls="live-controls" aria-expanded="false">Controls</button>
+                <button type="button" data-drawer="live-context"
+                        aria-controls="live-context" aria-expanded="false">This run</button>
+                <button type="button" data-role="fullscreen" aria-pressed="false">Full screen</button>
+                <button type="button" data-role="leave-mode">Leave monitor</button>
+            </span>
         </div>
 
         {# Readouts: the value, in its own pen, and — on the three channels the
@@ -158,8 +212,11 @@
         {% endfor %}
     </main>
 
-    {# Context lives right: this run, and how fresh what you see is. #}
-    <aside class="rail rail-right">
+    {# Context lives right: this run, and how fresh what you see is. Like the
+       control rail it is summoned from its own edge in a mode that gives the
+       charts the window. #}
+    <aside class="rail rail-right" id="live-context" aria-label="This run">
+        <button class="drawer-close" type="button">Close</button>
         <section class="rail-card rail-card--fit">
             <h2 class="rail-label">This run</h2>
             <dl class="facts">

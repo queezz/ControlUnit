@@ -145,18 +145,21 @@
         return map;
     }
 
+    /* The presses are in the faceplate and the numbers they move are beside
+       it, so a reading is addressed by the line it belongs to rather than
+       found inside the row that sets it. */
     function paintGas(state, map) {
         var sp = state.setpoints || {};
-        root.querySelectorAll("[data-mfc]").forEach(function (row) {
+        root.querySelectorAll(".frow[data-mfc]").forEach(function (row) {
             var number = row.dataset.mfc;
             var held = Number(sp["mfc" + number + "_v"] || 0);
-            row.querySelector('[data-role="mfc-setpoint"]').textContent =
-                Math.round(held) + " mV";
+            set('[data-role="mfc-setpoint"][data-mfc="' + number + '"]',
+                Math.round(held) + " mV");
             var measured = map["MFC" + number];
-            row.querySelector('[data-role="mfc-measured"]').textContent =
+            set('[data-role="mfc-measured"][data-mfc="' + number + '"]',
                 measured && measured.value !== null && measured.value !== undefined
                     ? Math.round(Number(measured.value) * 1000) + " mV"
-                    : "—";
+                    : "—");
         });
     }
 
@@ -167,13 +170,18 @@
         var ip = map.Ip;
         set('[data-role="plasma-measured"]', ip ? fmt(ip.value, ip.unit) + " A" : "—");
 
-        var row = root.querySelector('[data-role="cathode-row"]');
+        /* The cathode's own drive is a reading and never a setpoint, so its
+           line appears in the readings only when the rig reports one. Three
+           cells of one table row, hidden together. */
         var cathode = map.Cv;
-        if (row) {
-            row.hidden = !cathode;
-            if (cathode) {
-                set('[data-role="cathode-measured"]', fmt(cathode.value, cathode.unit) + " " + (cathode.unit || ""));
-            }
+        ['[data-role="cathode-row"]',
+         '[data-role="cathode-blank"]',
+         '[data-role="cathode-measured"]'].forEach(function (selector) {
+            var cell = root.querySelector(selector);
+            if (cell) cell.hidden = !cathode;
+        });
+        if (cathode) {
+            set('[data-role="cathode-measured"]', fmt(cathode.value, cathode.unit) + " " + (cathode.unit || ""));
         }
     }
 
@@ -199,14 +207,16 @@
 
     function paintBaselines(state, map) {
         var zeros = state.zeros || {};
-        root.querySelectorAll("[data-zero]").forEach(function (row) {
-            var channel = row.dataset.zero;
+        root.querySelectorAll('[data-role="zero-value"]').forEach(function (cell) {
+            var channel = cell.dataset.zeroRead;
             var unit = (map[channel] && map[channel].unit) || "";
             var zero = zeros[channel];
-            row.querySelector('[data-role="zero-value"]').textContent =
+            cell.textContent =
                 zero === undefined || zero === null ? "—" : fmt(Number(zero), unit) + " " + unit;
-            var reading = map[channel];
-            row.querySelector('[data-role="zero-measured"]').textContent =
+        });
+        root.querySelectorAll('[data-role="zero-measured"]').forEach(function (cell) {
+            var reading = map[cell.dataset.zeroRead];
+            cell.textContent =
                 reading ? fmt(reading.value, reading.unit) + " " + (reading.unit || "") : "—";
         });
     }
@@ -272,7 +282,7 @@
         /* The field never disappears once the word is in: a word that
            changed has to be typable again. Only what it says changes. */
         if (fenceInput) {
-            fenceInput.placeholder = fenced ? "the lab's word" : "word saved";
+            fenceInput.placeholder = fenced ? "the lab's word, not a secret" : "word saved";
         }
 
         var why = "";
@@ -289,8 +299,13 @@
         var line = root.querySelector('[data-role="remote-why"]');
         if (line) line.textContent = why;
 
+        /* Everything the gate governs is one block of the faceplate, so the
+           blanket names that block rather than the whole column: the name
+           field and the lab's word stand outside it deliberately, because
+           they are how a person opens the gate and must never be switched
+           off by it. */
         var allowed = Boolean(state.remote) && !fenced && Boolean(state.acquiring) && mine;
-        root.querySelectorAll(".page-main button, .page-main input").forEach(function (control) {
+        root.querySelectorAll(".sets button, .sets input").forEach(function (control) {
             control.disabled = !allowed;
         });
 
@@ -420,7 +435,7 @@
             });
         });
 
-        root.querySelectorAll("[data-mfc]").forEach(function (row) {
+        root.querySelectorAll(".frow[data-mfc]").forEach(function (row) {
             var number = row.dataset.mfc;
             var input = row.querySelector('[data-role="mfc-input"]');
             row.querySelector('[data-role="mfc-set"]').addEventListener("click", function () {
@@ -455,9 +470,9 @@
                 send("/api/sync", {on: button.dataset.on === "1"}, "the sync line");
             });
         });
-        root.querySelectorAll("[data-zero]").forEach(function (row) {
-            row.querySelector('[data-role="zero-now"]').addEventListener("click", function () {
-                send("/api/zero", {channel: row.dataset.zero}, "the baseline of " + row.dataset.zero);
+        root.querySelectorAll('[data-role="zero-now"]').forEach(function (button) {
+            button.addEventListener("click", function () {
+                send("/api/zero", {channel: button.dataset.zero}, "the baseline of " + button.dataset.zero);
             });
         });
     }
