@@ -81,6 +81,54 @@ def test_addresses_come_from_the_local_settings_file(tmp_path):
     }
 
 
+NEIGHBOURS_FILE = """\
+pihti-log:
+  url: "http://vault.example:4310"
+  where: on the office Windows PC
+  start_how: from the office PC, as lab pihti-log
+  start: lab pihti-log
+pihti-diagram:
+  url: "http://rig.example:4186"
+  start: sudo systemctl start pihti.service
+"""
+
+
+def test_starting_is_two_facts_read_from_the_local_file(tmp_path):
+    """The plain words and the literal line are separate keys: the card
+    leads with the words and keeps the line behind its toggle."""
+    home = tmp_path / ".controlunit"
+    home.mkdir(parents=True)
+    (home / "neighbours.yml").write_text(NEIGHBOURS_FILE, encoding="utf-8")
+
+    entries = neighbourhood.read_neighbours(home)
+    assert entries["pihti-log"]["start_how"] == "from the office PC, as lab pihti-log"
+    assert entries["pihti-log"]["start"] == "lab pihti-log"
+    # A file that gives only the command leaves the words empty rather than
+    # inventing them; the card says so in words of its own.
+    assert entries["pihti-diagram"]["start_how"] == ""
+    assert entries["pihti-diagram"]["start"] == "sudo systemctl start pihti.service"
+
+
+def test_every_row_carries_both_start_facts(tmp_path):
+    """Both keys on every row, whatever the local file happened to say, so
+    neither the page nor the template has to ask whether a key is there."""
+    home = tmp_path / ".controlunit"
+    home.mkdir(parents=True)
+    (home / "neighbours.yml").write_text(NEIGHBOURS_FILE, encoding="utf-8")
+    board = NeighbourBoard(home=home, prober=lambda: None)
+    client = create_app(board=board).test_client()
+
+    rows = client.get("/api/neighbours").get_json()["services"]
+    for row in rows:
+        assert set(row) >= {"where", "start_how", "start"}
+    by_alias = {row["alias"]: row for row in rows}
+    assert by_alias["pihti-log"]["start_how"] == "from the office PC, as lab pihti-log"
+    assert by_alias["pihti-diagram"]["start_how"] == ""
+    # This program starts with its own GUI, from the rig's desktop shortcut.
+    assert "rig's own screen" in by_alias["controlunit"]["start_how"]
+    assert by_alias["controlunit"]["start"] == "scripts/run_controlunit.sh"
+
+
 def test_a_missing_settings_file_configures_nothing(tmp_path):
     assert read_addresses(tmp_path / "nowhere") == {}
 

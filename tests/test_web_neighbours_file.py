@@ -17,6 +17,7 @@ NEIGHBOURS = """\
 pihti-diagram:
   url: http://rig.example:5000/
   where: on this Pi, as a system service
+  start_how: on the Pi itself, as a system service
   start: sudo systemctl start pihti.service
 pihti-log:
   url: http://vault.example:4310
@@ -40,9 +41,15 @@ def test_the_neighbours_file_carries_where_and_start(tmp_path):
     assert entries["pihti-diagram"] == {
         "url": "http://rig.example:5000",
         "where": "on this Pi, as a system service",
+        "start_how": "on the Pi itself, as a system service",
         "start": "sudo systemctl start pihti.service",
     }
-    assert entries["pihti-log"] == {"url": "http://vault.example:4310", "where": "", "start": ""}
+    assert entries["pihti-log"] == {
+        "url": "http://vault.example:4310",
+        "where": "",
+        "start_how": "",
+        "start": "",
+    }
 
 
 def test_the_old_settings_block_is_used_only_when_the_file_is_absent(tmp_path):
@@ -69,21 +76,50 @@ def test_the_card_says_how_that_service_starts_or_nothing(tmp_path, monkeypatch)
     client = create_app(board=NeighbourBoard(home=home)).test_client()
     rows = {row["alias"]: row for row in client.get("/api/neighbours").get_json()["services"]}
     assert rows["pihti-diagram"]["start"] == "sudo systemctl start pihti.service"
+    assert rows["pihti-diagram"]["start_how"] == "on the Pi itself, as a system service"
     assert rows["pihti-diagram"]["where"] == "on this Pi, as a system service"
     assert rows["pihti-log"]["start"] == ""
+    assert rows["pihti-log"]["start_how"] == ""
     assert rows["pihti-log"]["where"] == ""
 
     page = client.get("/lab").get_data(as_text=True)
     diagram = page[page.index('data-alias="pihti-diagram"'):]
     diagram = diagram[:diagram.index("</article>")]
-    assert "sudo systemctl start pihti.service" in diagram
+    # The words lead the row; the command is there, behind the toggle.
+    assert 'data-role="start-how">on the Pi itself, as a system service<' in diagram
+    assert 'data-role="start" hidden>sudo systemctl start pihti.service</code>' in diagram
     assert "on this Pi, as a system service" in diagram
 
     # The other entry gives neither, so its card says neither. A start line
-    # is copied from this file or it is an em dash; it is never invented
-    # from the service's own name.
+    # is copied from this file or the row ends at an em dash; it is never
+    # invented from the service's own name.
     journal = page[page.index('data-alias="pihti-log"'):]
     journal = journal[:journal.index("</article>")]
-    assert 'data-role="start">—<' in journal
+    assert 'data-role="start-how">—<' in journal
     assert 'data-role="where">—<' in journal
     assert "lab pihti-log" not in page
+
+
+def test_a_command_without_words_still_leads_with_words(tmp_path, monkeypatch):
+    """An older file gives `start` and nothing else. Meaning still leads:
+    the card says so in words of its own and keeps the line behind the
+    toggle, rather than putting a command where the meaning belongs."""
+    home = tmp_path / ".controlunit"
+    home.mkdir()
+    (home / "neighbours.yml").write_text(
+        "pihti-log:\n"
+        "  url: http://vault.example:4310\n"
+        "  start: lab pihti-log\n",
+        encoding="utf-8",
+    )
+
+    def opener(url, timeout=None):
+        return FakeResponse(json.dumps({"status": "ok", "version": "0.8.0"}).encode())
+
+    monkeypatch.setattr(neighbourhood.urllib.request, "urlopen", opener)
+    client = create_app(board=NeighbourBoard(home=home)).test_client()
+    page = client.get("/lab").get_data(as_text=True)
+    journal = page[page.index('data-alias="pihti-log"'):]
+    journal = journal[:journal.index("</article>")]
+    assert 'data-role="start-how">Started by a command on its own machine.<' in journal
+    assert 'data-role="start" hidden>lab pihti-log</code>' in journal

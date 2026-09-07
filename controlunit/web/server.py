@@ -42,24 +42,36 @@ from controlunit.web.status import (
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 4187
 
-#: Where this program runs and how it is started there. The rig launches
-#: it from its desktop shortcut, which calls the launcher kept in the
-#: repository; there is no `lab` on the Pi.
+#: Where this program runs and how it is started there. ControlUnit starts
+#: with its own GUI: the rig's desktop shortcut calls the launcher kept in
+#: the repository, and `--web` rides along with it. There is no `lab
+#: controlunit` on the Pi, so the card never offers one (owner report
+#: 2026-09-07, relayed from PIHTI Log).
 SELF_WHERE = "on the rig, beside its own screen"
+SELF_START_HOW = (
+    "From the rig's own screen: the desktop shortcut starts the whole "
+    "program, web view included."
+)
 SELF_START = "scripts/run_controlunit.sh"
 
-#: What each state means, one sentence each. It is rendered as the middle
-#: paragraph of the Lab tab's one context card and appears nowhere else on
-#: the surface: a data surface states, and one card teaches for the whole
-#: page (fleet's WEBUI.md, "Structure teaches; text states"). Every card's
-#: chip carries the word alone.
+#: What a card says under Start when its neighbours file gave a command and
+#: no words for it. Meaning still leads; the line stays behind the toggle.
+START_FALLBACK = "Started by a command on its own machine."
+
+#: What each state means, three or four plain words each. The Lab tab's one
+#: context card renders it beside the same chip the cards wear, and it
+#: appears nowhere else on the surface: a data surface states, and one card
+#: teaches for the whole page (fleet's WEBUI.md, "Structure teaches; text
+#: states"). Short and parallel on purpose — the owner asked to see the
+#: whole legend at a glance, and reads it beside people whose English is a
+#: second language (owner report 2026-09-07, "too long and too quiet").
 STATE_LEGEND = (
-    ("ok", "answered, and running the way it should"),
-    ("degraded", "answered, but not fully working"),
-    ("down", "answered, and said it is not working"),
-    ("unreachable", "nothing answered from this machine"),
-    ("not configured", "this machine has no address for it"),
-    ("checking", "this machine is asking now and has not heard back"),
+    ("ok", "answered, working"),
+    ("degraded", "answered, not fully working"),
+    ("down", "answered, or nothing at that port"),
+    ("unreachable", "nothing answered from here"),
+    ("not configured", "no address on this machine"),
+    ("checking", "asking now, no answer yet"),
 )
 
 #: The live window choices, the same ones the Qt control dock offers.
@@ -166,6 +178,7 @@ def create_app(status=None, board=None, commands=None, roster=None, fence=None):
             "version": report["version"],
             "detail": report["detail"],
             "where": SELF_WHERE,
+            "start_how": SELF_START_HOW,
             "start": SELF_START,
         }
 
@@ -174,6 +187,12 @@ def create_app(status=None, board=None, commands=None, roster=None, fence=None):
         rows.extend(services.neighbours())
         for row in rows:
             row["here"] = row["alias"] == SERVICE
+            # Every row carries both start facts, so neither the template
+            # nor the page has to ask whether a key is there before it can
+            # decide what the card says.
+            row.setdefault("where", "")
+            row.setdefault("start_how", "")
+            row.setdefault("start", "")
         return rows
 
     def who_is_asking():
@@ -279,6 +298,7 @@ def create_app(status=None, board=None, commands=None, roster=None, fence=None):
             services=board_rows(),
             checked_at=services.checked_at(),
             legend=STATE_LEGEND,
+            start_fallback=START_FALLBACK,
         )
 
     # -- the ensemble's contract --------------------------------------------
