@@ -220,8 +220,20 @@ def test_the_neighbour_states_are_explained_in_exactly_one_place(lab):
     for meaning in (
         "nothing answered from this machine",
         "answered, and said it is not working",
+        "this machine is asking now and has not heard back",
     ):
         assert lab.count(meaning) == 1
+
+
+def test_the_legend_carries_the_state_a_first_paint_can_show(lab):
+    """A page served before the LAN answered shows `checking`, so the one
+    place a state is explained has to explain that one too."""
+    assert 'class="chip chip-checking">checking</span>' in lab
+
+
+def test_the_lab_page_asks_again_while_a_state_is_still_checking(client):
+    script = client.get("/static/js/lab.js").get_data(as_text=True)
+    assert '"checking"' in script
 
 
 def test_the_data_states_are_explained_in_exactly_one_place(live):

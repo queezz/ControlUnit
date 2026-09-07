@@ -50,6 +50,7 @@ STATE_LEGEND = (
     ("down", "answered, and said it is not working"),
     ("unreachable", "nothing answered from this machine"),
     ("not configured", "this machine has no address for it"),
+    ("checking", "this machine is asking now and has not heard back"),
 )
 
 #: The live window choices, the same ones the Qt control dock offers.

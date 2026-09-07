@@ -5,6 +5,18 @@ reads on all three services, and a neighbour's address would have to travel
 into the page. Instead this server asks each neighbour itself, over a two
 second timeout, and remembers the answer for ten seconds.
 
+Asking happens beside the page, never in front of it. A request that had to
+wait for the LAN waited two seconds per silent neighbour, plus however long a
+`.local` name takes to fail to resolve, before the Lab tab appeared at all —
+the page paying for a question the reader had not asked yet. So the board
+answers from what it already knows and refreshes behind that answer: the
+cached rows when there are any, however old, and otherwise rows in the state
+`checking`, which says this machine is asking right now and has not heard
+back. One probe runs at a time; a second caller arriving mid-probe is handed
+the same rows and starts nothing. `checking` is a sixth state and not a
+sixth kind of failure: a neighbour this machine has no address for is `not
+configured` from the first paint, because that answer needs no one.
+
 Addresses come only from a machine-local file the repository never carries,
 `~/.controlunit/neighbours.yml`::
 
@@ -51,14 +63,16 @@ DISPLAY_NAMES = {
     "pihti-diagram": "PIHTI diagram",
 }
 
-#: Five states, never conflated. `down` means a service answered and said so;
+#: Six states, never conflated. `down` means a service answered and said so;
 #: `unreachable` means nothing answered from this machine at all; `not
-#: configured` means this machine was never told where the service lives.
+#: configured` means this machine was never told where the service lives;
+#: `checking` means this machine is asking now and has not heard back.
 STATE_OK = "ok"
 STATE_DEGRADED = "degraded"
 STATE_DOWN = "down"
 STATE_UNREACHABLE = "unreachable"
 STATE_NOT_CONFIGURED = "not configured"
+STATE_CHECKING = "checking"
 
 
 def settings_home():
@@ -160,16 +174,49 @@ def _read_health(url, timeout=TIMEOUT_SECONDS):
     return STATE_DEGRADED, version, detail or "answered, but not with a health report"
 
 
-class NeighbourBoard:
-    """The three services' states, refreshed no more than once every ten seconds."""
+def _row(alias, entry, state, version="", detail=""):
+    """One card's worth of facts. The local file's part of it is known
+    without asking anyone, so it is filled in whatever the state."""
+    return {
+        "alias": alias,
+        "name": DISPLAY_NAMES.get(alias, alias),
+        "url": entry.get("url", ""),
+        "state": state,
+        "version": version,
+        "detail": detail,
+        "where": entry.get("where", ""),
+        "start": entry.get("start", ""),
+    }
 
-    def __init__(self, cache_seconds=CACHE_SECONDS, home=None, clock=time.monotonic):
+
+class NeighbourBoard:
+    """The two neighbours' states, answered now and refreshed behind the answer.
+
+    `neighbours()` never waits on the network. It hands back the rows it has
+    — the cache when it is warm, the cache when it is stale, `checking` rows
+    when there is no cache at all — and starts one background probe whenever
+    what it handed back was not fresh. `wait()` is the seam a test or a
+    script uses to stand still until that probe has finished.
+    """
+
+    def __init__(
+        self,
+        cache_seconds=CACHE_SECONDS,
+        home=None,
+        clock=time.monotonic,
+        prober=None,
+    ):
         self._cache_seconds = cache_seconds
         self._home = home
         self._clock = clock
+        #: What one refresh does. Injectable so a test can make it slow, or
+        #: count it, without a real neighbour and without a real wait.
+        self._prober = prober if prober is not None else self._probe_all
         self._lock = threading.RLock()
         self._cached = None
         self._cached_at = None
+        self._probing = False
+        self._thread = None
 
     def addresses(self):
         return read_addresses(self._home)
@@ -182,51 +229,80 @@ class NeighbourBoard:
         rows = []
         for alias in NEIGHBOUR_ALIASES:
             entry = entries.get(alias) or {}
-            url = entry.get("url", "")
-            if not url:
-                rows.append(
-                    {
-                        "alias": alias,
-                        "name": DISPLAY_NAMES.get(alias, alias),
-                        "url": "",
-                        "state": STATE_NOT_CONFIGURED,
-                        "version": "",
-                        # The chip states it and the rail legend explains it
-                        # once; there is nothing further to say here.
-                        "detail": "",
-                        "where": "",
-                        "start": "",
-                    }
-                )
+            if not entry.get("url"):
+                # The chip states it and the rail legend explains it once;
+                # there is nothing further to say here.
+                rows.append(_row(alias, entry, STATE_NOT_CONFIGURED))
                 continue
-            state, version, detail = _read_health(url)
-            rows.append(
-                {
-                    "alias": alias,
-                    "name": DISPLAY_NAMES.get(alias, alias),
-                    "url": url,
-                    "state": state,
-                    "version": version,
-                    "detail": detail,
-                    "where": entry.get("where", ""),
-                    "start": entry.get("start", ""),
-                }
-            )
+            state, version, detail = _read_health(entry["url"])
+            rows.append(_row(alias, entry, state, version, detail))
         return rows
 
+    def _checking_rows(self):
+        """What to show while the first answer is still on its way.
+
+        A neighbour with an address is `checking`, because this machine is
+        asking it right now. A neighbour with no address is `not configured`
+        from the first paint: nobody is being asked about it, and saying
+        `checking` would promise an answer that is never coming.
+        """
+        entries = self.entries()
+        rows = []
+        for alias in NEIGHBOUR_ALIASES:
+            entry = entries.get(alias) or {}
+            state = STATE_CHECKING if entry.get("url") else STATE_NOT_CONFIGURED
+            rows.append(_row(alias, entry, state))
+        return rows
+
+    def _start_probe(self):
+        """Begin one refresh, unless one is already running. Lock held."""
+        if self._probing:
+            return
+        self._probing = True
+        self._thread = threading.Thread(
+            target=self._run_probe, name="neighbour-probe", daemon=True
+        )
+        self._thread.start()
+
+    def _run_probe(self):
+        try:
+            rows = self._prober()
+        except Exception:
+            # A probe that fell over leaves the last answer standing: the
+            # reader is told nothing new rather than told something false.
+            rows = None
+        with self._lock:
+            if rows is not None:
+                self._cached = rows
+                self._cached_at = self._clock()
+            self._probing = False
+
+    def wait(self, timeout=None):
+        """Block until the probe in flight has finished; True if none is left.
+
+        The page never calls this. It exists so a test can drive the refresh
+        deterministically instead of sleeping, and so a script can ask for
+        one settled answer.
+        """
+        with self._lock:
+            thread = self._thread
+        if thread is not None:
+            thread.join(timeout)
+        with self._lock:
+            return not self._probing
+
     def neighbours(self):
-        """The two neighbours, from the cache when it is still warm."""
+        """The two neighbours, answered from what this machine already knows."""
         now = self._clock()
         with self._lock:
+            cached = self._cached
             fresh = (
-                self._cached is not None
+                cached is not None
                 and self._cached_at is not None
                 and (now - self._cached_at) < self._cache_seconds
             )
-            if fresh:
-                return [dict(row) for row in self._cached]
-        rows = self._probe_all()
-        with self._lock:
-            self._cached = rows
-            self._cached_at = self._clock()
-        return [dict(row) for row in rows]
+            if not fresh:
+                self._start_probe()
+            if cached is not None:
+                return [dict(row) for row in cached]
+        return self._checking_rows()

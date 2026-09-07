@@ -1,11 +1,14 @@
 """Neighbour states: answered, answered badly, silent, and never configured.
 
 `down` and `unreachable` are different facts about different failures, and
-neither is "not configured". These tests hold the three apart.
+neither is "not configured". These tests hold the three apart, and hold the
+board to answering without waiting for any of them: the probe runs behind
+the answer, and `wait()` is what stands still for it here.
 """
 
 import io
 import json
+import threading
 import urllib.error
 
 import pytest
@@ -50,6 +53,18 @@ def answering(bodies):
         raise urllib.error.URLError("no route")
 
     return opener
+
+
+def probed(board):
+    """The rows once the probe the first call started has finished.
+
+    The first call never waits on the network, so a test that wants the
+    answer asks twice with a `wait()` between: the same two steps the page
+    takes, with the second one arriving on a timer rather than here.
+    """
+    board.neighbours()
+    assert board.wait(timeout=10)
+    return {row["alias"]: row for row in board.neighbours()}
 
 
 def test_addresses_come_from_the_local_settings_file(tmp_path):
@@ -99,7 +114,7 @@ def test_a_service_that_answers_reports_its_own_state(tmp_path, monkeypatch):
             }
         ),
     )
-    rows = {row["alias"]: row for row in NeighbourBoard(home=home).neighbours()}
+    rows = probed(NeighbourBoard(home=home))
     assert rows["pihti-log"]["state"] == "ok"
     assert rows["pihti-log"]["version"] == "0.6.1"
     assert rows["pihti-log"]["detail"] == "vault open"
@@ -118,7 +133,7 @@ def test_silence_is_unreachable_never_down(tmp_path, monkeypatch):
             }
         ),
     )
-    rows = {row["alias"]: row for row in NeighbourBoard(home=home).neighbours()}
+    rows = probed(NeighbourBoard(home=home))
     assert rows["pihti-log"]["state"] == "unreachable"
     assert rows["pihti-diagram"]["state"] == "unreachable"
     assert rows["pihti-log"]["detail"] == "no answer within two seconds"
@@ -138,7 +153,7 @@ def test_an_http_error_is_down_because_something_answered(tmp_path, monkeypatch)
             }
         ),
     )
-    rows = {row["alias"]: row for row in NeighbourBoard(home=home).neighbours()}
+    rows = probed(NeighbourBoard(home=home))
     assert rows["pihti-log"]["state"] == "down"
     assert rows["pihti-diagram"]["state"] == "ok"
 
@@ -150,7 +165,7 @@ def test_an_answer_that_is_not_a_health_report_is_degraded(tmp_path, monkeypatch
         return FakeResponse(b"<html>hello</html>")
 
     monkeypatch.setattr(neighbourhood.urllib.request, "urlopen", opener)
-    rows = {row["alias"]: row for row in NeighbourBoard(home=home).neighbours()}
+    rows = probed(NeighbourBoard(home=home))
     assert rows["pihti-log"]["state"] == "degraded"
     assert rows["pihti-log"]["detail"] == "answered, but not with a health report"
 
@@ -168,12 +183,15 @@ def test_the_board_is_cached_so_a_poll_does_not_hammer_the_lan(tmp_path, monkeyp
     board = NeighbourBoard(home=home, clock=lambda: now[0])
 
     board.neighbours()
+    assert board.wait(timeout=10)
     assert len(calls) == 2
     now[0] = 5.0  # inside the ten-second window: no new requests
     board.neighbours()
+    assert board.wait(timeout=10)
     assert len(calls) == 2
     now[0] = 30.0  # the window has passed
     board.neighbours()
+    assert board.wait(timeout=10)
     assert len(calls) == 4
 
 
@@ -199,9 +217,157 @@ def test_the_route_lists_this_service_first_then_the_two_neighbours(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "state", ["ok", "degraded", "down", "unreachable", "not configured"]
+    "state",
+    ["ok", "degraded", "down", "unreachable", "not configured", "checking"],
 )
 def test_every_state_the_page_can_show_has_a_legend_line(state):
     from controlunit.web.server import STATE_LEGEND
 
     assert state in {name for name, _ in STATE_LEGEND}
+
+
+# -- the board answers now, and asks behind the answer ------------------------
+
+
+def slow_prober(started, release, rows, counted):
+    """A stand-in probe that blocks until the test lets it finish."""
+
+    def probe():
+        counted.append(1)
+        started.set()
+        release.wait(10)
+        return rows
+
+    return probe
+
+
+ROWS = [
+    {
+        "alias": "pihti-log",
+        "name": "PIHTI Log",
+        "url": "http://vault.example:4310",
+        "state": "ok",
+        "version": "0.6.1",
+        "detail": "vault open",
+        "where": "",
+        "start": "",
+    },
+    {
+        "alias": "pihti-diagram",
+        "name": "PIHTI diagram",
+        "url": "http://rig.example:4186",
+        "state": "unreachable",
+        "version": "",
+        "detail": "no answer within two seconds",
+        "where": "",
+        "start": "",
+    },
+]
+
+
+def test_the_first_call_answers_checking_without_waiting_for_the_lan(tmp_path):
+    home = write_settings(tmp_path / ".controlunit")
+    started, release, counted = threading.Event(), threading.Event(), []
+    board = NeighbourBoard(
+        home=home, prober=slow_prober(started, release, ROWS, counted)
+    )
+
+    rows = board.neighbours()
+    assert [row["state"] for row in rows] == ["checking", "checking"]
+    # The address is known from the local file, so the card is complete
+    # except for what only the neighbour itself can say.
+    assert rows[0]["url"] == "http://vault.example:4310"
+    assert [row["version"] for row in rows] == ["", ""]
+    assert [row["detail"] for row in rows] == ["", ""]
+    assert started.wait(10)
+
+    release.set()
+    assert board.wait(timeout=10)
+    assert [row["state"] for row in board.neighbours()] == ["ok", "unreachable"]
+    assert counted == [1]
+
+
+def test_a_neighbour_with_no_address_is_not_configured_from_the_first_paint(tmp_path):
+    """Nobody is being asked about it, so `checking` would promise nothing."""
+    started, release, counted = threading.Event(), threading.Event(), []
+    board = NeighbourBoard(
+        home=tmp_path / "nowhere",
+        prober=slow_prober(started, release, ROWS, counted),
+    )
+    assert {row["state"] for row in board.neighbours()} == {"not configured"}
+    release.set()
+    board.wait(timeout=10)
+
+
+def test_a_stale_cache_is_answered_as_it_stands_and_refreshed_behind_it(tmp_path):
+    home = write_settings(tmp_path / ".controlunit")
+    now = [0.0]
+    counted = []
+
+    def probe():
+        counted.append(len(counted) + 1)
+        return [dict(row, version=str(len(counted))) for row in ROWS]
+
+    board = NeighbourBoard(home=home, clock=lambda: now[0], prober=probe)
+    board.neighbours()
+    assert board.wait(timeout=10)
+
+    now[0] = 300.0  # far outside the window
+    stale = board.neighbours()
+    assert [row["version"] for row in stale] == ["1", "1"]  # as it stands
+    assert board.wait(timeout=10)
+    assert counted == [1, 2]  # exactly one refresh, started behind the answer
+    assert [row["version"] for row in board.neighbours()] == ["2", "2"]
+
+
+def test_two_callers_arriving_together_start_one_probe(tmp_path):
+    home = write_settings(tmp_path / ".controlunit")
+    started, release, counted = threading.Event(), threading.Event(), []
+    board = NeighbourBoard(
+        home=home, prober=slow_prober(started, release, ROWS, counted)
+    )
+
+    first = board.neighbours()
+    assert started.wait(10)
+    second = board.neighbours()  # while the first probe is still in flight
+    assert [row["state"] for row in first] == ["checking", "checking"]
+    assert [row["state"] for row in second] == ["checking", "checking"]
+    assert counted == [1]
+
+    release.set()
+    assert board.wait(timeout=10)
+    assert counted == [1]
+
+
+def test_a_probe_that_fails_leaves_the_last_answer_standing(tmp_path):
+    home = write_settings(tmp_path / ".controlunit")
+    now = [0.0]
+    tries = []
+
+    def probe():
+        tries.append(1)
+        if len(tries) > 1:
+            raise OSError("the network went away")
+        return ROWS
+
+    board = NeighbourBoard(home=home, clock=lambda: now[0], prober=probe)
+    board.neighbours()
+    assert board.wait(timeout=10)
+
+    now[0] = 300.0
+    board.neighbours()
+    assert board.wait(timeout=10)
+    assert [row["state"] for row in board.neighbours()] == ["ok", "unreachable"]
+
+
+def test_the_route_answers_without_waiting_for_the_lan(tmp_path):
+    home = write_settings(tmp_path / ".controlunit")
+    started, release, counted = threading.Event(), threading.Event(), []
+    board = NeighbourBoard(
+        home=home, prober=slow_prober(started, release, ROWS, counted)
+    )
+    client = create_app(board=board).test_client()
+    rows = client.get("/api/neighbours").get_json()["services"]
+    assert [row["state"] for row in rows[1:]] == ["checking", "checking"]
+    release.set()
+    board.wait(timeout=10)

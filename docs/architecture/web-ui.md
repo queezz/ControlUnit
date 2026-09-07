@@ -161,7 +161,7 @@ a credential; the data file appears by name only.
 | `GET /log` | the Log tab |
 | `GET /lab` | the Lab tab |
 | `GET /api/health` | `{service, version, status, detail}` — the ensemble's contract; `ok` only while acquiring on real hardware |
-| `GET /api/neighbours` | this service and its two neighbours, each with a state |
+| `GET /api/neighbours` | this service and its two neighbours, each with a state; answers from what this machine already knows and asks the LAN behind the answer |
 | `GET /api/state` | latest values, setpoints, run facts, freshness, the Remote switch, the zeros, who has control and the last command; polled once a second, or four times a second under Poll: fast |
 | `GET /api/series?window=300&points=600` | thinned `[t, v]` pairs per channel over the last `window` seconds, `0` for all held |
 
@@ -198,7 +198,14 @@ still copies the whole ring, because the whole ring is what it asked for.
   Find and an order switch.
 - **Lab** — the three services of the lab ensemble with a state each: `ok`,
   `degraded`, `down` (it answered and said so), `unreachable` (nothing
-  answered from this machine) and `not configured`.
+  answered from this machine), `not configured`, and `checking` (this machine
+  is asking now and has not heard back). The page never waits for the LAN:
+  it is served from what the machine already knows — the last answers,
+  however old, or `checking` when there are none — and the neighbours are
+  asked on a background thread behind that. The tab asks again every two
+  seconds while any card still says `checking`, and every thirty once they
+  have all resolved. A neighbour this machine has no address for is `not
+  configured` from the first paint, because that answer needs nobody.
 - **Control** — five headed groups in operating order: Acquisition (read
   only; a run is still started and stopped at the rig), Gas flow, Plasma
   current, Gauge and sync, and Baselines. Every row shows the setpoint the

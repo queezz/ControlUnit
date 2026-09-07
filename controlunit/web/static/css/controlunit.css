@@ -388,6 +388,10 @@ dl.facts dd.wide { margin-top: -2px; }
 .chip-down { color: var(--stop-fg); border-color: rgba(192, 80, 62, 0.55); background: var(--stop-wash); }
 .chip-unreachable { color: var(--muted); border-style: dashed; border-color: var(--muted); background: none; }
 .chip-not-configured, .chip-idle { color: var(--dim); border-style: dotted; border-color: var(--dim); background: none; }
+/* Asking, not answered. Dotted like "not configured" because neither is a
+   fault, but in the brighter --muted, so a state still on its way does not
+   read as one this machine was never told about. */
+.chip-checking { color: var(--muted); border-style: dotted; border-color: var(--muted); background: none; }
 
 /* -- readouts and charts (Live) ---------------------------------------- */
 
