@@ -349,6 +349,54 @@ def test_a_service_card_says_its_version_what_it_said_and_how_it_starts(lab):
     assert "This is the service you are reading." in card
 
 
+def test_this_program_is_started_from_the_rigs_own_screen(lab):
+    """ControlUnit starts with its own GUI, from the desktop shortcut. There
+    is no `lab controlunit` alias, so the card never offers one (owner
+    report 2026-09-07, relayed from PIHTI Log)."""
+    card = lab[lab.index('data-alias="controlunit"'):]
+    card = card[:card.index("</article>")]
+    assert "rig&#39;s own screen" in card or "rig's own screen" in card
+    assert "desktop shortcut starts the whole program" in card
+    assert "lab controlunit" not in lab
+
+
+def test_the_start_row_leads_with_words_and_hides_the_command(lab):
+    """Meaning first; machinery behind a toggle (fleet's WEBUI.md). The
+    command is in the markup and hidden until the reader asks for it."""
+    card = lab[lab.index('data-alias="controlunit"'):]
+    card = card[:card.index("</article>")]
+    row = card[card.index("<dt>Start</dt>"):]
+    assert 'data-role="start-how"' in row
+    assert 'data-role="start-toggle"' in row
+    assert 'aria-expanded="false"' in row
+    assert 'aria-controls="start-controlunit"' in row
+    assert ">show</button>" in row
+    # The words come before the toggle, and the command after both.
+    assert row.index('data-role="start-how"') < row.index('data-role="start-toggle"')
+    assert row.index('data-role="start-toggle"') < row.index('id="start-controlunit"')
+    assert 'data-role="start" hidden>scripts/run_controlunit.sh</code>' in row
+
+
+def test_a_service_with_no_command_reserves_no_toggle(lab):
+    """Nothing is configured here, so the row ends at the em dash: no
+    toggle, no command line, nothing held open for a line that is not
+    coming."""
+    card = lab[lab.index('data-alias="pihti-log"'):]
+    card = card[:card.index("</article>")]
+    row = card[card.index("<dt>Start</dt>"):]
+    assert 'data-role="start-toggle"' in row and "hidden>show</button>" in row
+    assert 'data-role="start" hidden></code>' in row
+
+
+def test_a_refresh_never_closes_an_open_disclosure(client):
+    """The board repaints every two seconds while a state is checking. What
+    the reader opened is kept and re-applied, never reset by an answer."""
+    script = client.get("/static/js/lab.js").get_data(as_text=True)
+    assert "sessionStorage" in script
+    assert "applyStart(card, service.alias, command)" in script
+    assert "opened[alias]" in script
+
+
 def test_a_neighbour_with_no_address_says_so_rather_than_linking_nowhere(lab):
     card = lab[lab.index('data-alias="pihti-log"'):]
     card = card[:card.index("</article>")]
@@ -429,21 +477,53 @@ def test_every_page_uses_the_three_track_grid_with_both_rails(client, path):
 
 def test_the_neighbour_states_are_explained_in_exactly_one_place(lab):
     """The rail legend teaches once; every chip elsewhere only states."""
-    for meaning in (
-        "nothing answered from this machine",
-        "answered, and said it is not working",
-        "this machine is asking now and has not heard back",
-    ):
+    from controlunit.web.server import STATE_LEGEND
+
+    for _, meaning in STATE_LEGEND:
         assert lab.count(meaning) == 1
 
 
-def test_the_legend_carries_the_state_a_first_paint_can_show(lab):
-    """A page served before the LAN answered shows `checking`, so the one
-    place a state is explained has to explain that one too."""
+def test_the_rail_teaches_at_a_glance_with_the_chips_the_cards_wear(lab):
+    """One lead line, then the six states as chips with a few words each —
+    the whole legend read at a glance rather than three muted paragraphs
+    (owner report 2026-09-07). `checking` is there because a page served
+    before the LAN answered shows it."""
+    from controlunit.web.server import STATE_LEGEND
+
     card = lab[lab.index('class="rail-label">The ensemble<'):]
-    assert "<strong>checking</strong>" in card
-    for state in ("ok", "degraded", "down", "unreachable", "not configured"):
-        assert "<strong>{}</strong>".format(state) in card
+    card = card[:card.index("</section>")]
+    assert "What this machine can reach right now." in card
+    for state, meaning in STATE_LEGEND:
+        chip = '<span class="chip chip-{}">{}</span>'.format(
+            state.replace(" ", "-"), state
+        )
+        assert card.count(chip) == 1
+        assert card.count("<dd>{}</dd>".format(meaning)) == 1
+    # Every state the board can paint has a line, `checking` included.
+    assert {state for state, _ in STATE_LEGEND} == {
+        "ok", "degraded", "down", "unreachable", "not configured", "checking",
+    }
+
+
+def test_the_rest_of_the_ensemble_card_sits_behind_one_more_press(lab):
+    """One toggle, one stable position: it is the last thing above the
+    panel it reveals, so nothing over it moves when it is pressed."""
+    card = lab[lab.index('class="rail-label">The ensemble<'):]
+    card = card[:card.index("</section>")]
+    assert 'data-role="more"' in card
+    assert 'aria-expanded="false"' in card
+    assert 'aria-controls="ensemble-more"' in card
+    assert ">More</button>" in card
+    assert 'id="ensemble-more" hidden' in card
+    assert card.index('data-role="more"') < card.index('id="ensemble-more"')
+    assert "Three surfaces stand side by side" in card
+    assert "started on its own machine" in card
+
+
+def test_the_more_press_is_remembered_and_flips_its_own_word(client):
+    script = client.get("/static/js/lab.js").get_data(as_text=True)
+    assert '"Less" : "More"' in script
+    assert "MORE_KEY" in script
 
 
 def test_the_lab_page_asks_again_while_a_state_is_still_checking(client):

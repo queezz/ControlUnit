@@ -27,15 +27,26 @@ Addresses come only from a machine-local file the repository never carries,
     pihti-diagram:
       url: http://pihti:5000
       where: on this Pi, as a system service
+      start_how: on the Pi itself, as a system service
       start: sudo systemctl start pihti.service
     pihti-log:
       url: http://ak-office.local:4310
       where: on the office Windows PC
+      start_how: from the office PC, as lab pihti-log
       start: lab pihti-log
 
-`url` is required for a neighbour to be asked at all. `where` and `start`
-are optional and say how *that* service is started on *the machine it runs
-on*; a card with neither says nothing about starting, rather than guessing.
+`url` is required for a neighbour to be asked at all. `where`, `start_how`
+and `start` are optional and say how *that* service is started on *the
+machine it runs on*; a card with none of them says nothing about starting,
+rather than guessing.
+
+Starting is two facts and not one (owner decision 2026-09-07, relayed from
+the diagram's 0.8.0): `start_how` is the plain words a reader understands
+without a shell — "from the office PC, as lab pihti-log" — and `start` is
+the literal line, which the card keeps behind a show/hide toggle. A file
+that gives only `start` leaves `start_how` empty, and the card says so in
+plain words of its own rather than putting a command where the meaning
+belongs.
 
 Why its own file, and not a block in `~/.controlunit/settings.yml`: the
 program treats a local `settings.yml` as a complete replacement for the
@@ -111,7 +122,7 @@ def _load_yaml(path):
 
 
 def _entries(block):
-    """Normalise a neighbours mapping: alias -> {url, where, start}."""
+    """Normalise a neighbours mapping: alias -> {url, where, start_how, start}."""
     entries = {}
     if not isinstance(block, dict):
         return entries
@@ -119,13 +130,15 @@ def _entries(block):
         if isinstance(value, dict):
             url = value.get("url") or value.get("URL")
             where = value.get("where") or ""
+            start_how = value.get("start_how") or ""
             start = value.get("start") or ""
         else:
-            url, where, start = value, "", ""
+            url, where, start_how, start = value, "", "", ""
         if isinstance(url, str) and url.strip():
             entries[str(alias).strip()] = {
                 "url": url.strip().rstrip("/"),
                 "where": str(where).strip(),
+                "start_how": str(start_how).strip(),
                 "start": str(start).strip(),
             }
     return entries
@@ -221,6 +234,10 @@ def _row(alias, entry, state, version="", detail=""):
         "version": version,
         "detail": detail,
         "where": entry.get("where", ""),
+        # Two facts about starting, never one: the plain words, and the
+        # literal line the card keeps behind its toggle. Both keys are on
+        # every row, whatever the local file happened to say.
+        "start_how": entry.get("start_how", ""),
         "start": entry.get("start", ""),
     }
 

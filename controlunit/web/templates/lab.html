@@ -32,10 +32,15 @@
                 </header>
 
                 {# Four facts, in the order a person asks them: which build,
-                   what it said of itself, where it runs, and the line that
-                   starts it there. `Runs` and `Start` come from this
-                   machine's own neighbours file and are never inferred from
-                   a name; a file that says nothing shows an em dash. #}
+                   what it said of itself, where it runs, and how it is
+                   started there. `Runs` and `Start` come from this machine's
+                   own neighbours file and are never inferred from a name; a
+                   file that says nothing shows an em dash.
+
+                   Start leads with plain words and keeps the literal line
+                   behind a toggle (fleet's WEBUI.md, "Meaning first;
+                   machinery sits behind a toggle"). A card with no command
+                   reserves nothing: the row ends at the words. #}
                 <dl class="facts">
                     <dt>Version</dt>
                     <dd class="mono" data-role="version">{{ service.version or '—' }}</dd>
@@ -44,7 +49,14 @@
                     <dt>Runs</dt>
                     <dd data-role="where">{{ service.where or '—' }}</dd>
                     <dt>Start</dt>
-                    <dd class="mono" data-role="start">{{ service.start or '—' }}</dd>
+                    <dd class="start">
+                        <span class="start-words" data-role="start-how">{% if service.start_how %}{{ service.start_how }}{% elif service.start %}{{ start_fallback }}{% else %}—{% endif %}</span>
+                        <button type="button" class="toggle" data-role="start-toggle"
+                                aria-expanded="false" aria-controls="start-{{ service.alias }}"
+                                {% if not service.start %}hidden{% endif %}>show</button>
+                        <code class="start-command" id="start-{{ service.alias }}"
+                              data-role="start" hidden>{{ service.start }}</code>
+                    </dd>
                 </dl>
 
                 <p class="service-actions">
@@ -68,22 +80,31 @@
     </main>
 
     {# Context right, and the one place on this surface where a state is
-       explained. Every chip elsewhere states its word and nothing more. #}
+       explained. Every chip elsewhere states its word and nothing more.
+
+       It teaches at a glance and not in paragraphs (owner report 2026-09-07,
+       "I love to see it all at a glance. With possible expansions if more is
+       really needed", and the readers beside him whose English is a second
+       language): one lead line, then the six chips the cards wear with three
+       or four words each, then everything else behind one More press.
+       Nothing above that button moves when it is pressed. #}
     <aside class="rail rail-right">
         <section class="rail-card rail-card--fit ensemble">
             <h2 class="rail-label">The ensemble</h2>
-            <div class="scrolls">
-                <p>Three surfaces stand side by side in this lab: this ControlUnit
-                    acquisition on the rig, the PIHTI Log journal, and the PIHTI
-                    diagram. Each one carries this tab, so from any of them you can
-                    reach the other two.</p>
-                <p>No service needs another in order to run. Each card is what this
-                    machine could learn just now.
-                    {%- for state, meaning in legend %}
-                    <strong>{{ state }}</strong> — {{ meaning }}.
-                    {%- endfor %}</p>
-                <p>A service that is not running is started on its own machine, with
-                    the line its card shows under Start.</p>
+            <p class="ensemble-lead">What this machine can reach right now.</p>
+            <dl class="legend-list">
+                {% for state, meaning in legend %}
+                <dt><span class="chip chip-{{ state | replace(' ', '-') }}">{{ state }}</span></dt>
+                <dd>{{ meaning }}</dd>
+                {% endfor %}
+            </dl>
+            <button type="button" class="more" data-role="more"
+                    aria-expanded="false" aria-controls="ensemble-more">More</button>
+            <div class="scrolls" id="ensemble-more" hidden>
+                <p>Three surfaces stand side by side: this rig, the PIHTI Log
+                    journal, and the PIHTI diagram. Each carries this tab.</p>
+                <p>A service that is not running is started on its own machine,
+                    as its card says under Start.</p>
             </div>
         </section>
     </aside>

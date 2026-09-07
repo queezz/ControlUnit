@@ -822,6 +822,40 @@ dl.facts dd.wide { margin-top: -2px; }
    beneath by a hair on every refresh. */
 .facts dd.says { min-height: 3.1em; }
 
+/* Start is meaning first, machinery behind a toggle (fleet's WEBUI.md). The
+   words and the toggle share the row; the command, when it is shown, takes
+   the whole width beneath them rather than squeezing either. */
+.facts dd.start {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+}
+
+.start-words { flex: 1 1 12rem; }
+
+/* One width for both words, so the button does not shift sideways under the
+   pointer when "show" becomes "hide". */
+.facts dd.start .toggle {
+  flex: 0 0 auto;
+  font-size: 0.82rem;
+  min-width: 5rem;
+  text-align: center;
+  padding: 2px 8px;
+}
+
+.start-command {
+  flex: 1 1 100%;
+  font-family: var(--mono);
+  font-size: 0.86rem;
+  color: var(--fg);
+  background: var(--inset);
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  padding: 8px 11px;
+  overflow-wrap: anywhere;
+}
+
 /* Either an Open link or the sentence saying there is no address to open —
    never both, never neither — and both wear the same height, so the line
    does not resize if a neighbours file gains an address. */
@@ -847,13 +881,52 @@ dl.facts dd.wide { margin-top: -2px; }
 .checked-line { margin: 0; font-size: 0.86rem; min-height: 1.6em; }
 
 /* The one place on this surface where a state is explained. The card
-   teaches once, for the whole page; every chip elsewhere only states. */
-.ensemble p { margin: 0 0 10px; font-size: 0.86rem; color: var(--muted); }
-.ensemble p:last-child { margin-bottom: 0; }
-/* The state's own word, lifted out of the prose so the eye can find the
-   line it wants without reading the paragraph. Not a chip: a chip is what
-   a card wears to report its own state, and this is not a report. */
-.ensemble strong { color: var(--fg); font-weight: 600; }
+   teaches once, for the whole page; every chip elsewhere only states.
+   It teaches at a glance: a lead line addressed to the reader, the six
+   chips the cards wear with a few words each, and the prose behind More. */
+
+/* Addressed to the reader, so it is the card's own voice and not an aside:
+   normal text, never muted. */
+.ensemble-lead { margin: 0 0 10px; font-size: 0.86rem; color: var(--fg); }
+
+.legend-list {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 7px 10px;
+  margin: 0;
+  font-size: 0.86rem;
+}
+
+.legend-list dt { margin: 0; }
+.legend-list dd { margin: 0; color: var(--muted); }
+
+/* One stable position, above whatever it reveals: pressing it adds content
+   beneath and moves nothing above it (fleet's WEBUI.md, "One toggle, one
+   stable position across states"). One width for both words, so the button
+   itself does not shift when "More" becomes "Less". */
+.ensemble .more {
+  display: block;
+  margin: 12px 0 0;
+  font-size: 0.82rem;
+  min-width: 5rem;
+  text-align: center;
+  padding: 2px 8px;
+}
+
+/* The rest, for whoever wants it. It is the card's scrolling part, so a
+   short window costs this card its own scrollbar and never the rail's.
+
+   The arithmetic at a 700px window, where the rail's box is
+   700 - 56 - 20 - 20 = 604px: card chrome 26px, the label 26.2px, the lead
+   two lines at 12.9px and 10px of margin 48.7px, the six legend rows 252.5px
+   (five of them wrapping to two lines in the 148px the chip column leaves,
+   plus five 7px gaps), and the More button 40.5px — 394px collapsed, with
+   210px to spare. Open, the two paragraphs at three lines each add 136px:
+   530px, still 74px inside the box. Beyond that the card scrolls here and
+   the rail does not. */
+.ensemble .scrolls { margin-top: 10px; }
+.ensemble .scrolls p { margin: 0 0 10px; font-size: 0.86rem; color: var(--muted); }
+.ensemble .scrolls p:last-child { margin-bottom: 0; }
 
 /* -- below the rail breakpoint ----------------------------------------- */
 

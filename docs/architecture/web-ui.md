@@ -183,7 +183,7 @@ a credential; the data file appears by name only.
 | `GET /log` | the Log tab |
 | `GET /lab` | the Lab tab |
 | `GET /api/health` | `{service, version, status, detail}` — the ensemble's contract; `ok` only while acquiring on real hardware |
-| `GET /api/neighbours` | `{services: [...], checked_at: "HH:MM:SS"\|null}` — this service and its two neighbours, each with a state, and when the last probe finished on this machine's clock; answers from what this machine already knows and asks the LAN behind the answer |
+| `GET /api/neighbours` | `{services: [...], checked_at: "HH:MM:SS"\|null}` — this service and its two neighbours, each with a state, and when the last probe finished on this machine's clock; answers from what this machine already knows and asks the LAN behind the answer. Every row carries `alias`, `name`, `url`, `state`, `version`, `detail`, `where`, `start_how`, `start` and `here` — starting is two keys and not one, the plain words and the literal line |
 | `GET /api/neighbours?fresh=1` | the same, with the cached answer thrown away first: every row comes back `checking` and the probe runs behind the reply, so the press never waits for the LAN |
 | `GET /api/roster` | `{"names": [...]}` — the lab's operator names this machine holds a copy of, empty when it holds none |
 | `GET /api/state` | latest values, setpoints, run facts, freshness, the Remote switch, the zeros, who has control, whether this machine asks for the lab's word and whether this browser has typed it (`fence`), and the last command; polled once a second, or four times a second under Poll: fast |
@@ -270,13 +270,40 @@ of the response can tell which question was asked.
   siblings"). One card per service, this one first: a head carrying the name
   and the state, then four facts — **Version**, **Says** (what the service's
   own health report said), **Runs** (the machine it runs on) and **Start**
-  (the line that starts it there) — then either an Open button, the sentence
+  (how it is started there) — then either an Open button, the sentence
   *"This is the service you are reading."*, or *"No address on this machine."*
   The left rail holds the one control this tab has, **Ask again now**, with a
   line beneath it reading *"Not checked yet."* or *"Checked 14:02:57."*; the
   right rail holds one card, **The ensemble**, which is where a state is
   explained, once, for the whole page. Every chip elsewhere states its word
   and nothing more.
+
+    **Start says the meaning and keeps the machinery behind a toggle**
+    (fleet's WEBUI.md, "Meaning first"). The row leads with plain words — for
+    this program, *"From the rig's own screen: the desktop shortcut starts
+    the whole program, web view included."*, because ControlUnit starts with
+    its own GUI and there is no `lab controlunit` to type — and a
+    `show`/`hide` button of one fixed width sits beside them, with the
+    literal command hidden beneath until it is pressed. A card whose entry
+    gives a command and no words for it says *"Started by a command on its
+    own machine."*; a card with no command shows no toggle and no line at
+    all, and the row simply ends at the words. **A refresh never closes an
+    open disclosure**: which commands are open is kept per service in the
+    page and mirrored to `sessionStorage`, and every repaint re-applies it,
+    so the two-second poll of a still-checking board cannot shut a line
+    under the reader.
+
+    **The right rail teaches at a glance** (owner report 2026-09-07, "too
+    long and too quiet... I love to see it all at a glance. With possible
+    expansions if more is really needed", and the readers beside him whose
+    English is a second language). One lead line — *"What this machine can
+    reach right now."* — then the six chips the cards themselves wear, each
+    followed by three or four plain words, then a **More** button which
+    reveals the two remaining paragraphs beneath it. The button keeps one
+    position and nothing above it moves when it is pressed, and its state is
+    remembered for the browser tab. The six meanings live once, in
+    `STATE_LEGEND` in `controlunit/web/server.py`, and the card renders from
+    it.
 
     **The six states.** `ok`, `degraded` and `down` are what a service said
     of itself, and `down` covers a refused connection too — a machine that
@@ -327,20 +354,27 @@ that serves the page, never in the repository:
 pihti-diagram:
   url: http://pihti:5000
   where: on this Pi, as a system service
+  start_how: on the Pi itself, as a system service
   start: sudo systemctl start pihti.service
 pihti-log:
   url: http://ak-office.local:4310
   where: on the office Windows PC
+  start_how: from the office PC, as lab pihti-log
   start: lab pihti-log
 ```
 
-`url` is required. `where` and `start` are optional and become the **Runs**
-and **Start** facts on that service's card: `where` is the machine it runs
-on, and `start` is the literal line that starts it *there*, copied onto the
-card exactly as this file writes it. Neither is ever guessed — a card whose
-entry says nothing shows an em dash rather than a command invented from the
-service's name, because a line that does not work on that machine is worse
-than no line at all. This is a separate file on purpose: the program
+`url` is required. `where`, `start_how` and `start` are optional and become
+the **Runs** and **Start** facts on that service's card: `where` is the
+machine it runs on, `start_how` is the plain words a reader understands
+without a shell, and `start` is the literal line that starts it *there*,
+copied onto the card exactly as this file writes it and kept behind the
+card's `show`/`hide` toggle. None of the three is ever guessed — a card
+whose entry says nothing shows an em dash rather than a command invented
+from the service's name, because a line that does not work on that machine
+is worse than no line at all. An entry that gives `start` and no `start_how`
+leaves the words to the card, which says *"Started by a command on its own
+machine."* rather than putting the command where the meaning belongs. This
+is a separate file on purpose: the program
 treats a local `~/.controlunit/settings.yml` as a complete replacement for
 the packaged settings, so a settings file holding only neighbours would stop
 the rig from starting.
