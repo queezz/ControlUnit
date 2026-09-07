@@ -26,6 +26,7 @@ Addresses come only from a machine-local file the repository never carries,
 
     pihti-diagram:
       url: http://pihti:5000
+      open_url: http://pihti.local:5000
       where: on this Pi, as a system service
       start_how: on the Pi itself, as a system service
       start: sudo systemctl start pihti.service
@@ -39,6 +40,17 @@ Addresses come only from a machine-local file the repository never carries,
 and `start` are optional and say how *that* service is started on *the
 machine it runs on*; a card with none of them says nothing about starting,
 rather than guessing.
+
+`open_url` is optional and exists because two different machines follow that
+link. **`url` is the address this rig asks from; `open_url` is the address
+the reader's browser opens.** They are usually the same and the field is
+usually absent. They were not the same on 2026-09-07: the diagram's card said
+`ok`, because the Pi resolves the bare name `pihti` on its own network, and
+the Open link did nothing on the owner's Mac, which resolves `pihti.local`
+and the numeric address but not the bare name (PIHTI Log's audit, letter
+`20260907-023785d0`). A green chip is this machine's measurement and was
+never a promise about the laptop reading the page, so where the two names
+differ the file says both and the card opens the one a browser can use.
 
 Starting is two facts and not one (owner decision 2026-09-07, relayed from
 the diagram's 0.8.0): `start_how` is the plain words a reader understands
@@ -69,9 +81,15 @@ CACHE_SECONDS = 10.0
 HEALTH_PATH = "/api/health"
 NEIGHBOURS_FILE = "neighbours.yml"
 
-#: The ensemble, in the order the page shows it: this service, then the two
-#: it stands beside.
-NEIGHBOUR_ALIASES = ("pihti-log", "pihti-diagram")
+#: The two neighbours, in the order the board shows them.
+#:
+#: The whole ensemble reads Diagram, PIHTI Log, ControlUnit on every one of
+#: the three surfaces, so a person who learns the board on one machine knows
+#: where to look on the next (owner direction 2026-09-07, from three
+#: side-by-side screenshots: "they should be identical"). That order is not
+#: "this service first": ControlUnit's own card stands third here, where it
+#: stands on the other two.
+NEIGHBOUR_ALIASES = ("pihti-diagram", "pihti-log")
 
 DISPLAY_NAMES = {
     "controlunit": "ControlUnit",
@@ -129,14 +147,20 @@ def _entries(block):
     for alias, value in block.items():
         if isinstance(value, dict):
             url = value.get("url") or value.get("URL")
+            open_url = value.get("open_url") or ""
             where = value.get("where") or ""
             start_how = value.get("start_how") or ""
             start = value.get("start") or ""
         else:
-            url, where, start_how, start = value, "", "", ""
+            url, open_url, where, start_how, start = value, "", "", "", ""
         if isinstance(url, str) and url.strip():
+            probe = url.strip().rstrip("/")
+            opens = str(open_url).strip().rstrip("/") or probe
             entries[str(alias).strip()] = {
-                "url": url.strip().rstrip("/"),
+                "url": probe,
+                # Where a browser goes. The same address as the probe's
+                # unless this machine was told they differ.
+                "open_url": opens,
                 "where": str(where).strip(),
                 "start_how": str(start_how).strip(),
                 "start": str(start).strip(),
@@ -223,13 +247,34 @@ def _read_health(url, timeout=TIMEOUT_SECONDS):
     return STATE_DEGRADED, version, detail or "answered, but not with a health report"
 
 
+def open_label(url):
+    """The host and port an Open link goes to, without the scheme.
+
+    The card shows it because a state chip and a link answer for two
+    different machines: the chip is what this rig reached, the link is what
+    the reader's browser will try. When those are different names — the rig
+    knows `pihti`, a Mac knows `pihti.local` — the reader can see which one
+    is about to be opened instead of finding out by a page that never loads.
+    """
+    text = str(url or "").strip()
+    if not text:
+        return ""
+    without_scheme = text.split("://", 1)[-1]
+    return without_scheme.rstrip("/")
+
+
 def _row(alias, entry, state, version="", detail=""):
     """One card's worth of facts. The local file's part of it is known
     without asking anyone, so it is filled in whatever the state."""
     return {
         "alias": alias,
         "name": DISPLAY_NAMES.get(alias, alias),
-        "url": entry.get("url", ""),
+        # What the Open link points at, which is the reader's browser's
+        # business and not this machine's. `probe_url` is what the chip's
+        # state was measured against.
+        "url": entry.get("open_url") or entry.get("url", ""),
+        "probe_url": entry.get("url", ""),
+        "opens_at": open_label(entry.get("open_url") or entry.get("url", "")),
         "state": state,
         "version": version,
         "detail": detail,

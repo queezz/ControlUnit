@@ -17,6 +17,8 @@
     var empty = document.getElementById("log-empty");
     var find = document.getElementById("log-find");
     var count = document.getElementById("log-find-count");
+    var noMatch = document.getElementById("log-nomatch");
+    var shownFact = root.querySelector('[data-fact="shown"]');
 
     var last = Number(root.dataset.last || 0);
     var order = "newest";
@@ -45,6 +47,12 @@
         });
     }
 
+    /* Hide what does not match, and tell the truth about both numbers.
+     *
+     * `Retained` is every line the rig still holds and is the poll's own
+     * answer; `Shown` is what survived the Find and is counted here, on
+     * every keystroke and again whenever a new line lands — a line arriving
+     * under an open filter changes one of the two and not the other. */
     function applyFind() {
         var needle = (find.value || "").trim().toLowerCase();
         var shown = 0, total = 0;
@@ -55,7 +63,12 @@
             if (hit) shown += 1;
         });
         count.textContent = needle ? shown + " of " + total + " lines" : "";
+        if (shownFact) shownFact.textContent = String(shown);
+        // An empty log and a filter that matched nothing look identical on
+        // the page and are not the same fact, so each has its own sentence
+        // and only one of them is ever showing.
         empty.hidden = total > 0;
+        if (noMatch) noMatch.hidden = !(total > 0 && shown === 0);
     }
 
     function poll() {

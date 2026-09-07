@@ -102,9 +102,6 @@
         if (version) version.textContent = service.version || "—";
         var detail = card.querySelector('[data-role="detail"]');
         if (detail) detail.textContent = service.detail || "—";
-        var where = card.querySelector('[data-role="where"]');
-        if (where) where.textContent = service.where || "—";
-
         var command = service.start || "";
         var how = card.querySelector('[data-role="start-how"]');
         if (how) {
@@ -125,6 +122,14 @@
         }
         var missing = card.querySelector('[data-role="no-address"]');
         if (missing) missing.hidden = Boolean(service.url);
+        /* Where the link goes, said in the reader's own terms: the chip
+           above was measured from the rig and this address is what this
+           browser will try. */
+        var opensAt = card.querySelector('[data-role="opens-at"]');
+        if (opensAt) {
+            opensAt.textContent = service.opens_at || "";
+            opensAt.hidden = !service.opens_at;
+        }
     }
 
     /* When this machine last heard back — not how old the rows are, which

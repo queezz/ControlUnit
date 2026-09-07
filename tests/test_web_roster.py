@@ -164,3 +164,66 @@ def test_a_roster_that_appears_later_is_picked_up(home):
     write(home, GOOD)
     now[0] = 2.0
     assert len(people.names()) == 3
+
+
+# -- two colleagues spelled the same way --------------------------------------
+
+TWINS = """\
+{"schema": "pihti-operators/v1",
+ "operators": [
+   {"username": "tanaka.h", "display_name": "Tanaka Haruki"},
+   {"username": "queezz", "display_name": "Arseniy Kuzmin"},
+   {"username": "tanaka.k", "display_name": "Tanaka Haruki"}
+ ]}
+"""
+
+NAMELESS_TWINS = """\
+{"schema": "pihti-operators/v1",
+ "operators": [
+   {"username": "", "display_name": "Tanaka Haruki"},
+   {"username": "tanaka.k", "display_name": "Tanaka Haruki"}
+ ]}
+"""
+
+
+def test_a_name_two_people_share_carries_the_username_that_tells_them_apart(home):
+    """The Acting-as list offered one word twice, and choosing the second one
+    told you nothing about which colleague the log would name (PIHTI Log's Mac
+    audit 2026-09-07, the same defect in the journal). A colliding name is
+    written with its username; a name nobody shares is untouched."""
+    from controlunit.web.roster import labels
+
+    (home / "operators.json").write_text(TWINS, encoding="utf-8")
+    names = Roster(home=home).names()
+    assert names == [
+        "Tanaka Haruki (tanaka.h)",
+        "Arseniy Kuzmin",
+        "Tanaka Haruki (tanaka.k)",
+    ]
+    assert len(set(names)) == len(names)
+    # Nothing merged: the roster still holds both people, with their own ids.
+    assert [person["username"] for person in Roster(home=home).entries()] == [
+        "tanaka.h",
+        "queezz",
+        "tanaka.k",
+    ]
+    assert labels(read_roster(home)) == names
+
+
+def test_a_colliding_entry_with_no_username_is_left_as_it_stands(home):
+    """There is nothing to tell them apart with, and an invented id would be
+    worse than a repeated name. Neither entry is dropped or merged."""
+    (home / "operators.json").write_text(NAMELESS_TWINS, encoding="utf-8")
+    assert Roster(home=home).names() == [
+        "Tanaka Haruki",
+        "Tanaka Haruki (tanaka.k)",
+    ]
+
+
+def test_names_nobody_shares_are_never_decorated(home):
+    (home / "operators.json").write_text(GOOD, encoding="utf-8")
+    assert Roster(home=home).names() == [
+        "Hashizuka Takuma",
+        "Arseniy Kuzmin",
+        "Sasaki Rei",
+    ]

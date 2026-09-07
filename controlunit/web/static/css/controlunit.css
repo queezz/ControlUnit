@@ -793,7 +793,18 @@ dl.facts dd.wide { margin-top: -2px; }
 
 /* -- service cards (Lab) ----------------------------------------------- */
 
-.services { display: grid; gap: 16px; }
+/* Three cards across, the same board the diagram and the journal draw
+   (owner direction 2026-09-07, from the three surfaces side by side: "they
+   should be identical"). Stacked full-width, the third service sat below a
+   Mac's viewport and had to be hunted for; across, the whole ensemble is
+   one glance. The reading column is 656px wide at a 1280px window, so each
+   card is about 208px there and the same three still fit; below the rail
+   breakpoint the tracks fall to one and the cards stack. */
+.services {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
 
 /* A bounded card is wayfinding, not decoration: the eye jumps to the
    service it wants without reading past the other two. */
@@ -812,7 +823,25 @@ dl.facts dd.wide { margin-top: -2px; }
   margin-bottom: 8px;
 }
 
-.service-head h2 { margin: 0; }
+.service-head h2 { margin: 0; font-size: 1.02rem; }
+
+/* Three cards across the reading column leaves each one about 208px at a
+   1280px window, and a two-column facts list there gives the value barely a
+   hundred pixels to live in — every sentence broke after two words. Inside
+   a service card the label stands above its value: the same three facts,
+   read down the card rather than across it. */
+.service dl.facts {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px 0;
+}
+
+.service dl.facts dt {
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.service dl.facts dd + dt { margin-top: 10px; }
 
 /* What a service said of itself is the one fact on the card that changes
    under the reader, so its row is two lines of room whether the sentence is
@@ -860,6 +889,21 @@ dl.facts dd.wide { margin-top: -2px; }
    never both, never neither — and both wear the same height, so the line
    does not resize if a neighbours file gains an address. */
 .service-actions { margin: 12px 0 0; }
+
+/* The link fills its card, so the three of them read as one row of doors
+   rather than three words of different lengths. */
+.service-actions a.button { display: block; width: 100%; text-align: center; }
+
+/* Where that door opens, in the reader's own terms. Small and dim: it is
+   the link's address, not a fact about the service, and it is there for the
+   day a name this rig resolves is a name the laptop does not. */
+.opens-at {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: var(--dim);
+  overflow-wrap: anywhere;
+}
 
 .service-note {
   display: inline-block;

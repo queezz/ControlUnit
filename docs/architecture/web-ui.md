@@ -182,8 +182,8 @@ a credential; the data file appears by name only.
 | `GET /control` | the Control tab |
 | `GET /log` | the Log tab |
 | `GET /lab` | the Lab tab |
-| `GET /api/health` | `{service, version, status, detail}` — the ensemble's contract; `ok` only while acquiring on real hardware |
-| `GET /api/neighbours` | `{services: [...], checked_at: "HH:MM:SS"\|null}` — this service and its two neighbours, each with a state, and when the last probe finished on this machine's clock; answers from what this machine already knows and asks the LAN behind the answer. Every row carries `alias`, `name`, `url`, `state`, `version`, `detail`, `where`, `start_how`, `start` and `here` — starting is two keys and not one, the plain words and the literal line |
+| `GET /api/health` | `{service, version, status, detail}` — the ensemble's contract; `ok` whenever the rig is up, idle included, `degraded` only for something actually impaired |
+| `GET /api/neighbours` | `{services: [...], checked_at: "HH:MM:SS"\|null}` — this service and its two neighbours, each with a state, and when the last probe finished on this machine's clock; answers from what this machine already knows and asks the LAN behind the answer. Every row carries `alias`, `name`, `url` (where a browser opens), `probe_url` (where this rig asked), `opens_at`, `state`, `version`, `detail`, `where`, `start_how`, `start` and `here` — starting is two keys and not one, the plain words and the literal line |
 | `GET /api/neighbours?fresh=1` | the same, with the cached answer thrown away first: every row comes back `checking` and the probe runs behind the reply, so the press never waits for the LAN |
 | `GET /api/roster` | `{"names": [...]}` — the lab's operator names this machine holds a copy of, empty when it holds none |
 | `GET /api/state` | latest values, setpoints, run facts, freshness, the Remote switch, the zeros, who has control, whether this machine asks for the lab's word and whether this browser has typed it (`fence`), and the last command; polled once a second, or four times a second under Poll: fast |
@@ -234,6 +234,20 @@ of the response can tell which question was asked.
   sample for five sampling periods, never less than two seconds) or `idle`
   (acquisition off).
 
+    **A panel's height and its backing buffer are two facts, and the code
+    reads only the one nothing writes.** `data-height` on each `<canvas>` is
+    how tall the panel stands on the page; the `height` attribute beside it
+    is the drawing buffer, which the page sizes for the screen's own pixel
+    density. Setting `canvas.height` writes that attribute, so reading it
+    back as the layout height and multiplying by the device pixel ratio
+    again grows the panel on every redraw — harmless at ratio 1, which is
+    every screen in this lab, and on the owner's Retina Mac on 2026-09-07 it
+    reached a height attribute of 1,802,240 px and a document of
+    2,540,001 px before the plot failed white. The buffer is also bounded at
+    8192 px a side, because a browser refuses a canvas past that and hands
+    back a context that draws nothing; a panel with no context is left blank
+    rather than throwing on every poll.
+
     **The browser keeps its own history.** The page fills once from the ring
     and then asks `since` (above), appending into a per-channel store capped
     at a day. The window buttons cut that store and redraw without asking the
@@ -267,16 +281,33 @@ of the response can tell which question was asked.
 - **Lab** — the lab ensemble's own board, built in the PIHTI diagram's shape
   so the three surfaces read the same (owner decision 2026-09-07, "I like the
   pihti-diagram way for the services, and we need to sync that in all 3
-  siblings"). One card per service, this one first: a head carrying the name
-  and the state, then four facts — **Version**, **Says** (what the service's
-  own health report said), **Runs** (the machine it runs on) and **Start**
-  (how it is started there) — then either an Open button, the sentence
-  *"This is the service you are reading."*, or *"No address on this machine."*
-  The left rail holds the one control this tab has, **Ask again now**, with a
-  line beneath it reading *"Not checked yet."* or *"Checked 14:02:57."*; the
-  right rail holds one card, **The ensemble**, which is where a state is
-  explained, once, for the whole page. Every chip elsewhere states its word
-  and nothing more.
+  siblings"). Three cards stand across the reading column, in the ensemble's
+  one order on every machine — **PIHTI diagram, PIHTI Log, ControlUnit** —
+  this program's own card third rather than first, so a person who learned
+  the board on the journal finds the same card in the same place here (owner
+  direction 2026-09-07, from the three surfaces side by side: "they should be
+  identical"). Stacked full width, the third service used to sit below a
+  Mac's viewport and had to be hunted for. Each card carries a head with the
+  name and the state, then three facts — **Version**, **Says** (what the
+  service's own health report said) and **Start** (how it is started on the
+  machine it runs on) — then either an Open button with the address it
+  opens beneath it, the sentence *"This is the service you are reading."*, or
+  *"No address on this machine."* Inside a card the fact labels stand above
+  their values rather than beside them: three cards across leave each one
+  about 208px at a 1280px window, and a two-column list there broke every
+  sentence after two words. The left rail holds the one control this tab has,
+  **Ask again now**, with a line beneath it reading *"Not checked yet."* or
+  *"Checked 14:02:57."*; the right rail holds one card, **The ensemble**,
+  which is where a state is explained, once, for the whole page. Every chip
+  elsewhere states its word and nothing more.
+
+    **A chip and a link answer for two different machines.** The state was
+    measured from the rig; the Open link is the reader's own browser's to
+    follow, and the address it goes to is printed under it. Where a machine
+    holds two names for the same service — the Pi knows `pihti`, a Mac knows
+    `pihti.local` — `neighbours.yml` says both and the card opens the one a
+    browser can use. The rail's lead line says that distinction once, for the
+    whole surface.
 
     **Start says the meaning and keeps the machinery behind a toggle**
     (fleet's WEBUI.md, "Meaning first"). The row leads with plain words — for
@@ -313,6 +344,20 @@ of the response can tell which question was asked.
     answer that was not a health report. `not configured` means this machine
     has no address for that service, and `checking` means it is asking now
     and has not heard back. The three surfaces word these the same way.
+
+    **What this rig says about itself.** `ok` whenever the program is up,
+    and that includes doing nothing: an idle rig is a rig waiting for
+    somebody to press Start, and calling it degraded turned the lab's shared
+    board amber all night (owner correction 2026-09-07: "It's up and not
+    doing a thing, not degraded"). The detail says *"idle, not recording"*.
+    `degraded` is kept for a capability that is actually impaired, and there
+    are two this record can see today: a run whose last sample is older than
+    the stale bound — the reader died between two of them, which is what
+    happened on 2026-08-19 — and a process standing dummy devices in for the
+    instruments, which is honest about what it cannot do rather than an
+    invented failure, and never happens on the Pi. Nothing is called degraded
+    before it has been measured: a run whose first sample has not landed yet
+    is `ok`, because at ten seconds a sample that gap is ordinary.
 
     **The page never waits for the LAN.** It is served from what the machine
     already knows — the last answers, however old, or `checking` when there
@@ -353,6 +398,7 @@ that serves the page, never in the repository:
 ```yaml
 pihti-diagram:
   url: http://pihti:5000
+  open_url: http://pihti.local:5000
   where: on this Pi, as a system service
   start_how: on the Pi itself, as a system service
   start: sudo systemctl start pihti.service
@@ -363,17 +409,31 @@ pihti-log:
   start: lab pihti-log
 ```
 
-`url` is required. `where`, `start_how` and `start` are optional and become
-the **Runs** and **Start** facts on that service's card: `where` is the
-machine it runs on, `start_how` is the plain words a reader understands
-without a shell, and `start` is the literal line that starts it *there*,
-copied onto the card exactly as this file writes it and kept behind the
-card's `show`/`hide` toggle. None of the three is ever guessed — a card
-whose entry says nothing shows an em dash rather than a command invented
-from the service's name, because a line that does not work on that machine
-is worse than no line at all. An entry that gives `start` and no `start_how`
-leaves the words to the card, which says *"Started by a command on its own
-machine."* rather than putting the command where the meaning belongs. This
+`url` is required. `start_how` and `start` are optional and become the
+**Start** fact on that service's card: `start_how` is the plain words a
+reader understands without a shell, and `start` is the literal line that
+starts it *there*, copied onto the card exactly as this file writes it and
+kept behind the card's `show`/`hide` toggle. Neither is ever guessed — a
+card whose entry says nothing shows an em dash rather than a command
+invented from the service's name, because a line that does not work on that
+machine is worse than no line at all. An entry that gives `start` and no
+`start_how` leaves the words to the card, which says *"Started by a command
+on its own machine."* rather than putting the command where the meaning
+belongs. `where` is still read and still carried by `/api/neighbours`; it is
+no longer a row on the card, because the start words already name the
+machine and three cards across the reading column have no room to say it
+twice.
+
+`open_url` is optional and exists because two different machines follow that
+link. **`url` is the address this rig asks from; `open_url` is the address
+the reader's browser opens.** They are usually the same and the field is
+usually absent. They were not the same on 2026-09-07: the diagram's card
+said `ok`, because the Pi resolves the bare name `pihti` on its own network,
+and the Open link did nothing on a Mac, which resolves `pihti.local` and the
+numeric address but not the bare name. A green chip is the rig's own
+measurement and was never a promise about the laptop reading the page, so
+where the two names differ the file says both, the card opens the one a
+browser can use, and it prints that address under the link. This
 is a separate file on purpose: the program
 treats a local `~/.controlunit/settings.yml` as a complete replacement for
 the packaged settings, so a settings file holding only neighbours would stop
@@ -393,7 +453,12 @@ names-only roster PIHTI Log reads from the Obsidian vault,
 ```
 
 Only `pihti-operators/v1` is read, and only `display_name` reaches the page,
-since the log prints display names. The file is reread whenever its
+since the log prints display names — except where two people in the roster
+are spelled the same, when each of them is offered as *"Display Name
+(username)"*, because a list showing one word twice tells nobody which
+colleague the log will name. Nothing is merged and no identity is renamed;
+a name nobody shares is untouched, and a colliding entry with no username is
+left as it stands rather than given an invented one. The file is reread whenever its
 modification time or size changes, and never looked at more than once a
 second. A missing, unreadable or malformed file means no names, and the
 Acting-as field stays the free-text box it has always been.

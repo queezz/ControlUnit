@@ -30,6 +30,10 @@
             {% endfor %}
         </ol>
         <p class="muted log-empty" id="log-empty" {% if log.lines %}hidden{% endif %}>Nothing has been logged yet.</p>
+        {# A filter that hides every line leaves an empty column, which looks
+           exactly like a log that has nothing in it. Two different facts, so
+           two different sentences, and never both at once. #}
+        <p class="muted log-empty" id="log-nomatch" hidden>No message here holds that word.</p>
     </main>
 
     <aside class="rail rail-right">
@@ -41,9 +45,18 @@
 
         <section class="rail-card rail-card--fit">
             <h2 class="rail-label">This log</h2>
+            {# Two counts, and the labels say which is which. `Retained` is
+               every line this rig is still holding; `Shown` is how many of
+               them are on the page after a Find. They were one row called
+               "Lines shown" until 2026-09-07, when a search for "sampling"
+               left two rows on screen, the Find card said "2 of 7 lines",
+               and this card still said 7 — the same word for two different
+               numbers (PIHTI Log's Mac audit, letter 20260907-023785d0). #}
             <dl class="facts">
-                <dt>Lines shown</dt>
+                <dt>Retained</dt>
                 <dd class="mono" data-fact="held">{{ log.held }}</dd>
+                <dt>Shown</dt>
+                <dd class="mono" data-fact="shown">{{ log.held }}</dd>
                 <dt>Kept</dt>
                 <dd class="mono">last 1000</dd>
                 <dt class="wide">Data file</dt>

@@ -340,11 +340,17 @@ def test_the_lab_checked_line_names_the_time_once_a_check_has_landed(tmp_path):
 
 
 def test_a_service_card_says_its_version_what_it_said_and_how_it_starts(lab):
-    """The facts a person asks for, in the order they ask them."""
+    """The three facts every surface of the ensemble shows, in one order.
+
+    Where a service runs is not a fourth row: the start words already name
+    the machine, and three cards across a reading column have no room to
+    say it twice (owner direction 2026-09-07, the identical trio board).
+    """
     card = lab[lab.index('data-alias="controlunit"'):]
     card = card[:card.index("</article>")]
-    for term in ("<dt>Version</dt>", "<dt>Says</dt>", "<dt>Runs</dt>", "<dt>Start</dt>"):
+    for term in ("<dt>Version</dt>", "<dt>Says</dt>", "<dt>Start</dt>"):
         assert term in card
+    assert "<dt>Runs</dt>" not in card
     assert "scripts/run_controlunit.sh" in card
     assert "This is the service you are reading." in card
 
@@ -492,7 +498,7 @@ def test_the_rail_teaches_at_a_glance_with_the_chips_the_cards_wear(lab):
 
     card = lab[lab.index('class="rail-label">The ensemble<'):]
     card = card[:card.index("</section>")]
-    assert "What this machine can reach right now." in card
+    assert "What this rig reached just now." in card
     for state, meaning in STATE_LEGEND:
         chip = '<span class="chip chip-{}">{}</span>'.format(
             state.replace(" ", "-"), state
@@ -645,3 +651,66 @@ def test_the_favicon_is_served_and_hand_drawn(client):
     body = answer.get_data(as_text=True)
     assert "<svg" in body and ">CU<" in body
     assert answer.headers["Cache-Control"] == "no-store"
+
+
+# -- two counts, two labels (the Mac audit of 2026-09-07) ---------------------
+
+
+def test_the_log_card_names_what_it_is_retaining_and_what_is_on_screen(log):
+    """One word for two numbers was the defect.
+
+    With seven messages held, a search for "sampling" left two rows on the
+    page, the Find card said "2 of 7 lines", and this card still said "Lines
+    shown 7" (PIHTI Log's Mac audit, letter `20260907-023785d0`). Retained is
+    what the rig holds; Shown is what survived the Find, and the page keeps
+    it current on every keystroke and every new line.
+    """
+    assert "Lines shown" not in log
+    assert "<dt>Retained</dt>" in log
+    assert "<dt>Shown</dt>" in log
+    assert 'data-fact="shown"' in log
+
+
+def test_a_filter_that_matches_nothing_says_so_rather_than_looking_empty(log):
+    """An empty column reads exactly like a log with nothing in it, and they
+    are not the same fact."""
+    assert 'id="log-nomatch"' in log
+    assert "No message here holds that word." in log
+
+    from pathlib import Path
+
+    script = (
+        Path(__file__).resolve().parents[1]
+        / "controlunit" / "web" / "static" / "js" / "log.js"
+    ).read_text(encoding="utf-8")
+    # Both counts move with the filter and with a line arriving under it.
+    assert 'data-fact="shown"' in script
+    assert "noMatch.hidden = !(total > 0 && shown === 0)" in script
+
+
+# -- the board of three, as all three surfaces draw it ------------------------
+
+
+def test_the_three_service_cards_stand_across_the_reading_column():
+    """Stacked full width, the third service sat below a Mac's viewport and
+    had to be hunted for (owner direction 2026-09-07, from the three boards
+    side by side). Across, the ensemble is one glance."""
+    from pathlib import Path
+
+    css = (
+        Path(__file__).resolve().parents[1]
+        / "controlunit" / "web" / "static" / "css" / "controlunit.css"
+    ).read_text(encoding="utf-8")
+    board = css[css.index(".services {"):]
+    board = board[:board.index("}")]
+    assert "repeat(auto-fit, minmax(190px, 1fr))" in board
+
+
+def test_a_card_says_which_address_your_own_browser_will_open(lab):
+    """The chip is what this rig reached; the link is what the laptop will
+    try, and on 2026-09-07 those were two different names — the Pi resolves
+    `pihti`, the owner's Mac does not (PIHTI Log's audit). The card names the
+    address rather than leaving the reader to find out by a dead link."""
+    assert 'data-role="opens-at"' in lab
+    # And the rail says the distinction once, for the whole surface.
+    assert "What this rig reached just now." in lab

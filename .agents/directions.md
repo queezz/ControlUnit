@@ -9,13 +9,33 @@ Nothing waiting.
 
 ## Work only queezz can do
 
-- Restart the rig onto 4.1.0, on a rig that is not acquiring — owner work
-  pending. The Pi's checkout at `~/work/aktest` needs `git pull` first (it
-  carries 4.0.1; the running process is 4.0.0). On restart the Control tab
-  gains Start, Stop and the sampling times, Live gains its history, three
-  charts, smoothing and the zero lines, and the Lab tab opens at once.
-  Done when: `http://pihti:4187/api/health` reports 4.1.0 and the Control
-  tab's Acquisition group shows Start and Stop.
+- Restart the rig onto 4.4.0, on a rig that is not acquiring — owner work
+  pending. `master` in the office checkout is at 4.4.0 and has not been
+  pushed; say the word and a session pushes it, pulls the Pi's checkout at
+  `~/work/aktest`, and leaves the restart to you. On restart: the Live
+  charts stop growing on a Retina Mac, an idle rig reads `ok` instead of
+  `degraded` on all three service boards, the Lab tab is the trio board
+  three cards across, the Log's counts stop contradicting each other, and
+  two colleagues spelled the same way are told apart in the Acting-as list.
+  Done when: `http://pihti:4187/api/health` reports 4.4.0 and, with
+  acquisition off, `status` reads `ok` with the detail "idle, not
+  recording".
+- Add the Mac-reachable address to the Pi's neighbours file — owner work
+  pending. On your Mac the Pi's bare name `pihti` does not resolve, while
+  `pihti.local` and the numeric address do, so the diagram's Open link on
+  the Lab tab did nothing even though its card said `ok`: the chip is what
+  the rig reached, the link is what your browser tries. 4.4.0 lets the two
+  be different. On the Pi, in `~/.controlunit/neighbours.yml`, add one line
+  under `pihti-diagram` beside its `url`:
+
+      open_url: http://pihti.local:5000
+
+  and the same for `pihti-log` if the office PC's name behaves the same way
+  from the Mac. Nothing else changes; the rig keeps probing the name it
+  already uses.
+  Done when: the diagram's Open link on the rig's Lab tab opens the diagram
+  from your Mac, and the address printed under that link is the one that
+  worked.
 - Push the lab's roster to the rig once, from the office PC — owner work
   pending. `scripts\push_roster.ps1` copies the vault's
   `People\operators.json` to the Pi's `~/.controlunit/`; run it again
@@ -156,6 +176,17 @@ Nothing waiting.
   Services board with the three siblings' shared state meanings (PIHTI
   Log's letter `20260907-d526b38c-482393`, answered by
   `20260907-d1c08989-87a3b7`).
+- 4.4.0 (2026-09-07): PIHTI Log's Mac audit and three owner directions of
+  that day, all shipped — the Live charts no longer grow on a Retina screen
+  (a panel's layout height and its drawing buffer are two attributes now);
+  an idle rig is `ok`, with `degraded` kept for a run that stopped
+  delivering samples and for dummy hardware; the Lab tab is the trio board,
+  three cards across in one order on every machine, this program's card
+  third; `neighbours.yml` may carry an `open_url` a browser can reach
+  beside the `url` the rig probes; the Log's Retained and Shown are two
+  labelled counts; and colliding roster names carry their username.
+  Letters `20260907-023785d0`, `20260907-50ccf555`, `20260907-86d2c305`
+  and `20260907-43cf71f7`, collected and answered.
 - 4.2.1 (2026-09-07, night): the board in the diagram's 0.8.0 shape —
   start rows in plain words with the command behind a toggle that
   survives refresh, ControlUnit's own card starting from the rig's screen

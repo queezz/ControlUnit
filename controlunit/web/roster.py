@@ -80,6 +80,37 @@ def read_roster(home=None):
     return people
 
 
+def labels(people):
+    """One readable label per person, with no two the same.
+
+    The lab has two colleagues whose display names are spelled identically,
+    and the Acting-as list offered the same word twice: a person choosing
+    the second one had no way to know which of them the log would name
+    (PIHTI Log's Mac audit 2026-09-07, the same defect in the journal). A
+    name that collides is written "Display Name (username)" — the username
+    is the roster's own identity for that person and is exactly what tells
+    them apart.
+
+    Nothing is merged and nothing is renamed: a name nobody shares is
+    untouched, the roster's entries keep their own fields, and where a
+    colliding entry carries no username there is nothing to disambiguate
+    with, so it is left as it stands rather than given an invented one.
+    """
+    seen = {}
+    for person in people:
+        display = person.get("display_name", "")
+        seen[display] = seen.get(display, 0) + 1
+    out = []
+    for person in people:
+        display = person.get("display_name", "")
+        username = person.get("username", "")
+        if seen.get(display, 0) > 1 and username:
+            out.append("{} ({})".format(display, username))
+        else:
+            out.append(display)
+    return out
+
+
 class Roster:
     """The names this machine knows, reread when the file underneath changes.
 
@@ -105,7 +136,12 @@ class Roster:
         return (status.st_mtime_ns, status.st_size)
 
     def names(self):
-        """The display names, in file order; empty when there is no roster."""
+        """The labels to offer, in file order; empty when there is no roster.
+
+        A label is the display name, or the display name with the person's
+        username beside it where two people in this roster are spelled the
+        same; see `labels`.
+        """
         now = self._clock()
         if self._looked_at is not None and (now - self._looked_at) < REREAD_SECONDS:
             return list(self._names)
@@ -113,7 +149,7 @@ class Roster:
         stamp = self._fingerprint()
         if stamp != self._stamp:
             self._stamp = stamp
-            self._names = [person["display_name"] for person in read_roster(self._home)]
+            self._names = labels(read_roster(self._home))
         return list(self._names)
 
     def entries(self):

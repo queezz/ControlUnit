@@ -31,11 +31,15 @@
                           data-role="state">{{ service.state }}</span>
                 </header>
 
-                {# Four facts, in the order a person asks them: which build,
-                   what it said of itself, where it runs, and how it is
-                   started there. `Runs` and `Start` come from this machine's
-                   own neighbours file and are never inferred from a name; a
-                   file that says nothing shows an em dash.
+                {# Three facts, the same three every surface of the ensemble
+                   shows: which build, what it said of itself, and how it is
+                   started on the machine it runs on. `Start` comes from this
+                   machine's own neighbours file and is never inferred from a
+                   name; a file that says nothing shows an em dash. Where a
+                   service runs is not a fourth row, because the start words
+                   already name the machine — "from the office PC, as lab
+                   pihti-log" — and a card of 208px has no room to say it
+                   twice.
 
                    Start leads with plain words and keeps the literal line
                    behind a toggle (fleet's WEBUI.md, "Meaning first;
@@ -46,8 +50,6 @@
                     <dd class="mono" data-role="version">{{ service.version or '—' }}</dd>
                     <dt>Says</dt>
                     <dd class="says" data-role="detail">{{ service.detail or '—' }}</dd>
-                    <dt>Runs</dt>
-                    <dd data-role="where">{{ service.where or '—' }}</dd>
                     <dt>Start</dt>
                     <dd class="start">
                         <span class="start-words" data-role="start-how">{% if service.start_how %}{{ service.start_how }}{% elif service.start %}{{ start_fallback }}{% else %}—{% endif %}</span>
@@ -72,6 +74,14 @@
                        {% if not service.url %}hidden{% endif %}>Open {{ service.name }}</a>
                     <span class="service-note" data-role="no-address"
                           {% if service.url %}hidden{% endif %}>No address on this machine.</span>
+                    {# The address the link goes to, because the chip above
+                       and this link answer for two different machines: the
+                       chip is what the rig reached, the link is what your
+                       own browser will try. Naming it is the only way a
+                       reader on a laptop can see that the rig knows `pihti`
+                       and the laptop wants `pihti.local`. #}
+                    <span class="opens-at mono" data-role="opens-at"
+                          {% if not service.opens_at %}hidden{% endif %}>{{ service.opens_at }}</span>
                     {% endif %}
                 </p>
             </article>
@@ -91,7 +101,8 @@
     <aside class="rail rail-right">
         <section class="rail-card rail-card--fit ensemble">
             <h2 class="rail-label">The ensemble</h2>
-            <p class="ensemble-lead">What this machine can reach right now.</p>
+            <p class="ensemble-lead">What this rig reached just now. An Open
+                link is your own browser's to follow.</p>
             <dl class="legend-list">
                 {% for state, meaning in legend %}
                 <dt><span class="chip chip-{{ state | replace(' ', '-') }}">{{ state }}</span></dt>
@@ -105,6 +116,9 @@
                     journal, and the PIHTI diagram. Each carries this tab.</p>
                 <p>A service that is not running is started on its own machine,
                     as its card says under Start.</p>
+                <p>A card's state was measured from this rig. Under each Open
+                    link is the address your browser will try: a laptop may
+                    know a name this rig does not, or the other way round.</p>
             </div>
         </section>
     </aside>

@@ -183,8 +183,16 @@ def create_app(status=None, board=None, commands=None, roster=None, fence=None):
         }
 
     def board_rows():
-        rows = [self_row()]
-        rows.extend(services.neighbours())
+        """The three services, in the ensemble's own order on every machine.
+
+        Diagram, PIHTI Log, ControlUnit — this service last, not first
+        (owner direction 2026-09-07, from the three boards side by side:
+        "they should be identical"). A person who learned the board on the
+        journal finds the same card in the same place here; the only thing
+        that changes between the three is which card says you are reading it.
+        """
+        rows = list(services.neighbours())
+        rows.append(self_row())
         for row in rows:
             row["here"] = row["alias"] == SERVICE
             # Every row carries both start facts, so neither the template
@@ -193,6 +201,7 @@ def create_app(status=None, board=None, commands=None, roster=None, fence=None):
             row.setdefault("where", "")
             row.setdefault("start_how", "")
             row.setdefault("start", "")
+            row.setdefault("opens_at", "")
         return rows
 
     def who_is_asking():

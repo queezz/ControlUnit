@@ -140,7 +140,7 @@ def test_a_settings_file_without_the_block_configures_nothing(tmp_path):
 
 def test_no_addresses_means_not_configured_not_unreachable(tmp_path):
     rows = NeighbourBoard(home=tmp_path / "nowhere").neighbours()
-    assert [row["alias"] for row in rows] == ["pihti-log", "pihti-diagram"]
+    assert [row["alias"] for row in rows] == ["pihti-diagram", "pihti-log"]
     assert {row["state"] for row in rows} == {"not configured"}
     assert all(row["url"] == "" for row in rows)
 
@@ -303,24 +303,32 @@ def test_the_board_is_cached_so_a_poll_does_not_hammer_the_lan(tmp_path, monkeyp
     assert len(calls) == 4
 
 
-def test_the_route_lists_this_service_first_then_the_two_neighbours(tmp_path):
+def test_the_route_lists_the_ensemble_in_its_one_order_everywhere(tmp_path):
+    """Diagram, PIHTI Log, ControlUnit — this service last, not first.
+
+    The three surfaces of the ensemble draw the same board in the same
+    order, so a person who learned it on one machine finds the same card in
+    the same place on the next (owner direction 2026-09-07, from the three
+    screenshots side by side: "they should be identical").
+    """
     board = NeighbourBoard(home=tmp_path / "nowhere")
     client = create_app(board=board).test_client()
     payload = client.get("/api/neighbours").get_json()
     rows = payload["services"]
     assert [row["alias"] for row in rows] == [
-        "controlunit",
-        "pihti-log",
         "pihti-diagram",
+        "pihti-log",
+        "controlunit",
     ]
     assert [row["name"] for row in rows] == [
-        "ControlUnit",
-        "PIHTI Log",
         "PIHTI diagram",
+        "PIHTI Log",
+        "ControlUnit",
     ]
+    assert [row["here"] for row in rows] == [False, False, True]
     for row in rows:
         assert set(row) >= {"name", "url", "state", "version", "detail"}
-    assert rows[0]["state"] in {"ok", "degraded"}
+    assert rows[-1]["state"] in {"ok", "degraded"}
     assert rows[1]["state"] == "not configured"
 
 
@@ -384,7 +392,10 @@ def test_the_first_call_answers_checking_without_waiting_for_the_lan(tmp_path):
     assert [row["state"] for row in rows] == ["checking", "checking"]
     # The address is known from the local file, so the card is complete
     # except for what only the neighbour itself can say.
-    assert rows[0]["url"] == "http://vault.example:4310"
+    assert {row["alias"]: row["url"] for row in rows} == {
+        "pihti-diagram": "http://rig.example:4186",
+        "pihti-log": "http://vault.example:4310",
+    }
     assert [row["version"] for row in rows] == ["", ""]
     assert [row["detail"] for row in rows] == ["", ""]
     assert started.wait(10)
@@ -476,7 +487,8 @@ def test_the_route_answers_without_waiting_for_the_lan(tmp_path):
     )
     client = create_app(board=board).test_client()
     rows = client.get("/api/neighbours").get_json()["services"]
-    assert [row["state"] for row in rows[1:]] == ["checking", "checking"]
+    # The two neighbours lead the board; this service's own card is last.
+    assert [row["state"] for row in rows[:2]] == ["checking", "checking"]
     release.set()
     board.wait(timeout=10)
 
@@ -557,7 +569,7 @@ def test_fresh_answers_at_once_with_checking_rows(tmp_path):
     started.clear()
     release.clear()
     payload = client.get("/api/neighbours?fresh=1").get_json()
-    assert [row["state"] for row in payload["services"][1:]] == ["checking", "checking"]
+    assert [row["state"] for row in payload["services"][:2]] == ["checking", "checking"]
     assert started.wait(10)
     assert counted == [1, 1]  # the press asked the LAN again, exactly once
 
