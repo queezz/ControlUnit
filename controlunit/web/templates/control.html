@@ -5,6 +5,10 @@
 {% endblock %}
 
 {% block content %}
+{# The lab's word, where this machine holds one and this browser has not
+   typed it yet. Worked out once, here, so the rail and the button below it
+   cannot disagree about the same fact. #}
+{% set fence_closed = state.fence.needed and not state.fence.passed %}
 <div class="page" id="control" data-actor="{{ actor }}">
 
     {# Controls live left: the gate, the name behind a command, and the one
@@ -21,7 +25,7 @@
                right now, in words, once, never repeated on a row. #}
             <p class="muted remote-why" data-role="remote-why">Setting is off until the switch on the rig is on.</p>
             <button type="button" class="take-over" data-role="take-over"
-                    {{ '' if state.remote and not state.control.mine else 'disabled' }}>Take over</button>
+                    {{ '' if state.remote and not state.control.mine and not fence_closed else 'disabled' }}>Take over</button>
             {# One stable status line. It changes in place; nothing is ever
                inserted above the controls a reader is about to use again. #}
             <p class="remote-status mono" data-role="status" role="status"></p>
@@ -54,6 +58,20 @@
             {% else %}
             <p class="muted actor-note">Written in the log beside what you
                 set. Without one the log names this browser's address.</p>
+            {% endif %}
+
+            {# The lab's word, only where the machine serving this page holds
+               one. It stays typable after it has been passed, so a word that
+               changed can be typed again without clearing anything. #}
+            {% if state.fence.needed %}
+            <div class="actor-row fence-row">
+                <input type="password" id="fence-word" class="find"
+                       placeholder="{{ 'word saved' if state.fence.passed else "the lab's word" }}"
+                       aria-label="The lab's word that opens setting">
+                <button type="button" data-role="save-fence">Save</button>
+            </div>
+            <p class="muted actor-note">A word from the lab, not a secret: it
+                keeps a passer-by from pressing.</p>
             {% endif %}
         </section>
 

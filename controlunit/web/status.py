@@ -422,13 +422,20 @@ NO_CONTROL = {
     "line": NOBODY,
 }
 
+#: What `/api/state` carries on a machine that holds no word of its own,
+#: which is every off-rig run and every test that does not write one.
+NO_FENCE = {"needed": False, "passed": False}
 
-def state_body(status, version, control=None):
+
+def state_body(status, version, control=None, fence=None):
     """What every tab polls once a second: values, run facts, freshness.
 
     `control` is who holds the operator lock, read from the command queue by
     the caller rather than kept here: the lock is decided in the web thread,
-    and a second copy in this record could only ever go stale.
+    and a second copy in this record could only ever go stale. `fence` is the
+    same kind of thing for the lab's word — whether this machine asks for one
+    and whether this browser has typed it — and is worked out per request for
+    the same reason `control.mine` is: a page cannot see its own cookies.
     """
     snapshot = status.read()
     units = snapshot.get("units") or {}
@@ -477,5 +484,10 @@ def state_body(status, version, control=None):
         # say it in. The holder's address is the deliberate exception to "no
         # response carries an address": naming the other person is the point.
         "control": dict(control) if control else dict(NO_CONTROL),
+        # Whether this machine asks for the lab's word, and whether the
+        # browser reading this has already typed it. The word itself is
+        # never carried: the page needs to know where it stands, not what
+        # the fence is made of.
+        "fence": dict(fence) if fence else dict(NO_FENCE),
         "channels": channels,
     }

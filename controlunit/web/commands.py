@@ -99,6 +99,12 @@ REFUSED = "refused"
 #: The reasons a command is refused, in the words the reader is shown.
 NO_REMOTE = "the Remote switch on the rig's screen is off"
 NO_ACQUISITION = "no acquisition running"
+#: The lab's word, where the machine serving the page holds one. The gate
+#: itself lives in `controlunit.web.fence` and is weighed in the web thread,
+#: which is the only place a browser's cookie can be read; the two sentences
+#: live here so a refusal and the page word them the same way.
+NO_FENCE_WORD = "type the lab's word first"
+WRONG_FENCE_WORD = "that is not the lab's word"
 ALREADY_ACQUIRING = "acquisition is already running"
 NO_SAMPLES = "no samples to take a baseline from yet"
 TOO_MANY = "too many commands are already waiting"
@@ -512,6 +518,11 @@ def refusal(kind, remote, actor, origin="", control=None):
 
     The second is answered by `control`, an `OperatorLock`; without one the
     switch is the whole gate, which is what a read-only run wants.
+
+    A third thing is weighed beside these two and not here: the lab's word,
+    where the machine serving the page holds one. It stays in `server.py`
+    because it is answered by a cookie, and a cookie is the web thread's to
+    read; the words it is refused in are `NO_FENCE_WORD` above.
     """
     if kind in ALWAYS_ALLOWED:
         return ""

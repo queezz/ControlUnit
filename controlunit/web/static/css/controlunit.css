@@ -683,14 +683,15 @@ dl.facts dd.wide { margin-top: -2px; }
    button under the reason it answers, never a word beside it. */
 .take-over { display: block; width: 100%; margin: 0 0 10px; }
 
-/* The gate's one reason, and the room for the longest of the five. Four of
-   them ("Setting is off until the switch on the rig is on." at 48
-   characters, "… until you take control below." at 44, "… while no
-   acquisition is running." at 46, and "Nothing is running; you may start
-   acquisition." at 46) take two lines in this rail; the fifth ("You may set
-   what the rig holds.") takes one. The card's text column is 17rem less its
-   own padding, about 244px, and this line is 0.88rem, so a third line needs
-   past seventy characters — none of the five comes near it.
+/* The gate's one reason, and the room for the longest of the six. Five of
+   them ("Setting is off until you type the lab's word below." at 51
+   characters, "Setting is off until the switch on the rig is on." at 48,
+   "… until you take control below." at 44, "… while no acquisition is
+   running." at 46, and "Nothing is running; you may start acquisition." at
+   46) take two lines in this rail; the sixth ("You may set what the rig
+   holds.") takes one. The card's text column is 17rem less its own padding,
+   about 244px, and this line is 0.88rem, so a third line needs past seventy
+   characters — none of the six comes near it, the lab's word included.
    With no reservation at all the card shrank by a line the moment the gate
    opened, and the Acting-as and Stop-all-outputs cards below it jumped 21px
    — at exactly the moment the switch on the rig was thrown, which is when
@@ -711,6 +712,13 @@ dl.facts dd.wide { margin-top: -2px; }
 
 .actor-row { display: flex; align-items: center; gap: 8px; }
 .actor-row .find { flex: 1 1 auto; }
+
+/* The lab's word wears the same row as the name, under the name's own note,
+   because it is the same kind of thing: something this browser remembers so
+   the gate can be honest about where the reader stands. It is rendered only
+   on a machine that holds a word, and once rendered it never leaves — only
+   its placeholder changes — so nothing below it moves. */
+.fence-row { margin-top: 10px; }
 
 /* The one action that is always allowed wears the one alarm colour on the
    page, and is the full width of its card so it cannot be missed. */

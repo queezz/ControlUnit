@@ -4,9 +4,10 @@ An optional browser view of the rig, served from inside the ControlUnit
 process. It is switched on with `--web`, which the rig's launcher
 `scripts/run_controlunit.sh` passes, and answers on the lab network at
 `http://pihti:4187/` by default. Reading is open to anyone on that network;
-setting a setpoint is gated by the switch on the rig, and by an operator
-lock so that two people never drive one plasma without seeing each other.
-Both are described below.
+setting a setpoint is gated by the switch on the rig, by the lab's word
+where the machine serving the page holds one, and by an operator lock so
+that two people never drive one plasma without seeing each other. All three
+are described below.
 
 ## Where it sits
 
@@ -65,6 +66,16 @@ Qt control dock, on the rig's own screen, beside the on/off switch. It rests
 off and cannot be turned on from a browser. That switch is the whole
 authorisation: a person standing at the rig decides whether the network may
 move anything.
+
+Where the machine serving the page holds one, **the lab's word** stands
+beside the switch: a browser types it once at `POST /api/fence` and carries
+it in a cookie afterwards, and until it has, every kind the switch gates —
+every setter and Take over — is refused `403` with *"type the lab's word
+first"*. It is a fence one may walk over and never a credential (owner
+decision 2026-09-07, "not security, just a fence one can walk over"): it is
+compared as plain text, it is nobody's password, **Stop all outputs is never
+behind it**, and a machine holding no word has no fence at all — see *The
+lab's word* under Machine-local configuration.
 
 The switch stays exactly where that person put it. It used to be forced off
 whenever acquisition stopped, so that a laptop could not hold a gate over a
@@ -174,7 +185,7 @@ a credential; the data file appears by name only.
 | `GET /api/health` | `{service, version, status, detail}` — the ensemble's contract; `ok` only while acquiring on real hardware |
 | `GET /api/neighbours` | this service and its two neighbours, each with a state; answers from what this machine already knows and asks the LAN behind the answer |
 | `GET /api/roster` | `{"names": [...]}` — the lab's operator names this machine holds a copy of, empty when it holds none |
-| `GET /api/state` | latest values, setpoints, run facts, freshness, the Remote switch, the zeros, who has control and the last command; polled once a second, or four times a second under Poll: fast |
+| `GET /api/state` | latest values, setpoints, run facts, freshness, the Remote switch, the zeros, who has control, whether this machine asks for the lab's word and whether this browser has typed it (`fence`), and the last command; polled once a second, or four times a second under Poll: fast |
 | `GET /api/series?window=300&points=600` | thinned `[t, v]` pairs per channel over the last `window` seconds, `0` for all held |
 | `GET /api/series?since=1757200000&points=3000` | the same, but only samples strictly newer than that stamp; `since` wins over `window` |
 
@@ -195,6 +206,7 @@ not an error. The reply carries both `window` and `since` back, so a reader
 of the response can tell which question was asked.
 | `GET /api/log?since=N` | log lines after sequence number `N` |
 | `POST /api/identify` | `{"name": "..."}` — remember, in this browser, the name to write beside a command |
+| `POST /api/fence` | `{"word": "..."}` — the lab's word; `200 {"fenced": true}` and a cookie when it matches, `200 {"fenced": false}` where this machine has no word, `403` when it does not match |
 | `POST /api/take-over` | take control of the rig from whoever holds it; `200` either way, `403` without the switch |
 | `POST /api/stop-all` | every output to zero; always allowed |
 | `POST /api/acquisition/start` | begin a run; `409` when one is already running |
@@ -272,8 +284,9 @@ of the response can tell which question was asked.
   control needs a run as before. The left rail carries the gate —
   the switch's state, who has control and the Take over button, the one
   reason setting is off right now, the name — chosen from the lab's roster
-  where this machine holds a copy of one, typed where it does not — and
-  the always-allowed Stop all outputs; the right rail carries this run and
+  where this machine holds a copy of one, typed where it does not — the
+  lab's word, where this machine asks for one, and the always-allowed
+  Stop all outputs; the right rail carries this run and
   an index of the five groups. A control the gate would refuse is disabled
   and still visibly bordered, and the reason is stated once in the rail,
   never on a row.
@@ -342,6 +355,28 @@ positional in the shell form) and default to the vault under Dropbox and
 `POST /api/identify` still takes any cleaned name where the machine has no
 roster; where it has one, a name that is not on it is refused `400` with
 "choose a name from the lab's roster".
+
+### The lab's word
+
+One more rail on the same fence. The machine serving the page may hold a
+word in `~/.controlunit/fence.txt`:
+
+```
+plasmabox
+```
+
+One line, the word, surrounding whitespace stripped. **An absent or empty
+file means no fence** — every off-rig dummy run and every test behaves
+exactly as it did before — and the file is reread on the same terms as the
+roster: whenever its modification time or size changes, and never more than
+once a second, so a word changed in the lab takes effect within a second
+and closes the fence again on every browser that had passed the old one.
+
+It is a fence, not a secret. It keeps "oh, I found this webui, let's push
+some buttons" from becoming a gas line moving, and nothing more: it is
+compared as plain text, it is stored on the machine in the clear, the
+browser carries it in a cookie, and it is **never anybody's password** — do
+not put one there. Like the roster, the file itself never enters git.
 
 ## Off-rig development
 

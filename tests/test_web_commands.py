@@ -6,10 +6,14 @@ that records the calls a real `MainApp` would make, which is the point of the
 split: `controlunit.web.commands` knows method names, never widgets.
 """
 
+import os
+import time
+
 import pytest
 
 from controlunit._version import __version__
 from controlunit.web import commands
+from controlunit.web.fence import Fence
 from controlunit.web.neighbours import NeighbourBoard
 from controlunit.web.roster import Roster
 from controlunit.web.server import create_app
@@ -836,13 +840,24 @@ def rig(remote=False, acquiring=True):
     return status
 
 
-def app_for(status, tmp_path, desk=None, home=None):
+def app_for(status, tmp_path, desk=None, home=None, fence_home=None, fence_clock=None):
+    """An app whose machine knows nothing it was not given here.
+
+    The fence's home is pointed at nothing by default, so this suite tests a
+    machine with no word of its own however the developer's own machine
+    happens to be set up. `fence_clock` is for the one test that has to see
+    the word change without waiting a real second for it.
+    """
     nowhere = tmp_path / "nowhere"
     return create_app(
         status=status,
         board=NeighbourBoard(home=nowhere),
         commands=desk if desk is not None else commands.CommandQueue(),
         roster=Roster(home=nowhere if home is None else home),
+        fence=Fence(
+            home=nowhere if fence_home is None else fence_home,
+            clock=fence_clock if fence_clock is not None else time.monotonic,
+        ),
     )
 
 
@@ -1284,3 +1299,178 @@ def test_a_nameless_command_is_logged_under_its_address_once():
     assert commands.describe(named, commands.APPLIED, "") == (
         "Remote: Arseniy from 10.0.0.5: H2 flow 1234 mV"
     )
+
+
+# -- the lab's word, over the wire --------------------------------------------
+
+WORD = "plasmabox"
+
+
+def fenced(tmp_path):
+    """A machine that holds the lab's word, with its switch already on."""
+    fence_home = tmp_path / ".controlunit-fence"
+    fence_home.mkdir()
+    (fence_home / "fence.txt").write_text(WORD + "\n", encoding="utf-8")
+    return fence_home
+
+
+def test_with_no_fence_the_word_route_says_so_and_stores_nothing(tmp_path):
+    """Every machine that holds no word behaves exactly as it always has."""
+    client = app_for(rig(remote=True), tmp_path).test_client()
+    answer = client.post("/api/fence", json={"word": "anything"})
+    assert answer.status_code == 200
+    assert answer.get_json() == {"fenced": False}
+    assert "Set-Cookie" not in answer.headers
+
+
+@pytest.mark.parametrize("path, body", SETTERS)
+def test_with_no_fence_every_setter_behaves_as_before(path, body, tmp_path):
+    client = app_for(rig(remote=True), tmp_path).test_client()
+    client.set_cookie("actor", "queezz")
+    assert client.post(path, json=body).status_code == 202
+
+
+def test_with_no_fence_state_says_none_is_needed(tmp_path):
+    body = app_for(rig(remote=True), tmp_path).test_client().get("/api/state")
+    assert body.get_json()["fence"] == {"needed": False, "passed": False}
+
+
+@pytest.mark.parametrize("path, body", SETTERS)
+def test_behind_a_fence_a_setter_without_the_word_is_refused(path, body, tmp_path):
+    client = app_for(
+        rig(remote=True), tmp_path, fence_home=fenced(tmp_path)
+    ).test_client()
+    client.set_cookie("actor", "queezz")
+    answer = client.post(path, json=body)
+    assert answer.status_code == 403
+    assert answer.get_json()["reason"] == commands.NO_FENCE_WORD
+
+
+def test_the_switch_is_the_reason_before_the_word_is(tmp_path):
+    """A person can walk to the rig and throw the switch; the word is the
+    smaller fact, so it is not the one they are sent away with."""
+    client = app_for(
+        rig(remote=False), tmp_path, fence_home=fenced(tmp_path)
+    ).test_client()
+    answer = client.post("/api/sync", json={"on": True})
+    assert answer.status_code == 403
+    assert answer.get_json()["reason"] == commands.NO_REMOTE
+
+
+@pytest.mark.parametrize("path, body", SETTERS)
+def test_the_word_opens_the_fence_and_the_setter_is_then_queued(path, body, tmp_path):
+    desk = commands.CommandQueue()
+    client = app_for(
+        rig(remote=True), tmp_path, desk, fence_home=fenced(tmp_path)
+    ).test_client()
+    client.set_cookie("actor", "queezz")
+    assert client.post(path, json=body).status_code == 403
+
+    opened = client.post("/api/fence", json={"word": " plasmabox "})
+    assert opened.status_code == 200
+    assert opened.get_json() == {"fenced": True}
+    assert "fence=plasmabox" in opened.headers["Set-Cookie"]
+    assert "HttpOnly" in opened.headers["Set-Cookie"]
+
+    assert client.post(path, json=body).status_code == 202
+    assert len(desk.take_all()) == 1
+
+
+def test_a_wrong_word_is_refused_and_nothing_is_carried(tmp_path):
+    client = app_for(
+        rig(remote=True), tmp_path, fence_home=fenced(tmp_path)
+    ).test_client()
+    answer = client.post("/api/fence", json={"word": "sesame"})
+    assert answer.status_code == 403
+    assert answer.get_json()["reason"] == commands.WRONG_FENCE_WORD
+    assert "Set-Cookie" not in answer.headers
+    assert client.post("/api/sync", json={"on": True}).status_code == 403
+
+
+def test_taking_over_is_behind_the_fence_too(tmp_path):
+    client = app_for(
+        rig(remote=True), tmp_path, fence_home=fenced(tmp_path)
+    ).test_client()
+    client.set_cookie("actor", "Ivan")
+    answer = client.post("/api/take-over", json={})
+    assert answer.status_code == 403
+    assert answer.get_json()["reason"] == commands.NO_FENCE_WORD
+
+    client.post("/api/fence", json={"word": WORD})
+    assert client.post("/api/take-over", json={}).status_code == 200
+
+
+def test_stopping_the_outputs_is_never_behind_the_fence(tmp_path):
+    """A person who can see the rig must be able to zero it, word or no word."""
+    desk = commands.CommandQueue()
+    client = app_for(
+        rig(remote=True), tmp_path, desk, fence_home=fenced(tmp_path)
+    ).test_client()
+    assert client.post("/api/stop-all", json={}).status_code == 202
+    assert [c.kind for c in desk.take_all()] == ["stop_all"]
+
+
+def test_naming_yourself_is_never_behind_the_fence(tmp_path):
+    """The word gates setting, not saying who you are."""
+    client = app_for(
+        rig(remote=True), tmp_path, fence_home=fenced(tmp_path)
+    ).test_client()
+    assert client.post("/api/identify", json={"name": "Ivan"}).status_code == 200
+
+
+def test_reading_is_never_behind_the_fence(tmp_path):
+    """Reading is open to anyone on the lab network, as it always was."""
+    client = app_for(
+        rig(remote=True), tmp_path, fence_home=fenced(tmp_path)
+    ).test_client()
+    for path in ("/", "/control", "/log", "/lab", "/api/state", "/api/health"):
+        assert client.get(path).status_code == 200
+
+
+def test_state_says_where_this_browser_stands_against_the_fence(tmp_path):
+    client = app_for(
+        rig(remote=True), tmp_path, fence_home=fenced(tmp_path)
+    ).test_client()
+    assert client.get("/api/state").get_json()["fence"] == {
+        "needed": True,
+        "passed": False,
+    }
+    client.post("/api/fence", json={"word": WORD})
+    assert client.get("/api/state").get_json()["fence"] == {
+        "needed": True,
+        "passed": True,
+    }
+
+
+def test_the_word_itself_is_never_carried_to_a_browser(tmp_path):
+    """The page is told where it stands, never what the fence is made of."""
+    client = app_for(
+        rig(remote=True), tmp_path, fence_home=fenced(tmp_path)
+    ).test_client()
+    client.post("/api/fence", json={"word": WORD})
+    for path in ("/api/state", "/control"):
+        assert WORD not in client.get(path).get_data(as_text=True)
+
+
+def test_a_changed_word_shuts_the_fence_on_the_old_one(tmp_path):
+    """The cookie carries the word, so a word changed in the lab closes the
+    fence again on every browser that had passed the old one."""
+    fence_home = fenced(tmp_path)
+    now = [0.0]
+    client = app_for(
+        rig(remote=True), tmp_path, fence_home=fence_home, fence_clock=lambda: now[0]
+    ).test_client()
+    client.post("/api/fence", json={"word": WORD})
+    assert client.get("/api/state").get_json()["fence"]["passed"] is True
+
+    path = fence_home / "fence.txt"
+    path.write_text("sputterhut\n", encoding="utf-8")
+    os.utime(path, ns=(10**9, 5 * 10**9))
+    now[0] = 60.0  # past the once-a-second bound the fence rereads on
+    assert client.get("/api/state").get_json()["fence"]["passed"] is False
+    assert client.post("/api/sync", json={"on": True}).status_code == 403
+
+
+def test_the_fence_route_answers_nothing_to_a_get(tmp_path):
+    client = app_for(rig(remote=True), tmp_path).test_client()
+    assert client.get("/api/fence").status_code == 405
