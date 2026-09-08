@@ -69,6 +69,70 @@ holds what is still undecided or unbuilt.
 
 ## Ready to build
 
+- The 4.6.0 review (queezz, 2026-09-08, first look at the restarted rig;
+  "log this and design, don't dev" — he is taking the design to GPT too,
+  so this item is the brief and the record, not a build order). What he
+  saw, in his words, then a proposal.
+
+  Defects and complaints:
+  - "Bu is not visible. There's data, but it's not showing." The 4.5.0
+    rule that a flat curve steps out of the way hides a channel that has
+    data; the legend reads `Bu flat` and he reads it as gone.
+  - "log/lin in a card far from the plots is bad. We have space in the
+    plot cards." The Lines card's two scale rows belong on the charts.
+  - "View card. Don't need tiny explainer text. And the card reads
+    crowded. There are two jobs, but they read as one with 5 options."
+  - "Window has 'full...' explained. Only that. No need. Also full
+    doesn't work. Which is fine-ish." (Full still shows what the ring
+    gave; the browser's own history is not reaching the window cut.)
+  - Control: "The name selector and password are inside Operation. Bad.
+    We have rails for that. Main window is for operation."
+  - "On this page has no meaning on my big screen. Maybe on mobile or
+    maybe on a laptop. Not here, definitely."
+  - "General layout reads as broken. There are numbers and names trying
+    to organize. And they fail. They just crowd the page, hide the work
+    surface."
+  - "Start/Stop are big buttons. They warn before stopping. But they
+    should be loud. STOP is stop! Not a casual button. Not a tiny pill.
+    Same with the start. Don't have to be huge. But they have to be
+    special and visible at a glance. Not 'where do I stop this thing???'
+    Stop all outputs is crying in the mean time. Maybe stop/start are
+    bigger on that rail? Stop all outputs should get quieter."
+  - "The top bar is full width, while the view is not. Maybe not the
+    best UX."
+  - "There's still no mixed mode to control and see the current values
+    and plots. And why not? Especially on a big monitor???"
+
+  Proposal (a session's design, for him and GPT to cut at):
+  - Every switched-on curve is drawn, always. A panel with two curves of
+    different size gets a second y axis on the right in the second pen's
+    colour, so Bu and Bd both read; "flat" as a state goes away.
+  - The log | lin switch moves into each chart's legend row, beside its
+    curve switches (the WEBUI.md amendment of 2026-09-07 already allows a
+    chart's own controls in its legend). The Lines card keeps only the
+    median, retitled Median; no aside text anywhere in the rail.
+  - View becomes two plain rows with their own labels and no aside:
+    "Show  All | Vacuum | Plasma" and "Screen  Normal | Monitor |
+    Operate"; or two cards if a row cannot stay on one line.
+  - Window: drop the aside; either make Full cut the browser's own
+    history (the 4.1.0 promise) or remove the button.
+  - Operate, the mixed mode, for the big monitor: the Control faceplate
+    as a wide left column, the five readouts and the three charts on the
+    right, the gate and the name in a narrow rail beyond them; on a
+    laptop the same DOM stacks. Reached from the Screen row and from the
+    Control tab.
+  - Control: the main column is the faceplate only, groups titled in
+    plain words with no numbers, no index card at any width above the
+    rail breakpoint (keep it as a fold on phones only). The left rail is
+    the gate (switch, holder, one reason), then Start and Stop as one
+    pair of large bordered buttons — Stop in the stop colour, Start in
+    the live colour, both full-width and unmissable — then the name and
+    the lab's word, then Stop all outputs as a quiet full-width bordered
+    button with red text, no fill.
+  - The tab bar's contents align to the page's own max width so the
+    brand sits over the left rail and nothing spans past the content;
+    the bar's background may still run edge to edge.
+
 - The reader that survives, and the alarm when it does not (owner
   decision 2026-09-07, "Hold and alarm!"): when the ADC worker stops
   delivering samples, the outputs stay where they are — the cathode DAC
