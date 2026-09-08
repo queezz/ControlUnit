@@ -103,6 +103,15 @@ holds what is still undecided or unbuilt.
   - "There's still no mixed mode to control and see the current values
     and plots. And why not? Especially on a big monitor???"
 
+  What the screenshot shows behind those words: the left rail holds one
+  card, Stop all outputs, and nothing else; the gate (switch, holder,
+  reason, Take over), Start and Stop, the name and the lab's word all
+  live inside the faceplate's own column, above and below the setters;
+  the readings stand in four separate cards to the right of it; the
+  right rail is the index. So the page has a control rail with no
+  controls in it and a work surface carrying the controls that belong
+  in the rail.
+
   Proposal (a session's design, for him and GPT to cut at):
   - Every switched-on curve is drawn, always. A panel with two curves of
     different size gets a second y axis on the right in the second pen's
