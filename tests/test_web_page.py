@@ -92,26 +92,27 @@ def test_the_scales_card_offers_an_axis_for_each_panel(live):
     for choice in ("log", "lin"):
         assert 'data-scale-ig="{}"'.format(choice) in live
         assert 'data-scale-bar="{}"'.format(choice) in live
-    assert "Ion gauges<" in live
-    assert "Baratrons<" in live
     # Log leads the ion gauges, linear the Baratrons, because of the
     # offsets a Baratron reads around.
-    assert 'data-scale-ig="log" aria-pressed="true"' in live
-    assert 'data-scale-bar="lin" aria-pressed="true"' in live
+    compact = " ".join(live.split())
+    assert 'data-scale-ig="log" aria-pressed="true"' in compact
+    assert 'data-scale-bar="lin" aria-pressed="true"' in compact
+    # Each scale belongs to its chart, not the distant rail.
+    for title, axis in (("Ion gauges, Torr", "ig"), ("Baratrons, Torr", "bar")):
+        chart = live[live.index('aria-label="{}"'.format(title)):]
+        chart = chart[:chart.index("</section>")]
+        assert 'data-scale-{}="log"'.format(axis) in chart
+        assert 'data-scale-{}="lin"'.format(axis) in chart
 
 
 def test_live_offers_the_smoothing_the_current_needs(live):
-    """The axes and the median share one card, Lines: the rail took a fifth
-    card for the view's own shape, and a 700px window fits five, not six."""
-    assert 'class="rail-label">Lines ' in live
+    """The median remains a single choice affecting curves and readouts."""
+    assert 'class="rail-label">Median<' in live
     for samples in (0, 5, 15, 51):
         assert 'data-smooth="{}"'.format(samples) in live
-    # Both axis rows kept their captions inside that same card.
     assert live.count('data-scale-ig="log"') == 1
     assert live.count('data-scale-bar="lin"') == 1
-    # What the choice does that its own row cannot say is said once, on the
-    # card's heading line.
-    assert live.count("the median moves the readouts too") == 1
+    assert live.count("Median smooths the curves and the readouts.") == 1
 
 
 def test_the_three_zeroable_channels_say_what_they_took_off(live):
@@ -233,12 +234,9 @@ def test_control_offers_the_same_sampling_times_the_rig_does(control):
 
 
 def test_acquisition_no_longer_says_it_can_only_be_run_from_the_rig(control):
-    """The group's heading line is the one place the new rule is stated."""
+    """The consequence is stated once beside Start and Stop."""
     assert "never from here" not in control
-    assert control.count(
-        "here or at the rig; stopping closes the data file and turns "
-        "every output off"
-    ) == 1
+    assert control.count("Stop ends recording + outputs.") == 1
 
 
 def test_the_run_controls_stand_together_and_their_numbers_beside_them(control):
@@ -247,8 +245,9 @@ def test_the_run_controls_stand_together_and_their_numbers_beside_them(control):
     (queezz, 2026-09-07: "spread nicely but thin. Not on a glance")."""
     group = control[control.index('id="sec-acquisition"'):]
     group = group[:group.index("</section>")]
-    assert group.index('data-role="acq-start"') < group.index('data-role="acq-stop"')
-    assert group.index('data-role="acq-stop"') < group.index('data-role="sampling"')
+    rail = control[:control.index("<main")]
+    assert rail.index('data-role="acq-start"') < rail.index('data-role="acq-stop"')
+    assert 'data-role="sampling"' in group
     # No reading is inserted among the presses.
     assert "data-fact=" not in group
     assert 'data-role="sampling-now"' not in group
@@ -552,7 +551,7 @@ def test_the_lab_page_asks_again_while_a_state_is_still_checking(client):
 
 
 def test_the_acting_as_field_is_free_text_without_a_roster(control):
-    card = control[control.index('<h2>Acting as '):]
+    card = control[control.index('<h2 class="rail-label">Acting as '):]
     assert '<input type="text" id="actor-name"' in card
     # What the name is for is on the field itself, where it costs the
     # faceplate no line of its own.
@@ -565,7 +564,7 @@ def test_the_acting_as_field_offers_the_roster_when_this_machine_has_one(tmp_pat
     home.mkdir()
     (home / "operators.json").write_text(ROSTER, encoding="utf-8")
     page = app_for(tmp_path, home=home).get("/control").get_data(as_text=True)
-    card = page[page.index('<h2>Acting as '):]
+    card = page[page.index('<h2 class="rail-label">Acting as '):]
     assert '<select id="actor-name"' in card
     assert "— choose —" in card
     assert '<option value="Hashizuka Takuma"' in card
@@ -618,7 +617,7 @@ def test_no_fence_row_on_a_machine_that_holds_no_word(control):
 
 def test_the_fence_row_appears_only_where_the_machine_holds_a_word(tmp_path):
     page = with_a_word(tmp_path).get("/control").get_data(as_text=True)
-    card = page[page.index('<h2>Acting as '):]
+    card = page[page.index('<h2 class="rail-label">Acting as '):]
     card = card[:card.index("</section>")]
     assert '<input type="password" id="fence-word"' in card
     assert 'data-role="save-fence"' in card
@@ -774,15 +773,11 @@ def test_a_card_says_which_address_your_own_browser_will_open(lab):
 # -- the Control faceplate -----------------------------------------------------
 
 
-def test_every_press_on_control_stands_in_one_faceplate(control):
-    """queezz, 2026-09-07: the controls "are spread nicely but thin. Not on
-    a glance." Five bordered groups down one column became one panel of flat
-    headed groups, with the numbers they are read against beside it."""
+def test_setters_stay_together_and_run_and_access_live_in_the_rail(control):
+    """Run and access are reachable without occupying the setter panel."""
     plate = control[control.index('class="faceplate"'):]
     plate = plate[:plate.index('class="faceplate-readings"')]
     for role in (
-        "acq-start",
-        "acq-stop",
         "sampling",
         "mfc-set",
         "plasma-set",
@@ -790,13 +785,16 @@ def test_every_press_on_control_stands_in_one_faceplate(control):
         "gauge-range",
         "sync",
         "zero-now",
-        "save-actor",
-        "take-over",
     ):
         assert 'data-role="{}"'.format(role) in plate
+    rail = control[:control.index("<main")]
+    for role in ("acq-start", "acq-stop", "save-actor", "take-over"):
+        assert 'data-role="{}"'.format(role) in rail
+        assert 'data-role="{}"'.format(role) not in plate
+        assert control.count('data-role="{}"'.format(role)) == 1
     # One panel, flat headed groups inside it: never a frame around a frame.
     assert 'class="group"' not in control
-    assert control.count('class="fgroup"') == 6
+    assert control.count('class="fgroup"') == 5
 
 
 def test_the_faceplate_holds_no_reading_and_the_readings_no_press(control):
@@ -816,7 +814,7 @@ def test_the_name_and_the_word_are_outside_the_block_the_gate_shuts(control):
     """They are how a person opens the gate, so the gate can never switch
     them off: the blanket names the block it governs, not the column."""
     sets = control[control.index('class="sets"'):]
-    sets = sets[:sets.index('id="sec-who"')]
+    sets = sets[:sets.index('class="faceplate-readings"')]
     assert 'id="actor-name"' not in sets
     assert 'data-role="save-actor"' not in sets
     script = _control_js()
@@ -827,7 +825,7 @@ def test_the_name_and_the_word_are_outside_the_block_the_gate_shuts(control):
 def test_the_one_always_allowed_press_is_still_the_rail_s(control):
     """Stop all outputs is not the faceplate's: it is allowed when nothing
     else is, and it must be findable without reading anything."""
-    rail = control[control.index('class="rail rail-left"'):]
+    rail = control[control.index('class="rail rail-left operation-rail"'):]
     rail = rail[:rail.index("<main")]
     assert 'data-role="stop-all"' in rail
     assert control.count('data-role="stop-all"') == 1

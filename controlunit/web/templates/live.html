@@ -34,37 +34,11 @@
            now stands in the legend of the chart it belongs to, where the
            curve it turns off is. One control, in one place. #}
 
-        {# How the curves themselves are drawn: one axis per panel, and how
-           hard the lines are smoothed.
-
-           The two used to be two cards. They are one because this rail took
-           a fifth card for the view's own shape and a 700px window fits four
-           of these plus that one exactly; the three rows are the same three
-           controls in the same order, and nothing about them changed.
-
-           One axis per panel: ion gauges cross decades and read as a log
-           axis, Baratrons sit in a narrow band around their own offset and
-           read as a linear one. Each panel scales to its own channels.
-
-           A median, not a mean: it drops the plasma-current spikes without
-           smearing the step when a setpoint actually moves. The one thing
-           its own row cannot say — that it also changes the numbers in the
-           readouts above — rides on the heading's line, where it costs the
-           rail no height. #}
+        {# Smoothing changes both the curves and the readouts. #}
         <section class="rail-card rail-card--fit">
-            <h2 class="rail-label">Lines <span class="rail-aside">· the median moves the readouts too</span></h2>
-            <div class="choice-row" role="group" aria-label="Ion gauge axis">
-                <span class="choice-caption choice-caption--inline">Ion gauges</span>
-                <button type="button" class="choice" data-scale-ig="log" aria-pressed="true">log</button>
-                <button type="button" class="choice" data-scale-ig="lin" aria-pressed="false">lin</button>
-            </div>
-            <div class="choice-row" role="group" aria-label="Baratron axis">
-                <span class="choice-caption choice-caption--inline">Baratrons</span>
-                <button type="button" class="choice" data-scale-bar="log" aria-pressed="false">log</button>
-                <button type="button" class="choice" data-scale-bar="lin" aria-pressed="true">lin</button>
-            </div>
+            <h2 class="rail-label">Median</h2>
             <div class="choice-row" role="group" aria-label="Smoothing">
-                <span class="choice-caption choice-caption--inline">Median</span>
+
                 <button type="button" class="choice" data-smooth="0" aria-pressed="true">off</button>
                 <button type="button" class="choice" data-smooth="5" aria-pressed="false">5</button>
                 <button type="button" class="choice" data-smooth="15" aria-pressed="false">15</button>
@@ -205,6 +179,15 @@
                     <span class="pen-aside" data-role="pen-aside"></span>
                 </button>
                 {% endfor %}
+                {% if id in ('chart-ig', 'chart-bar') %}
+                <span class="chart-scale" role="group" aria-label="{{ 'Ion gauge' if id == 'chart-ig' else 'Baratron' }} axis">
+                    {% set axis = 'ig' if id == 'chart-ig' else 'bar' %}
+                    <button type="button" class="choice" data-scale-{{ axis }}="log"
+                            aria-pressed="{{ 'true' if axis == 'ig' else 'false' }}">log</button>
+                    <button type="button" class="choice" data-scale-{{ axis }}="lin"
+                            aria-pressed="{{ 'true' if axis == 'bar' else 'false' }}">lin</button>
+                </span>
+                {% endif %}
             </div>
             <canvas id="{{ id }}" height="{{ height }}" data-height="{{ height }}"
                     data-channels="{{ channels | join(',') }}"></canvas>
@@ -251,6 +234,7 @@
             {# The one place the zero is explained; each card only states its
                own. What the rig subtracts to show a number is not what it
                writes to disk, and that is the question this answers. #}
+            <p class="muted data-key">Median smooths the curves and the readouts.</p>
             <p class="muted data-key">Ip, Bu and Bd read minus the zero taken at the rig
                 or on Control; the data file keeps the signal as measured</p>
         </section>

@@ -591,6 +591,9 @@ dl.facts dd.wide { margin-top: -2px; }
   margin: 0 0 8px;
 }
 
+.chart-scale { display: inline-flex; gap: 4px; margin-left: auto; }
+.chart-scale .choice { padding: 2px 8px; font-size: 0.84rem; }
+
 .pen {
   display: inline-flex;
   align-items: center;
@@ -732,6 +735,7 @@ dl.facts dd.wide { margin-top: -2px; }
 }
 
 .fgroup h2 { margin: 0 0 7px; font-size: 0.9rem; }
+.sets > .fgroup:first-child { border-top: 0; padding-top: 0; }
 .fgroup .group-note { margin: -2px 0 8px; font-size: 0.84rem; }
 
 /* The one thing an Acting-as row cannot say for itself — when the lab's
@@ -930,6 +934,26 @@ dl.facts dd.wide { margin-top: -2px; }
 
 .actor-row { display: flex; align-items: center; gap: 8px; }
 .actor-row .find { flex: 1 1 auto; }
+
+/* Repeated run actions lead; access setup has its own stable rail space.
+   Cards keep their natural height. On short windows the rail scrolls as a
+   whole, without growing the page or clipping a card's controls. */
+.operation-rail { overflow-y: auto; scrollbar-gutter: stable; gap: 10px; }
+.operation-rail > .rail-card { flex: 0 0 auto; padding-block: 10px; }
+.run-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.run-actions button { min-height: 44px; font-weight: 700; font-size: 1rem; }
+.run-start { color: var(--live); border-color: var(--live); background: var(--live-wash); }
+.run-stop { color: #fdf3f0; border-color: var(--stop); background: var(--stop); }
+.run-start:hover:not(:disabled) { background: var(--live); color: var(--bg); }
+.run-stop:hover:not(:disabled) { background: var(--stop-fg); }
+.operation-rail .remote-line { justify-content: space-between; font-size: 0.88rem; }
+.operation-rail .holder-line { overflow-wrap: anywhere; }
+.actor-settings { border-top: 1px solid var(--line-soft); padding-top: 10px; }
+.roster-source { display: block; min-height: 1.5em; font-size: 0.75rem; font-weight: 400; text-transform: none; letter-spacing: normal; }
+.operation-rail .actor-row .find { width: 0; min-width: 0; }
+.operation-rail .actor-row button { flex: 0 0 auto; }
+.operation-rail .stop-all { background: transparent; color: var(--stop-fg); }
+.operation-rail .stop-all:hover { background: var(--stop-wash); }
 
 /* The lab's word wears the same row as the name, under the name's own note,
    because it is the same kind of thing: something this browser remembers so

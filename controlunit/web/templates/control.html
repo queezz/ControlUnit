@@ -11,14 +11,71 @@
 {% set fence_closed = state.fence.needed and not state.fence.passed %}
 <div class="page" id="control" data-actor="{{ actor }}">
 
-    {# The one press that is always allowed, and the only one that must be
-       findable without reading anything else. Everything a person sets goes
-       through the faceplate beside it. #}
-    <aside class="rail rail-left" aria-label="Always allowed">
-        <section class="rail-card rail-card--fit">
-            <h2 class="rail-label">Always allowed</h2>
+    <aside class="rail rail-left operation-rail" aria-label="Operation controls">
+        <section class="rail-card">
+            <h2 class="rail-label">Run</h2>
+            <div class="run-actions sets">
+                <button type="button" class="run-start" data-role="acq-start">Start</button>
+                <button type="button" class="run-stop" data-role="acq-stop">Stop</button>
+            </div>
+            <p class="stop-note muted">Stop ends recording + outputs.</p>
+        </section>
+        <section class="rail-card">
+            <div class="gate">
+                <p class="remote-line">Remote on rig
+                    <span class="chip chip-idle" data-role="remote-chip">off</span>
+                </p>
+                <p class="holder-line" data-role="holder">{{ state.control.line }}</p>
+                <p class="muted remote-why" data-role="remote-why">Setting is off until the switch on the rig is on.</p>
+                    <button type="button" class="take-over" data-role="take-over"
+                            {{ '' if state.remote and not state.control.mine and not fence_closed else 'disabled' }}>Take over</button>
+            </div>
+
+            <section class="actor-settings" id="sec-who">
+                <h2 class="rail-label">Acting as <span class="roster-source" data-role="roster-line">{% if state.roster %}· {{ state.roster.source }} {{ state.roster.at }}{% else %}· names not read yet{% endif %}</span></h2>
+                {# Where this machine holds a copy of the lab's roster the
+                   name is chosen from it, so one person is spelled one
+                   way across the lab's logs; where it holds none the
+                   field is free text, exactly as it has always been. #}
+                <div class="actor-row">
+                    {% if roster_names %}
+                    <select id="actor-name" class="find"
+                            aria-label="The name written beside a command">
+                        <option value="">— choose —</option>
+                        {% for person in roster_names %}
+                        <option value="{{ person }}" {% if person == actor %}selected{% endif %}>{{ person }}</option>
+                        {% endfor %}
+                    </select>
+                    {% else %}
+                    {# What the name is for is on the field itself: with
+                       no roster this is free text, and a browser that
+                       gives none is logged by its address. #}
+                    <input type="text" id="actor-name" class="find" maxlength="24"
+                           value="{{ actor }}" placeholder="your name, for the log"
+                           aria-label="The name written beside a command">
+                    {% endif %}
+                    <button type="button" data-role="save-actor">Save</button>
+                </div>
+
+                {# The lab's word, only where the machine serving this page
+                   holds one. It stays typable after it has been passed, so
+                   a word that changed can be typed again. What it is — a
+                   word from the lab, not a secret — is on its own field,
+                   where it costs the faceplate no line. #}
+                {% if state.fence.needed %}
+                <div class="actor-row fence-row">
+                    <input type="password" id="fence-word" class="find"
+                           placeholder="{{ 'word saved' if state.fence.passed else "the lab's word, not a secret" }}"
+                           aria-label="The lab's word that opens setting">
+                    <button type="button" data-role="save-fence">Save</button>
+                </div>
+                {% endif %}
+            </section>
+
+        </section>
+        <section class="rail-card">
             <button type="button" class="stop-all" data-role="stop-all">Stop all outputs</button>
-            <p class="muted stop-note">Gas and cathode current to zero, whatever the gate says.</p>
+            <p class="muted stop-note">Always available</p>
         </section>
     </aside>
 
@@ -40,36 +97,13 @@
         <div class="faceplate-row">
             <section class="faceplate" aria-label="What this browser may set">
 
-                {# The gate, at the head of the panel it opens. Stated once
-                   for the whole page: the switch on the rig, who holds the
-                   rig, why setting is off right now, and the way to take it. #}
-                <div class="gate">
-                    <p class="remote-line">Remote switch on the rig
-                        <span class="chip chip-idle" data-role="remote-chip">off</span>
-                        <button type="button" class="take-over" data-role="take-over"
-                                {{ '' if state.remote and not state.control.mine and not fence_closed else 'disabled' }}>Take over</button></p>
-                    <p class="holder-line" data-role="holder">{{ state.control.line }}</p>
-                    <p class="muted remote-why" data-role="remote-why">Setting is off until the switch on the rig is on.</p>
-                </div>
-
-                {# Everything below the gate is what the gate governs, and it
+                {# The setters share the run buttons' gate in the rail, and each
                    is disabled as one block. The name and the lab's word are
                    deliberately outside it: they are how a person opens the
                    gate, so they can never be switched off by it. #}
                 <div class="sets">
                     <section class="fgroup" id="sec-acquisition">
-                        {# The one place the rule is stated: a browser may
-                           start and stop a run, and stopping is not a pause.
-                           On the heading's own line, where it costs the
-                           faceplate nothing. #}
-                        <h2>1 · Acquisition <span class="fgroup-aside">· here or at the rig; stopping closes the data file and turns every output off</span></h2>
-                        <div class="frow">
-                            <span class="row-name">Run</span>
-                            <span class="row-actions">
-                                <button type="button" data-role="acq-start">Start</button>
-                                <button type="button" data-role="acq-stop">Stop</button>
-                            </span>
-                        </div>
+                        <h2>Acquisition</h2>
                         <div class="frow">
                             <span class="row-name">Sampling</span>
                             <span class="row-actions">
@@ -82,7 +116,7 @@
                     </section>
 
                     <section class="fgroup" id="sec-gas">
-                        <h2>2 · Gas flow</h2>
+                        <h2>Gas flow</h2>
                         {% for number, gas in gases %}
                         <div class="frow" data-mfc="{{ number }}">
                             <span class="row-name">{{ gas }}</span>
@@ -101,7 +135,7 @@
                     </section>
 
                     <section class="fgroup" id="sec-plasma">
-                        <h2>3 · Plasma current</h2>
+                        <h2>Plasma current</h2>
                         <div class="frow" data-plasma>
                             <span class="row-name">Ip</span>
                             <label class="row-field">
@@ -118,7 +152,7 @@
                     </section>
 
                     <section class="fgroup" id="sec-gauge">
-                        <h2>4 · Gauge and sync</h2>
+                        <h2>Gauge and sync</h2>
                         <div class="frow">
                             <span class="row-name">Mode</span>
                             <span class="row-actions">
@@ -147,7 +181,7 @@
                     </section>
 
                     <section class="fgroup" id="sec-baselines">
-                        <h2>5 · Baselines <span class="fgroup-aside">· what is shown, never what is recorded</span></h2>
+                        <h2>Baselines <span class="fgroup-aside">· what is shown, never what is recorded</span></h2>
                         <div class="frow">
                             <span class="row-name">Zero now</span>
                             <span class="row-actions">
@@ -159,49 +193,6 @@
                         </div>
                     </section>
                 </div>
-
-                {# Who is asking, and the lab's word. Outside the gate on
-                   purpose: these two are the way through it. #}
-                <section class="fgroup" id="sec-who">
-                    <h2>Acting as <span class="fgroup-aside" data-role="roster-line">{% if state.roster %}· {{ state.roster.source }} {{ state.roster.at }}{% else %}· names not read yet{% endif %}</span></h2>
-                    {# Where this machine holds a copy of the lab's roster the
-                       name is chosen from it, so one person is spelled one
-                       way across the lab's logs; where it holds none the
-                       field is free text, exactly as it has always been. #}
-                    <div class="actor-row">
-                        {% if roster_names %}
-                        <select id="actor-name" class="find"
-                                aria-label="The name written beside a command">
-                            <option value="">— choose —</option>
-                            {% for person in roster_names %}
-                            <option value="{{ person }}" {% if person == actor %}selected{% endif %}>{{ person }}</option>
-                            {% endfor %}
-                        </select>
-                        {% else %}
-                        {# What the name is for is on the field itself: with
-                           no roster this is free text, and a browser that
-                           gives none is logged by its address. #}
-                        <input type="text" id="actor-name" class="find" maxlength="24"
-                               value="{{ actor }}" placeholder="your name, for the log"
-                               aria-label="The name written beside a command">
-                        {% endif %}
-                        <button type="button" data-role="save-actor">Save</button>
-                    </div>
-
-                    {# The lab's word, only where the machine serving this page
-                       holds one. It stays typable after it has been passed, so
-                       a word that changed can be typed again. What it is — a
-                       word from the lab, not a secret — is on its own field,
-                       where it costs the faceplate no line. #}
-                    {% if state.fence.needed %}
-                    <div class="actor-row fence-row">
-                        <input type="password" id="fence-word" class="find"
-                               placeholder="{{ 'word saved' if state.fence.passed else "the lab's word, not a secret" }}"
-                               aria-label="The lab's word that opens setting">
-                        <button type="button" data-role="save-fence">Save</button>
-                    </div>
-                    {% endif %}
-                </section>
 
                 {# One stable status line, at the foot of the panel whose
                    presses it reports on. It changes in place; nothing is ever
