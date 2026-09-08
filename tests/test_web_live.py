@@ -471,7 +471,7 @@ def test_a_flat_curve_leaves_the_axis_to_the_ones_that_move():
     assert "FLAT_DECADES" in source and "FLAT_FRACTION" in source
     # Never on a panel that would empty itself: collapsing needs another
     # curve still moving.
-    assert "moving.length && isFlat(s, logScale)" in source
+    assert "moving.length && !view.pinned[s.name] && isFlat(s, logScale)" in source
     # The axis is computed from what is drawn, not from what was gathered.
     assert 'lines = series.filter(function (s) { return s.state === "drawn"; });' in source
     # Four states, each with its own word, and `drawn` says nothing at all.

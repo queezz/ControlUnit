@@ -1207,6 +1207,48 @@ dl.facts dd.wide { margin-top: -2px; }
 .ensemble .scrolls p { margin: 0 0 10px; font-size: 0.86rem; color: var(--muted); }
 .ensemble .scrolls p:last-child { margin-bottom: 0; }
 
+/* Control is an instrument desk: setters and their actual outputs stay
+   beside the live history. Shared chart/readout styles still own the plots. */
+.control-workspace { grid-template-columns: 21rem minmax(0, 1fr) var(--rail-w); }
+.control-workspace .operation-setters { padding: 12px; }
+.control-workspace .frow .row-name { flex-basis: 2rem; }
+.control-workspace .frow .setpoint { width: 4.6rem; }
+.control-workspace .frow button { padding: 4px 8px; }
+.control-workspace .fgroup { padding-top: 8px; margin-top: 8px; }
+.control-workspace .fgroup h2 { margin-bottom: 6px; }
+.control-workspace .operation-setters { padding-block: 8px; }
+.control-workspace .fgroup { margin-top: 0; padding-top: 6px; }
+.control-workspace .frow { margin-bottom: 6px; gap: 3px 6px; }
+.control-workspace .fgroup summary { padding: 4px 0; font-size: 0.85rem; }
+.control-workspace .rail-left > .rail-card:first-child .rail-label { display: none; }
+.control-workspace .stop-card .remote-status { min-height: 3.1em; }
+.output-feedback { display: block; flex-basis: 100%; font-size: 0.75rem; color: var(--muted); white-space: nowrap; margin: 0; }
+.output-feedback b { font-weight: 400; color: var(--fg); }
+.control-workspace .stop-card { position: sticky; bottom: 0; }
+.control-workspace .command-status { min-height: 1.6em; margin: -8px 0 8px; font-size: 0.8rem; color: var(--accent); overflow-wrap: anywhere; }
+.control-workspace .stop-card .remote-status { font-size: 0.75rem; min-height: 3.1em; margin-top: 6px; }
+.control-workspace .access-card .holder-line { min-height: 3.1em; }
+.control-workspace .access-card .remote-why { min-height: 3.1em; }
+.control-workspace details { flex: 0 0 auto; }
+.control-workspace summary { cursor: pointer; font-weight: 600; color: var(--muted); padding: 8px 4px; }
+.control-workspace details .rail-card { margin-bottom: 8px; }
+.control-workspace .chart { margin-bottom: 10px; }
+.control-workspace .readouts { gap: 8px; }
+.control-workspace .readout { padding: 10px; }
+.control-workspace .readout-value { font-size: clamp(0.85rem, 1.2vw, 1.4rem); }
+.control-workspace.live--big .readout-value { font-size: clamp(1.5rem, 2.4vw, 2.5rem); }
+@media (max-width: 1199px) and (min-width: 761px) {
+  .page.control-workspace { display: grid; grid-template-columns: 20rem minmax(0, 1fr); }
+  .control-workspace > .rail-left { position: sticky; top: calc(var(--bar) + var(--content-gap)); height: calc(100vh - var(--bar) - var(--content-gap) - 20px); overflow-y: auto; }
+  .control-workspace > .rail-right { grid-column: 1 / -1; }
+}
+@media (max-width: 760px) {
+  .page.control-workspace { display: flex; flex-direction: column; }
+  .control-workspace > .rail { width: 100%; }
+  .control-workspace .readout-value { font-size: 1.1rem; }
+  .control-workspace .stop-card { position: static; }
+}
+
 /* -- below the rail breakpoint ----------------------------------------- */
 
 /* No room for three tracks: one column. The control rail stands above the

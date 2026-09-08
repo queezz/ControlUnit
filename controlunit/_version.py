@@ -19,7 +19,7 @@
 # the lab network. The second number moves for a feature, the third for a
 # fix; pyproject.toml carries the same number and a test holds them equal.
 # docs/history.md tells the eras in full.
-__version__ = "4.6.1"
+__version__ = "4.7.0"
 
 __about__ = """
 Version 4: the rig on the lab network.
@@ -39,8 +39,8 @@ whole window and keeps the rails in edge drawers, and two pills
 saying whether the rig is stopped, measuring only, or holding gas or the
 cathode — the same three states the health report carries, so anyone about
 to restart the rig can read them from the lab network;
-Control, one faceplate of presses with the numbers they are read against
-beside it, which lets a browser start and stop acquisition, set
+Control, operation controls with held and measured outputs beside live
+readouts and charts, which lets a browser start and stop acquisition, set
 the sampling time, gas flow, plasma current, gauge mode and range, the QMS
 sync line and the Ip/Bu/Bd baselines behind a Remote switch on the rig's
 own screen, with Stop all outputs always allowed, acting under a name from

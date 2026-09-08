@@ -2,15 +2,12 @@
 {% block title %}Control · ControlUnit{% endblock %}
 {% block scripts %}
 <script defer src="{{ url_for('static', filename='js/control.js') }}?v={{ app_version }}"></script>
+<script defer src="{{ url_for('static', filename='js/live.js') }}?v={{ app_version }}"></script>
 {% endblock %}
-
 {% block content %}
-{# The lab's word, where this machine holds one and this browser has not
-   typed it yet. Worked out once, here, so the rail and the button below it
-   cannot disagree about the same fact. #}
 {% set fence_closed = state.fence.needed and not state.fence.passed %}
-<div class="page" id="control" data-actor="{{ actor }}">
-
+<div class="page control-workspace" id="control" data-live data-actor="{{ actor }}"
+     data-default-window="{{ default_window }}" data-pens='{{ pens | tojson }}'>
     <aside class="rail rail-left operation-rail" aria-label="Operation controls">
         <section class="rail-card">
             <h2 class="rail-label">Run</h2>
@@ -18,9 +15,123 @@
                 <button type="button" class="run-start" data-role="acq-start">Start</button>
                 <button type="button" class="run-stop" data-role="acq-stop">Stop</button>
             </div>
-            <p class="stop-note muted">Stop ends recording + outputs.</p>
+            <p class="stop-note muted">Stop ends recording + outputs. <a href="#sec-who">Access</a></p>
         </section>
-        <section class="rail-card">
+        <section class="rail-card operation-setters" aria-label="What this browser may set">
+                <div class="sets">
+                    <section class="fgroup" id="sec-acquisition">
+                        <h2>Sampling</h2>
+                        <div class="frow">
+                            <span class="row-actions">
+                                {% for seconds, label in sampling_choices %}
+                                <button type="button" class="choice" data-role="sampling"
+                                        data-seconds="{{ seconds }}" aria-pressed="false">{{ label }}</button>
+                                {% endfor %}
+                            </span>
+                        </div>
+                    </section>
+
+                    <section class="fgroup" id="sec-gas">
+                        <h2>Gas flow</h2>
+                        {% for number, gas in gases %}
+                        <div class="frow" data-mfc="{{ number }}">
+                            <span class="row-name">{{ gas }}</span>
+                            <label class="row-field">
+                                <input type="number" class="setpoint" data-role="mfc-input"
+                                       min="0" max="{{ mfc_max }}" step="1" value="0"
+                                       aria-label="{{ gas }} flow setpoint, millivolts">
+                                <span class="row-unit">mV</span>
+                            </label>
+                            <span class="row-actions">
+                                <button type="button" data-role="mfc-set">Set</button>
+                                <button type="button" data-role="mfc-zero">Zero</button>
+                            </span>
+                            <span class="output-feedback">Holding <b class="mono" data-role="mfc-setpoint" data-mfc="{{ number }}">—</b> · measured <b class="mono" data-role="mfc-measured" data-mfc="{{ number }}">—</b></span>
+                        </div>
+                        {% endfor %}
+                    </section>
+
+                    <section class="fgroup" id="sec-plasma">
+                        <h2>Plasma current</h2>
+                        <div class="frow" data-plasma>
+                            <span class="row-name">Ip</span>
+                            <label class="row-field">
+                                <input type="number" class="setpoint" data-role="plasma-input"
+                                       min="0" max="{{ plasma_max }}" step="0.1" value="0"
+                                       aria-label="Plasma current setpoint, amperes">
+                                <span class="row-unit">A</span>
+                            </label>
+                            <span class="row-actions">
+                                <button type="button" data-role="plasma-set">Set</button>
+                                <button type="button" data-role="plasma-off">PID off</button>
+                            </span>
+                        </div>
+                    </section>
+
+                    <p class="output-feedback">Holding <b class="mono" data-role="plasma-setpoint">—</b> · measured <b class="mono" data-role="plasma-measured">—</b></p>
+                    <p class="output-feedback" data-role="cathode-row" hidden>Cathode <b class="mono" data-role="cathode-measured">—</b></p>
+                    <details class="fgroup gauge-settings" id="sec-gauge">
+                        <summary>Gauge and sync <span class="mono" data-role="gauge-mode-now">—</span> <span class="mono" data-role="gauge-range-now">—</span></summary>
+                        <div class="frow">
+                            <span class="row-name">Mode</span>
+                            <span class="row-actions">
+                                {% for mode in gauge_modes %}
+                                <button type="button" class="choice" data-role="gauge-mode"
+                                        data-mode="{{ mode }}" aria-pressed="false">{{ mode }}</button>
+                                {% endfor %}
+                            </span>
+                        </div>
+                        <div class="frow">
+                            <span class="row-name">Range</span>
+                            <span class="row-actions">
+                                {% for decade in gauge_range %}
+                                <button type="button" class="choice" data-role="gauge-range"
+                                        data-range="{{ decade }}" aria-pressed="false">1e{{ decade }}</button>
+                                {% endfor %}
+                            </span>
+                        </div>
+                        <div class="frow">
+                            <span class="row-name">QMS sync</span>
+                            <span class="row-actions">
+                                <button type="button" class="choice" data-role="sync" data-on="1" aria-pressed="false">On</button>
+                                <button type="button" class="choice" data-role="sync" data-on="0" aria-pressed="false">Off</button>
+                            </span>
+                        </div>
+                    </details>
+
+                    <section class="fgroup" id="sec-baselines">
+                        <h2>Baselines</h2>
+                        <div class="frow">
+                            <span class="row-name">Zero now</span>
+                            <span class="row-actions">
+                                {% for channel in zero_channels %}
+                                <button type="button" data-zero="{{ channel }}"
+                                        data-role="zero-now">{{ channel }}</button>
+                                {% endfor %}
+                            </span>
+                        </div>
+                    </section>
+                </div>
+
+        </section>
+        <section class="rail-card stop-card">
+            <button type="button" class="stop-all" data-role="stop-all">Stop all outputs</button>
+        </section>
+    </aside>
+    <main class="page-main">
+        <h1 class="sr-only">Control</h1>
+        <div class="pills" aria-label="What the rig is doing">
+            <span class="chip chip-idle" data-role="operating">stopped</span>
+            <span class="pill-note" data-role="operating-outputs"></span>
+            <span class="chip chip-{{ state.data.state }}" data-role="data-state">{{ state.data.state }}</span>
+            <span class="mono muted" data-role="data-age"></span>
+        </div>
+        <p class="command-status mono" data-role="status" role="status"></p>
+        {% include '_live_readings.html' %}
+    </main>
+    <aside class="rail rail-right operation-rail" aria-label="Access and display">
+        <details class="rail-card access-card" {{ 'open' if fence_closed or not state.remote or not actor or (state.control.holder and not state.control.mine) else '' }}>
+            <summary>Operator and access</summary>
             <div class="gate">
                 <p class="remote-line">Remote on rig
                     <span class="chip chip-idle" data-role="remote-chip">off</span>
@@ -72,206 +183,73 @@
                 {% endif %}
             </section>
 
+        </details>
+        <details class="display-settings" open>
+            <summary>Display</summary>
+        <section class="rail-card rail-card--fit">
+            {# The window cuts a history this browser keeps for itself, so
+               Full is this browser's own memory rather than the rig's ring.
+               Said once, on the heading's line, where it costs no height. #}
+            <h2 class="rail-label">Window</h2>
+            <div class="choice-grid" role="group" aria-label="Window">
+                {% for label, seconds in windows %}
+                <button type="button" class="choice" data-window="{{ seconds }}"
+                        {% if seconds == default_window %}aria-pressed="true"{% else %}aria-pressed="false"{% endif %}>{{ label }}</button>
+                {% endfor %}
+            </div>
         </section>
+
+        {# The channel switches used to stand here, five in a row, and were
+           the ones queezz could not find: "all the little toggles on the
+           Live view, hard to find the one I need" (2026-09-07). Each one
+           now stands in the legend of the chart it belongs to, where the
+           curve it turns off is. One control, in one place. #}
+
+        {# Smoothing changes both the curves and the readouts. #}
+        <section class="rail-card rail-card--fit">
+            <h2 class="rail-label">Median</h2>
+            <div class="choice-row" role="group" aria-label="Smoothing">
+
+                <button type="button" class="choice" data-smooth="0" aria-pressed="true">off</button>
+                <button type="button" class="choice" data-smooth="5" aria-pressed="false">5</button>
+                <button type="button" class="choice" data-smooth="15" aria-pressed="false">15</button>
+                <button type="button" class="choice" data-smooth="51" aria-pressed="false">51</button>
+            </div>
+        </section>
+
+        {# Big makes the five readouts the column's lead, for reading the rig
+           from a metre away. Same readouts, same DOM: one class on the page.
+           The poll rate shares this card because both are about how the page
+           itself reads, and because six cards outgrew a 700px window while
+           five fit. The one surprising thing about fast — every other choice
+           in this rail survives a reload and this one must not — is said once,
+           on the heading's own line, where it costs the rail no height. That
+           fast is running is said on the charts, beside their span. #}
+        <section class="rail-card rail-card--fit">
+            <h2 class="rail-label">Readouts</h2>
+            <div class="choice-row" role="group" aria-label="Readout size">
+                <span class="choice-caption choice-caption--inline">Size</span>
+                <button type="button" class="choice" data-display="normal" aria-pressed="true">normal</button>
+                <button type="button" class="choice" data-display="big" aria-pressed="false">big</button>
+            </div>
+            <div class="choice-row" role="group" aria-label="Poll rate">
+                <span class="choice-caption choice-caption--inline">Poll</span>
+                <button type="button" class="choice" data-poll="normal" aria-pressed="true">normal</button>
+                <button type="button" class="choice" data-poll="fast" aria-pressed="false">fast</button>
+            </div>
+        </section>
+
         <section class="rail-card">
-            <button type="button" class="stop-all" data-role="stop-all">Stop all outputs</button>
-            <p class="muted stop-note">Always available</p>
+            <h2 class="rail-label">Show</h2>
+            <div class="choice-row" role="group" aria-label="What to show">
+            {% for name, label, channels in presets %}
+                <button type="button" class="choice" data-preset="{{ name }}" data-channels="{{ channels | join(',') }}" aria-pressed="false">{{ label }}</button>
+            {% endfor %}
+            </div>
         </section>
-    </aside>
-
-    <main class="page-main">
-        <h1 class="sr-only">Control</h1>
-
-        {# queezz, 2026-09-07: "I don't have many controls, but they are
-           spread nicely but thin. Not on a glance. Need better UX."
-           Measured then: five bordered groups down one 673px column, each
-           row carrying a name, a field, a holding value, a measured value
-           and its presses, and the page 1248px tall at 1280×1000 — a third
-           of it below the fold.
-
-           So the presses stand together in one narrow faceplate and the
-           numbers they are read against stand beside it. Nothing was
-           removed and no control changed what it does: what moved is where
-           a value is read. Flat headed groups inside one panel, never a
-           frame drawn around each group inside the frame. #}
-        <div class="faceplate-row">
-            <section class="faceplate" aria-label="What this browser may set">
-
-                {# The setters share the run buttons' gate in the rail, and each
-                   is disabled as one block. The name and the lab's word are
-                   deliberately outside it: they are how a person opens the
-                   gate, so they can never be switched off by it. #}
-                <div class="sets">
-                    <section class="fgroup" id="sec-acquisition">
-                        <h2>Acquisition</h2>
-                        <div class="frow">
-                            <span class="row-name">Sampling</span>
-                            <span class="row-actions">
-                                {% for seconds, label in sampling_choices %}
-                                <button type="button" class="choice" data-role="sampling"
-                                        data-seconds="{{ seconds }}" aria-pressed="false">{{ label }}</button>
-                                {% endfor %}
-                            </span>
-                        </div>
-                    </section>
-
-                    <section class="fgroup" id="sec-gas">
-                        <h2>Gas flow</h2>
-                        {% for number, gas in gases %}
-                        <div class="frow" data-mfc="{{ number }}">
-                            <span class="row-name">{{ gas }}</span>
-                            <label class="row-field">
-                                <input type="number" class="setpoint" data-role="mfc-input"
-                                       min="0" max="{{ mfc_max }}" step="1" value="0"
-                                       aria-label="{{ gas }} flow setpoint, millivolts">
-                                <span class="row-unit">mV</span>
-                            </label>
-                            <span class="row-actions">
-                                <button type="button" data-role="mfc-set">Set</button>
-                                <button type="button" data-role="mfc-zero">Zero</button>
-                            </span>
-                        </div>
-                        {% endfor %}
-                    </section>
-
-                    <section class="fgroup" id="sec-plasma">
-                        <h2>Plasma current</h2>
-                        <div class="frow" data-plasma>
-                            <span class="row-name">Ip</span>
-                            <label class="row-field">
-                                <input type="number" class="setpoint" data-role="plasma-input"
-                                       min="0" max="{{ plasma_max }}" step="0.1" value="0"
-                                       aria-label="Plasma current setpoint, amperes">
-                                <span class="row-unit">A</span>
-                            </label>
-                            <span class="row-actions">
-                                <button type="button" data-role="plasma-set">Set</button>
-                                <button type="button" data-role="plasma-off">PID off</button>
-                            </span>
-                        </div>
-                    </section>
-
-                    <section class="fgroup" id="sec-gauge">
-                        <h2>Gauge and sync</h2>
-                        <div class="frow">
-                            <span class="row-name">Mode</span>
-                            <span class="row-actions">
-                                {% for mode in gauge_modes %}
-                                <button type="button" class="choice" data-role="gauge-mode"
-                                        data-mode="{{ mode }}" aria-pressed="false">{{ mode }}</button>
-                                {% endfor %}
-                            </span>
-                        </div>
-                        <div class="frow">
-                            <span class="row-name">Range</span>
-                            <span class="row-actions">
-                                {% for decade in gauge_range %}
-                                <button type="button" class="choice" data-role="gauge-range"
-                                        data-range="{{ decade }}" aria-pressed="false">1e{{ decade }}</button>
-                                {% endfor %}
-                            </span>
-                        </div>
-                        <div class="frow">
-                            <span class="row-name">QMS sync</span>
-                            <span class="row-actions">
-                                <button type="button" class="choice" data-role="sync" data-on="1" aria-pressed="false">On</button>
-                                <button type="button" class="choice" data-role="sync" data-on="0" aria-pressed="false">Off</button>
-                            </span>
-                        </div>
-                    </section>
-
-                    <section class="fgroup" id="sec-baselines">
-                        <h2>Baselines <span class="fgroup-aside">· what is shown, never what is recorded</span></h2>
-                        <div class="frow">
-                            <span class="row-name">Zero now</span>
-                            <span class="row-actions">
-                                {% for channel in zero_channels %}
-                                <button type="button" data-zero="{{ channel }}"
-                                        data-role="zero-now">{{ channel }}</button>
-                                {% endfor %}
-                            </span>
-                        </div>
-                    </section>
-                </div>
-
-                {# One stable status line, at the foot of the panel whose
-                   presses it reports on. It changes in place; nothing is ever
-                   inserted above a control the reader is about to use again. #}
-                <p class="remote-status mono" data-role="status" role="status"></p>
-            </section>
-
-            {# What the rig is holding and what it reads, beside the presses
-               that move them. Content, not controls: every number the
-               faceplate's rows used to carry is here, in one place, so a row
-               is a press and a reading is a reading. #}
-            <aside class="faceplate-readings" aria-label="What the rig is holding">
-                <section class="reads">
-                    <h2 class="rail-label">Acquisition</h2>
-                    <dl class="facts">
-                        <dt>State</dt>
-                        <dd><span class="chip chip-idle" data-role="acq-chip">idle</span></dd>
-                        <dt>Sampling</dt>
-                        <dd class="mono" data-role="sampling-now">—</dd>
-                        <dt>Samples</dt>
-                        <dd class="mono" data-fact="samples">{{ state.run.samples }}</dd>
-                    </dl>
-                </section>
-
-                <section class="reads">
-                    <h2 class="rail-label">Outputs</h2>
-                    <div class="rtable">
-                        <span class="rhead"></span>
-                        <span class="rhead">Holding</span>
-                        <span class="rhead">Measured</span>
-                        {% for number, gas in gases %}
-                        <span class="rname" data-mfc="{{ number }}">{{ gas }}</span>
-                        <span class="mono rvalue" data-role="mfc-setpoint" data-mfc="{{ number }}">—</span>
-                        <span class="mono rvalue" data-role="mfc-measured" data-mfc="{{ number }}">—</span>
-                        {% endfor %}
-                        <span class="rname">Ip</span>
-                        <span class="mono rvalue" data-role="plasma-setpoint">—</span>
-                        <span class="mono rvalue" data-role="plasma-measured">—</span>
-                        <span class="rname" data-role="cathode-row" hidden>Cv</span>
-                        <span class="rvalue" data-role="cathode-blank" hidden>—</span>
-                        <span class="mono rvalue" data-role="cathode-measured" hidden>—</span>
-                    </div>
-                </section>
-
-                <section class="reads">
-                    <h2 class="rail-label">Gauge and sync</h2>
-                    <dl class="facts">
-                        <dt>Mode</dt>
-                        <dd class="mono" data-role="gauge-mode-now">—</dd>
-                        <dt>Range</dt>
-                        <dd class="mono" data-role="gauge-range-now">—</dd>
-                        <dt>QMS sync</dt>
-                        <dd class="mono" data-role="sync-now">—</dd>
-                    </dl>
-                </section>
-
-                <section class="reads">
-                    <h2 class="rail-label">Baselines</h2>
-                    <div class="rtable">
-                        <span class="rhead"></span>
-                        <span class="rhead">Zero</span>
-                        <span class="rhead">Reads</span>
-                        {% for channel in zero_channels %}
-                        <span class="rname">{{ channel }}</span>
-                        <span class="mono rvalue" data-role="zero-value" data-zero-read="{{ channel }}">—</span>
-                        <span class="mono rvalue" data-role="zero-measured" data-zero-read="{{ channel }}">—</span>
-                        {% endfor %}
-                    </div>
-                </section>
-            </aside>
-        </div>
-    </main>
-
-    {# Context lives right: this run, and where the page's own groups are. #}
-    <aside class="rail rail-right" aria-label="This run">
-        {# Each fact once on the page: the run's own numbers are read beside
-           the presses, and what stands here is what the faceplate does not
-           carry — which file this is, when it started, and whether the
-           boards under it are real. #}
+        </details>
+        <details class="run-details">
+            <summary>This run</summary>
         <section class="rail-card rail-card--fit">
             <h2 class="rail-label">This run</h2>
             <dl class="facts">
@@ -279,20 +257,16 @@
                 <dd class="mono wide" data-fact="file">{{ state.run.file or '—' }}</dd>
                 <dt>Started</dt>
                 <dd data-fact="started">—</dd>
+                <dt>Samples</dt><dd class="mono" data-fact="samples">{{ state.run.samples }}</dd>
+                <dt>Sampling</dt><dd class="mono" data-role="sampling-now">—</dd>
                 <dt>Hardware</dt>
                 <dd data-fact="hardware">{{ 'dummy' if state.dummy else 'real' }}</dd>
             </dl>
         </section>
 
-        <section class="rail-card rail-card--fit">
-            <h2 class="rail-label">On this page</h2>
-            <ul class="index">
-                {% for anchor, label in sections %}
-                <li><a href="#{{ anchor }}">{{ label }}</a></li>
-                {% endfor %}
-            </ul>
-        </section>
+            <p class="muted">Median smooths curves and readouts. Full keeps this browser's history; fast resets on reload.</p>
+            <p class="muted">Baselines change what is shown, never what is recorded. Each zero is shown in its readout.</p>
+        </details>
     </aside>
-
 </div>
 {% endblock %}

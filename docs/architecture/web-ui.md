@@ -451,47 +451,29 @@ of the response can tell which question was asked.
     this machine last heard back and what it is doing now are two different
     facts. A neighbour this machine has no address for is `not configured`
     from the first paint, because that answer needs nobody.
-- **Control** — one faceplate of presses, and the numbers they are read
-  against beside it. Until 4.6.0 the tab was five bordered groups down one
-  673px column, each row carrying a name, a field, a holding value, a
-  measured value and its presses, with the gate and the name in the left
-  rail: 1248px of page at 1280×1000, a third of it below the fold, and the
-  owner's verdict was *"I don't have many controls, but they are spread
-  nicely but thin. Not on a glance. Need better UX."* (2026-09-07).
+- **Control** — from 4.7.0, operation controls and their held/measured
+  outputs stand beside the same live readouts and charts used by Live.
+  Start/Stop, sampling, gas flow, plasma current and baseline zeroing are
+  together in the left rail. Gauge mode, range and QMS sync expand from
+  their own summary. Stop all outputs remains independently available.
 
-    The presses now stand together in one panel 384px wide — flat headed
-    groups inside one bordered box, never a frame drawn around each group
-    inside the frame — in the same operating order: the gate, then
-    Acquisition, Gas flow, Plasma current, Gauge and sync, Baselines, and
-    Acting as at the foot. Beside it, in the width the window leaves, the
-    readings: what the rig is holding and what it measures, the gauge and
-    sync it holds, and each baseline against what that channel reads. A row
-    is a press and a reading is a reading, so a number changing under the
-    poll never moves a control a reader is aiming at.
+  The right rail holds operator/access setup, display choices and run
+  details. Access starts open when the browser needs a name, the lab word,
+  or the rig's Remote switch. Name and word remain outside the gated
+  setters. Display retains window, median, readout size, fast polling and
+  presets; each pressure chart retains its own axis switches and pills.
+  Live remains the separate monitor surface, including Monitor mode.
 
-    **The gate is at the head of the panel it opens**: the switch's state,
-    who has control and the Take over button on one line, then who holds the
-    rig, then the one reason setting is off right now. **Acting as and the
-    lab's word stand outside the block the gate shuts**, deliberately — they
-    are how a person opens it, so the blanket that disables the setting
-    controls names that block rather than the whole column. **Stop all
-    outputs stays in the left rail**: it is allowed when nothing else is, and
-    it must be findable without reading anything. The right rail carries this
-    run — the file, when it started and whether the boards are real, which is
-    what the faceplate does not carry — and an index of the six groups.
+  Both surfaces render a shared template partial and use the same drawing
+  implementation. On Control, the Live script owns the state and series
+  polling; Control receives that state through an event and requests an
+  immediate refresh after a command. There is no second periodic state
+  request. Commands still pass through the existing queue and rig gates.
 
-    Everything else is as it was. **Stop** asks once in the browser before it
-    sends. **Start** is the one control enabled while nothing is running; the
-    switch and control of the rig are still needed. A control the gate would
-    refuse is disabled and still visibly bordered, and the reason is stated
-    once, never on a row.
-
-    Measured at 1280×1000: the page fell from 1248px to 1024px and the whole
-    faceplate stands above the fold. At 1440×900 its foot is 16px below the
-    window; at 1280×700 it still scrolls, which the group index in the right
-    rail is for. Control and the plots side by side — the owner's *"Ideally
-    control plus plots should live side by side. Like in the GUI"* — is the
-    second step and is not built.
+  A flat curve normally steps out of the scale while another curve moves.
+  Clicking its `flat` pill now restores it explicitly and remembers that
+  choice. Off/on also restores it; a preset resets explicit overrides to
+  automatic behavior. Nonpositive values on a log axis remain unplottable.
 
 ## Machine-local configuration
 

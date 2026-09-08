@@ -388,6 +388,12 @@ def create_app(
         return render_template(
             "control.html",
             active="control",
+            windows=WINDOWS,
+            default_window=DEFAULT_WINDOW,
+            pens=PENS,
+            panels=PANELS,
+            pen_colour=dict(PENS),
+            presets=PRESETS,
             state=page_state(),
             sections=SECTIONS,
             gases=GASES,

@@ -69,15 +69,12 @@ holds what is still undecided or unbuilt.
 
 ## Ready to build
 
-- 4.6.1 polish (2026-09-08, authorized later in the same conversation):
-  chart-local log/lin switches, prominent Start/Stop and rail-based access
-  setup are implemented. The remaining review below is still open.
-  Large readouts, median smoothing, curve pills and useful automatic curve
-  suppression are explicitly wanted. Do not replace suppression with
-  always-draw behavior. Bu's bug was reproduced with synthetic samples:
-  fixed negative Bu alongside moving Bd reads `flat`; toggling off then on
-  returns immediately to `flat`. An explicit restoration needs to survive
-  automatic suppression. No plotting algorithm was changed in 4.6.1.
+- Review 4.7.0's larger Control layout before deployment. Browser screenshot
+  capture was unavailable, though DOM geometry and interaction checks ran.
+  Control beside trends, chart-local scales and explicit Bu restoration are
+  implemented; those parts of the original brief below are no longer open.
+  Large readouts, smoothing, pills and useful automatic suppression remain
+  owner requirements. Presets reset explicit restoration to automatic behavior.
 
 - The 4.6.0 review (queezz, 2026-09-08, first look at the restarted rig;
   "log this and design, don't dev" — he is taking the design to GPT too,

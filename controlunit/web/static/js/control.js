@@ -39,6 +39,7 @@
     /* The command this browser is waiting to hear about. The rig answers
        through /api/state, so the wait ends when that record names this id. */
     var pending = 0;
+    var accessNeedsAttention = null;
 
     // -- formatting -----------------------------------------------------------
 
@@ -298,6 +299,10 @@
         else why = "You may set what the rig holds.";
         var line = root.querySelector('[data-role="remote-why"]');
         if (line) line.textContent = why;
+        var needsAccess = !state.remote || fenced || !mine;
+        var access = root.querySelector(".access-card");
+        if (access && needsAccess && accessNeedsAttention !== true) access.open = true;
+        accessNeedsAttention = needsAccess;
 
         /* Everything the gate governs is one block of the faceplate, so the
            blanket names that block rather than the whole column: the name
@@ -342,6 +347,10 @@
     }
 
     function pollState() {
+        if (root.hasAttribute("data-live")) {
+            root.dispatchEvent(new CustomEvent("controlunit:refresh"));
+            return;
+        }
         fetch("/api/state", {headers: {Accept: "application/json"}})
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (state) { if (state) paint(state); })
@@ -477,8 +486,31 @@
         });
     }
 
+    function revealSection() {
+        var id;
+        try { id = decodeURIComponent(window.location.hash.slice(1)); }
+        catch (e) { return; }
+        var target = id && document.getElementById(id);
+        if (!target || !root.contains(target)) return;
+        var parent = target;
+        while (parent && parent !== root) {
+            if (parent.tagName === "DETAILS") parent.open = true;
+            parent = parent.parentElement;
+        }
+        window.requestAnimationFrame(function () {
+            target.scrollIntoView({block: "nearest"});
+        });
+    }
+
     function setup() {
         wire();
+        revealSection();
+        window.addEventListener("hashchange", revealSection);
+        window.addEventListener("popstate", revealSection);
+        if (root.hasAttribute("data-live")) {
+            root.addEventListener("controlunit:state", function (event) { paint(event.detail); });
+            return; // Live owns the single state poll, including fast mode.
+        }
         pollState();
         window.setInterval(pollState, STATE_MS);
     }

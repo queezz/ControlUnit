@@ -201,7 +201,7 @@ def test_control_carries_its_five_groups_as_jump_targets(control):
         "sec-baselines",
     ):
         assert 'id="{}"'.format(anchor) in control
-        assert 'href="#{}"'.format(anchor) in control
+        assert control.count('id="{}"'.format(anchor)) == 1
 
 
 def test_control_offers_every_command_the_slice_built(control):
@@ -252,7 +252,7 @@ def test_the_run_controls_stand_together_and_their_numbers_beside_them(control):
     assert "data-fact=" not in group
     assert 'data-role="sampling-now"' not in group
     # It is read beside them instead.
-    readings = control[control.index('class="faceplate-readings"'):]
+    readings = control[control.index('class="run-details"'):]
     assert 'data-role="sampling-now"' in readings
     assert 'data-fact="samples"' in readings
 
@@ -489,7 +489,7 @@ def test_the_pages_fetch_nothing_from_the_internet(client, path):
 @pytest.mark.parametrize("path", ["/", "/control", "/log", "/lab"])
 def test_every_page_uses_the_three_track_grid_with_both_rails(client, path):
     page = client.get(path).get_data(as_text=True)
-    assert 'class="page"' in page
+    assert 'class="page"' in page or 'class="page control-workspace"' in page
     assert "rail-left" in page
     assert "rail-right" in page
 
@@ -773,48 +773,30 @@ def test_a_card_says_which_address_your_own_browser_will_open(lab):
 # -- the Control faceplate -----------------------------------------------------
 
 
-def test_setters_stay_together_and_run_and_access_live_in_the_rail(control):
-    """Run and access are reachable without occupying the setter panel."""
-    plate = control[control.index('class="faceplate"'):]
-    plate = plate[:plate.index('class="faceplate-readings"')]
-    for role in (
-        "sampling",
-        "mfc-set",
-        "plasma-set",
-        "gauge-mode",
-        "gauge-range",
-        "sync",
-        "zero-now",
-    ):
-        assert 'data-role="{}"'.format(role) in plate
-    rail = control[:control.index("<main")]
-    for role in ("acq-start", "acq-stop", "save-actor", "take-over"):
-        assert 'data-role="{}"'.format(role) in rail
-        assert 'data-role="{}"'.format(role) not in plate
-        assert control.count('data-role="{}"'.format(role)) == 1
-    # One panel, flat headed groups inside it: never a frame around a frame.
-    assert 'class="group"' not in control
-    assert control.count('class="fgroup"') == 5
-
-
-def test_the_faceplate_holds_no_reading_and_the_readings_no_press(control):
-    """A row is a press and a reading is a reading, so a number changing
-    under a poll never moves a control the reader is aiming at."""
-    plate = control[control.index('class="faceplate"'):]
-    plate = plate[:plate.index('class="faceplate-readings"')]
-    for role in ("mfc-measured", "plasma-measured", "zero-measured", "acq-chip"):
-        assert 'data-role="{}"'.format(role) not in plate
-    readings = control[control.index('class="faceplate-readings"'):]
-    readings = readings[:readings.index('class="rail rail-right"')]
-    assert "<button" not in readings
-    assert "<input" not in readings
+def test_control_combines_setters_feedback_and_shared_live_charts(control):
+    operations = control[:control.index("<main")]
+    main = control[control.index("<main"):control.index("</main>")]
+    access = control[control.index('aria-label="Access and display"'):]
+    for role in ("acq-start", "acq-stop", "mfc-set", "plasma-set",
+                 "sampling", "gauge-mode", "sync", "zero-now", "stop-all"):
+        assert 'data-role="{}"'.format(role) in operations
+        assert 'data-role="{}"'.format(role) not in main
+    for role in ("mfc-setpoint", "mfc-measured", "plasma-setpoint"):
+        assert 'data-role="{}"'.format(role) in operations
+    assert 'data-role="save-actor"' in access
+    assert 'data-role="save-actor"' not in operations
+    for chart in ("chart-plasma", "chart-ig", "chart-bar"):
+        assert main.count('id="{}"'.format(chart)) == 1
+    for channel in ("Ip", "Pu", "Pd", "Bu", "Bd"):
+        assert main.count('data-readout="{}"'.format(channel)) == 1
+    assert 'data-live' in control
 
 
 def test_the_name_and_the_word_are_outside_the_block_the_gate_shuts(control):
     """They are how a person opens the gate, so the gate can never switch
     them off: the blanket names the block it governs, not the column."""
     sets = control[control.index('class="sets"'):]
-    sets = sets[:sets.index('class="faceplate-readings"')]
+    sets = sets[:sets.index('<main')]
     assert 'id="actor-name"' not in sets
     assert 'data-role="save-actor"' not in sets
     script = _control_js()

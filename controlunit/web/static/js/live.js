@@ -47,7 +47,7 @@
     var STORE_SECONDS = 24 * 60 * 60;
     var STORE_MAX = 20000;
 
-    var root = document.getElementById("live");
+    var root = document.querySelector("[data-live]") || document.getElementById("live");
     if (!root) return;
 
     var pens = {};
@@ -58,6 +58,7 @@
     var view = {
         window: Number(root.dataset.defaultWindow || 300),
         channels: {Ip: true, Pu: true, Pd: true, Bu: true, Bd: true},
+        pinned: {},
         igLog: true,
         barLog: false,
         smooth: 0,
@@ -86,6 +87,9 @@
             if (typeof kept.window === "number") view.window = kept.window;
             if (kept.channels) Object.keys(view.channels).forEach(function (name) {
                 if (typeof kept.channels[name] === "boolean") view.channels[name] = kept.channels[name];
+            });
+            if (kept.pinned) Object.keys(view.channels).forEach(function (name) {
+                if (kept.pinned[name] === true) view.pinned[name] = true;
             });
             if (typeof kept.igLog === "boolean") view.igLog = kept.igLog;
             if (typeof kept.barLog === "boolean") view.barLog = kept.barLog;
@@ -398,7 +402,11 @@
     function pollState() {
         fetch("/api/state", {headers: {Accept: "application/json"}})
             .then(function (r) { return r.ok ? r.json() : null; })
-            .then(function (state) { if (state) paintState(state); })
+            .then(function (state) {
+                if (!state) return;
+                paintState(state);
+                root.dispatchEvent(new CustomEvent("controlunit:state", {detail: state}));
+            })
             .catch(function () { /* keep what is on the page */ });
     }
 
@@ -588,14 +596,14 @@
 
            Collapsing only ever happens while another curve on the same
            panel is still moving, so a panel never empties itself, and a
-           reader who wants the flat one back turns the other one off. */
+           reader can restore a flat curve explicitly with its own pill. */
         var moving = series.filter(function (s) {
             return s.chosen && s.points.length && !isFlat(s, logScale);
         });
         series.forEach(function (s) {
             s.state = !s.chosen ? "off"
                 : !s.points.length ? "absent"
-                : (moving.length && isFlat(s, logScale)) ? "flat"
+                : (moving.length && !view.pinned[s.name] && isFlat(s, logScale)) ? "flat"
                 : "drawn";
         });
 
@@ -703,6 +711,8 @@
             var button = legend.querySelector('[data-channel="' + s.name + '"]');
             if (!button) return;
             button.setAttribute("aria-pressed", s.chosen ? "true" : "false");
+            button.dataset.curveState = s.state;
+            button.title = s.state === "flat" ? "Show this curve even when flat" : "Show or hide this curve";
             var aside = button.querySelector('[data-role="pen-aside"]');
             if (aside) aside.textContent = LEGEND_ASIDE[s.state] || "";
         });
@@ -725,6 +735,7 @@
         if (!legend) return;
         legend.querySelectorAll("[data-channel]").forEach(function (button) {
             button.setAttribute("aria-pressed", "false");
+            button.dataset.curveState = "off";
             var aside = button.querySelector('[data-role="pen-aside"]');
             if (aside) aside.textContent = LEGEND_ASIDE.off;
         });
@@ -797,6 +808,7 @@
         Object.keys(view.channels).forEach(function (name) {
             view.channels[name] = wanted.indexOf(name) >= 0;
         });
+        view.pinned = {};
         remember();
         reflectChannels();
         drawAll();
@@ -956,7 +968,15 @@
         root.querySelectorAll("[data-channel]").forEach(function (button) {
             button.addEventListener("click", function () {
                 var name = button.dataset.channel;
-                view.channels[name] = !view.channels[name];
+                // A deliberate restoration wins over automatic suppression.
+                // Presets return every channel to its normal automatic policy.
+                if (button.dataset.curveState === "flat") {
+                    view.channels[name] = true;
+                    view.pinned[name] = true;
+                } else {
+                    view.channels[name] = !view.channels[name];
+                    view.pinned[name] = view.channels[name];
+                }
                 button.setAttribute("aria-pressed", view.channels[name] ? "true" : "false");
                 remember();
                 drawAll();
@@ -1041,9 +1061,16 @@
         recall();
         reflectView();
         setupRails();
-        setupModes();
-        applyMode();
-        reflectFullscreen();
+        if (root.id === "live") {
+            setupModes();
+            applyMode();
+            reflectFullscreen();
+        } else {
+            root.querySelectorAll("[data-preset]").forEach(function (button) {
+                button.addEventListener("click", function () { applyPreset(button); });
+            });
+        }
+        root.addEventListener("controlunit:refresh", pollState);
         drawAll();
         pollState();
         fillFromRing();
