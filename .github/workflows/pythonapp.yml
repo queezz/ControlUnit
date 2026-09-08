@@ -30,6 +30,9 @@ jobs:
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
       - name: Test with pytest
+        env:
+          QT_QPA_PLATFORM: offscreen
         run: |
-          pip install pytest
-          pytest -q
+          python -m pip install pytest
+          # The rig runs from its checkout; include that root on sys.path.
+          python -m pytest -q
