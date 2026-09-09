@@ -102,7 +102,20 @@ views are for people, and an agent has no need of one):
   diagram the journal's captures come from.
 
 Fleet is still the discovery surface for anything else: `fleet find`,
-`fleet info`. Nothing above is a licence to write into a sibling's tree.
+`fleet info`.
+
+**The lab record is written directly (owner ruling 2026-09-09).** A
+session here writes the vault when the work leaves something the lab
+should keep — a diagnosis, a procedure, a change in how the rig is
+driven — as a new note under the folder its kind lives in
+(`Experiments/Troubleshooting/`, `Software/`, `Hardware/`) and a line in
+the hub that indexes it, appending, never rewriting a sentence of his.
+This is not a crossing of the fleet's "a letter, never a file" rule and
+no warning is owed: in his words, ControlUnit, PIHTI Log and the Diagram
+"are three sides of one thing, my plasma", the vault is not a git
+repository with gates to dodge, and "starting a commander for this write
+is a waste". The journal's own day file stays his to write. Code in a
+sibling's *repository* is still a letter.
 
 ## Read first
 
