@@ -125,6 +125,9 @@ class Driver:
         self.readings.append(dict(voltages))
         if self.on_reading is not None:
             self.on_reading(self)
+        # The real `collect_data` answers True for a reading and False for an
+        # abort while waiting on a board that does not answer.
+        return True
 
     def put(self):
         self.rows.append((dict(self.worker.adc_voltages), len(self.readings)))

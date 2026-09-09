@@ -1,5 +1,6 @@
 import argparse
 import sys, datetime, os
+import time
 from datetime import timedelta
 import pandas as pd
 from PyQt5 import QtCore, QtWidgets, QtGui
@@ -18,8 +19,21 @@ from controlunit.ui.text_shortcuts import RED, BLUE, RESET
 # Plain standard library: a few locked values the optional web view reads,
 # and the queue it puts commands on. Nothing here imports Flask, so a machine
 # without it starts as it always did.
-from controlunit.web.status import RigStatus
+from controlunit.web.status import RigStatus, stale_after
 from controlunit.web import commands as web_commands
+
+#: How often the main thread looks at when the last sample arrived.
+READER_CHECK_MS = 2000
+
+
+def reader_lost_after(sampling):
+    """Seconds without a sample after which the reader is called lost.
+
+    Twice the web view's own stale line, and never under five seconds: the
+    web view says `stale` first, and this is the sentence in the log when
+    stale has gone on long enough to mean the reader, not a hiccup.
+    """
+    return max(5.0, 2.0 * stale_after(sampling))
 
 try:
     import pigpio
@@ -78,6 +92,18 @@ class MainApp(QtCore.QObject, UIWindow):
         # only ever appends to it; every worker call still happens here.
         self.web_commands = web_commands.CommandQueue()
         self.web_status.set_remote(self.control_dock.remoteSW.isChecked())
+
+        # The reader watchdog. The ADC worker used to die between two
+        # samples with nothing on the screen saying so (Mizuno-kun's
+        # "logging interrupted", 2026-08-19; queezz's "logging dead",
+        # 2026-09-09): the window kept looking alive while the file stopped.
+        # The worker now retries instead of dying, and this timer says so
+        # here, on the main thread, if samples stop arriving anyway.
+        self._last_sample_at = None
+        self._reader_lost_since = None
+        self.reader_watchdog = QtCore.QTimer(self)
+        self.reader_watchdog.timeout.connect(self._check_reader)
+        self.reader_watchdog.start(READER_CHECK_MS)
 
         # MARK: Current Values
         # To display in text browser
@@ -187,6 +213,12 @@ class MainApp(QtCore.QObject, UIWindow):
         self.plasma_control_dock.turn_off_pid_btn.clicked.connect(
             self.turn_off_currentcontrol_voltage
         )
+        self.plasma_control_dock.cathode_set_btn.clicked.connect(
+            self.set_cathode_drive
+        )
+        self.plasma_control_dock.cathode_off_btn.clicked.connect(
+            self.turn_off_cathode_drive
+        )
 
     def _init_calibration_connections(self):
         self.calibration_dock.calibrationBtn.clicked.connect(self.calibration)
@@ -217,12 +249,6 @@ class MainApp(QtCore.QObject, UIWindow):
     def _init_cocnnections(self):
         """Toggle plots for Current, Temperature, and Pressure"""
         self.settings_dock.setSamplingBtn.clicked.connect(self.__set_sampling)
-        self.settings_dock.set_output_voltage_btn.clicked.connect(
-            self.__set_plasma_output_voltage
-        )
-        self.settings_dock.turn_off_output_voltage_btn.clicked.connect(
-            self.__turn_off_plasma_output_voltage
-        )
         self.scale_dock.subzero_ip.clicked.connect(self._set_zero_ip)
         # The Bu button existed and was never wired; Bd is new beside it.
         self.scale_dock.subzero_baratron.clicked.connect(
@@ -374,6 +400,10 @@ class MainApp(QtCore.QObject, UIWindow):
         )
         self.__workers_done = 0
         self.terminate_existing_threads()
+        # The first sample is awaited from now; a fresh reader is never
+        # "lost" on the strength of the previous run's last sample.
+        self._last_sample_at = time.monotonic()
+        self._reader_lost_since = None
         self.pi = pigpio.pi()
         self.define_devices()
         now = datetime.datetime.now()
@@ -481,6 +511,8 @@ class MainApp(QtCore.QObject, UIWindow):
         """
         self.turn_off_voltages()
         self.terminate_existing_threads()
+        self._last_sample_at = None
+        self._reader_lost_since = None
         self.web_status.set_acquiring(False)
         # Nobody is left holding control of a rig that is not listening. The
         # Remote switch itself stays as the person at the rig set it: it is
@@ -639,6 +671,7 @@ class MainApp(QtCore.QObject, UIWindow):
 
     def _adc_step(self, result):
         device_name = result[-1]
+        self._note_sample_arrived()
         #  self.data_ready.emit([newdata, self.device_name])
         self.newdata[device_name] = result[0]
         self.append_data(device_name)
@@ -663,6 +696,45 @@ class MainApp(QtCore.QObject, UIWindow):
         # TODO: update to self.newdata[device_name]['T'].mean()
         self.currentvalues["T"] = self.datadict[device_name].iloc[-3:]["T"].mean()
         self.update_plots(device_name)
+
+    # MARK: reader watchdog
+    def _note_sample_arrived(self):
+        """A sample landed: the reader is alive, and if it had been given up
+        on, say it is back and how long the gap in the file is."""
+        now = time.monotonic()
+        if self._reader_lost_since is not None:
+            gap = now - self._reader_lost_since
+            self.log_message(
+                f"<font color='#1cad47'>Reader back</font> after {gap:.0f} s"
+                " without a sample; the file has a gap of that length",
+                htmltag="div",
+            )
+            self._reader_lost_since = None
+        self._last_sample_at = now
+
+    def _check_reader(self):
+        """Say so, once, when the reader has stopped delivering samples.
+
+        Nothing is driven from here: the outputs stay exactly where they
+        were (owner decision 2026-09-07, "Hold and alarm!"), because the
+        cathode holding is what saved Mizuno-kun's depositions. What this
+        adds is the sentence the screen never had: that the file stopped,
+        and what to press.
+        """
+        if not self.workers or self._last_sample_at is None:
+            return
+        if self._reader_lost_since is not None:
+            return
+        age = time.monotonic() - self._last_sample_at
+        if age <= reader_lost_after(self.sampling):
+            return
+        self._reader_lost_since = self._last_sample_at
+        self.log_message(
+            f"<font color='red'>Reader lost</font>: no sample for {age:.0f} s."
+            " Outputs are held where they were. Stop and Start restarts the"
+            " reader; the manual cathode drive still works meanwhile",
+            htmltag="div",
+        )
 
     # MARK: worker done
     @QtCore.pyqtSlot(str)
@@ -813,7 +885,8 @@ class MainApp(QtCore.QObject, UIWindow):
         if not self.workers:
             return
         ampere = self.plasma_control_dock.ampere_spin_box.value()
-        # value = (ampere / 5 + 2.52) * 1000
+        # The PID owns the DAC from here on, so the manual box says so.
+        self.plasma_control_dock.cathode_spin_box.setValue(0)
         self.workers["ADC"]["worker"].set_plasma_current.emit(ampere)
         self.web_status.record_setpoints(plasma_a=float(ampere))
 
@@ -823,6 +896,7 @@ class MainApp(QtCore.QObject, UIWindow):
         if not self.workers:
             return
         self.plasma_control_dock.ampere_spin_box.setValue(0.0)
+        self.plasma_control_dock.cathode_spin_box.setValue(0)
         self.workers["ADC"]["worker"].set_plasma_current.emit(0)
         self.workers["PlasmaCurrent"]["worker"].output_voltage_signal.emit(0)
         self.web_status.record_setpoints(plasma_a=0.0, cathode_mv=0.0)
@@ -982,30 +1056,40 @@ class MainApp(QtCore.QObject, UIWindow):
         self.log_message(f"ADC sampling set to {value}")
 
     @QtCore.pyqtSlot()
-    def __set_plasma_output_voltage(self):
-        """Set direct output voltage of plasma current DAC."""
+    def set_cathode_drive(self):
+        """
+        The manual mode: hold the cathode DAC at the Cathode dock's
+        millivolts with the plasma current PID off, whoever asked.
+
+        The PID is turned off first and its box zeroed, so the rig's own
+        screen says which of the two is driving. The DAC is written from
+        here, on the main thread, straight to the DAC worker: nothing about
+        this passes through the reader, so it works while the reader is
+        dead, which is what a person flying blind on 2026-09-09 needed.
+        The PID is off and the cathode is driven: the exact pair that read
+        as "nothing running" until the record carried the DAC as its own
+        fact, and the pair that kept a plasma on after the reader died on
+        2026-08-19.
+        """
         if not self.workers:
             return
-        value = self.settings_dock.output_voltage_spinbox.value() * 1000
+        value = float(self.plasma_control_dock.cathode_spin_box.value())
+        self.plasma_control_dock.ampere_spin_box.setValue(0.0)
         self.workers["ADC"]["worker"].set_plasma_current.emit(0)
         self.workers["PlasmaCurrent"]["worker"].output_voltage_signal.emit(value)
-        # The PID is off and the cathode is driven: the exact pair that read
-        # as "nothing running" until the record carried the DAC as its own
-        # fact, and the pair that kept a plasma on after the reader died on
-        # 2026-08-19.
-        self.web_status.record_setpoints(plasma_a=0.0, cathode_mv=float(value))
-        self.log_message(f"Plasma DAC output set to {value/1000:.3f} V")
+        self.web_status.record_setpoints(plasma_a=0.0, cathode_mv=value)
+        self.log_message(f"Cathode drive set to {value:.0f} mV, PID off")
 
     @QtCore.pyqtSlot()
-    def __turn_off_plasma_output_voltage(self):
-        """Turn off direct output voltage of plasma current DAC."""
+    def turn_off_cathode_drive(self):
+        """Drop the manual cathode drive to zero; the PID stays off."""
         if not self.workers:
             return
-        self.settings_dock.output_voltage_spinbox.setValue(0.0)
+        self.plasma_control_dock.cathode_spin_box.setValue(0)
         self.workers["ADC"]["worker"].set_plasma_current.emit(0)
         self.workers["PlasmaCurrent"]["worker"].output_voltage_signal.emit(0)
         self.web_status.record_setpoints(plasma_a=0.0, cathode_mv=0.0)
-        self.log_message("Plasma DAC output turned off")
+        self.log_message("Cathode drive turned off")
 
 
 # MARK: Web view

@@ -66,6 +66,16 @@ def test_the_browser_offers_exactly_the_sampling_times_the_dock_does(qt_app):
         assert dock.samplingCb.findText(commands.sampling_label(seconds)) >= 0
 
 
+def test_the_browser_s_cathode_bound_is_the_dock_s(qt_app):
+    """One bound for the manual cathode drive, in two files, held equal."""
+    from controlunit.ui.docks.plasma_current import PlasmaCurrentDock
+
+    dock = PlasmaCurrentDock()
+    assert dock.cathode_spin_box.maximum() == commands.CATHODE_MAX_MV
+    assert dock.CATHODE_MAX_MV == commands.CATHODE_MAX_MV
+    assert dock.ampere_spin_box.maximum() == commands.PLASMA_MAX_A
+
+
 def test_a_browser_starts_stops_and_retimes_a_real_run(qt_app, home):
     """The whole path: queue, drain, workers, and the record a browser reads.
 

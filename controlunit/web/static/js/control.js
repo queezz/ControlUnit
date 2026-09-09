@@ -147,41 +147,83 @@
         return map;
     }
 
+    /* A draft row: a typed value, four sizes of nudge, and a deliberate Set.
+       Nothing a step button does leaves the browser — the number in the box
+       is a draft until Set is pressed, and a poll that arrives mid-edit must
+       not take the reader's typing away.
+     *
+     * The gas lines and the cathode's manual drive are the same row with
+     * different units and a different address, so the logic lives here once
+     * and each row brings a small description of itself rather than a copy
+     * of this function. */
+    var GAS_DRAFT = {
+        input: '[data-role="mfc-input"]',
+        note: '[data-role="mfc-draft-note"]',
+        set: '[data-role="mfc-set"]',
+        steps: '[data-mfc-step]',
+        stepKey: 'mfcStep',
+        /* Zero on a gas line is a setpoint of nought, not a different
+           command; the cathode's Off is its own word to the rig. */
+        clear: '[data-role="mfc-zero"]',
+        clearBody: {mv: 0},
+        words: "the flow setpoint",
+        path: function (row) { return "/api/mfc/" + row.dataset.mfc; },
+        body: function (value) { return {mv: value}; }
+    };
+
+    var CATHODE_DRAFT = {
+        input: '[data-role="cathode-input"]',
+        note: '[data-role="cathode-draft-note"]',
+        set: '[data-role="cathode-set"]',
+        steps: '[data-cathode-step]',
+        stepKey: 'cathodeStep',
+        clear: '[data-role="cathode-off"]',
+        clearBody: {off: true},
+        words: "the cathode drive",
+        path: function () { return "/api/cathode"; },
+        body: function (value) { return {mv: value}; }
+    };
+
+    function draftUsable(input) {
+        return input.value !== '' && input.checkValidity();
+    }
+
     /* The presses are in the faceplate and the numbers they move are beside
        it, so a reading is addressed by the line it belongs to rather than
        found inside the row that sets it. */
-    function setupGasRow(row) {
-            var number = row.dataset.mfc;
-            var input = row.querySelector('[data-role="mfc-input"]');
-            input.addEventListener('input', function () {
+    function setupDraftRow(row, spec) {
+        var input = row.querySelector(spec.input);
+        input.addEventListener('input', function () {
+            input.dataset.edited = 'true';
+            reflectDraft(row, spec);
+        });
+        row.querySelectorAll(spec.steps).forEach(function (button) {
+            button.addEventListener('click', function () {
+                if (!draftUsable(input)) { input.reportValidity(); return; }
+                input.value = Math.max(Number(input.min), Math.min(Number(input.max), Number(input.value) + Number(button.dataset[spec.stepKey])));
                 input.dataset.edited = 'true';
-                reflectGasDraft(row);
+                reflectDraft(row, spec);
             });
-            row.querySelectorAll('[data-mfc-step]').forEach(function (button) {
-                button.addEventListener('click', function () {
-                    if (input.value === '' || !input.checkValidity()) { input.reportValidity(); return; }
-                    input.value = Math.max(Number(input.min), Math.min(Number(input.max), Number(input.value) + Number(button.dataset.mfcStep)));
-                    input.dataset.edited = 'true';
-                    reflectGasDraft(row);
-                });
-            });
-            row.querySelector('[data-role="mfc-set"]').addEventListener("click", function () {
-                if (input.value === '' || !input.checkValidity()) { input.reportValidity(); return; }
-                send("/api/mfc/" + number, {mv: Number(input.value)}, "the flow setpoint");
-            });
-            row.querySelector('[data-role="mfc-zero"]').addEventListener("click", function () {
-                input.value = 0;
-                input.dataset.edited = 'true';
-                reflectGasDraft(row);
-                send("/api/mfc/" + number, {mv: 0}, "the flow setpoint");
-            });
+        });
+        row.querySelector(spec.set).addEventListener("click", function () {
+            if (!draftUsable(input)) { input.reportValidity(); return; }
+            send(spec.path(row), spec.body(Number(input.value)), spec.words);
+        });
+        row.querySelector(spec.clear).addEventListener("click", function () {
+            input.value = 0;
+            input.dataset.edited = 'true';
+            reflectDraft(row, spec);
+            send(spec.path(row), spec.clearBody, spec.words);
+        });
     }
 
-    function reflectGasDraft(row) {
-        var input = row.querySelector('[data-role="mfc-input"]');
+    function setupGasRow(row) { setupDraftRow(row, GAS_DRAFT); }
+
+    function reflectDraft(row, spec) {
+        var input = row.querySelector(spec.input);
         var changed = input.value === '' || Number(input.value) !== Number(row.dataset.applied);
         row.classList.toggle('flow-draft-changed', changed);
-        var note = row.querySelector('[data-role="mfc-draft-note"]');
+        var note = row.querySelector(spec.note);
         if (note) note.textContent = changed ? 'Draft · press Set to apply' : 'Draft matches applied';
     }
 
@@ -196,7 +238,7 @@
                 if (!input.dataset.edited) input.value = Math.round(held);
                 input.dataset.initialized = 'true';
             }
-            reflectGasDraft(row);
+            reflectDraft(row, GAS_DRAFT);
             set('[data-role="mfc-setpoint"][data-mfc="' + number + '"]',
                 Math.round(held) + " mV");
             var measured = map["MFC" + number];
@@ -207,26 +249,87 @@
         });
     }
 
-    function paintPlasma(state, map) {
+    /* Which setter this browser is shown. It is a view choice and never a
+       command: pressing PID or Manual sends nothing, and the rig is not told
+       about it. Kept per browser, because which knob a person reaches for is
+       theirs and not the rig's; a browser that stores nothing simply starts
+       on PID every time. */
+    var CATHODE_MODE_KEY = "controlunit.cathode.mode";
+
+    function readCathodeMode() {
+        try {
+            var saved = window.localStorage.getItem(CATHODE_MODE_KEY);
+            if (saved === "pid" || saved === "manual") return saved;
+        } catch (e) { /* private windows and blocked storage still operate */ }
+        return "pid";
+    }
+
+    function saveCathodeMode(mode) {
+        try { window.localStorage.setItem(CATHODE_MODE_KEY, mode); }
+        catch (e) { /* nothing to remember with; the page works regardless */ }
+    }
+
+    function showCathodeMode(mode) {
+        root.querySelectorAll('[data-role="cathode-mode"]').forEach(function (button) {
+            button.setAttribute(
+                "aria-pressed", button.dataset.cathodeMode === mode ? "true" : "false"
+            );
+        });
+        var pid = root.querySelector('[data-role="cathode-pid-row"]');
+        var manual = root.querySelector('[data-role="cathode-manual-row"]');
+        if (pid) pid.hidden = mode !== "pid";
+        if (manual) manual.hidden = mode !== "manual";
+    }
+
+    function setupCathodeMode() {
+        showCathodeMode(readCathodeMode());
+        root.querySelectorAll('[data-role="cathode-mode"]').forEach(function (button) {
+            button.addEventListener("click", function () {
+                var mode = button.dataset.cathodeMode;
+                saveCathodeMode(mode);
+                showCathodeMode(mode);
+            });
+        });
+    }
+
+    /* One filament, two ways to drive it, and one line that says which of
+       them is actually holding it — read from the rig, never from which
+       button this browser last pressed. The PID setpoint wins the sentence
+       when it is on, because the loop then owns the DAC; a millivolt value
+       with the PID off is the knob held by hand. */
+    function paintCathode(state, map) {
         var sp = state.setpoints || {};
-        var held = Number(sp.plasma_a || 0);
-        set('[data-role="plasma-setpoint"]', held ? held.toFixed(2) + " A" : "off");
+        var amperes = Number(sp.plasma_a || 0);
+        var millivolts = Number(sp.cathode_mv || 0);
+        set('[data-role="plasma-setpoint"]',
+            amperes > 0
+                ? "Held · PID " + amperes.toFixed(2) + " A"
+                : millivolts > 0
+                    ? "Held · manual " + Math.round(millivolts) + " mV"
+                    : "off");
         var ip = map.Ip;
         set('[data-role="plasma-measured"]', ip ? fmt(ip.value, ip.unit) + " A" : "—");
 
-        /* The cathode's own drive is a reading and never a setpoint, so its
-           line appears in the readings only when the rig reports one. Three
-           cells of one table row, hidden together. */
-        var cathode = map.Cv;
-        ['[data-role="cathode-row"]',
-         '[data-role="cathode-blank"]',
-         '[data-role="cathode-measured"]'].forEach(function (selector) {
-            var cell = root.querySelector(selector);
-            if (cell) cell.hidden = !cathode;
-        });
-        if (cathode) {
-            set('[data-role="cathode-measured"]', fmt(cathode.value, cathode.unit) + " " + (cathode.unit || ""));
+        var row = root.querySelector('[data-role="cathode-manual-row"]');
+        if (row) {
+            row.dataset.applied = String(millivolts);
+            var input = row.querySelector('[data-role="cathode-input"]');
+            if (input && !input.dataset.initialized) {
+                if (!input.dataset.edited) input.value = Math.round(millivolts);
+                input.dataset.initialized = 'true';
+            }
+            reflectDraft(row, CATHODE_DRAFT);
         }
+        set('[data-role="cathode-applied"]', Math.round(millivolts) + " mV");
+
+        /* The cathode's own voltage is a reading and never a setpoint. The
+           channel is prepared and not deployed on this rig, so the cell says
+           so plainly rather than showing a number nobody measured. */
+        var cathode = map.Cv;
+        set('[data-role="cathode-measured"]',
+            cathode && cathode.value !== null && cathode.value !== undefined
+                ? fmt(cathode.value, cathode.unit) + " " + (cathode.unit || "")
+                : "—");
     }
 
     function paintGauge(state) {
@@ -392,7 +495,7 @@
         var map = readings(state);
         paintRun(state);
         paintGas(state, map);
-        paintPlasma(state, map);
+        paintCathode(state, map);
         paintGauge(state);
         paintBaselines(state, map);
         paintGate(state, paintControl(state));
@@ -517,6 +620,10 @@
         root.querySelector('[data-role="plasma-off"]').addEventListener("click", function () {
             send("/api/plasma-current", {off: true}, "the plasma PID off");
         });
+
+        setupCathodeMode();
+        var manual = root.querySelector('[data-role="cathode-manual-row"]');
+        if (manual) setupDraftRow(manual, CATHODE_DRAFT);
 
         root.querySelectorAll('[data-role="gauge-mode"]').forEach(function (button) {
             button.addEventListener("click", function () {

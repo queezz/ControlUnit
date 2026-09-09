@@ -4,20 +4,13 @@ from pyqtgraph.dockarea import Dock
 
 
 class SettingsDock(Dock):
+    """The sampling time. The direct cathode DAC voltage that used to sit
+    here as "Output voltage" is the Cathode dock's Manual row now, beside
+    the PID it is the alternative to."""
+
     def __init__(self):
         super().__init__("Settings")
         self.widget = pg.LayoutWidget()
-
-        self.output_voltage_label = QtWidgets.QLabel("Output voltage")
-        self.output_voltage_spinbox = QtWidgets.QDoubleSpinBox()
-        self.output_voltage_spinbox.setSuffix(" V")
-        self.output_voltage_spinbox.setRange(0.0, 5.0)
-        self.output_voltage_spinbox.setSingleStep(0.1)
-        self.output_voltage_spinbox.setDecimals(3)
-        self.output_voltage_spinbox.setMaximumWidth(120)
-        self.output_voltage_spinbox.setToolTip("Direct MCP4725 output voltage")
-        self.set_output_voltage_btn = QtWidgets.QPushButton("set")
-        self.turn_off_output_voltage_btn = QtWidgets.QPushButton("off")
 
         self.samplingCb = QtWidgets.QComboBox()
         items = [f"{i} s" for i in [10, 1, 0.1, 0.01]]
@@ -35,16 +28,11 @@ class SettingsDock(Dock):
         self.widget.addWidget(self.samplingCb, 0, 0)
         self.widget.addWidget(self.setSamplingBtn, 0, 1)
 
-        self.widget.addWidget(self.output_voltage_label, 1, 0)
-        self.widget.addWidget(self.output_voltage_spinbox, 1, 1)
-        self.widget.addWidget(self.set_output_voltage_btn, 1, 2)
-        self.widget.addWidget(self.turn_off_output_voltage_btn, 1, 3)
-
         self.verticalSpacer = QtWidgets.QSpacerItem(
             0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
         )
         self.widget.layout.setVerticalSpacing(5)
-        self.widget.layout.addItem(self.verticalSpacer, 2, 0, 1, 4)
+        self.widget.layout.addItem(self.verticalSpacer, 1, 0, 1, 2)
 
 
 if __name__ == "__main__":

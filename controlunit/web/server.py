@@ -189,7 +189,7 @@ FENCE_COOKIE = "fence"
 SECTIONS = (
     ("sec-acquisition", "Acquisition"),
     ("sec-gas", "Gas flow"),
-    ("sec-plasma", "Plasma current"),
+    ("sec-plasma", "Cathode"),
     ("sec-gauge", "Gauge and sync"),
     ("sec-baselines", "Baselines"),
     ("sec-who", "Acting as"),
@@ -398,6 +398,7 @@ def create_app(
             ),
             mfc_max=command_desk.MFC_MAX_MV,
             plasma_max=command_desk.PLASMA_MAX_A,
+            cathode_max=command_desk.CATHODE_MAX_MV,
             sampling_choices=command_desk.sampling_choices(),
             actor=actor,
             actor_label=actor_label,
@@ -626,6 +627,15 @@ def create_app(
     @app.route("/api/plasma-current", methods=["POST"])
     def plasma_current():
         return send("plasma")
+
+    @app.route("/api/cathode", methods=["POST"])
+    def cathode():
+        """The other way to drive the cathode: a millivolt value the DAC
+        holds with the PID off, which is the knob the rig's own screen has
+        always had (owner direction 2026-09-09, "just cathode incandescence
+        current control"). Gated exactly as `plasma` is.
+        """
+        return send("cathode")
 
     @app.route("/api/gauge", methods=["POST"])
     def gauge():

@@ -29,6 +29,17 @@ AVERAGE_FROM_SECONDS = 1.0
 #: fill the rig's ten-second period; five fill a one-second one.
 INNER_SECONDS = 0.2
 
+#: How long the reader waits after a failed read before trying again. The
+#: reader used to die on the first I²C error between two samples, with the
+#: outputs held and nothing on the screen saying the file had stopped
+#: (2026-08-19, 2026-09-09: every death coincided with the plasma arcing).
+#: Now it waits this long and reads again, for as long as the run lasts.
+RETRY_SECONDS = 0.5
+
+#: How often a reader that keeps failing repeats itself in the message log,
+#: so a bus that is down for an hour is one line a minute, not one a second.
+COMPLAIN_EVERY_SECONDS = 30.0
+
 
 def mean_of_readings(readings):
     """The per-channel mean of one period's raw voltage readings.
@@ -106,6 +117,9 @@ class ADC(DeviceThread):
         self.zero_bd = 0
         self.sampling_time = self.config["Sampling Time"]
         self.pid_verbose = self.config.get("Verbose.Plasma Current PID", False)
+        self._read_failures = 0
+        self._failing_since = None
+        self._last_complaint = None
 
         self.connect_signals()
 
@@ -391,16 +405,83 @@ class ADC(DeviceThread):
         self.acquisition_loop()
 
     # MARK: read voltages
-    def collect_data(self):
+    def read_all_channels(self):
         """
-        Read ADC voltages for selected channels
+        One raw voltage per channel, straight from the board.
         Can change ADC gain at any time by updating self.adc_channels
         """
-        self.adc_voltages = {
+        return {
             ch.name: self.aio.analog_read_volt(ch.channel, *self.adc_datarate, ch.gain)
             for _, ch in self.adc_channels.items()
         }
-        self.hold_voltages(self.adc_voltages)
+
+    def collect_data(self):
+        """Read every channel, and keep trying until the board answers.
+
+        A read that raises — an I²C error under an arc, a conversion that
+        never finishes — is reported once, retried every `RETRY_SECONDS`,
+        and repeated in the log every `COMPLAIN_EVERY_SECONDS` while it
+        goes on. The thread never ends on a read error: a dead reader with
+        the outputs held is what the rig did three times this month, and
+        the person at it could not tell from the screen. Returns False only
+        when the run was aborted while waiting.
+        """
+        while not self._abort:
+            try:
+                voltages = self.read_all_channels()
+            except Exception as error:
+                self._note_read_failure(error)
+                self.pause(RETRY_SECONDS)
+                continue
+            self._note_read_recovered()
+            self.hold_voltages(voltages)
+            return True
+        return False
+
+    def _note_read_failure(self, error):
+        now = time.monotonic()
+        self._read_failures += 1
+        if self._failing_since is None:
+            self._failing_since = now
+            self._last_complaint = now
+            self.send_message.emit(
+                f"<font color='red'>ADC read failed</font>: {error!r}."
+                f" Retrying every {RETRY_SECONDS:g} s; outputs are held where"
+                " they were"
+            )
+        elif now - self._last_complaint >= COMPLAIN_EVERY_SECONDS:
+            self._last_complaint = now
+            self.send_message.emit(
+                f"ADC still not answering after {now - self._failing_since:.0f} s"
+                f" ({self._read_failures} failed reads); still retrying"
+            )
+
+    def _note_read_recovered(self):
+        if self._failing_since is None:
+            return
+        gap = time.monotonic() - self._failing_since
+        self.send_message.emit(
+            f"<font color='#1cad47'>ADC answering again</font> after {gap:.0f} s"
+            f" and {self._read_failures} failed reads; the rows in between are"
+            " missing from the file"
+        )
+        self._read_failures = 0
+        self._failing_since = None
+        self._last_complaint = None
+
+    def _note_step_failure(self, error):
+        """A row that could not be recorded, said once per complaint period."""
+        now = time.monotonic()
+        if (
+            self._last_complaint is not None
+            and now - self._last_complaint < COMPLAIN_EVERY_SECONDS
+        ):
+            return
+        self._last_complaint = now
+        self.send_message.emit(
+            f"<font color='red'>ADC step failed</font>: {error!r}. The rows"
+            " in hand were dropped and the reader goes on"
+        )
 
     def hold_voltages(self, voltages):
         """Hold one set of raw voltages as the sample about to be recorded.
@@ -420,8 +501,7 @@ class ADC(DeviceThread):
         if not self.pause(self.sampling_time):
             return False
         self.set_adc_datarate()
-        self.collect_data()
-        return True
+        return self.collect_data()
 
     def collect_period_average(self, period):
         """Convert every `INNER_SECONDS` through `period` and hold the mean.
@@ -448,7 +528,8 @@ class ADC(DeviceThread):
         readings = []
         while not self._abort:
             self.set_adc_datarate()
-            self.collect_data()
+            if not self.collect_data():
+                return False
             readings.append(dict(self.adc_voltages))
             now = time.monotonic()
             if now >= end:
@@ -494,11 +575,19 @@ class ADC(DeviceThread):
                     break
             elif not self.collect_one_reading():
                 break
-            self.put_new_data_in_dataframe()
-            self.update_processed_signals_dataframe()
+            # A row that cannot be recorded or controlled on is dropped,
+            # with the rows buffered beside it, and the loop goes on: an
+            # error here used to end the thread as quietly as a read error.
+            try:
+                self.put_new_data_in_dataframe()
+                self.update_processed_signals_dataframe()
 
-            if self.plasma_current_setpopint:
-                self.plasma_current_control()
+                if self.plasma_current_setpopint:
+                    self.plasma_current_control()
+            except Exception as error:
+                self._note_step_failure(error)
+                self.clear_datasets()
+                continue
 
             if self.STEP == 1:
                 self.send_processed_data_to_main_thread()

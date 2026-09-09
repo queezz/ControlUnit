@@ -62,6 +62,22 @@ def test_a_bad_plasma_setpoint_is_refused(body):
         commands.validate_plasma(body)
 
 
+def test_a_cathode_drive_is_whole_millivolts_or_the_word_off():
+    assert commands.validate_cathode({"mv": 1900}) == {"mv": 1900}
+    assert commands.validate_cathode({"mv": "250"}) == {"mv": 250}
+    assert commands.validate_cathode({"mv": 0}) == {"mv": 0}
+    assert commands.validate_cathode({"mv": 5000}) == {"mv": 5000}
+    assert commands.validate_cathode({"off": True}) == {"off": True}
+
+
+@pytest.mark.parametrize(
+    "body", [{}, {"mv": -1}, {"mv": 5001}, {"mv": 1.5}, {"mv": "hot"}, {"mv": None}]
+)
+def test_a_bad_cathode_drive_is_refused(body):
+    with pytest.raises(commands.Invalid):
+        commands.validate_cathode(body)
+
+
 def test_the_gauge_takes_a_mode_a_range_or_both():
     assert commands.validate_gauge({"mode": "Pa"}) == {"mode": "Pa"}
     assert commands.validate_gauge({"range": -5}) == {"range": -5}
@@ -172,7 +188,17 @@ def test_a_name_is_reduced_to_something_safe_to_print():
 
 
 #: Every kind the switch and the operator lock stand in front of.
-GATED = ["start", "stop", "sampling", "mfc", "plasma", "gauge", "sync", "zero"]
+GATED = [
+    "start",
+    "stop",
+    "sampling",
+    "mfc",
+    "plasma",
+    "cathode",
+    "gauge",
+    "sync",
+    "zero",
+]
 
 
 @pytest.mark.parametrize("kind", GATED)
@@ -328,7 +354,7 @@ def test_start_stop_all_and_gauge_setup_work_without_workers():
     # Starting is the one command that means something only while idle.
     assert commands.needs_acquisition("start") is False
     assert commands.needs_acquisition("gauge") is False
-    for kind in ("stop", "sampling", "mfc", "plasma", "sync", "zero"):
+    for kind in ("stop", "sampling", "mfc", "plasma", "cathode", "sync", "zero"):
         assert commands.needs_acquisition(kind) is True
 
 
@@ -419,6 +445,7 @@ class GasFlowDock(object):
 class PlasmaDock(object):
     def __init__(self):
         self.ampere_spin_box = SpinBox(0.0)
+        self.cathode_spin_box = SpinBox(0)
 
 
 class ControlDock(object):
@@ -490,6 +517,14 @@ class FakeApp(object):
 
     def turn_off_currentcontrol_voltage(self):
         self.calls.append(("turn_off_currentcontrol_voltage",))
+
+    def set_cathode_drive(self):
+        self.calls.append(
+            ("set_cathode_drive", self.plasma_control_dock.cathode_spin_box.value())
+        )
+
+    def turn_off_cathode_drive(self):
+        self.calls.append(("turn_off_cathode_drive",))
 
     def update_ig_mode(self):
         self.calls.append(("update_ig_mode", self.control_dock.IGmode.currentText()))
@@ -596,12 +631,32 @@ def test_the_log_line_reads_as_a_sentence_for_every_kind():
 def test_stop_all_turns_the_outputs_off_and_zeroes_the_screen():
     app = FakeApp()
     app.plasma_control_dock.ampere_spin_box.setValue(2.0)
+    app.plasma_control_dock.cathode_spin_box.setValue(1900)
     app.gasflow_dock.mfc_spinboxes[1][0].setValue(4)
     app.web_commands.submit("stop_all", {})
     commands.drain(app)
     assert app.calls == [("turn_off_voltages",)]
     assert app.plasma_control_dock.ampere_spin_box.value() == 0.0
+    assert app.plasma_control_dock.cathode_spin_box.value() == 0
     assert app.gasflow_dock.millivolts(1) == 0
+
+
+def test_a_cathode_command_sets_the_dock_box_then_the_drive():
+    """The manual mode: the same path the Cathode dock's own Set takes."""
+    app = FakeApp()
+    app.web_commands.submit("cathode", {"mv": 1900}, actor="queezz")
+    commands.drain(app)
+    assert app.plasma_control_dock.cathode_spin_box.value() == 1900
+    assert app.calls == [("set_cathode_drive", 1900)]
+    assert app.messages[-1] == "Remote: queezz: cathode drive 1900 mV"
+
+
+def test_cathode_off_takes_the_same_path_the_off_button_takes():
+    app = FakeApp()
+    app.web_commands.submit("cathode", {"off": True}, actor="queezz")
+    commands.drain(app)
+    assert app.calls == [("turn_off_cathode_drive",)]
+    assert app.messages[-1] == "Remote: queezz: cathode drive off"
 
 
 def test_starting_a_run_sets_the_switch_then_takes_the_switch_s_own_path():

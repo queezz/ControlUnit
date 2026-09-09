@@ -70,9 +70,26 @@
                         {% endfor %}
                     </section>
 
+                    {# Two ways to drive one hot filament (queezz, 2026-09-09:
+                       "I want two modes: 1) PID 2) just give me a set
+                       current, I want my knob"). PID holds a plasma current
+                       and moves the DAC for you; Manual holds the DAC where
+                       you put it. The Mode buttons choose which setter this
+                       browser is shown and send nothing at all; what is
+                       actually driving is the one feedback line below, read
+                       from the rig, so the buttons never move on their own. #}
                     <section class="fgroup" id="sec-plasma">
-                        <h2>Plasma current</h2>
-                        <div class="frow" data-plasma>
+                        <h2>Cathode</h2>
+                        <div class="frow">
+                            <span class="row-name">Mode</span>
+                            <span class="row-actions">
+                                <button type="button" class="choice" data-role="cathode-mode"
+                                        data-cathode-mode="pid" aria-pressed="true">PID</button>
+                                <button type="button" class="choice" data-role="cathode-mode"
+                                        data-cathode-mode="manual" aria-pressed="false">Manual</button>
+                            </span>
+                        </div>
+                        <div class="frow" data-plasma data-role="cathode-pid-row">
                             <span class="row-name">Ip</span>
                             <label class="row-field">
                                 <input type="number" class="setpoint" data-role="plasma-input"
@@ -85,8 +102,33 @@
                                 <button type="button" data-role="plasma-off">PID off</button>
                             </span>
                         </div>
-                    <p class="output-feedback">Held <b class="mono" data-role="plasma-setpoint">—</b> · Read <b class="mono" data-role="plasma-measured">—</b></p>
-                    <p class="output-feedback" data-role="cathode-row" hidden>Cathode <b class="mono" data-role="cathode-measured">—</b></p>
+                        <div class="frow" data-cathode data-role="cathode-manual-row" hidden>
+                            <span class="row-name">Drive</span>
+                            <label class="row-field">
+                                <input type="number" class="setpoint" data-role="cathode-input"
+                                       min="0" max="{{ cathode_max }}" step="1" value="0" required
+                                       aria-label="Cathode drive, millivolts">
+                                <span class="row-unit">mV</span>
+                            </label>
+                            <span class="row-actions">
+                                <button type="button" data-role="cathode-set">Set</button>
+                                <button type="button" data-role="cathode-off">Off</button>
+                            </span>
+                            <div class="flow-steps" role="group" aria-label="Cathode draft adjustment, millivolts">
+                                {% for step in (1000, 100, 10, 1) %}
+                                <span class="flow-step">
+                                    <button type="button" data-cathode-step="{{ step }}" aria-label="Increase cathode draft by {{ step }} millivolts">+{{ step }}</button>
+                                    <button type="button" data-cathode-step="-{{ step }}" aria-label="Decrease cathode draft by {{ step }} millivolts">−{{ step }}</button>
+                                </span>
+                                {% endfor %}
+                            </div>
+                            <span class="flow-draft-note muted" data-role="cathode-draft-note">Draft · press Set to apply</span>
+                            <div class="flow-readings">
+                                <span><small>Applied</small><b class="mono flow-applied" data-role="cathode-applied">—</b></span>
+                                <span><small>Measured</small><b class="mono" data-role="cathode-measured">—</b></span>
+                            </div>
+                        </div>
+                    <p class="output-feedback"><b class="mono" data-role="plasma-setpoint">off</b> · Read Ip <b class="mono" data-role="plasma-measured">—</b></p>
                     </section>
                     <details class="fgroup gauge-settings" id="sec-gauge" open>
                         <summary>Gauges <span class="mono" data-role="gauge-mode-now">—</span> <span class="mono" data-role="gauge-range-now">—</span></summary>

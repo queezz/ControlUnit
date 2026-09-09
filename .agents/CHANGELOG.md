@@ -1,3 +1,9 @@
+## 4.11.0 — 2026-09-09
+
+- The ADC reader survives a board that stops answering: a failed I²C read is logged once, retried every half second and logged again every 30 s until the board answers, instead of ending the thread silently; a row that cannot be recorded is dropped and the loop goes on; a conversion that never finishes raises instead of spinning forever. The main thread says "Reader lost" in the log when samples stop for twice the stale line, and "Reader back" with the gap when they resume. The launcher keeps the program's error output in `~/work/cudata/controlunit.stderr.log`.
+- Two ways to drive the cathode, side by side on the rig's Cathode dock and on the web Control tab: the plasma current PID in amperes, and a Manual drive in millivolts held on the cathode DAC with the PID off. Setting either turns the other off. The manual drive used to be the Settings dock's "Output voltage" and was not on the web at all. `POST /api/cathode` takes `{"mv": 0..5000}` or `{"off": true}`.
+- AGENTS.md names the rig's neighbours and where their records are read: PIHTI Log is the Obsidian vault's journal file.
+
 ## 4.10.0 — 2026-09-09
 
 - Mass-flow drafts support direct typing and ±1000/100/10/1 mV buttons. Set applies the draft; larger red applied values and separate measured values stay tied to rig feedback.

@@ -216,7 +216,8 @@ of the response can tell which question was asked.
 | `POST /api/acquisition/stop` | end the run, close the data file, drop every output |
 | `POST /api/sampling` | `{"seconds": 10\|1\|0.1\|0.01}` — the sampling times the Settings dock offers |
 | `POST /api/mfc/<1\|2>` | `{"mv": 0..5000}` — a gas flow setpoint; `0` is the Zero button |
-| `POST /api/plasma-current` | `{"a": 0..3}` or `{"off": true}` |
+| `POST /api/plasma-current` | `{"a": 0..3}` or `{"off": true}` — the plasma-current PID, which moves the cathode DAC for you |
+| `POST /api/cathode` | `{"mv": 0..5000}` or `{"off": true}` — the cathode DAC held at a millivolt value with the PID off; whole millivolts, gated exactly as the PID setpoint is |
 | `POST /api/gauge` | `{"mode": "Torr"\|"Pa"}` and/or `{"range": -8..-3}` |
 | `POST /api/sync` | `{"on": true\|false}` — the QMS sync line |
 | `POST /api/zero` | `{"channel": "Ip"\|"Bu"\|"Bd"}` — take that channel's baseline |
@@ -455,9 +456,20 @@ of the response can tell which question was asked.
     from the first paint, because that answer needs nobody.
 - **Operation on Live** — from 4.7.0, operation controls and their held/measured
   outputs stand beside the same live readouts and charts used by Live.
-  Start/Stop, QMS sync, sampling, gas flow and plasma current have distinct
+  Start/Stop, QMS sync, sampling, gas flow and the cathode have distinct
   cards in the left rail. Gauge mode and range start open beneath their
-  summary. Baseline zero buttons sit in the corresponding plot headers (4.7.2). Stop all outputs remains independently available.
+  summary.
+
+  **The Cathode group offers the two ways the rig can drive its filament**
+  (owner direction 2026-09-09, "I want two modes"). *PID* is the plasma-current
+  loop: a setpoint in amperes, and the loop moves the DAC. *Manual* is the knob:
+  a millivolt value the DAC holds with the PID off, typed or nudged by
+  ±1000/100/10/1 mV like a gas line, sent only on Set. The Mode buttons are a
+  view choice remembered in the browser — they send nothing, and only one
+  setter row is shown at a time. Which of the two is actually holding the
+  cathode is read from `setpoints.plasma_a` and `setpoints.cathode_mv` and
+  stated once, on the group's own feedback line, so the buttons never move on
+  their own when somebody else sets the rig. Baseline zero buttons sit in the corresponding plot headers (4.7.2). Stop all outputs remains independently available.
 
   The right rail holds operator/access setup, display choices and run
   details. Access starts open when the browser needs a name, the lab word,

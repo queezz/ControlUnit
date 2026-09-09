@@ -35,6 +35,7 @@ KINDS = (
     "sampling",
     "mfc",
     "plasma",
+    "cathode",
     "gauge",
     "sync",
     "zero",
@@ -51,7 +52,7 @@ ALWAYS_ALLOWED = ("stop_all",)
 #: The commands below need workers running. Taking control is
 #: not one of them: it moves a lock, it does not touch the hardware. Nor is
 #: `start`, which is the one command that means something only while idle.
-NEEDS_ACQUISITION = ("stop", "sampling", "mfc", "plasma", "sync", "zero")
+NEEDS_ACQUISITION = ("stop", "sampling", "mfc", "plasma", "cathode", "sync", "zero")
 
 #: The commands that mean something only while nothing is running. Just the
 #: one, and it is refused with its own reason rather than the idle one, so a
@@ -63,7 +64,17 @@ NEEDS_IDLE = ("start",)
 #: moves gas, cathode current, the gauge or the sync line. Stopping the
 #: outputs is never gated by it, and taking control is how the lock is moved,
 #: not something the lock may refuse.
-LOCKED = ("start", "stop", "sampling", "mfc", "plasma", "gauge", "sync", "zero")
+LOCKED = (
+    "start",
+    "stop",
+    "sampling",
+    "mfc",
+    "plasma",
+    "cathode",
+    "gauge",
+    "sync",
+    "zero",
+)
 
 #: The sampling times the rig offers, in seconds, exactly the choices the Qt
 #: Settings dock's combo carries (`ui/docks/settings.py`). A test builds that
@@ -79,6 +90,14 @@ MFC_MAX_MV = 5000
 
 #: The plasma current setpoint's bounds, in amperes, as the Qt spinbox's.
 PLASMA_MAX_A = 3.0
+
+#: The manual cathode drive's bounds, in millivolts at the cathode DAC, as
+#: the Qt spinbox's. This is the other way to run the cathode (owner
+#: direction 2026-09-09, "just give me a set current, I want my knob"): a
+#: voltage held on the Kikusui's external current-control input with the
+#: plasma current PID off, so the filament sits where a person put it
+#: whatever the plasma does.
+CATHODE_MAX_MV = 5000
 
 #: The ionization gauge's two modes and its decade range.
 GAUGE_MODES = ("Torr", "Pa")
@@ -386,6 +405,28 @@ def validate_plasma(body):
     return {"a": round(amperes, 3)}
 
 
+def validate_cathode(body):
+    """`{"mv": 0..5000}` holds the cathode DAC there with the PID off;
+    `{"off": true}` drops it to zero. Whole millivolts, as the dock's box."""
+    body = _body(body)
+    if body.get("off"):
+        return {"off": True}
+    if "mv" not in body:
+        raise Invalid("a cathode drive needs a value in millivolts")
+    words = "a cathode drive is a whole number of millivolts from 0 to {}".format(
+        CATHODE_MAX_MV
+    )
+    try:
+        millivolts = float(body["mv"])
+    except (TypeError, ValueError):
+        raise Invalid(words)
+    if millivolts != millivolts or millivolts != int(millivolts):
+        raise Invalid(words)
+    if not (0 <= millivolts <= CATHODE_MAX_MV):
+        raise Invalid(words)
+    return {"mv": int(millivolts)}
+
+
 def validate_gauge(body):
     """`{"mode": "Torr"|"Pa"}` and/or `{"range": -8..-3}`; at least one."""
     body = _body(body)
@@ -493,6 +534,8 @@ def validate(kind, body, number=None):
         return validate_mfc(number, body)
     if kind == "plasma":
         return validate_plasma(body)
+    if kind == "cathode":
+        return validate_cathode(body)
     if kind == "gauge":
         return validate_gauge(body)
     if kind == "sync":
@@ -577,6 +620,10 @@ def summarise(kind, value):
         if value.get("off"):
             return "plasma current PID off"
         return "plasma current {:.2f} A".format(float(value.get("a", 0.0)))
+    if kind == "cathode":
+        if value.get("off"):
+            return "cathode drive off"
+        return "cathode drive {} mV".format(int(value.get("mv", 0)))
     if kind == "gauge":
         parts = []
         if value.get("mode"):
@@ -612,6 +659,7 @@ def _apply_stop_all(app):
     # The rig's own screen must not keep showing a setpoint the hardware no
     # longer holds, so the spinboxes this drove go to zero as well.
     app.plasma_control_dock.ampere_spin_box.setValue(0.0)
+    app.plasma_control_dock.cathode_spin_box.setValue(0)
     app.gasflow_dock.resetSpinBoxes(1)
     app.gasflow_dock.resetSpinBoxes(2)
     if not running:
@@ -672,6 +720,17 @@ def _apply_plasma(app, value):
     return APPLIED, ""
 
 
+def _apply_cathode(app, value):
+    """The manual mode: the dock's millivolt box, then the one method its
+    Set button calls, which turns the PID off on the way."""
+    if value.get("off"):
+        app.turn_off_cathode_drive()
+        return APPLIED, ""
+    app.plasma_control_dock.cathode_spin_box.setValue(int(value["mv"]))
+    app.set_cathode_drive()
+    return APPLIED, ""
+
+
 def _apply_gauge(app, value):
     if value.get("mode"):
         app.control_dock.IGmode.setCurrentIndex(GAUGE_MODES.index(value["mode"]))
@@ -712,6 +771,7 @@ _APPLIERS = {
     "sampling": _apply_sampling,
     "mfc": _apply_mfc,
     "plasma": _apply_plasma,
+    "cathode": _apply_cathode,
     "gauge": _apply_gauge,
     "sync": _apply_sync,
     "zero": _apply_zero,

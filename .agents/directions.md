@@ -148,36 +148,43 @@ holds what is still undecided or unbuilt.
     brand sits over the left rail and nothing spans past the content;
     the bar's background may still run edge to edge.
 
-- The reader that survives, and the alarm when it does not (owner
-  decision 2026-09-07, "Hold and alarm!"): when the ADC worker stops
-  delivering samples, the outputs stay where they are — the cathode DAC
-  holding is what saved Mizuno-kun's depositions — and the rig says so
-  without panic. Three parts. First, the reader itself: catch an error in
-  the ADC step, write it to the message log, retry the read, and let a
-  main-thread watchdog notice no sample for a few periods and log "reader
-  lost". Second, the rig's own alarm: blink the indicator LED the rig
-  already has (or a new one; queezz has an easy spot to wire it) and buzz
-  the display's buzzer — it has one, no speakers — briefly, not
-  continuously. Third, the web view: the Live tab's data chip already goes
-  `stale`; add a visible blink on the page and spoken words through the
-  browser's own speech synthesis ("reader lost on the rig"), which needs
-  no server-side audio. Fourth, raising the dead (queezz, 2026-09-07:
-  "an option to undead the dead reader mid flight"): a Restart reader
-  press, on the rig's control dock and on the Control tab's Acquisition
-  group, that spawns a fresh ADC worker thread while the DAC workers and
-  every output stay exactly as they are, and keeps writing the same data
-  file with one log line marking the gap — so a deposition that survived
-  the reader's death gets its record back without a stop. The watchdog's
-  "reader lost" is what makes that press meaningful; the automatic retry
-  inside the reader is what makes it rare. And the launcher keeps the
-  program's error output in a file beside the data, so the next death
-  leaves its traceback. Fifth, later, the plasma box thermocouple (queezz, 2026-09-07): it
+- The alarm when the reader is lost, and raising the dead (owner
+  decision 2026-09-07, "Hold and alarm!"). The first part shipped in
+  4.11.0: the reader retries a failed I²C read instead of dying, the main
+  thread logs "Reader lost" when samples stop and "Reader back" with the
+  gap, and the launcher keeps the program's error output beside the data.
+  What is still open: the rig's own alarm — blink the indicator LED the
+  rig already has (or a new one; queezz has an easy spot to wire it) and
+  buzz the display's buzzer, briefly, not continuously; the web view's
+  alarm — a visible blink on the page when the data chip goes `stale` and
+  spoken words through the browser's own speech synthesis ("reader lost
+  on the rig"), no server-side audio; a Restart reader press (queezz,
+  2026-09-07: "an option to undead the dead reader mid flight"), on the
+  rig's control dock and the Control tab's Acquisition group, that spawns
+  a fresh ADC worker while the DAC workers and every output stay exactly
+  as they are, and keeps writing the same data file with one log line
+  marking the gap — the watchdog's "Reader lost" is what makes that press
+  meaningful, and the retry inside the reader is what should make it
+  rare; and, later, the plasma box thermocouple (queezz, 2026-09-07): it
   is not on the Pi at all — the MAX6675 worker in the code was the old
-  membrane heater's, not this one — and reading it needs a thermocouple
-  amplifier module wired in first, his hardware work. Once it reads, two
-  warnings join the same alarm: "no thermocouple signal" and "temperature
-  rising", the second against a slope over a few minutes rather than a
-  threshold.
+  membrane heater's — and reading it needs a thermocouple amplifier
+  module wired in first, his hardware work. Once it reads, two warnings
+  join the same alarm: "no thermocouple signal" and "temperature rising",
+  the second against a slope over a few minutes rather than a threshold.
+- What upsets the I²C bus when the plasma arcs (queezz, 2026-09-09: "I
+  need to look inside RasPi for some voltage/heating issues. Cause things
+  break when we have plasma"). Measured that evening: the Pi's own supply
+  is clean — `vcgencmd get_throttled` reads `0x0` twelve days after boot,
+  so no under-voltage or throttling ever, core at 50 °C, and the kernel
+  log carries no I²C line at all. So the fault is on the I²C wires, not
+  the Pi's power: both deaths of 2026-09-09 (18:20:36 and 18:27:27) came
+  while the preanode was dumping current to ground and Ip was jumping by
+  amperes, and the ADC board (ADS1115 at 0x49 with its PCA9554 multiplexer
+  at 0x3E) and the cathode DAC (MCP4725 at 0x60) share bus 1. Since 4.11.0
+  a fault there is a logged retry rather than a death, and the stderr file
+  will carry the exception's own words next time. Hardware side, his: a
+  ground path for the arc that does not run through the Pi's ground, and
+  shorter or shielded I²C leads to the two boards.
 
 - A diagnostics tab for the ADC and the DACs (queezz, 2026-09-07: "it'd be
   nice to have a diagnostic tab for ADC/DAC. ADC one showing all channels"):
@@ -254,30 +261,6 @@ holds what is still undecided or unbuilt.
 
 ## Reported, not reproduced
 
-- "Data logging interrupted" on 2026-08-19 (18:10, 18:18, 18:32) and
-  2026-08-20 (14:43) in Mizuno-kun's PIHTI Log entries, read 2026-09-07
-  from the rig's own records: at each time the data file simply stops
-  (18:09:10, 18:15:08, 18:27:27, 14:43:22) with no "stopped" line in the
-  message log, and the next line is "Starting acquisition" when he cycled
-  the switch — the ADC worker thread died between two samples, and the
-  window kept looking alive. The rows before each stop are ordinary. What
-  killed it is not recorded anywhere: the acquisition loop has no error
-  handling around its I²C reads, an exception there ends the thread with
-  a traceback on the terminal, and the launcher keeps no terminal output.
-  His notes name a loud cracking sound and a target current jumping
-  between 2 and 8 mA, which is arcing, and arcing is what upsets I²C.
-  Whether the plasma "continued" says nothing about this code: the current
-  was under manual control (the log shows PID off pressed, in bursts, at
-  each event) and the gas by hand. Ready to build, in one slice: catch an
-  error in the ADC step, write it to the message log, and retry the read
-  rather than let the thread die; a watchdog on the main thread that
-  notices no sample for a few periods and says so in the log, the window
-  and the web view; and the launcher keeping the program's error output
-  in a file beside the data. Confirmed by Mizuno-kun through queezz on
-  2026-09-07: gas by hand, no current PID, the Kikusui in voltage control
-  from the DAC, so the plasma ran on because the DAC held its voltage
-  after the reader died. What the rig does to the outputs when that
-  happens is the open decision above.
 - Clicking the page logo produced an error before acquisition was started,
   and did not after (queezz, 2026-09-04, against 0.5.0 on the rig). Not
   reproduced off-rig: loading `/` before acquisition answers 200 on 0.6.0, and
@@ -286,6 +269,18 @@ holds what is still undecided or unbuilt.
 
 ## Settled, kept here only until the next session reads them
 
+- 4.11.0 (2026-09-09): "logging stopped" reproduced by queezz twice in
+  one evening and read from the rig's records: the data file stops mid-row
+  with no "stopped" line, the PID inside the dead reader stops moving the
+  DAC, and Stop/Start brings both back — the same shape as Mizuno-kun's
+  four "data logging interrupted" of 2026-08-19/20, which this closes. The
+  reader now retries a failed read and logs it once, a row that cannot be
+  recorded is dropped, a stuck conversion raises, the main thread logs
+  "Reader lost"/"Reader back", and the launcher keeps stderr beside the
+  data. The cathode has two modes on the rig's Cathode dock and the web
+  Control tab: PID in amperes and Manual in millivolts, each turning the
+  other off; the Settings dock's "Output voltage" row moved there. AGENTS.md
+  names the neighbours: "see the pihti log" means the vault's journal file.
 - 4.6.0 (2026-09-08): the Live tab has a Monitor mode — `?mode=monitor` in
   the address, the tab bar and both rails away, the charts across the whole
   window (673px of reading column becomes 1225px), the two status pills

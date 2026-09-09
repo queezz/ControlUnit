@@ -16,4 +16,12 @@ set -euo pipefail
 # Run from the repository root, whichever checkout this script sits in.
 cd "$(dirname "$0")/.."
 
-exec python -m controlunit.main --web "$@"
+# The program's error output is kept in a file beside the data as well as
+# on the terminal. The desktop shortcut has no terminal, so until now a
+# traceback from a dying worker went nowhere: the reader's deaths of
+# 2026-08-19 and 2026-09-09 left no record of what killed them.
+errors="$HOME/work/cudata/controlunit.stderr.log"
+mkdir -p "$(dirname "$errors")"
+{ echo; echo "# $(date '+%Y-%m-%d %H:%M:%S') started"; } >> "$errors"
+
+exec python -m controlunit.main --web "$@" 2> >(tee -a "$errors" >&2)

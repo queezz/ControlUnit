@@ -80,6 +80,30 @@ may hold one line, the lab's word, which a browser types once before it may
 set anything — a fence one may walk over, never anybody's password, and
 absent on every machine that has not been given one.
 
+## Neighbours, and where their records are read
+
+The rig's siblings are read from their files, not their web pages (owner
+instruction 2026-09-09, "this repo needs to know its neighbours"; the web
+views are for people, and an agent has no need of one):
+
+- **PIHTI Log** is the lab journal. Its record is the Obsidian vault in
+  Dropbox beside the code, `Dropbox/Obsidian/pihti`: one Markdown file a
+  day at `Journal/YYYY/MM/YYYY-MM-DD.md`, with attachments under
+  `Attachments/PIHTI Log/` and `media/`. When queezz says "see the pihti
+  log", open that day's file. The served view at `http://<office PC>:4310/`
+  is what people read and write; its `/api/sessions/<id>` answers a session
+  link as JSON when the vault is not at hand. Hardware notes live in the
+  same vault under `Hardware/` — the Kikusui supply's manual pages are
+  scans in `Hardware/Equipment/Kikusui Power Supplies.md`.
+- **The explainers** (`20-Code/2025-explaners`, published as aklab-howto)
+  carry the lab's own hardware write-ups under `docs/hardware/`, including
+  the control unit's boards and the Kikusui page.
+- **PIHTI Diagram** (`2024-interactive-diagram`) is the vacuum-state
+  diagram the journal's captures come from.
+
+Fleet is still the discovery surface for anything else: `fleet find`,
+`fleet info`. Nothing above is a licence to write into a sibling's tree.
+
 ## Read first
 
 1. [README.md](README.md) — current hardware, runtime status, and documentation.

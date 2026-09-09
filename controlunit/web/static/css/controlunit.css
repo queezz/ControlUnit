@@ -1503,3 +1503,13 @@ body[data-mode="monitor"] .monitor-settings { display: flex; flex-wrap: wrap; ga
 .flow-readings b { font-size: 1.1rem; }
 .flow-readings .flow-applied { color: #ff796b; }
 .flow-draft-changed [data-role="mfc-set"] { border-color: var(--accent, #e2ad41); }
+
+/* The cathode's manual drive is a gas row in every respect but its address:
+   one draft, four sizes of nudge, a deliberate Set. Same shape, so a hand
+   that has learned the gas lines already knows this one. */
+#sec-plasma [data-role="cathode-manual-row"] { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; padding: 10px 0; }
+#sec-plasma [data-role="cathode-manual-row"] .row-field { min-width: 0; }
+#sec-plasma [data-role="cathode-manual-row"] .setpoint { width: 100%; min-width: 0; font-size: 1.1rem; padding: 8px; }
+#sec-plasma [data-role="cathode-manual-row"] .row-actions { display: flex; gap: 5px; }
+#sec-plasma [data-role="cathode-manual-row"] .row-actions button { min-height: 38px; }
+.flow-draft-changed [data-role="cathode-set"] { border-color: var(--accent, #e2ad41); }

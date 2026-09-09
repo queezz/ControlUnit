@@ -86,5 +86,6 @@ nav:
       - Web View: architecture/web-ui.md
   - Hardware:
       - Channel Map: hardware/channel-map.md
+      - Cathode Control: hardware/cathode-control.md
   - Ecosystem:
       - Related Projects: ecosystem/related-projects.md

@@ -77,6 +77,15 @@ class ADS1115:
 
     i2c = smbus.SMBus(1)
 
+    #: How many times the conversion-ready bit is polled before the read is
+    #: given up as a fault. One poll is one I²C byte read, about a tenth of
+    #: a millisecond; the slowest data rate (8 SPS) needs some 1250 of them,
+    #: so ten thousand is a bound on a chip that has stopped answering
+    #: sensibly, never on a slow one. Without it the loop below spun
+    #: forever on a bus upset by an arc, and the reader could neither
+    #: record nor be stopped.
+    MAX_POLLS = 10000
+
     def __init__(self, address):
         self.address = address
 
@@ -93,8 +102,16 @@ class ADS1115:
         )
 
         data = 0
+        polls = 0
         while data & 0x80 == 0:
             data = self.i2c.read_byte_data(self.address, 1)
+            polls += 1
+            if polls > self.MAX_POLLS:
+                raise TimeoutError(
+                    "ADS1115 at 0x{:02x} never finished a conversion".format(
+                        self.address
+                    )
+                )
 
         self.i2c.write_byte_data(self.address, self.Register.Conversion, 1)
 
