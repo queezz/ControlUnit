@@ -1485,3 +1485,21 @@ body[data-mode="monitor"] .monitor-settings { display: flex; flex-wrap: wrap; ga
 
 .pressure-grouping { display: flex; align-items: center; gap: 6px; margin: 8px 0; flex-wrap: wrap; }
 .chart-zero:empty { display: none; }
+
+/* Gas controls: editable draft, deliberate Set, and prominent rig feedback. */
+#sec-gas .frow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; padding: 10px 0; }
+#sec-gas .frow + .frow { border-top: 1px solid var(--line); margin-top: 8px; }
+#sec-gas .row-field { min-width: 0; }
+#sec-gas .setpoint { width: 100%; min-width: 0; font-size: 1.1rem; padding: 8px; }
+#sec-gas .row-actions { display: flex; gap: 5px; }
+#sec-gas .row-actions button { min-height: 38px; }
+.flow-steps { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.flow-step { display: flex; flex-direction: column; gap: 4px; }
+.flow-step button { min-height: 36px; padding: 5px 2px; font-variant-numeric: tabular-nums; }
+.flow-draft-note { grid-column: 1 / -1; font-size: 0.72rem; }
+.flow-readings { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.flow-readings span { display: flex; flex-direction: column; gap: 3px; }
+.flow-readings small { color: var(--muted); font-size: 0.75rem; }
+.flow-readings b { font-size: 1.1rem; }
+.flow-readings .flow-applied { color: #ff796b; }
+.flow-draft-changed [data-role="mfc-set"] { border-color: var(--accent, #e2ad41); }

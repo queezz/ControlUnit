@@ -1,3 +1,7 @@
+## 4.10.0 — 2026-09-09
+
+- Mass-flow drafts support direct typing and ±1000/100/10/1 mV buttons. Set applies the draft; larger red applied values and separate measured values stay tied to rig feedback.
+
 ## 4.9.0 — 2026-09-09
 
 - Pair pressure curves by vessel: Pu + Bu and Pd + Bd, with independent log/linear axes, remembered grouping, and baseline controls beside their curves. Original gauge grouping remains available.

@@ -45,7 +45,7 @@
                             <span class="row-name">{{ gas }}</span>
                             <label class="row-field">
                                 <input type="number" class="setpoint" data-role="mfc-input"
-                                       min="0" max="{{ mfc_max }}" step="1" value="0"
+                                       min="0" max="{{ mfc_max }}" step="1" value="0" required
                                        aria-label="{{ gas }} flow setpoint, millivolts">
                                 <span class="row-unit">mV</span>
                             </label>
@@ -53,7 +53,19 @@
                                 <button type="button" data-role="mfc-set">Set</button>
                                 <button type="button" data-role="mfc-zero">Zero</button>
                             </span>
-                            <span class="output-feedback">Held <b class="mono" data-role="mfc-setpoint" data-mfc="{{ number }}">—</b> · Read <b class="mono" data-role="mfc-measured" data-mfc="{{ number }}">—</b></span>
+                            <div class="flow-steps" role="group" aria-label="{{ gas }} draft adjustment, millivolts">
+                                {% for step in (1000, 100, 10, 1) %}
+                                <span class="flow-step">
+                                    <button type="button" data-mfc-step="{{ step }}" aria-label="Increase {{ gas }} draft by {{ step }} millivolts">+{{ step }}</button>
+                                    <button type="button" data-mfc-step="-{{ step }}" aria-label="Decrease {{ gas }} draft by {{ step }} millivolts">−{{ step }}</button>
+                                </span>
+                                {% endfor %}
+                            </div>
+                            <span class="flow-draft-note muted" data-role="mfc-draft-note">Draft · press Set to apply</span>
+                            <div class="flow-readings">
+                                <span><small>Applied</small><b class="mono flow-applied" data-role="mfc-setpoint" data-mfc="{{ number }}">—</b></span>
+                                <span><small>Measured</small><b class="mono" data-role="mfc-measured" data-mfc="{{ number }}">—</b></span>
+                            </div>
                         </div>
                         {% endfor %}
                     </section>

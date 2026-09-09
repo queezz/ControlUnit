@@ -150,11 +150,53 @@
     /* The presses are in the faceplate and the numbers they move are beside
        it, so a reading is addressed by the line it belongs to rather than
        found inside the row that sets it. */
+    function setupGasRow(row) {
+            var number = row.dataset.mfc;
+            var input = row.querySelector('[data-role="mfc-input"]');
+            input.addEventListener('input', function () {
+                input.dataset.edited = 'true';
+                reflectGasDraft(row);
+            });
+            row.querySelectorAll('[data-mfc-step]').forEach(function (button) {
+                button.addEventListener('click', function () {
+                    if (input.value === '' || !input.checkValidity()) { input.reportValidity(); return; }
+                    input.value = Math.max(Number(input.min), Math.min(Number(input.max), Number(input.value) + Number(button.dataset.mfcStep)));
+                    input.dataset.edited = 'true';
+                    reflectGasDraft(row);
+                });
+            });
+            row.querySelector('[data-role="mfc-set"]').addEventListener("click", function () {
+                if (input.value === '' || !input.checkValidity()) { input.reportValidity(); return; }
+                send("/api/mfc/" + number, {mv: Number(input.value)}, "the flow setpoint");
+            });
+            row.querySelector('[data-role="mfc-zero"]').addEventListener("click", function () {
+                input.value = 0;
+                input.dataset.edited = 'true';
+                reflectGasDraft(row);
+                send("/api/mfc/" + number, {mv: 0}, "the flow setpoint");
+            });
+    }
+
+    function reflectGasDraft(row) {
+        var input = row.querySelector('[data-role="mfc-input"]');
+        var changed = input.value === '' || Number(input.value) !== Number(row.dataset.applied);
+        row.classList.toggle('flow-draft-changed', changed);
+        var note = row.querySelector('[data-role="mfc-draft-note"]');
+        if (note) note.textContent = changed ? 'Draft · press Set to apply' : 'Draft matches applied';
+    }
+
     function paintGas(state, map) {
         var sp = state.setpoints || {};
         root.querySelectorAll(".frow[data-mfc]").forEach(function (row) {
             var number = row.dataset.mfc;
             var held = Number(sp["mfc" + number + "_v"] || 0);
+            row.dataset.applied = String(held);
+            var input = row.querySelector('[data-role="mfc-input"]');
+            if (!input.dataset.initialized) {
+                if (!input.dataset.edited) input.value = Math.round(held);
+                input.dataset.initialized = 'true';
+            }
+            reflectGasDraft(row);
             set('[data-role="mfc-setpoint"][data-mfc="' + number + '"]',
                 Math.round(held) + " mV");
             var measured = map["MFC" + number];
@@ -466,17 +508,7 @@
             });
         });
 
-        root.querySelectorAll(".frow[data-mfc]").forEach(function (row) {
-            var number = row.dataset.mfc;
-            var input = row.querySelector('[data-role="mfc-input"]');
-            row.querySelector('[data-role="mfc-set"]').addEventListener("click", function () {
-                send("/api/mfc/" + number, {mv: Number(input.value)}, "the flow setpoint");
-            });
-            row.querySelector('[data-role="mfc-zero"]').addEventListener("click", function () {
-                input.value = 0;
-                send("/api/mfc/" + number, {mv: 0}, "the flow setpoint");
-            });
-        });
+        root.querySelectorAll(".frow[data-mfc]").forEach(setupGasRow);
 
         var plasmaInput = root.querySelector('[data-role="plasma-input"]');
         root.querySelector('[data-role="plasma-set"]').addEventListener("click", function () {
