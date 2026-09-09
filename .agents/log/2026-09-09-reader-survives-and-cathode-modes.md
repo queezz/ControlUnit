@@ -89,4 +89,16 @@ Read over SSH from the rig, read-only, while it acquired at 0.1 Hz:
   on a deep link does not scroll the rail to the section, and "Read Ip"
   prints "— A" for a null value.
 
+## Written into the lab vault, on queezz's word
+
+He said "Go write on the neighbours Vault" (2026-09-09, live), crossing
+the boundary that a session never writes into a sibling's tree; warned,
+obeyed, additively only: a new note
+`Experiments/Troubleshooting/Logging stopped 2026-09.md` with the
+diagnosis; a 2026 entry at the top of `Troubles.md`'s log linking it;
+and a "Cathode: PID or Manual" section with the Kikusui CF10 steps
+appended to `Software/Control Unit Program.md`. Nothing existing was
+rewritten; the `updated:` stamps were set by hand. The ask for a command
+line and the phone-view defects are recorded in directions.
+
 Local commit only; push and the rig's pull on queezz's word.
