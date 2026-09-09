@@ -119,11 +119,12 @@
             {% for name, label in modes %}
             <button type="button" class="choice" data-mode="{{ name }}" aria-pressed="{{ 'true' if name == page_mode else 'false' }}">{{ label }}</button>
             {% endfor %}
+
+        </div>
             <span class="mode-actions" data-role="mode-actions" hidden>
                 <button type="button" data-drawer="live-context" aria-controls="live-context" aria-expanded="false">Display</button>
                 <button type="button" data-role="fullscreen" aria-pressed="false">Full screen</button>
             </span>
-        </div>
         {% include '_live_readings.html' %}
     </main>
     <aside class="rail rail-right operation-rail" id="live-context" aria-label="Access and display">

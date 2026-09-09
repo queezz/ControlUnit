@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.8.1 — 2026-09-09
+
+- Anchor the Operate/Observe/Monitor switch at the bottom center with fixed button widths, so changing modes never moves the next target.
+
 ## 4.8.0 — 2026-09-09
 
 - Unify Live and Control under Live with Operate, Observe and Monitor modes.

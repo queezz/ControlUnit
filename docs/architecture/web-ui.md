@@ -327,7 +327,7 @@ of the response can tell which question was asked.
 
     **Monitor mode gives the charts the window.** queezz, 2026-09-07:
     *"Monitor: plots only, even hide the rails. Only keep some indicator
-    pills about status and all."* `Operate | Observe | Monitor` beside the readouts,
+    pills about status and all."* `Operate | Observe | Monitor` in a fixed bottom-center switch,
     and `?mode=monitor` in the address, so the second laptop propped up
     beside the rig can bookmark its own screen — the server renders that
     shape on the first paint rather than flashing the other one, and Back,
