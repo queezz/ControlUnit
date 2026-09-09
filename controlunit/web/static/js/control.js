@@ -194,6 +194,8 @@
         set('[data-role="gauge-mode-now"]', mode || "—");
         set('[data-role="gauge-range-now"]', range === null || range === undefined ? "—" : "1e" + range);
         set('[data-role="sync-now"]', sp.sync ? "on" : "off");
+        var syncCard = root.querySelector('.sync-card');
+        if (syncCard) syncCard.classList.toggle('sync-active', Boolean(sp.sync));
 
         root.querySelectorAll('[data-role="gauge-mode"]').forEach(function (button) {
             button.setAttribute("aria-pressed", button.dataset.mode === mode ? "true" : "false");

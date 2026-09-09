@@ -152,7 +152,10 @@ def test_live_offers_the_same_windows_as_the_rig(live):
 
 def test_live_offers_a_readout_size_and_a_poll_rate(live):
     # One card for both, because six rail cards outgrew a 700px window.
-    assert 'class="rail-label">Readouts ' in live
+    assert 'class="rail-label">Polling ' in live
+    main = live[live.index('<main'):live.index('</main>')]
+    assert main.count('data-display="normal"') == 1
+    assert main.count('data-display="big"') == 1
     assert 'aria-label="Readout size"' in live and 'aria-label="Poll rate"' in live
     for choice in ("display", "poll"):
         assert 'data-{}="normal"'.format(choice) in live
@@ -198,7 +201,7 @@ def test_control_carries_its_five_groups_as_jump_targets(control):
         "sec-gas",
         "sec-plasma",
         "sec-gauge",
-        "sec-baselines",
+        "sec-sync",
     ):
         assert 'id="{}"'.format(anchor) in control
         assert control.count('id="{}"'.format(anchor)) == 1
@@ -795,8 +798,10 @@ def test_control_combines_setters_feedback_and_shared_live_charts(control):
     operations = control[:control.index("<main")]
     main = control[control.index("<main"):control.index("</main>")]
     access = control[control.index('aria-label="Access and display"'):]
+    assert main.count('data-role="zero-now"') == 3
+    assert 'class="chart-zero sets"' in main
     for role in ("acq-start", "acq-stop", "mfc-set", "plasma-set",
-                 "sampling", "gauge-mode", "sync", "zero-now", "stop-all"):
+                 "sampling", "gauge-mode", "sync", "stop-all"):
         assert 'data-role="{}"'.format(role) in operations
         assert 'data-role="{}"'.format(role) not in main
     for role in ("mfc-setpoint", "mfc-measured", "plasma-setpoint"):

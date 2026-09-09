@@ -301,7 +301,7 @@ of the response can tell which question was asked.
     mean: it drops a spike without smearing the step when a setpoint really
     moves.
 
-    `Size: big`, in the Readouts card, makes the five readouts the column's lead, for reading
+    `big`, beside the readouts, makes the five readouts the column's lead, for reading
     the rig from a metre away, and is remembered per browser. `Poll: fast`, in the same card,
     asks for state and series four times a second instead of once a second and once every two seconds,
     for watching a value settle while a gauge is zeroed at the rig; it keeps
@@ -453,14 +453,14 @@ of the response can tell which question was asked.
     from the first paint, because that answer needs nobody.
 - **Control** — from 4.7.0, operation controls and their held/measured
   outputs stand beside the same live readouts and charts used by Live.
-  Start/Stop, sampling, gas flow, plasma current and baseline zeroing are
-  together in the left rail. Gauge mode, range and QMS sync start open (4.7.1) beneath
-  their own summary. Stop all outputs remains independently available.
+  Start/Stop, QMS sync, sampling, gas flow and plasma current have distinct
+  cards in the left rail. Gauge mode and range start open beneath their
+  summary. Baseline zero buttons sit in the corresponding plot headers (4.7.2). Stop all outputs remains independently available.
 
   The right rail holds operator/access setup, display choices and run
   details. Access starts open when the browser needs a name, the lab word,
   or the rig's Remote switch. Name and word remain outside the gated
-  setters. Display retains window, median, readout size, fast polling and
+  setters. Readout size sits beside the readouts. Display retains window, median, fast polling and
   presets; each pressure chart retains its own axis switches and pills.
   Live remains the separate monitor surface, including Monitor mode.
 

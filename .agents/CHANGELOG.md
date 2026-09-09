@@ -1,5 +1,12 @@
 # Changelog
 
+## 4.7.2 — 2026-09-09
+
+- Place small/big beside readouts on Control, Live and Monitor.
+- Give QMS sync a dedicated status/control card near Run.
+- Move baseline zero buttons into their corresponding Control plot headers.
+- Separate sampling, gas, plasma and gauge controls into spaced, tinted cards; enlarge sampling choices.
+
 ## 4.7.1 — 2026-09-09
 
 - Bound top navigation to the workspace width on every tab.

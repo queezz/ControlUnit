@@ -17,7 +17,14 @@
             </div>
             <p class="stop-note muted">Stop ends recording + outputs. <a href="#sec-who">Access</a></p>
         </section>
-        <section class="rail-card operation-setters" aria-label="What this browser may set">
+        <section class="rail-card sync-card" aria-label="QMS sync" id="sec-sync">
+            <div class="sync-heading"><h2>QMS sync</h2><strong class="chip" data-role="sync-now">—</strong></div>
+            <div class="sets row-actions" role="group" aria-label="Set QMS sync">
+                <button type="button" class="choice" data-role="sync" data-on="1" aria-pressed="false">On</button>
+                <button type="button" class="choice" data-role="sync" data-on="0" aria-pressed="false">Off</button>
+            </div>
+        </section>
+        <div class="operation-setters" aria-label="What this browser may set">
                 <div class="sets">
                     <section class="fgroup" id="sec-acquisition">
                         <h2>Sampling</h2>
@@ -70,7 +77,7 @@
                     <p class="output-feedback" data-role="cathode-row" hidden>Cathode <b class="mono" data-role="cathode-measured">—</b></p>
                     </section>
                     <details class="fgroup gauge-settings" id="sec-gauge" open>
-                        <summary>Gauge and sync <span class="mono" data-role="gauge-mode-now">—</span> <span class="mono" data-role="gauge-range-now">—</span></summary>
+                        <summary>Gauges <span class="mono" data-role="gauge-mode-now">—</span> <span class="mono" data-role="gauge-range-now">—</span></summary>
                         <div class="frow">
                             <span class="row-name">Mode</span>
                             <span class="row-actions">
@@ -89,30 +96,12 @@
                                 {% endfor %}
                             </span>
                         </div>
-                        <div class="frow">
-                            <span class="row-name">QMS sync</span>
-                            <span class="row-actions">
-                                <button type="button" class="choice" data-role="sync" data-on="1" aria-pressed="false">On</button>
-                                <button type="button" class="choice" data-role="sync" data-on="0" aria-pressed="false">Off</button>
-                            </span>
-                        </div>
                     </details>
 
-                    <section class="fgroup" id="sec-baselines">
-                        <h2>Baselines</h2>
-                        <div class="frow">
-                            <span class="row-name">Zero now</span>
-                            <span class="row-actions">
-                                {% for channel in zero_channels %}
-                                <button type="button" data-zero="{{ channel }}"
-                                        data-role="zero-now">{{ channel }}</button>
-                                {% endfor %}
-                            </span>
-                        </div>
-                    </section>
+
                 </div>
 
-        </section>
+        </div>
         <section class="rail-card stop-card">
             <button type="button" class="stop-all" data-role="stop-all">Stop all outputs</button>
         </section>
@@ -219,21 +208,9 @@
             </div>
         </section>
 
-        {# Big makes the five readouts the column's lead, for reading the rig
-           from a metre away. Same readouts, same DOM: one class on the page.
-           The poll rate shares this card because both are about how the page
-           itself reads, and because six cards outgrew a 700px window while
-           five fit. The one surprising thing about fast — every other choice
-           in this rail survives a reload and this one must not — is said once,
-           on the heading's own line, where it costs the rail no height. That
-           fast is running is said on the charts, beside their span. #}
+        {# Fast polling resets on reload; size is beside the readouts. #}
         <section class="rail-card rail-card--fit">
-            <h2 class="rail-label">Readouts</h2>
-            <div class="choice-row" role="group" aria-label="Readout size">
-                <span class="choice-caption choice-caption--inline">Size</span>
-                <button type="button" class="choice" data-display="normal" aria-pressed="true">normal</button>
-                <button type="button" class="choice" data-display="big" aria-pressed="false">big</button>
-            </div>
+            <h2 class="rail-label">Polling</h2>
             <div class="choice-row" role="group" aria-label="Poll rate">
                 <span class="choice-caption choice-caption--inline">Poll</span>
                 <button type="button" class="choice" data-poll="normal" aria-pressed="true">normal</button>

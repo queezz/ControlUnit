@@ -1,3 +1,8 @@
+        <div class="readout-toolbar" role="group" aria-label="Readout size">
+            <span class="muted">Readouts</span>
+            <button type="button" class="choice" data-display="normal" aria-pressed="true">small</button>
+            <button type="button" class="choice" data-display="big" aria-pressed="false">big</button>
+        </div>
         <div class="readouts">
             {% for name, colour in pens %}
             <div class="readout" data-readout="{{ name }}" style="--pen: {{ colour }}">
@@ -34,6 +39,14 @@
         <section class="chart" aria-label="{{ title }}">
             <header class="chart-head">
                 <h2>{{ title }}</h2>
+                {% if zero_channels is defined %}
+                <span class="chart-zero sets" role="group" aria-label="Display baselines">
+                    {% for name in channels if name in zero_channels %}
+                    <button type="button" data-zero="{{ name }}" data-role="zero-now"
+                            title="Zero displayed {{ name }}; recorded values stay unchanged">Zero {{ name }}</button>
+                    {% endfor %}
+                </span>
+                {% endif %}
                 <span class="chart-span muted" data-role="{{ span }}"></span>
             </header>
             <div class="pen-legend" role="group" aria-label="Curves in {{ title }}">

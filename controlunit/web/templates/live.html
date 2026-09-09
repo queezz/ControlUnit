@@ -46,21 +46,9 @@
             </div>
         </section>
 
-        {# Big makes the five readouts the column's lead, for reading the rig
-           from a metre away. Same readouts, same DOM: one class on the page.
-           The poll rate shares this card because both are about how the page
-           itself reads, and because six cards outgrew a 700px window while
-           five fit. The one surprising thing about fast — every other choice
-           in this rail survives a reload and this one must not — is said once,
-           on the heading's own line, where it costs the rail no height. That
-           fast is running is said on the charts, beside their span. #}
+        {# Fast polling resets on reload; size is beside the readouts. #}
         <section class="rail-card rail-card--fit">
-            <h2 class="rail-label">Readouts <span class="rail-aside">· fast is forgotten on reload</span></h2>
-            <div class="choice-row" role="group" aria-label="Readout size">
-                <span class="choice-caption choice-caption--inline">Size</span>
-                <button type="button" class="choice" data-display="normal" aria-pressed="true">normal</button>
-                <button type="button" class="choice" data-display="big" aria-pressed="false">big</button>
-            </div>
+            <h2 class="rail-label">Polling <span class="rail-aside">· fast is forgotten on reload</span></h2>
             <div class="choice-row" role="group" aria-label="Poll rate">
                 <span class="choice-caption choice-caption--inline">Poll</span>
                 <button type="button" class="choice" data-poll="normal" aria-pressed="true">normal</button>

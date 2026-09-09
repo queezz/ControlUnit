@@ -90,6 +90,11 @@ absent on every machine that has not been given one.
 
 ## Invariants
 
+- WebUI is a control panel, not a generic rail layout (owner decision
+  2026-09-09). Keep controls beside what they affect when that improves
+  operation: readout small/big belongs beside the readouts on Control and
+  Live. This takes precedence over fleet's generic control-in-rail rule.
+
 - `controlunit/settings.yml` is the canonical channel map and conversion registry.
 - Keep hardware libraries behind the existing dummy-device boundary so the GUI
   still boots off-rig on Windows and macOS.
