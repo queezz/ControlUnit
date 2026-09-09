@@ -9,6 +9,9 @@
                 <span class="readout-name">{{ name }}</span>
                 <span class="readout-value mono" data-role="value">—</span>
                 <span class="readout-unit" data-role="unit"></span>
+                {% if name in ('Bu', 'Bd') %}
+                <span class="readout-residual mono" data-role="residual"></span>
+                {% endif %}
                 {# Which channels can be zeroed is the rig's own answer, read
                    from the zeros it carries, never a list kept here too. #}
                 {% if name in state.zeros %}
@@ -68,6 +71,9 @@
                 </span>
                 {% endif %}
             </div>
+            {% if id == 'chart-bar' %}
+            <p class="measurement-note muted">Detection limit not characterized. Zeroed values are residuals; log shows positive values only.</p>
+            {% endif %}
             <canvas id="{{ id }}" height="{{ height }}" data-height="{{ height }}"
                     data-channels="{{ channels | join(',') }}"></canvas>
         </section>

@@ -334,6 +334,16 @@
             }
             box.querySelector('[data-role="value"]').innerHTML = valueHtml(value, channel.unit);
             box.querySelector('[data-role="unit"]').textContent = channel.unit || "";
+            var residual = box.querySelector('[data-role="residual"]');
+            if (residual) {
+                var below = value !== null && value !== undefined && isFinite(value) && value < 0;
+                box.classList.toggle("readout--below-zero", below);
+                residual.innerHTML = below ? "Residual " + valueHtml(value, channel.unit) + " " + (channel.unit || "") : "";
+                if (below) {
+                    box.querySelector('[data-role="value"]').textContent = "Below zero";
+                    box.querySelector('[data-role="unit"]').textContent = "";
+                }
+            }
 
             /* What baseline this number already has taken off. The unit is
                not repeated: it is on this card already, beside the name. */
@@ -573,19 +583,21 @@
             var points = chosen ? slice(name, from, to) : [];
             if (points.length > count) count = points.length;
             var kept = [];
+            var nonpositive = 0, gap = true;
             var lo = Infinity, hi = -Infinity;
             points.forEach(function (p) {
                 var v = p[1];
-                if (v === null || v === undefined || !isFinite(v)) return;
+                if (v === null || v === undefined || !isFinite(v)) { gap = true; return; }
                 if (logScale) {
-                    if (!(v > 0)) return;
+                    if (!(v > 0)) { nonpositive += 1; gap = true; return; }
                     v = Math.log10(v);
                 }
-                kept.push([p[0], v]);
+                kept.push([p[0], v, gap]);
+                gap = false;
                 if (v < lo) lo = v;
                 if (v > hi) hi = v;
             });
-            series.push({name: name, chosen: chosen, points: kept, lo: lo, hi: hi});
+            series.push({name: name, chosen: chosen, points: kept, lo: lo, hi: hi, nonpositive: nonpositive});
         });
 
         /* Flat is decided against a curve's own size, not against a number
@@ -602,7 +614,7 @@
         });
         series.forEach(function (s) {
             s.state = !s.chosen ? "off"
-                : !s.points.length ? "absent"
+                : !s.points.length ? (s.nonpositive ? "nonpositive" : "absent")
                 : (moving.length && !view.pinned[s.name] && isFlat(s, logScale)) ? "flat"
                 : "drawn";
         });
@@ -614,6 +626,12 @@
             if (s.hi > hi) hi = s.hi;
         });
 
+        if (logScale && !lines.length && series.some(function (s) { return s.nonpositive; })) {
+            ctx.fillStyle = st.axis;
+            ctx.textAlign = "center";
+            ctx.fillText("No positive values for log scale — use lin", box.width / 2, box.height / 2);
+            return {from: from, to: to, count: count, series: series};
+        }
         if (!isFinite(lo)) { lo = logScale ? -8 : 0; hi = logScale ? 0 : 1; }
         if (hi - lo < 1e-12) { lo -= logScale ? 0.5 : (Math.abs(lo) * 0.05 || 0.5); hi += logScale ? 0.5 : (Math.abs(hi) * 0.05 || 0.5); }
         if (logScale) { lo = Math.floor(lo); hi = Math.ceil(hi); if (hi === lo) hi = lo + 1; }
@@ -664,7 +682,7 @@
             ctx.beginPath();
             line.points.forEach(function (p, i) {
                 var xx = x(p[0]), yy = y(p[1]);
-                if (i === 0) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy);
+                if (i === 0 || p[2]) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy);
             });
             ctx.stroke();
             var last = line.points[line.points.length - 1];
@@ -701,7 +719,7 @@
        nothing: a curve that is there needs no caption. The value is not
        repeated here — it is in that channel's readout card above, which is
        where every number on this page is read. */
-    var LEGEND_ASIDE = {off: "off", absent: "no data", flat: "flat", drawn: ""};
+    var LEGEND_ASIDE = {off: "off", absent: "no data", nonpositive: "≤0 on log", flat: "flat", drawn: ""};
 
     function paintLegend(canvas, drawn) {
         if (!canvas || !drawn) return;
@@ -714,7 +732,7 @@
             button.dataset.curveState = s.state;
             button.title = s.state === "flat" ? "Show this curve even when flat" : "Show or hide this curve";
             var aside = button.querySelector('[data-role="pen-aside"]');
-            if (aside) aside.textContent = LEGEND_ASIDE[s.state] || "";
+            if (aside) aside.textContent = s.state === "drawn" && s.nonpositive ? "≤0 omitted" : (LEGEND_ASIDE[s.state] || "");
         });
     }
 

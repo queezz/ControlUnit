@@ -630,3 +630,19 @@ folder and log file land outside the owner's own folders:
 $env:QT_QPA_PLATFORM = "offscreen"
 & "$env:USERPROFILE\.venvs\hardware-dev\Scripts\python.exe" -m controlunit.main --web --host 127.0.0.1 --port 48937
 ```
+
+
+### Baratron readings near zero
+
+Negative displayed values are labelled Below zero with the signed residual
+retained. Linear plots keep signed data. Log plots omit nonpositive values,
+label that exclusion separately from missing data, and leave gaps across
+excluded samples. With no positive values, the chart explains the log
+constraint instead of displaying an arbitrary pressure axis.
+
+No system detection limit is characterized in the channel registry. Full
+scale and transducer resolution do not establish a validated detection
+limit for the installed transducer, electronics, zero drift and acquisition
+chain. The page states this uncertainty; positive near-zero readings are
+not censored using an invented cutoff. Establish a documented per-channel
+limit before replacing those readings with a less-than-limit indication.

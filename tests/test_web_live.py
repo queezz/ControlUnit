@@ -475,7 +475,7 @@ def test_a_flat_curve_leaves_the_axis_to_the_ones_that_move():
     # The axis is computed from what is drawn, not from what was gathered.
     assert 'lines = series.filter(function (s) { return s.state === "drawn"; });' in source
     # Four states, each with its own word, and `drawn` says nothing at all.
-    assert 'LEGEND_ASIDE = {off: "off", absent: "no data", flat: "flat", drawn: ""}' in source
+    assert 'LEGEND_ASIDE = {off: "off", absent: "no data", nonpositive: "≤0 on log", flat: "flat", drawn: ""}' in source
 
 
 def test_a_collapsed_curve_does_not_print_a_second_copy_of_its_value():

@@ -80,7 +80,7 @@ test('a preset restores automatic suppression; nonpositive log data stays absent
     buttons.Bu.listeners.click();
     api.view.barLog = true;
     api.drawAll();
-    assert.equal(buttons.Bu.dataset.curveState, 'absent');
+    assert.equal(buttons.Bu.dataset.curveState, 'nonpositive');
     assert.equal(buttons.Bd.dataset.curveState, 'drawn');
 });
 
@@ -95,4 +95,16 @@ test('modes preserve curve choices and canonical URLs without hardware requests'
         assert.equal(JSON.stringify(api.view), choices);
         assert.equal(buttons.Bu.dataset.curveState, 'drawn');
     }
+});
+
+
+test('all-nonpositive log panel distinguishes excluded values from missing data', () => {
+    const {api, buttons} = instrument();
+    api.view.channels.Bd = false;
+    api.view.barLog = true;
+    api.drawAll();
+    assert.equal(buttons.Bu.dataset.curveState, 'nonpositive');
+    api.view.barLog = false;
+    api.drawAll();
+    assert.equal(buttons.Bu.dataset.curveState, 'drawn');
 });

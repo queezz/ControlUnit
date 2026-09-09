@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.8.3 — 2026-09-09
+
+- Label negative Baratron readings Below zero and retain signed residuals.
+- Distinguish nonpositive log exclusions from missing data; break lines across excluded samples and avoid an arbitrary empty log axis.
+- State that the detection limit is not characterized; do not fabricate a cutoff from full scale or visible noise.
+
 ## 4.8.2 — 2026-09-09
 
 - Allow gauge mode/range preparation before acquisition, retaining Remote, access and operator gates. Publish the prepared setting immediately and apply it when ADC acquisition starts.

@@ -1452,3 +1452,8 @@ body[data-mode="monitor"] .page.control-workspace { display: grid; grid-template
 
 body[data-mode="observe"] .command-status,
 body[data-mode="monitor"] .command-status { display: none; }
+
+.readout-residual { grid-column: 1 / -1; font-size: 0.75rem; color: var(--muted); }
+.readout-residual:empty { display: none; }
+.control-workspace .readout--below-zero .readout-value { font-size: 1rem; }
+.measurement-note { font-size: 0.78rem; margin: 6px 0; }
