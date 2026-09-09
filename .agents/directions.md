@@ -69,6 +69,34 @@ holds what is still undecided or unbuilt.
 
 ## Ready to build
 
+- A command line for the rig, over the web API it already has (queezz,
+  2026-09-09: "Do you have cli to drive the ControlUnit? I think not. I
+  think that'd be useful for tests and diagnosis"). Nothing exists today:
+  the only ways in are the rig's screen and a browser. Every setter is
+  already a `POST /api/...` gated by the Remote switch, the operator lock
+  and the lab's word, and `/api/state`, `/api/series` and `/api/log`
+  carry everything a browser reads — so a CLI is a thin client of those,
+  never a second path into the workers. Shape: `controlunit-cli state`,
+  `watch` (state and new log lines as they arrive, for a session
+  watching him drive), `log --since`, and the setters (`gas 1 1500`,
+  `plasma 0.5`, `cathode 1900`, `off`, `zero Ip`, `start`, `stop`),
+  each printing the rig's own applied/refused answer; the name and the
+  lab's word from a machine-local file, never git. Off-rig it drives the
+  dummy instance, which is what the tests want. Not urgent beside the
+  mobile view: "Good mobile view is best. But still, some cli is good."
+- The phone view during a manual gas let-in (queezz, 2026-09-09, from
+  the rig): "I was searching for Cathode block, some UI blocks controls.
+  Can't see the upstream pressure from my phone when opening manual gas
+  valve to let Ar in." Three defects to reproduce at 390 px against the
+  dummy rig before touching anything: the Cathode group is hard to find
+  (the section index is a fold on phones, and the group sits below Gas
+  flow); something overlays the controls — find which, the sticky view
+  toolbar, a drawer, or the feedback header; and the upstream pressure
+  `Pu` is not beside the gas controls on a phone, where Operate's
+  readings stack below the faceplate and the person at the valve needs
+  Pu in the same eyeful as the gas row. A phone at the rig is the case
+  the layout is for.
+
 - The owner accepted the fused Control layout on 2026-09-09. The five
   follow-up corrections ship in 4.7.1 (see the dated log): aligned navigation,
   open gauges, group colors, useful empty-plot hints and clear saved identity
