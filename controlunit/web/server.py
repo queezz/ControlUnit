@@ -124,10 +124,11 @@ PANELS = (
 #: A mode is in the address, so a screen can be bookmarked in the shape it
 #: is wanted in, and the server renders it on the first paint.
 MODES = (
-    ("normal", "Normal"),
+    ("operate", "Operate"),
+    ("observe", "Observe"),
     ("monitor", "Monitor"),
 )
-DEFAULT_MODE = "normal"
+DEFAULT_MODE = "operate"
 
 
 def clean_mode(asked):
@@ -137,6 +138,8 @@ def clean_mode(asked):
     bookmark should still show the rig.
     """
     wanted = str(asked or "").strip().lower()
+    if wanted == "normal":
+        return "observe"  # Existing read-only bookmarks.
     for name, _label in MODES:
         if name == wanted:
             return name
@@ -166,7 +169,6 @@ PRESETS = (
 #: The tabs, in bar order. A tab with no endpoint is named and not built.
 TABS = (
     ("live", "Live", "live"),
-    ("control", "Control", "control"),
     ("log", "Log", "log"),
     ("lab", "Lab", "lab"),
 )
@@ -369,19 +371,7 @@ def create_app(
 
     @app.route("/")
     def live():
-        return render_template(
-            "live.html",
-            active="live",
-            windows=WINDOWS,
-            default_window=DEFAULT_WINDOW,
-            pens=PENS,
-            panels=PANELS,
-            pen_colour=dict(PENS),
-            modes=MODES,
-            page_mode=clean_mode(request.args.get("mode")),
-            presets=PRESETS,
-            state=page_state(),
-        )
+        return control()
 
     @app.route("/control")
     def control():
@@ -389,8 +379,10 @@ def create_app(
         actor_options = [(command_desk.clean_actor(name), name) for name in people.names()]
         actor_label = next((label for value, label in actor_options if value == actor), actor)
         return render_template(
-            "control.html",
-            active="control",
+            "live.html",
+            active="live",
+            modes=MODES,
+            page_mode=clean_mode(request.args.get("mode")) if request.path == "/" else "operate",
             windows=WINDOWS,
             default_window=DEFAULT_WINDOW,
             pens=PENS,

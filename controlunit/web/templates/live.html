@@ -1,25 +1,197 @@
 {% extends 'base.html' %}
 {% block title %}Live · ControlUnit{% endblock %}
 {% block scripts %}
+<script defer src="{{ url_for('static', filename='js/control.js') }}?v={{ app_version }}"></script>
 <script defer src="{{ url_for('static', filename='js/live.js') }}?v={{ app_version }}"></script>
 {% endblock %}
-
 {% block content %}
-<div class="page" id="live"
-     data-default-window="{{ default_window }}"
-     data-pens='{{ pens | tojson }}'>
+{% set fence_closed = state.fence.needed and not state.fence.passed %}
+<div class="page control-workspace" id="control" data-live data-actor="{{ actor }}"
+     data-default-window="{{ default_window }}" data-pens='{{ pens | tojson }}'>
+    <aside class="rail rail-left operation-rail" id="live-controls" aria-label="Operation controls">
+        <section class="rail-card">
+            <h2 class="rail-label">Run</h2>
+            <div class="run-actions sets">
+                <button type="button" class="run-start" data-role="acq-start">Start</button>
+                <button type="button" class="run-stop" data-role="acq-stop">Stop</button>
+            </div>
+            <p class="stop-note muted">Stop ends recording + outputs. <a href="#sec-who">Access</a></p>
+        </section>
+        <section class="rail-card sync-card" aria-label="QMS sync" id="sec-sync">
+            <div class="sync-heading"><h2>QMS sync</h2><strong class="chip" data-role="sync-now">—</strong></div>
+            <div class="sets row-actions" role="group" aria-label="Set QMS sync">
+                <button type="button" class="choice" data-role="sync" data-on="1" aria-pressed="false">On</button>
+                <button type="button" class="choice" data-role="sync" data-on="0" aria-pressed="false">Off</button>
+            </div>
+        </section>
+        <div class="operation-setters" aria-label="What this browser may set">
+                <div class="sets">
+                    <section class="fgroup" id="sec-acquisition">
+                        <h2>Sampling</h2>
+                        <div class="frow">
+                            <span class="row-actions">
+                                {% for seconds, label in sampling_choices %}
+                                <button type="button" class="choice" data-role="sampling"
+                                        data-seconds="{{ seconds }}" aria-pressed="false">{{ label }}</button>
+                                {% endfor %}
+                            </span>
+                        </div>
+                    </section>
 
-    {# Controls live left: what changes what the main column shows. In a mode
-       that gives the charts the whole window this same rail is summoned from
-       the edge instead, which is why it carries an id and a Close: the same
-       DOM in a different placement, never a second copy of a control. #}
-    <aside class="rail rail-left" id="live-controls" aria-label="Live controls">
+                    <section class="fgroup" id="sec-gas">
+                        <h2>Gas flow</h2>
+                        {% for number, gas in gases %}
+                        <div class="frow" data-mfc="{{ number }}">
+                            <span class="row-name">{{ gas }}</span>
+                            <label class="row-field">
+                                <input type="number" class="setpoint" data-role="mfc-input"
+                                       min="0" max="{{ mfc_max }}" step="1" value="0"
+                                       aria-label="{{ gas }} flow setpoint, millivolts">
+                                <span class="row-unit">mV</span>
+                            </label>
+                            <span class="row-actions">
+                                <button type="button" data-role="mfc-set">Set</button>
+                                <button type="button" data-role="mfc-zero">Zero</button>
+                            </span>
+                            <span class="output-feedback">Held <b class="mono" data-role="mfc-setpoint" data-mfc="{{ number }}">—</b> · Read <b class="mono" data-role="mfc-measured" data-mfc="{{ number }}">—</b></span>
+                        </div>
+                        {% endfor %}
+                    </section>
+
+                    <section class="fgroup" id="sec-plasma">
+                        <h2>Plasma current</h2>
+                        <div class="frow" data-plasma>
+                            <span class="row-name">Ip</span>
+                            <label class="row-field">
+                                <input type="number" class="setpoint" data-role="plasma-input"
+                                       min="0" max="{{ plasma_max }}" step="0.1" value="0"
+                                       aria-label="Plasma current setpoint, amperes">
+                                <span class="row-unit">A</span>
+                            </label>
+                            <span class="row-actions">
+                                <button type="button" data-role="plasma-set">Set</button>
+                                <button type="button" data-role="plasma-off">PID off</button>
+                            </span>
+                        </div>
+                    <p class="output-feedback">Held <b class="mono" data-role="plasma-setpoint">—</b> · Read <b class="mono" data-role="plasma-measured">—</b></p>
+                    <p class="output-feedback" data-role="cathode-row" hidden>Cathode <b class="mono" data-role="cathode-measured">—</b></p>
+                    </section>
+                    <details class="fgroup gauge-settings" id="sec-gauge" open>
+                        <summary>Gauges <span class="mono" data-role="gauge-mode-now">—</span> <span class="mono" data-role="gauge-range-now">—</span></summary>
+                        <div class="frow">
+                            <span class="row-name">Mode</span>
+                            <span class="row-actions">
+                                {% for mode in gauge_modes %}
+                                <button type="button" class="choice" data-role="gauge-mode"
+                                        data-mode="{{ mode }}" aria-pressed="false">{{ mode }}</button>
+                                {% endfor %}
+                            </span>
+                        </div>
+                        <div class="frow">
+                            <span class="row-name">Range</span>
+                            <span class="row-actions">
+                                {% for decade in gauge_range %}
+                                <button type="button" class="choice" data-role="gauge-range"
+                                        data-range="{{ decade }}" aria-pressed="false">1e{{ decade }}</button>
+                                {% endfor %}
+                            </span>
+                        </div>
+                    </details>
+
+
+                </div>
+
+        </div>
+        <section class="rail-card stop-card">
+            <button type="button" class="stop-all" data-role="stop-all">Stop all outputs</button>
+        </section>
+    </aside>
+    <main class="page-main">
+        <h1 class="sr-only">Live</h1>
+        <div class="pills" aria-label="What the rig is doing">
+            <span class="chip chip-idle" data-role="operating">stopped</span>
+            <span class="pill-note" data-role="operating-outputs"></span>
+            <span class="chip chip-{{ state.data.state }}" data-role="data-state">{{ state.data.state }}</span>
+            <span class="mono muted" data-role="data-age"></span>
+        </div>
+        <p class="command-status mono" data-role="status" role="status"></p>
+        <div class="view-toolbar" role="group" aria-label="View mode">
+            {% for name, label in modes %}
+            <button type="button" class="choice" data-mode="{{ name }}" aria-pressed="{{ 'true' if name == page_mode else 'false' }}">{{ label }}</button>
+            {% endfor %}
+            <span class="mode-actions" data-role="mode-actions" hidden>
+                <button type="button" data-drawer="live-context" aria-controls="live-context" aria-expanded="false">Display</button>
+                <button type="button" data-role="fullscreen" aria-pressed="false">Full screen</button>
+            </span>
+        </div>
+        {% include '_live_readings.html' %}
+    </main>
+    <aside class="rail rail-right operation-rail" id="live-context" aria-label="Access and display">
         <button class="drawer-close" type="button">Close</button>
+        <details class="rail-card access-card" {{ 'open' if fence_closed or not state.remote or not actor or (state.control.holder and not state.control.mine) else '' }}>
+            <summary>Operator and access <span class="actor-summary" data-role="actor-summary">{{ actor_label or 'Choose operator' }}</span></summary>
+            <div class="gate">
+                <p class="remote-line">Remote on rig
+                    <span class="chip chip-idle" data-role="remote-chip">off</span>
+                </p>
+                <p class="holder-line" data-role="holder">{{ state.control.line }}</p>
+                <p class="muted remote-why" data-role="remote-why">Setting is off until the switch on the rig is on.</p>
+                    <button type="button" class="take-over" data-role="take-over"
+                            {{ '' if state.remote and not state.control.mine and not fence_closed else 'disabled' }}>Take over</button>
+            </div>
+
+            <section class="actor-settings" id="sec-who">
+                <h2 class="rail-label">Acting as <span class="roster-source" data-role="roster-line">{% if state.roster %}· {{ state.roster.source }} {{ state.roster.at }}{% else %}{% endif %}</span></h2>
+                {# Where this machine holds a copy of the lab's roster the
+                   name is chosen from it, so one person is spelled one
+                   way across the lab's logs; where it holds none the
+                   field is free text, exactly as it has always been. #}
+                <div class="actor-row">
+                    {% if roster_names %}
+                    <select id="actor-name" class="find"
+                            aria-label="The name written beside a command">
+                        <option value="">— choose —</option>
+                        {% if actor and actor not in actor_values %}
+                        <option value="{{ actor }}" selected>{{ actor }}</option>
+                        {% endif %}
+                        {% for value, person in actor_options %}
+                        <option value="{{ value }}" {% if value == actor %}selected{% endif %}>{{ person }}</option>
+                        {% endfor %}
+                    </select>
+                    {% else %}
+                    {# What the name is for is on the field itself: with
+                       no roster this is free text, and a browser that
+                       gives none is logged by its address. #}
+                    <input type="text" id="actor-name" class="find" maxlength="24"
+                           value="{{ actor }}" placeholder="your name, for the log"
+                           aria-label="The name written beside a command">
+                    {% endif %}
+                    <button type="button" data-role="save-actor">Save</button>
+                </div>
+
+                {# A saved fence is a status. Change opens the same field;
+                   a revoked fence automatically makes it available again. #}
+                {% if state.fence.needed %}
+                <div class="fence-saved" data-role="fence-saved" {% if not state.fence.passed %}hidden{% endif %}>
+                    <span>Access saved</span><button type="button" data-role="change-fence">Change</button>
+                </div>
+                <div class="actor-row fence-row" data-role="fence-editor" {% if state.fence.passed %}hidden{% endif %}>
+                    <input type="password" id="fence-word" class="find"
+                           placeholder="{{ 'word saved' if state.fence.passed else "the lab's word, not a secret" }}"
+                           aria-label="The lab's word that opens setting">
+                    <button type="button" data-role="save-fence">Save</button>
+                </div>
+                {% endif %}
+            </section>
+
+        </details>
+        <details class="display-settings" open>
+            <summary>Display</summary>
         <section class="rail-card rail-card--fit">
             {# The window cuts a history this browser keeps for itself, so
                Full is this browser's own memory rather than the rig's ring.
                Said once, on the heading's line, where it costs no height. #}
-            <h2 class="rail-label">Window <span class="rail-aside">· Full is what this browser has seen</span></h2>
+            <h2 class="rail-label">Window</h2>
             <div class="choice-grid" role="group" aria-label="Window">
                 {% for label, seconds in windows %}
                 <button type="button" class="choice" data-window="{{ seconds }}"
@@ -48,7 +220,7 @@
 
         {# Fast polling resets on reload; size is beside the readouts. #}
         <section class="rail-card rail-card--fit">
-            <h2 class="rail-label">Polling <span class="rail-aside">· fast is forgotten on reload</span></h2>
+            <h2 class="rail-label">Polling</h2>
             <div class="choice-row" role="group" aria-label="Poll rate">
                 <span class="choice-caption choice-caption--inline">Poll</span>
                 <button type="button" class="choice" data-poll="normal" aria-pressed="true">normal</button>
@@ -56,79 +228,17 @@
             </div>
         </section>
 
-        {# What shape the page itself is in. Show sets the whole page for a
-           kind of work in one press instead of a curve at a time — the same
-           per-curve switches as the legends, named — and Mode gives the
-           charts the window when the page is being read rather than driven.
-
-           Both are remembered per browser, and neither changes one byte of
-           what the rig records: this card sets what is drawn here. #}
-        <section class="rail-card rail-card--fit">
-            <h2 class="rail-label">View <span class="rail-aside">· a mode stays in the address, so a screen can be bookmarked</span></h2>
+        <section class="rail-card">
+            <h2 class="rail-label">Show</h2>
             <div class="choice-row" role="group" aria-label="What to show">
-                <span class="choice-caption choice-caption--inline">Show</span>
-                {% for name, label, channels in presets %}
-                <button type="button" class="choice" data-preset="{{ name }}"
-                        data-channels="{{ channels | join(',') }}" aria-pressed="false">{{ label }}</button>
-                {% endfor %}
-            </div>
-            <div class="choice-row" role="group" aria-label="View mode">
-                <span class="choice-caption choice-caption--inline">Mode</span>
-                {% for name, label in modes %}
-                <button type="button" class="choice" data-mode="{{ name }}"
-                        aria-pressed="{{ 'true' if name == page_mode else 'false' }}">{{ label }}</button>
-                {% endfor %}
+            {% for name, label, channels in presets %}
+                <button type="button" class="choice" data-preset="{{ name }}" data-channels="{{ channels | join(',') }}" aria-pressed="false">{{ label }}</button>
+            {% endfor %}
             </div>
         </section>
-    </aside>
-
-    <main class="page-main">
-        <h1 class="sr-only">Live</h1>
-
-        {# What the rig is doing, at the head of the column it describes
-           (owner direction 2026-09-07: "If the rig is running. And if it's
-           measuring only or have some gas/plasma on"). Two readings and no
-           control: the left pill is the apparatus — stopped, measuring, or
-           outputs live and which — and the right one is how fresh the
-           numbers below are. Each is stated once on this page; what the
-           states mean is explained once, in the rail.
-
-           The rig can hold gas and cathode with nothing recording, which is
-           what the 2026-08-19 reader death left behind, so the left pill is
-           never read off the acquisition flag. #}
-        <div class="pills" aria-label="What the rig is doing">
-            <span class="chip chip-idle" data-role="operating">stopped</span>
-            <span class="pill-note" data-role="operating-outputs"></span>
-            <span class="chip chip-{{ state.data.state }}" data-role="data-state">{{ state.data.state }}</span>
-            <span class="mono muted" data-role="data-age"></span>
-
-            {# In a mode with no tab bar and no rails on the page, this strip
-               is all the chrome there is, so it carries the way back to both
-               rails and out of the mode. It is rendered here always and
-               shown only in such a mode: in the ordinary page the rails are
-               already open beside the reader and the tab bar is above, so
-               these would be second copies of controls that are not missing.
-               The same arrangement the diagram uses for its own drawers. #}
-            <span class="mode-actions" data-role="mode-actions" hidden>
-                <button type="button" data-drawer="live-controls"
-                        aria-controls="live-controls" aria-expanded="false">Controls</button>
-                <button type="button" data-drawer="live-context"
-                        aria-controls="live-context" aria-expanded="false">This run</button>
-                <button type="button" data-role="fullscreen" aria-pressed="false">Full screen</button>
-                <button type="button" data-role="leave-mode">Leave monitor</button>
-            </span>
-        </div>
-
-        {# Readouts: the value, in its own pen, and — on the three channels the
-           rig can zero — what baseline the number already has taken off. #}
-        {% include '_live_readings.html' %}
-    </main>
-
-    {# Context lives right: this run, and how fresh what you see is. Like the
-       control rail it is summoned from its own edge in a mode that gives the
-       charts the window. #}
-    <aside class="rail rail-right" id="live-context" aria-label="This run">
-        <button class="drawer-close" type="button">Close</button>
+        </details>
+        <details class="run-details">
+            <summary>This run</summary>
         <section class="rail-card rail-card--fit">
             <h2 class="rail-label">This run</h2>
             <dl class="facts">
@@ -136,38 +246,21 @@
                 <dd class="mono wide" data-fact="file">{{ state.run.file or '—' }}</dd>
                 <dt>Started</dt>
                 <dd data-fact="started">—</dd>
-                <dt>Samples</dt>
-                <dd class="mono" data-fact="samples">{{ state.run.samples }}</dd>
-                <dt>Rate</dt>
-                <dd class="mono" data-fact="rate">{{ state.run.rate or '—' }}</dd>
+                <dt>Samples</dt><dd class="mono" data-fact="samples">{{ state.run.samples }}</dd>
+                <dt>Sampling</dt><dd class="mono" data-role="sampling-now">—</dd>
                 <dt>Hardware</dt>
                 <dd data-fact="hardware">{{ 'dummy' if state.dummy else 'real' }}</dd>
-                <dt>Plasma PID</dt>
-                <dd data-fact="plasma">—</dd>
-                <dt>Gas flow</dt>
-                <dd class="mono" data-fact="mfc">—</dd>
             </dl>
         </section>
 
-        <section class="rail-card rail-card--fit">
+            <section aria-label="Reading this page">
             <h2 class="rail-label">Reading this page</h2>
-            {# The one place the pills above are explained. They state; this
-               teaches, once, for the whole surface — never a second copy of
-               a pill beside the words that explain it. #}
-            <p class="muted data-key"><span class="mono">measuring</span> is recording with
-                every output at zero · <span class="mono">outputs live</span> names gas or
-                cathode holding something, recording or not</p>
-            <p class="muted data-key"><span class="mono">stale</span> after
-                <span data-role="stale-after">{{ '%g' % state.data.stale_after }}</span> s without a sample ·
-                <span class="mono">idle</span> when acquisition is off</p>
-            {# The one place the zero is explained; each card only states its
-               own. What the rig subtracts to show a number is not what it
-               writes to disk, and that is the question this answers. #}
-            <p class="muted data-key">Median smooths the curves and the readouts.</p>
-            <p class="muted data-key">Ip, Bu and Bd read minus the zero taken at the rig
-                or on Control; the data file keeps the signal as measured</p>
-        </section>
+            <p class="muted">Stale after <span data-role="stale-after">{{ '%g' % state.data.stale_after }}</span> s without a sample; idle when acquisition is off.</p>
+            <p class="muted">a mode stays in the address, so a screen can be bookmarked</p>
+            <p class="muted">Median smooths the curves and the readouts. Full is what this browser has seen; fast is forgotten on reload.</p>
+            <p class="muted">Baselines change what is shown; the data file keeps the signal as measured. Each zero is shown in its readout.</p>
+            </section>
+        </details>
     </aside>
-
 </div>
 {% endblock %}

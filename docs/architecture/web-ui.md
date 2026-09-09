@@ -178,8 +178,8 @@ a credential; the data file appears by name only.
 
 | Route | Answers |
 | --- | --- |
-| `GET /` | the Live tab; `?mode=monitor` renders it with the tab bar and both rails out of the way and the charts across the whole window, anything unknown renders the ordinary page |
-| `GET /control` | the Control tab |
+| `GET /` | the unified Live page (Operate by default, `?mode=observe` hides operation controls); `?mode=monitor` renders it with the tab bar and both rails out of the way and the charts across the whole window, anything unknown renders the ordinary page |
+| `GET /control` | compatibility address for Live in Operate mode |
 | `GET /log` | the Log tab |
 | `GET /lab` | the Lab tab |
 | `GET /api/health` | `{service, version, status, detail}` — the ensemble's contract; `ok` whenever the rig is up, idle included, `degraded` only for something actually impaired. `detail` says what the rig is doing: `idle, not recording`, `acquiring 9 channels at 10 Hz`, and — whether or not anything is being recorded — `outputs live:` with the outputs named |
@@ -327,7 +327,7 @@ of the response can tell which question was asked.
 
     **Monitor mode gives the charts the window.** queezz, 2026-09-07:
     *"Monitor: plots only, even hide the rails. Only keep some indicator
-    pills about status and all."* `Mode: Normal | Monitor` in the View card,
+    pills about status and all."* `Operate | Observe | Monitor` beside the readouts,
     and `?mode=monitor` in the address, so the second laptop propped up
     beside the rig can bookmark its own screen — the server renders that
     shape on the first paint rather than flashing the other one, and Back,
@@ -451,7 +451,7 @@ of the response can tell which question was asked.
     this machine last heard back and what it is doing now are two different
     facts. A neighbour this machine has no address for is `not configured`
     from the first paint, because that answer needs nobody.
-- **Control** — from 4.7.0, operation controls and their held/measured
+- **Operation on Live** — from 4.7.0, operation controls and their held/measured
   outputs stand beside the same live readouts and charts used by Live.
   Start/Stop, QMS sync, sampling, gas flow and plasma current have distinct
   cards in the left rail. Gauge mode and range start open beneath their
@@ -462,7 +462,10 @@ of the response can tell which question was asked.
   or the rig's Remote switch. Name and word remain outside the gated
   setters. Readout size sits beside the readouts. Display retains window, median, fast polling and
   presets; each pressure chart retains its own axis switches and pills.
-  Live remains the separate monitor surface, including Monitor mode.
+  Since 4.8.0 this is the unified Live surface: Operate shows the controls,
+  Observe hides hardware controls, and Monitor gives readings the window.
+  Modes switch in place without clearing browser history or changing outputs.
+  `/control` remains an Operate alias; old `?mode=normal` means Observe.
 
   Both surfaces render a shared template partial and use the same drawing
   implementation. On Control, the Live script owns the state and series

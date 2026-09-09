@@ -829,28 +829,33 @@
        it on the first paint; a press moves the address with `pushState`, so
        Back, Forward and a reload all land on the mode a reader expects and
        the charts keep the history this browser has gathered. */
-    var mode = document.body.dataset.mode === "monitor" ? "monitor" : "normal";
+    function cleanMode(asked) {
+        if (asked === "normal") return "observe";
+        return asked === "monitor" || asked === "observe" ? asked : "operate";
+    }
+    var mode = cleanMode(document.body.dataset.mode);
 
     function modeInAddress() {
         var asked = new URLSearchParams(window.location.search).get("mode");
-        return asked === "monitor" ? "monitor" : "normal";
+        return cleanMode(asked);
     }
 
     function applyMode() {
         document.body.dataset.mode = mode;
         press("[data-mode]", "mode", mode);
         var actions = root.querySelector('[data-role="mode-actions"]');
-        if (actions) actions.hidden = mode === "normal";
-        if (mode === "normal") closeDrawers();
+        if (actions) actions.hidden = mode !== "monitor";
+        closeDrawers();
         drawAll();   // the reading column just changed width
     }
 
     function setMode(next) {
-        if (next !== "monitor") next = "normal";
+        next = cleanMode(next);
         if (next === mode) return;
         mode = next;
         var url = new URL(window.location.href);
-        if (next === "normal") url.searchParams.delete("mode");
+        url.pathname = "/";
+        if (next === "operate") url.searchParams.delete("mode");
         else url.searchParams.set("mode", next);
         window.history.pushState({mode: next}, "", url.toString());
         applyMode();
@@ -868,7 +873,7 @@
     }
 
     function openDrawer(id) {
-        if (mode === "normal") return;   // the rails are on the page already
+        if (mode !== "monitor") return;   // the rails are on the page already
         closeDrawers();
         var rail = document.getElementById(id);
         var backdrop = document.querySelector(".drawer-backdrop");
@@ -913,7 +918,7 @@
             button.addEventListener("click", function () { setMode(button.dataset.mode); });
         });
         root.querySelectorAll('[data-role="leave-mode"]').forEach(function (button) {
-            button.addEventListener("click", function () { setMode("normal"); });
+            button.addEventListener("click", function () { setMode("observe"); });
         });
         root.querySelectorAll("[data-drawer]").forEach(function (button) {
             button.addEventListener("click", function () {
@@ -937,7 +942,7 @@
         document.addEventListener("keydown", function (event) {
             if (event.key !== "Escape") return;
             if (root.querySelector(".rail.drawer-open")) { closeDrawers(); return; }
-            if (mode !== "normal") setMode("normal");
+            if (mode === "monitor") setMode("observe");
         });
 
         window.addEventListener("popstate", function () {
@@ -1061,15 +1066,9 @@
         recall();
         reflectView();
         setupRails();
-        if (root.id === "live") {
-            setupModes();
-            applyMode();
-            reflectFullscreen();
-        } else {
-            root.querySelectorAll("[data-preset]").forEach(function (button) {
-                button.addEventListener("click", function () { applyPreset(button); });
-            });
-        }
+        setupModes();
+        applyMode();
+        reflectFullscreen();
         root.addEventListener("controlunit:refresh", pollState);
         drawAll();
         pollState();

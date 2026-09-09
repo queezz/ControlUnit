@@ -32,7 +32,13 @@ function instrument() {
             getElementById(id) { return id === 'chart-bar' ? canvas : null; },
             body: {dataset: {}}, documentElement: {}
         },
-        window: {devicePixelRatio: 2},
+        URL, URLSearchParams,
+        window: {devicePixelRatio: 2, location: {href: 'http://localhost/', search: ''},
+            history: {pushState(state, title, url) {
+                context.window.location.href = url;
+                context.window.location.search = new URL(url).search;
+            }}},
+        fetch() { throw new Error('Mode changes must not send requests'); },
         getComputedStyle() { return {getPropertyValue() { return ''; }}; },
         localStorage: {setItem(k, v) { saved = v; }, getItem() { return saved; }}
     });
@@ -40,7 +46,7 @@ function instrument() {
     // Exercise production handlers and drawing decisions without starting timers.
     const end = source.indexOf('    if (document.readyState === "loading")');
     vm.runInContext(source.slice(0, end) +
-        'globalThis.instrument = {append, drawAll, setupRails, applyPreset, view, recall};\n}());', context);
+        'globalThis.instrument = {append, drawAll, setupRails, applyPreset, view, recall, setMode, modeInAddress};\n}());', context);
     const api = context.instrument;
     api.append({to: 4, channels: {Bu: [[1, -0.004], [2, -0.004], [3, -0.004], [4, -0.004]],
         Bd: [[1, 0.001], [2, 0.002], [3, 0.003], [4, 0.004]]}});
@@ -76,4 +82,17 @@ test('a preset restores automatic suppression; nonpositive log data stays absent
     api.drawAll();
     assert.equal(buttons.Bu.dataset.curveState, 'absent');
     assert.equal(buttons.Bd.dataset.curveState, 'drawn');
+});
+
+
+test('modes preserve curve choices and canonical URLs without hardware requests', () => {
+    const {api, buttons} = instrument();
+    buttons.Bu.listeners.click();
+    const choices = JSON.stringify(api.view);
+    for (const mode of ['observe', 'monitor', 'operate']) {
+        api.setMode(mode);
+        assert.equal(api.modeInAddress(), mode);
+        assert.equal(JSON.stringify(api.view), choices);
+        assert.equal(buttons.Bu.dataset.curveState, 'drawn');
+    }
 });

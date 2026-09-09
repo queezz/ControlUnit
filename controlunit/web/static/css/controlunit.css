@@ -1418,3 +1418,21 @@ body[data-mode="monitor"] .drawer-backdrop:not([hidden]) { display: block; }
 .control-workspace #sec-gas { background: rgba(38, 154, 172, 0.10); border-color: rgba(38, 154, 172, 0.35); }
 .control-workspace #sec-plasma { background: rgba(138, 75, 228, 0.10); border-color: rgba(138, 75, 228, 0.35); }
 .control-workspace #sec-gauge { background: rgba(219, 168, 62, 0.09); border-color: rgba(219, 168, 62, 0.32); }
+
+/* One instrument surface; modes change visibility, never rig state. */
+.view-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.view-toolbar .mode-actions { margin-left: auto; }
+body[data-mode="observe"] .control-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 15rem; }
+body[data-mode="observe"] .control-workspace > .rail-left,
+body[data-mode="monitor"] .control-workspace > .rail-left,
+body[data-mode="observe"] .chart-zero,
+body[data-mode="monitor"] .chart-zero,
+body[data-mode="observe"] .access-card,
+body[data-mode="monitor"] .access-card { display: none; }
+body[data-mode="monitor"] .page.control-workspace { display: grid; grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 1199px) {
+  body[data-mode="observe"] .control-workspace { grid-template-columns: minmax(0, 1fr); }
+}
+
+body[data-mode="observe"] .command-status,
+body[data-mode="monitor"] .command-status { display: none; }

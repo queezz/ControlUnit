@@ -1,4 +1,4 @@
-/* The Control tab: what the rig holds, and what a browser may ask it to hold.
+/* Live operation: what the rig holds, and what a browser may ask it to hold.
  *
  * No framework, nothing fetched from the internet. A press posts a small
  * JSON body and gets back only an acknowledgement; what actually happened is

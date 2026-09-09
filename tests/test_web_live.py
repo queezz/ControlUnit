@@ -456,7 +456,7 @@ def test_each_curve_has_exactly_one_switch_and_it_is_in_its_own_chart(client):
 
 def test_no_channel_switch_is_left_in_the_rail(client):
     page = client.get("/").get_data(as_text=True)
-    rail = page[page.index('class="rail rail-left"'):]
+    rail = page[page.index('class="rail rail-left operation-rail"'):]
     rail = rail[:rail.index("<main")]
     assert "data-channel=" not in rail
 
@@ -516,7 +516,7 @@ def _client():
 def test_the_ordinary_page_is_the_ordinary_page():
     """No mode in the address is the page as it has always been."""
     page = _client().get("/").get_data(as_text=True)
-    assert '<body data-mode="normal">' in page
+    assert '<body data-mode="operate">' in page
     assert _pressed(page, 'class="choice" data-mode="monitor"') == "false"
 
 
@@ -532,7 +532,7 @@ def test_a_bookmarked_monitor_address_renders_in_that_shape_first(client=None):
 def test_a_mistyped_mode_is_the_ordinary_page_and_never_an_error():
     response = _client().get("/?mode=cockpit")
     assert response.status_code == 200
-    assert '<body data-mode="normal">' in response.get_data(as_text=True)
+    assert '<body data-mode="operate">' in response.get_data(as_text=True)
 
 
 def test_every_tab_carries_a_mode_and_only_live_offers_the_switch():
@@ -542,7 +542,7 @@ def test_every_tab_carries_a_mode_and_only_live_offers_the_switch():
     for path in ("/", "/control", "/log", "/lab"):
         page = client.get(path).get_data(as_text=True)
         assert "<body data-mode=" in page
-    for path in ("/control", "/log", "/lab"):
+    for path in ("/log", "/lab"):
         page = client.get(path).get_data(as_text=True)
         assert 'data-mode="monitor"' not in page
 
@@ -555,21 +555,21 @@ def test_monitor_keeps_the_two_pills_and_hides_the_rest():
     pills = pills[:pills.index("</div>")]
     assert 'data-role="operating"' in pills
     assert 'data-role="data-state"' in pills
-    # And the way back to both rails and out of the mode is in that strip,
-    # because in that mode it is the only chrome on the page.
-    assert 'data-drawer="live-controls"' in pills
-    assert 'data-drawer="live-context"' in pills
-    assert 'data-role="leave-mode"' in pills
-    assert 'data-role="fullscreen"' in pills
+    toolbar = page[page.index('class="view-toolbar"'):page.index('class="readout-toolbar"')]
+    assert 'data-drawer="live-controls"' not in toolbar
+    assert 'data-drawer="live-context"' in toolbar
+    assert 'data-mode="observe"' in toolbar
+    assert 'data-mode="operate"' in toolbar
+    assert 'data-role="fullscreen"' in toolbar
 
 
 def test_the_rails_are_the_same_rails_summoned_from_their_own_edge():
     """The drawer is the diagram's own shape and the same DOM: nothing is
     duplicated for the mode, so no control can drift from its twin."""
     page = _client().get("/").get_data(as_text=True)
-    assert 'class="rail rail-left" id="live-controls"' in page
-    assert 'class="rail rail-right" id="live-context"' in page
-    assert page.count('class="drawer-close"') == 2
+    assert 'class="rail rail-left operation-rail" id="live-controls"' in page
+    assert 'class="rail rail-right operation-rail" id="live-context"' in page
+    assert page.count('class="drawer-close"') == 1
     assert page.count('class="drawer-backdrop"') == 1
     css = _client().get("/static/css/controlunit.css").get_data(as_text=True)
     assert 'body[data-mode="monitor"] .tabbar { display: none; }' in css
@@ -599,7 +599,7 @@ def test_escape_leaves_the_drawer_first_and_then_the_mode():
     source = _live_js()
     escape = source[source.index('if (event.key !== "Escape") return;'):]
     escape = escape[:escape.index("});")]
-    assert escape.index("closeDrawers(); return;") < escape.index('setMode("normal")')
+    assert escape.index("closeDrawers(); return;") < escape.index('setMode("observe")')
 
 
 def test_the_two_presets_are_the_curves_the_work_needs():
@@ -645,3 +645,15 @@ def test_a_panel_with_every_curve_off_keeps_its_legend():
     assert 'if (!drawn) return "Click a pill to show a curve";' in source
     css = _client().get("/static/css/controlunit.css").get_data(as_text=True)
     assert ".chart--collapsed canvas { display: none; }" in css
+
+
+def test_unified_modes_and_legacy_control_links():
+    client = _client()
+    for asked, expected in (("operate", "operate"), ("observe", "observe"),
+                            ("monitor", "monitor"), ("normal", "observe")):
+        page = client.get("/?mode=" + asked).get_data(as_text=True)
+        assert '<body data-mode="{}">'.format(expected) in page
+        assert page.count('data-role="acq-start"') == 1
+    page = client.get("/control?mode=monitor").get_data(as_text=True)
+    assert '<body data-mode="operate">' in page
+    assert 'aria-current="page">Live<' in page

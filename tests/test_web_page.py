@@ -152,7 +152,7 @@ def test_live_offers_the_same_windows_as_the_rig(live):
 
 def test_live_offers_a_readout_size_and_a_poll_rate(live):
     # One card for both, because six rail cards outgrew a 700px window.
-    assert 'class="rail-label">Polling ' in live
+    assert 'class="rail-label">Polling<' in live
     main = live[live.index('<main'):live.index('</main>')]
     assert main.count('data-display="normal"') == 1
     assert main.count('data-display="big"') == 1
@@ -186,13 +186,14 @@ def test_the_fast_poll_is_not_remembered_and_the_big_readouts_are(client):
 def test_the_tab_bar_leads_to_every_tab_and_marks_none_unbuilt(live, log, lab, control):
     for page in (live, log, lab, control):
         assert "tab-mark" not in page
-        assert 'href="/control"' in page
+        assert 'href="/control"' not in page
+        assert 'href="/"' in page
         assert 'href="/log"' in page
         assert 'href="/lab"' in page
 
 
 def test_control_is_the_current_tab_on_its_own_page(control):
-    assert 'aria-current="page">Control<' in control
+    assert 'aria-current="page">Live<' in control
 
 
 def test_control_carries_its_five_groups_as_jump_targets(control):

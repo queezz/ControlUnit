@@ -1,5 +1,12 @@
 # Changelog
 
+## 4.8.0 — 2026-09-09
+
+- Unify Live and Control under Live with Operate, Observe and Monitor modes.
+- Keep mode buttons beside readouts and preserve plot history and display preferences when switching.
+- Retain `/control` as an Operate alias and old normal-mode bookmarks as Observe.
+- Monitor provides a Display drawer; Observe and Monitor hide hardware setters.
+
 ## 4.7.2 — 2026-09-09
 
 - Place small/big beside readouts on Control, Live and Monitor.
