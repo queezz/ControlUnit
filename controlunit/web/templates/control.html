@@ -46,7 +46,7 @@
                                 <button type="button" data-role="mfc-set">Set</button>
                                 <button type="button" data-role="mfc-zero">Zero</button>
                             </span>
-                            <span class="output-feedback">Holding <b class="mono" data-role="mfc-setpoint" data-mfc="{{ number }}">—</b> · measured <b class="mono" data-role="mfc-measured" data-mfc="{{ number }}">—</b></span>
+                            <span class="output-feedback">Held <b class="mono" data-role="mfc-setpoint" data-mfc="{{ number }}">—</b> · Read <b class="mono" data-role="mfc-measured" data-mfc="{{ number }}">—</b></span>
                         </div>
                         {% endfor %}
                     </section>
@@ -66,11 +66,10 @@
                                 <button type="button" data-role="plasma-off">PID off</button>
                             </span>
                         </div>
-                    </section>
-
-                    <p class="output-feedback">Holding <b class="mono" data-role="plasma-setpoint">—</b> · measured <b class="mono" data-role="plasma-measured">—</b></p>
+                    <p class="output-feedback">Held <b class="mono" data-role="plasma-setpoint">—</b> · Read <b class="mono" data-role="plasma-measured">—</b></p>
                     <p class="output-feedback" data-role="cathode-row" hidden>Cathode <b class="mono" data-role="cathode-measured">—</b></p>
-                    <details class="fgroup gauge-settings" id="sec-gauge">
+                    </section>
+                    <details class="fgroup gauge-settings" id="sec-gauge" open>
                         <summary>Gauge and sync <span class="mono" data-role="gauge-mode-now">—</span> <span class="mono" data-role="gauge-range-now">—</span></summary>
                         <div class="frow">
                             <span class="row-name">Mode</span>
@@ -131,7 +130,7 @@
     </main>
     <aside class="rail rail-right operation-rail" aria-label="Access and display">
         <details class="rail-card access-card" {{ 'open' if fence_closed or not state.remote or not actor or (state.control.holder and not state.control.mine) else '' }}>
-            <summary>Operator and access</summary>
+            <summary>Operator and access <span class="actor-summary" data-role="actor-summary">{{ actor_label or 'Choose operator' }}</span></summary>
             <div class="gate">
                 <p class="remote-line">Remote on rig
                     <span class="chip chip-idle" data-role="remote-chip">off</span>
@@ -143,7 +142,7 @@
             </div>
 
             <section class="actor-settings" id="sec-who">
-                <h2 class="rail-label">Acting as <span class="roster-source" data-role="roster-line">{% if state.roster %}· {{ state.roster.source }} {{ state.roster.at }}{% else %}· names not read yet{% endif %}</span></h2>
+                <h2 class="rail-label">Acting as <span class="roster-source" data-role="roster-line">{% if state.roster %}· {{ state.roster.source }} {{ state.roster.at }}{% else %}{% endif %}</span></h2>
                 {# Where this machine holds a copy of the lab's roster the
                    name is chosen from it, so one person is spelled one
                    way across the lab's logs; where it holds none the
@@ -153,8 +152,11 @@
                     <select id="actor-name" class="find"
                             aria-label="The name written beside a command">
                         <option value="">— choose —</option>
-                        {% for person in roster_names %}
-                        <option value="{{ person }}" {% if person == actor %}selected{% endif %}>{{ person }}</option>
+                        {% if actor and actor not in actor_values %}
+                        <option value="{{ actor }}" selected>{{ actor }}</option>
+                        {% endif %}
+                        {% for value, person in actor_options %}
+                        <option value="{{ value }}" {% if value == actor %}selected{% endif %}>{{ person }}</option>
                         {% endfor %}
                     </select>
                     {% else %}
@@ -168,13 +170,13 @@
                     <button type="button" data-role="save-actor">Save</button>
                 </div>
 
-                {# The lab's word, only where the machine serving this page
-                   holds one. It stays typable after it has been passed, so
-                   a word that changed can be typed again. What it is — a
-                   word from the lab, not a secret — is on its own field,
-                   where it costs the faceplate no line. #}
+                {# A saved fence is a status. Change opens the same field;
+                   a revoked fence automatically makes it available again. #}
                 {% if state.fence.needed %}
-                <div class="actor-row fence-row">
+                <div class="fence-saved" data-role="fence-saved" {% if not state.fence.passed %}hidden{% endif %}>
+                    <span>Access saved</span><button type="button" data-role="change-fence">Change</button>
+                </div>
+                <div class="actor-row fence-row" data-role="fence-editor" {% if state.fence.passed %}hidden{% endif %}>
                     <input type="password" id="fence-word" class="find"
                            placeholder="{{ 'word saved' if state.fence.passed else "the lab's word, not a secret" }}"
                            aria-label="The lab's word that opens setting">

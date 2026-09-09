@@ -454,7 +454,7 @@ of the response can tell which question was asked.
 - **Control** — from 4.7.0, operation controls and their held/measured
   outputs stand beside the same live readouts and charts used by Live.
   Start/Stop, sampling, gas flow, plasma current and baseline zeroing are
-  together in the left rail. Gauge mode, range and QMS sync expand from
+  together in the left rail. Gauge mode, range and QMS sync start open (4.7.1) beneath
   their own summary. Stop all outputs remains independently available.
 
   The right rail holds operator/access setup, display choices and run

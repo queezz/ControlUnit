@@ -385,6 +385,9 @@ def create_app(
 
     @app.route("/control")
     def control():
+        actor = command_desk.clean_actor(request.cookies.get(ACTOR_COOKIE))
+        actor_options = [(command_desk.clean_actor(name), name) for name in people.names()]
+        actor_label = next((label for value, label in actor_options if value == actor), actor)
         return render_template(
             "control.html",
             active="control",
@@ -405,7 +408,10 @@ def create_app(
             mfc_max=command_desk.MFC_MAX_MV,
             plasma_max=command_desk.PLASMA_MAX_A,
             sampling_choices=command_desk.sampling_choices(),
-            actor=command_desk.clean_actor(request.cookies.get(ACTOR_COOKIE)),
+            actor=actor,
+            actor_label=actor_label,
+            actor_options=actor_options,
+            actor_values=[value for value, _ in actor_options],
             roster_names=people.names(),
         )
 

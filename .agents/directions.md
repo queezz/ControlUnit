@@ -69,12 +69,11 @@ holds what is still undecided or unbuilt.
 
 ## Ready to build
 
-- Review 4.7.0's larger Control layout before deployment. Browser screenshot
-  capture was unavailable, though DOM geometry and interaction checks ran.
-  Control beside trends, chart-local scales and explicit Bu restoration are
-  implemented; those parts of the original brief below are no longer open.
-  Large readouts, smoothing, pills and useful automatic suppression remain
-  owner requirements. Presets reset explicit restoration to automatic behavior.
+- The owner accepted the fused Control layout on 2026-09-09. The five
+  follow-up corrections ship in 4.7.1 (see the dated log): aligned navigation,
+  open gauges, group colors, useful empty-plot hints and clear saved identity
+  and access. These and the earlier fused-layout/Bu work in the brief below
+  are implemented. Remaining requests in that brief still need review.
 
 - The 4.6.0 review (queezz, 2026-09-08, first look at the restarted rig;
   "log this and design, don't dev" — he is taking the design to GPT too,

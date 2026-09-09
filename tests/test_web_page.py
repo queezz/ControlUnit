@@ -579,6 +579,21 @@ def test_the_data_states_are_explained_in_exactly_one_place(live):
         assert live.count(meaning) == 1
 
 
+def test_saved_roster_identity_matches_normalized_option_on_reload(tmp_path):
+    home = tmp_path / ".controlunit"
+    home.mkdir()
+    label = "Arseniy Kuzmin (lab)"
+    (home / "operators.json").write_text(ROSTER.replace("Arseniy Kuzmin", label), encoding="utf-8")
+    client = app_for(tmp_path, home=home)
+    answer = client.post("/api/identify", json={"name": label})
+    assert answer.status_code == 200
+    actor = answer.get_json()["actor"]
+    assert actor != label
+    page = client.get("/control").get_data(as_text=True)
+    assert '<option value="{}" selected>{}</option>'.format(actor, label) in page
+    assert 'data-role="actor-summary">{}</span>'.format(label) in page
+
+
 def test_the_rail_card_that_explains_the_pills_carries_none(live):
     """The pills state at the head of the column; the rail teaches beside
     them. A second copy of a chip inside the words that explain it is the
@@ -639,6 +654,9 @@ def test_a_browser_past_the_fence_still_has_a_field_to_type_in(tmp_path):
     page = client.get("/control").get_data(as_text=True)
     assert '<input type="password" id="fence-word"' in page
     assert 'placeholder="word saved"' in page
+    assert 'data-role="fence-editor" hidden' in page
+    assert 'data-role="change-fence"' in page
+    assert 'Access saved' in page
 
 
 def test_the_take_over_button_is_shut_behind_the_fence_too(tmp_path):

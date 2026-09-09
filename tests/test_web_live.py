@@ -642,6 +642,6 @@ def test_a_panel_with_every_curve_off_keeps_its_legend():
     source = _live_js()
     assert "function collapsedLegend" in source
     assert 'section.classList.toggle("chart--collapsed", !shown)' in source
-    assert 'if (!drawn) return "no curves shown";' in source
+    assert 'if (!drawn) return "Click a pill to show a curve";' in source
     css = _client().get("/static/css/controlunit.css").get_data(as_text=True)
     assert ".chart--collapsed canvas { display: none; }" in css

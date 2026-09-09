@@ -770,7 +770,7 @@
     function spanLabel(drawn) {
         var tail = fast ? " · fast" : "";
         if (view.smooth) tail = " · median " + view.smooth + tail;
-        if (!drawn) return "no curves shown";
+        if (!drawn) return "Click a pill to show a curve";
         if (!drawn.count) return "no samples yet" + tail;
         var seconds = Math.max(0, Math.round(drawn.to - drawn.from));
         return "last " + fmtSeconds(seconds) + " · " + drawn.count + " samples" + tail;

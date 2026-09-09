@@ -176,13 +176,13 @@ input.find:focus, select.find:focus { border-color: var(--accent); outline: none
   min-height: var(--bar);
   align-items: center;
   gap: 4px;
-  padding: 4px var(--gutter);
+  padding: 4px 0;
   background: var(--header);
   border-bottom: 1px solid var(--line);
   margin-bottom: var(--content-gap);
 }
 
-.tab-group { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.tab-group { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; width: min(var(--page-max), 100%); margin: 0 auto; padding: 0 var(--gutter); }
 
 .tabbar .tab {
   display: inline-flex;
@@ -1216,6 +1216,16 @@ dl.facts dd.wide { margin-top: -2px; }
 .control-workspace .frow button { padding: 4px 8px; }
 .control-workspace .fgroup { padding-top: 8px; margin-top: 8px; }
 .control-workspace .fgroup h2 { margin-bottom: 6px; }
+.control-workspace #sec-gas { border-left: 3px solid #269aac; padding-left: 8px; }
+.control-workspace #sec-plasma { border-left: 3px solid #8a4be4; padding-left: 8px; }
+.control-workspace #sec-gauge { border-left: 3px solid var(--accent); padding-left: 8px; }
+.control-workspace [data-role="gauge-range"] { padding: 3px; font-size: 0.78rem; }
+.gauge-settings[open] > summary .mono { display: none; }
+.control-workspace #sec-gas h2 { color: #60b7c4; }
+.control-workspace #sec-plasma h2 { color: #b48ae9; }
+.actor-summary { display: block; color: var(--fg); font-size: 0.95rem; font-weight: 400; overflow-wrap: anywhere; }
+.fence-saved { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; color: var(--live); }
+.fence-saved[hidden], .fence-row[hidden] { display: none; }
 .control-workspace .operation-setters { padding-block: 8px; }
 .control-workspace .fgroup { margin-top: 0; padding-top: 6px; }
 .control-workspace .frow { margin-bottom: 6px; gap: 3px 6px; }

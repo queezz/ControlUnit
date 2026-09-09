@@ -35,6 +35,7 @@
     /* Only on a machine that holds a word of its own; elsewhere the row was
        never rendered and everything below simply finds nothing. */
     var fenceInput = document.getElementById("fence-word");
+    var changingWord = false;
 
     /* The command this browser is waiting to hear about. The rig answers
        through /api/state, so the wait ends when that record names this id. */
@@ -284,6 +285,10 @@
            changed has to be typable again. Only what it says changes. */
         if (fenceInput) {
             fenceInput.placeholder = fenced ? "the lab's word, not a secret" : "word saved";
+            var editor = root.querySelector('[data-role="fence-editor"]');
+            var saved = root.querySelector('[data-role="fence-saved"]');
+            if (editor) editor.hidden = !fenced && !changingWord;
+            if (saved) saved.hidden = fenced || changingWord;
         }
 
         var why = "";
@@ -370,10 +375,12 @@
             post("/api/identify", {name: name}).then(function (answer) {
                 if (answer.status === 200) {
                     actor = answer.body.actor || "";
-                    /* A list keeps the name that was chosen from it; writing
-                       the cleaned name back would blank it if cleaning had
-                       changed so much as a character. */
-                    if (actorInput.tagName === "INPUT") actorInput.value = actor;
+                    // Option values use the same normalization as the cookie;
+                    // their labels retain the roster's full display names.
+                    actorInput.value = actor;
+                    var label = actorInput.tagName === "SELECT" && actorInput.selectedOptions.length
+                        ? actorInput.selectedOptions[0].textContent : actor;
+                    set('[data-role="actor-summary"]', label || "Choose operator");
                     say("acting as " + actor);
                 } else {
                     say("refused: " + (answer.body.reason || "that name will not do"));
@@ -386,11 +393,19 @@
            on the way out: what is typed here is not a name to keep on the
            page, and the placeholder says whether the fence is behind us. */
         var saveFence = root.querySelector('[data-role="save-fence"]');
+        var changeFence = root.querySelector('[data-role="change-fence"]');
+        if (changeFence) changeFence.addEventListener("click", function () {
+            changingWord = true;
+            root.querySelector('[data-role="fence-editor"]').hidden = false;
+            root.querySelector('[data-role="fence-saved"]').hidden = true;
+            fenceInput.focus();
+        });
         if (saveFence && fenceInput) saveFence.addEventListener("click", function () {
             say("saving the word …");
             post("/api/fence", {word: fenceInput.value || ""}).then(function (answer) {
                 if (answer.status === 200) {
                     fenceInput.value = "";
+                    changingWord = false;
                     say(answer.body.fenced ? "the fence is open" : "this rig asks for no word");
                 } else {
                     say("refused: " + (answer.body.reason || "that is not the lab's word"));

@@ -1,5 +1,15 @@
 # Changelog
 
+## 4.7.1 — 2026-09-09
+
+- Bound top navigation to the workspace width on every tab.
+- Show gauge controls by default; add gas/plasma/gauge color hints and
+  shorter output feedback labels.
+- Give collapsed charts a hint to click their curve pills.
+- Keep the selected operator visible and match normalized roster options
+  to the saved identity while preserving full display names.
+- Show Access saved and a Change action instead of prompting again.
+
 ## 4.7.0 — 2026-09-09
 
 - Fuse operation controls, held/measured output feedback, live readouts and
