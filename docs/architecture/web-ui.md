@@ -95,7 +95,9 @@ already thrown refuse every command, which reads as a broken page rather
 than a locked one (owner report 2026-09-05).
 
 Without the switch a setter is `403` with the reason; a command that needs
-the workers when none are running is `409`; a body that does not say
+the workers when none are running is `409`. Gauge mode/range can be prepared
+while idle (4.8.2): the displayed setting updates immediately and startup
+passes it to the ADC. Remote and operator gates still apply. A body that does not say
 something the rig accepts is `400`. **Stop all outputs** is the one exception and is
 always allowed — name or no name, switch or no switch, acquiring or not —
 because it only ever calls the `turn_off_voltages` the shutdown path calls

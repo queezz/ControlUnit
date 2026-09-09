@@ -917,11 +917,11 @@ class MainApp(QtCore.QObject, UIWindow):
         or
         Pa and log
         """
+        self.web_status.record_setpoints(ig_mode=self.control_dock.IGmode.currentText())
         if not self.workers:
             return
         value = self.control_dock.IGmode.currentIndex()
         self.workers["ADC"]["worker"].set_ig_mode_signal.emit(value)
-        self.web_status.record_setpoints(ig_mode=self.control_dock.IGmode.currentText())
 
     @QtCore.pyqtSlot()
     def update_ig_range(self):
@@ -929,11 +929,11 @@ class MainApp(QtCore.QObject, UIWindow):
         Update range of the IG controller:
         10^{-3} - 10^{-8} multiplier when in linear mode (Torr)
         """
+        value = self.control_dock.IGrange.value()
+        self.web_status.record_setpoints(ig_range=value)
         if not self.workers:
             return
-        value = self.control_dock.IGrange.value()
         self.workers["ADC"]["worker"].set_ig_range_signal.emit(value)
-        self.web_status.record_setpoints(ig_range=value)
 
     @QtCore.pyqtSlot()
     def __set_gain(self):

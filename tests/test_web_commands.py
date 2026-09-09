@@ -323,11 +323,12 @@ def test_starting_a_run_claims_control_like_any_other_setter():
     assert desk.control.read()["holder"] == "Arseniy"
 
 
-def test_only_stopping_and_starting_work_without_the_workers():
+def test_start_stop_all_and_gauge_setup_work_without_workers():
     assert commands.needs_acquisition("stop_all") is False
     # Starting is the one command that means something only while idle.
     assert commands.needs_acquisition("start") is False
-    for kind in ("stop", "sampling", "mfc", "plasma", "gauge", "sync", "zero"):
+    assert commands.needs_acquisition("gauge") is False
+    for kind in ("stop", "sampling", "mfc", "plasma", "sync", "zero"):
         assert commands.needs_acquisition(kind) is True
 
 
@@ -908,8 +909,11 @@ def test_a_setter_with_no_acquisition_is_a_conflict(path, body, tmp_path):
     client = app_for(rig(remote=True, acquiring=False), tmp_path).test_client()
     client.set_cookie("actor", "queezz")
     response = client.post(path, json=body)
-    assert response.status_code == 409
-    assert response.get_json()["reason"] == commands.NO_ACQUISITION
+    if path == "/api/gauge":
+        assert response.status_code == 202
+    else:
+        assert response.status_code == 409
+        assert response.get_json()["reason"] == commands.NO_ACQUISITION
 
 
 def test_a_browser_may_start_a_run_on_an_idle_rig(tmp_path):
@@ -1474,3 +1478,18 @@ def test_a_changed_word_shuts_the_fence_on_the_old_one(tmp_path):
 def test_the_fence_route_answers_nothing_to_a_get(tmp_path):
     client = app_for(rig(remote=True), tmp_path).test_client()
     assert client.get("/api/fence").status_code == 405
+
+
+def test_gauge_settings_prepare_idle_rig_and_publish_before_start():
+    from controlunit.main import MainApp
+    app = FakeApp(running=False)
+    # Exercise the real updater paths, with no workers available to touch.
+    app.update_ig_mode = lambda: MainApp.update_ig_mode(app)
+    app.update_ig_range = lambda: MainApp.update_ig_range(app)
+    app.web_commands.submit("gauge", {"mode": "Pa", "range": -7}, actor="queezz")
+    commands.drain(app)
+    assert app.control_dock.IGrange.value() == -7
+    assert app.control_dock.IGmode.currentText() == "Pa"
+    assert app.web_status.read()["setpoints"]["ig_range"] == -7
+    assert app.web_status.read()["setpoints"]["ig_mode"] == "Pa"
+    assert not app.workers

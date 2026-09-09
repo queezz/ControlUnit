@@ -47,10 +47,11 @@ KINDS = (
 #: the switch on the rig, so it is gated like every other setter.
 ALWAYS_ALLOWED = ("stop_all",)
 
-#: Everything else needs workers running to mean anything. Taking control is
+#: Gauge settings may be prepared while idle and applied at startup.
+#: The commands below need workers running. Taking control is
 #: not one of them: it moves a lock, it does not touch the hardware. Nor is
 #: `start`, which is the one command that means something only while idle.
-NEEDS_ACQUISITION = ("stop", "sampling", "mfc", "plasma", "gauge", "sync", "zero")
+NEEDS_ACQUISITION = ("stop", "sampling", "mfc", "plasma", "sync", "zero")
 
 #: The commands that mean something only while nothing is running. Just the
 #: one, and it is refused with its own reason rather than the idle one, so a

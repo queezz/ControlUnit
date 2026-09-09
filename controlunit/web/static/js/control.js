@@ -321,6 +321,11 @@
             control.disabled = !allowed;
         });
 
+        // Gauge interpretation can be prepared before the ADC starts.
+        root.querySelectorAll('[data-role="gauge-mode"], [data-role="gauge-range"]').forEach(function (control) {
+            control.disabled = !(Boolean(state.remote) && !fenced && mine);
+        });
+
         /* Start is the one control the run's absence enables rather than
            disables, so it is set after the blanket above rather than being
            an exception written into it. */

@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.8.2 — 2026-09-09
+
+- Allow gauge mode/range preparation before acquisition, retaining Remote, access and operator gates. Publish the prepared setting immediately and apply it when ADC acquisition starts.
+
 ## 4.8.1 — 2026-09-09
 
 - Anchor the Operate/Observe/Monitor switch at the bottom center with fixed button widths, so changing modes never moves the next target.
