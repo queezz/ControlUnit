@@ -329,7 +329,7 @@ of the response can tell which question was asked.
 
     **Monitor mode gives the charts the window.** queezz, 2026-09-07:
     *"Monitor: plots only, even hide the rails. Only keep some indicator
-    pills about status and all."* `Operate | Observe | Monitor` in a fixed bottom-center switch,
+    pills about status and all."* `Operate | Observe | Monitor` in a fixed header switch,
     and `?mode=monitor` in the address, so the second laptop propped up
     beside the rig can bookmark its own screen — the server renders that
     shape on the first paint rather than flashing the other one, and Back,
@@ -646,3 +646,10 @@ limit for the installed transducer, electronics, zero drift and acquisition
 chain. The page states this uncertainty; positive near-zero readings are
 not censored using an invented cutoff. Establish a documented per-channel
 limit before replacing those readings with a less-than-limit indication.
+
+
+Monitor (4.8.5) uses the viewport width and shares available height among
+active plots, with a minimum usable plot height on short screens. Window
+and Median move from the display panel onto Monitor without duplication.
+Monitor defaults to big readouts and remembers its own small/big choice;
+Operate and Observe retain their existing size preference.

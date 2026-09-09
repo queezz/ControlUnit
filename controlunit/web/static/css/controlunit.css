@@ -1457,3 +1457,19 @@ body[data-mode="monitor"] .command-status { display: none; }
 .readout-residual:empty { display: none; }
 .control-workspace .readout--below-zero .readout-value { font-size: 1rem; }
 .measurement-note { font-size: 0.78rem; margin: 6px 0; }
+
+/* The mode switch stays in the header region, outside changing columns. */
+.view-toolbar { top: 6px; bottom: auto; left: auto; right: max(20px, calc((100% - var(--page-max)) / 2 + 20px)); transform: none; }
+.control-workspace { padding-bottom: 12px; }
+body[data-mode="monitor"] .container { width: 100%; max-width: none; padding-top: 68px; }
+body[data-mode="monitor"] .page-main { margin-bottom: 0; }
+.monitor-settings { display: none; }
+body[data-mode="monitor"] .monitor-settings { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin-bottom: 10px; }
+.monitor-settings .rail-card { padding: 0; margin: 0; border: 0; background: none; flex: 0 1 auto; }
+.monitor-settings .rail-label { display: inline-block; margin: 0 8px 0 0; }
+.monitor-settings .choice-grid, .monitor-settings .choice-row { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+@media (max-width: 620px) {
+  .view-toolbar { top: 58px; left: 12px; right: auto; }
+  body:has(.control-workspace) .tabbar { margin-bottom: 70px; }
+  body[data-mode="monitor"] .container { padding-top: 116px; }
+}

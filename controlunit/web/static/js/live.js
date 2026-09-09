@@ -62,6 +62,7 @@
         igLog: true,
         barLog: false,
         smooth: 0,
+        monitorBig: true,
         big: false
     };
 
@@ -94,6 +95,7 @@
             if (typeof kept.igLog === "boolean") view.igLog = kept.igLog;
             if (typeof kept.barLog === "boolean") view.barLog = kept.barLog;
             if (SMOOTHING.indexOf(Number(kept.smooth)) > 0) view.smooth = Number(kept.smooth);
+            if (typeof kept.monitorBig === "boolean") view.monitorBig = kept.monitorBig;
             if (typeof kept.big === "boolean") view.big = kept.big;
         } catch (e) { /* fine */ }
     }
@@ -476,7 +478,9 @@
      * 20260907-023785d0). At ratio 1 the same code was stable, which is why
      * the rig's own screen and every browser on this Windows box were fine.
      */
+    var monitorPlotHeight = null;
     function logicalHeight(canvas) {
+        if (mode === "monitor" && monitorPlotHeight !== null) return monitorPlotHeight;
         var declared = Number(canvas.dataset.height);
         return (isFinite(declared) && declared > 0) ? declared : 220;
     }
@@ -760,6 +764,27 @@
     }
 
     function drawAll() {
+        monitorPlotHeight = null;
+        if (mode === "monitor" && root.querySelector('.page-main')) {
+            var main = root.querySelector('.page-main');
+            var occupied = 0, active = 0;
+            Array.prototype.forEach.call(main.children, function (child) {
+                var style = getComputedStyle(child);
+                if (style.display === "none" || style.position === "fixed" || style.position === "absolute") return;
+                var margins = (parseFloat(style.marginTop) || 0) + (parseFloat(style.marginBottom) || 0);
+                if (child.classList.contains('chart')) {
+                    var canvas = child.querySelector('canvas');
+                    if (canvas && anyChosen(canvas)) active += 1;
+                    occupied += (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0) + 2 + margins;
+                    Array.prototype.forEach.call(child.children, function (part) {
+                        if (part.tagName === 'CANVAS') return;
+                        var ps = getComputedStyle(part);
+                        if (ps.display !== 'none') occupied += part.getBoundingClientRect().height + (parseFloat(ps.marginTop) || 0) + (parseFloat(ps.marginBottom) || 0);
+                    });
+                } else occupied += child.getBoundingClientRect().height + margins;
+            });
+            if (active) monitorPlotHeight = Math.max(140, Math.floor((window.innerHeight - parseFloat(getComputedStyle(document.querySelector(".container")).paddingTop) - 20 - occupied) / active));
+        }
         [[plasma, "span-plasma", false],
          [gauges, "span-ig", view.igLog],
          [baratrons, "span-bar", view.barLog]].forEach(function (panel) {
@@ -864,6 +889,17 @@
         var actions = root.querySelector('[data-role="mode-actions"]');
         if (actions) actions.hidden = mode !== "monitor";
         closeDrawers();
+        root.querySelectorAll('[data-monitor-setting]').forEach(function (card) {
+            if (!card.originalParent) {
+                card.originalParent = card.parentNode;
+                card.originalSlot = document.createComment("monitor setting");
+                card.parentNode.insertBefore(card.originalSlot, card);
+            }
+            var dock = root.querySelector('[data-role="monitor-settings"]');
+            if (mode === "monitor" && dock) dock.appendChild(card);
+            else card.originalParent.insertBefore(card, card.originalSlot.nextSibling);
+        });
+        applyDisplay();
         drawAll();   // the reading column just changed width
     }
 
@@ -1032,9 +1068,11 @@
         });
         root.querySelectorAll("[data-display]").forEach(function (button) {
             button.addEventListener("click", function () {
-                view.big = button.dataset.display === "big";
+                if (mode === "monitor") view.monitorBig = button.dataset.display === "big";
+                else view.big = button.dataset.display === "big";
                 applyDisplay();
                 remember();
+                drawAll();
             });
         });
         root.querySelectorAll("[data-poll]").forEach(function (button) {
@@ -1051,8 +1089,9 @@
     /* Big is one class on the page: the charts keep their width, so there is
        nothing to redraw, and only the readout row's own height changes. */
     function applyDisplay() {
-        root.classList.toggle("live--big", view.big);
-        press("[data-display]", "display", view.big ? "big" : "normal");
+        var big = mode === "monitor" ? view.monitorBig : view.big;
+        root.classList.toggle("live--big", big);
+        press("[data-display]", "display", big ? "big" : "normal");
     }
 
     var stateTimer = null;

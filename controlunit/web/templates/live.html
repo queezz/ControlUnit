@@ -125,6 +125,7 @@
                 <button type="button" data-drawer="live-context" aria-controls="live-context" aria-expanded="false">Display</button>
                 <button type="button" data-role="fullscreen" aria-pressed="false">Full screen</button>
             </span>
+        <div class="monitor-settings" data-role="monitor-settings"></div>
         {% include '_live_readings.html' %}
     </main>
     <aside class="rail rail-right operation-rail" id="live-context" aria-label="Access and display">
@@ -188,7 +189,7 @@
         </details>
         <details class="display-settings" open>
             <summary>Display</summary>
-        <section class="rail-card rail-card--fit">
+        <section class="rail-card rail-card--fit" data-monitor-setting>
             {# The window cuts a history this browser keeps for itself, so
                Full is this browser's own memory rather than the rig's ring.
                Said once, on the heading's line, where it costs no height. #}
@@ -208,7 +209,7 @@
            curve it turns off is. One control, in one place. #}
 
         {# Smoothing changes both the curves and the readouts. #}
-        <section class="rail-card rail-card--fit">
+        <section class="rail-card rail-card--fit" data-monitor-setting>
             <h2 class="rail-label">Median</h2>
             <div class="choice-row" role="group" aria-label="Smoothing">
 
@@ -223,7 +224,6 @@
         <section class="rail-card rail-card--fit">
             <h2 class="rail-label">Polling</h2>
             <div class="choice-row" role="group" aria-label="Poll rate">
-                <span class="choice-caption choice-caption--inline">Poll</span>
                 <button type="button" class="choice" data-poll="normal" aria-pressed="true">normal</button>
                 <button type="button" class="choice" data-poll="fast" aria-pressed="false">fast</button>
             </div>

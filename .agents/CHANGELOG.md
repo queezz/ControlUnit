@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.8.5 — 2026-09-09
+
+- Keep the mode switch at a stable top position instead of the distant bottom edge.
+- Use the full viewport width in Monitor and divide available plot height between active panels.
+- Default Monitor to big readouts with its own saved size preference.
+- Bring Window and Median directly onto Monitor, reusing the existing controls.
+- Remove the duplicate Poll label.
+
 ## 4.8.4 — 2026-09-09
 
 - Use ControlUnit as the home tab and remove the duplicate Live link.

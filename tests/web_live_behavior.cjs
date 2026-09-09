@@ -22,6 +22,7 @@ function instrument() {
         getContext() { return new Proxy({}, {get: () => () => {}}); }
     };
     const root = {
+        classList: {toggle() {}},
         dataset: {}, querySelector() { return null; },
         querySelectorAll(selector) { return selector === '[data-channel]' ? Object.values(buttons) : []; }
     };
