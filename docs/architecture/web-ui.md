@@ -653,3 +653,5 @@ active plots, with a minimum usable plot height on short screens. Window
 and Median move from the display panel onto Monitor without duplication.
 Monitor defaults to big readouts and remembers its own small/big choice;
 Operate and Observe retain their existing size preference.
+
+Pressure plots can be grouped by gauge type or by vessel (Pu with Bu, Pd with Bd). The browser remembers the grouping and separate axes for each grouping. Vessel plots share one pressure axis per pair and retain the measured or zero-subtracted values: no alignment offset or normalization is applied. Channel visibility, smoothing, and baseline commands keep their existing meaning. Nonpositive values remain omitted only on logarithmic axes.

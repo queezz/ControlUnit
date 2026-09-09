@@ -1,3 +1,7 @@
+## 4.9.0 — 2026-09-09
+
+- Pair pressure curves by vessel: Pu + Bu and Pd + Bd, with independent log/linear axes, remembered grouping, and baseline controls beside their curves. Original gauge grouping remains available.
+
 # Changelog
 
 ## 4.8.6 — 2026-09-09

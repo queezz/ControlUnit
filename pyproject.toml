@@ -10,7 +10,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "controlunit"
-version = "4.8.6"
+version = "4.9.0"
 description = "Raspberry Pi plasma-lab control and data acquisition, with a web view on the lab network"
 readme = "README.md"
 requires-python = ">=3.9"

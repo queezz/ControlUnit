@@ -61,6 +61,9 @@
         pinned: {},
         igLog: true,
         barLog: false,
+        pressureGroup: "gauge",
+        upstreamLog: true,
+        downstreamLog: true,
         smooth: 0,
         monitorBig: true,
         big: false
@@ -93,6 +96,9 @@
                 if (kept.pinned[name] === true) view.pinned[name] = true;
             });
             if (typeof kept.igLog === "boolean") view.igLog = kept.igLog;
+            if (kept.pressureGroup === "vessel") view.pressureGroup = "vessel";
+            if (typeof kept.upstreamLog === "boolean") view.upstreamLog = kept.upstreamLog;
+            if (typeof kept.downstreamLog === "boolean") view.downstreamLog = kept.downstreamLog;
             if (typeof kept.barLog === "boolean") view.barLog = kept.barLog;
             if (SMOOTHING.indexOf(Number(kept.smooth)) > 0) view.smooth = Number(kept.smooth);
             if (typeof kept.monitorBig === "boolean") view.monitorBig = kept.monitorBig;
@@ -427,6 +433,47 @@
     var plasma = document.getElementById("chart-plasma");
     var gauges = document.getElementById("chart-ig");
     var baratrons = document.getElementById("chart-bar");
+
+    // Move existing controls, preserving their handlers and channel choices.
+    function applyPressureGrouping() {
+        if (!gauges || !baratrons) return;
+        var vessel = view.pressureGroup === "vessel";
+        var upper = gauges.parentNode, lower = baratrons.parentNode;
+        var groups = vessel ? [["Pu", "Bu"], ["Pd", "Bd"]] : [["Pu", "Pd"], ["Bu", "Bd"]];
+        var titles = vessel ? ["Upstream · Pu + Bu", "Downstream · Pd + Bd"] : ["Ion gauges", "Baratrons"];
+        [gauges, baratrons].forEach(function (canvas, i) {
+            var section = canvas.parentNode;
+            var legend = section.querySelector('.pen-legend');
+            var scale = legend.querySelector('.chart-scale');
+            groups[i].forEach(function (name) {
+                legend.insertBefore(root.querySelector('[data-channel="' + name + '"]'), scale);
+            });
+            canvas.dataset.channels = groups[i].join(',');
+            var heading = section.querySelector('h2');
+            if (!heading.dataset.unitSuffix) heading.dataset.unitSuffix = heading.textContent.slice(heading.textContent.lastIndexOf(','));
+            var title = titles[i] + heading.dataset.unitSuffix;
+            heading.textContent = title;
+            section.setAttribute('aria-label', title);
+            legend.setAttribute('aria-label', 'Curves in ' + title);
+            scale.setAttribute('aria-label', titles[i] + ' axis');
+        });
+        ['Bu', 'Bd'].forEach(function (name) {
+            var button = root.querySelector('[data-zero="' + name + '"]');
+            if (button) (vessel && name === 'Bu' ? upper : lower).querySelector('.chart-zero').appendChild(button);
+        });
+        var note = upper.querySelector('.measurement-note');
+        if (vessel && !note) {
+            note = lower.querySelector('.measurement-note').cloneNode(true);
+            upper.insertBefore(note, gauges);
+        }
+        if (note) note.hidden = !vessel;
+        press('[data-pressure-group]', 'pressureGroup', view.pressureGroup);
+        reflectPressureAxes();
+    }
+    function reflectPressureAxes() {
+        press('[data-scale-ig]', 'scaleIg', (view.pressureGroup === 'vessel' ? view.upstreamLog : view.igLog) ? 'log' : 'lin');
+        press('[data-scale-bar]', 'scaleBar', (view.pressureGroup === 'vessel' ? view.downstreamLog : view.barLog) ? 'log' : 'lin');
+    }
 
     function channelsOf(canvas) {
         return String((canvas && canvas.dataset.channels) || "").split(",");
@@ -786,8 +833,8 @@
             if (active) monitorPlotHeight = Math.max(140, Math.floor((window.innerHeight - parseFloat(getComputedStyle(document.querySelector(".container")).paddingTop) - 20 - occupied) / active));
         }
         [[plasma, "span-plasma", false],
-         [gauges, "span-ig", view.igLog],
-         [baratrons, "span-bar", view.barLog]].forEach(function (panel) {
+         [gauges, "span-ig", view.pressureGroup === "vessel" ? view.upstreamLog : view.igLog],
+         [baratrons, "span-bar", view.pressureGroup === "vessel" ? view.downstreamLog : view.barLog]].forEach(function (panel) {
             var canvas = panel[0];
             if (!canvas) return;
             var section = canvas.parentNode;
@@ -1041,18 +1088,26 @@
                 drawAll();
             });
         });
+        root.querySelectorAll('[data-pressure-group]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                view.pressureGroup = button.dataset.pressureGroup;
+                applyPressureGrouping();
+                remember();
+                drawAll();
+            });
+        });
         root.querySelectorAll("[data-scale-ig]").forEach(function (button) {
             button.addEventListener("click", function () {
-                view.igLog = button.dataset.scaleIg === "log";
-                press("[data-scale-ig]", "scaleIg", view.igLog ? "log" : "lin");
+                view[view.pressureGroup === "vessel" ? "upstreamLog" : "igLog"] = button.dataset.scaleIg === "log";
+                reflectPressureAxes();
                 remember();
                 drawAll();
             });
         });
         root.querySelectorAll("[data-scale-bar]").forEach(function (button) {
             button.addEventListener("click", function () {
-                view.barLog = button.dataset.scaleBar === "log";
-                press("[data-scale-bar]", "scaleBar", view.barLog ? "log" : "lin");
+                view[view.pressureGroup === "vessel" ? "downstreamLog" : "barLog"] = button.dataset.scaleBar === "log";
+                reflectPressureAxes();
                 remember();
                 drawAll();
             });
@@ -1122,6 +1177,7 @@
     function setup() {
         recall();
         reflectView();
+        applyPressureGrouping();
         setupRails();
         setupModes();
         applyMode();

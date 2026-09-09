@@ -47,13 +47,13 @@ function instrument() {
     // Exercise production handlers and drawing decisions without starting timers.
     const end = source.indexOf('    if (document.readyState === "loading")');
     vm.runInContext(source.slice(0, end) +
-        'globalThis.instrument = {append, drawAll, setupRails, applyPreset, view, recall, setMode, modeInAddress};\n}());', context);
+        'globalThis.instrument = {append, draw, drawAll, setupRails, applyPreset, view, recall, remember, setMode, modeInAddress};\n}());', context);
     const api = context.instrument;
     api.append({to: 4, channels: {Bu: [[1, -0.004], [2, -0.004], [3, -0.004], [4, -0.004]],
         Bd: [[1, 0.001], [2, 0.002], [3, 0.003], [4, 0.004]]}});
     api.setupRails();
     api.drawAll();
-    return {api, buttons};
+    return {api, buttons, canvas};
 }
 
 test('explicit flat-curve restoration survives polls, off/on and saved preferences', () => {
@@ -108,4 +108,27 @@ test('all-nonpositive log panel distinguishes excluded values from missing data'
     api.view.barLog = false;
     api.drawAll();
     assert.equal(buttons.Bu.dataset.curveState, 'drawn');
+});
+
+
+test('vessel overlay retains signed pressures and independent saved axes', () => {
+    const {api, canvas} = instrument();
+    api.append({to: 8, channels: {Pu: [[5, 0.001], [6, 0.002], [7, 0.003], [8, 0.004]],
+        Bu: [[5, -0.001], [6, 0.001], [7, 0.002], [8, 0.003]]}});
+    canvas.dataset.channels = 'Pu,Bu';
+    const result = api.draw(canvas, false);
+    assert.deepEqual(Array.from(result.series, s => s.name), ['Pu', 'Bu']);
+    assert.equal(result.series[0].lo, 0.001);
+    assert.equal(result.series[1].lo, -0.004);
+    api.view.pressureGroup = 'vessel';
+    api.view.upstreamLog = false;
+    api.view.downstreamLog = true;
+    api.remember();
+    api.view.pressureGroup = 'gauge';
+    api.view.upstreamLog = true;
+    api.recall();
+    assert.equal(api.view.pressureGroup, 'vessel');
+    assert.equal(api.view.upstreamLog, false);
+    assert.equal(api.view.downstreamLog, true);
+    assert.equal(api.view.barLog, false);
 });
