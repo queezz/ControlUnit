@@ -71,7 +71,7 @@ def control(client):
 
 
 def test_live_is_home_and_shows_the_five_pens(live):
-    assert 'aria-current="page">Live<' in live
+    assert 'aria-current="page">ControlUnit ' in live
     for name in ("Ip", "Pu", "Pd", "Bu", "Bd"):
         assert 'data-readout="{}"'.format(name) in live
     assert 'id="chart-plasma"' in live
@@ -187,13 +187,13 @@ def test_the_tab_bar_leads_to_every_tab_and_marks_none_unbuilt(live, log, lab, c
     for page in (live, log, lab, control):
         assert "tab-mark" not in page
         assert 'href="/control"' not in page
-        assert 'href="/"' in page
+        assert page.count('href="/"') == 1
         assert 'href="/log"' in page
         assert 'href="/lab"' in page
 
 
 def test_control_is_the_current_tab_on_its_own_page(control):
-    assert 'aria-current="page">Live<' in control
+    assert 'aria-current="page">ControlUnit ' in control
 
 
 def test_control_carries_its_five_groups_as_jump_targets(control):

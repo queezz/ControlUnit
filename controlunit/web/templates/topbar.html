@@ -1,6 +1,6 @@
 <nav class="tabbar" aria-label="Main">
     <div class="tab-group">
-        <a class="tab brand-tab" href="{{ url_for('live') }}">ControlUnit <span class="tab-version">v{{ app_version }}</span></a>
+        <a class="tab brand-tab" href="{{ url_for('live') }}"{% if active == 'live' %} aria-current="page"{% endif %}>ControlUnit <span class="tab-version">v{{ app_version }}</span></a>
         {% for key, label, endpoint in tabs %}
         {% if endpoint %}
         <a class="tab" href="{{ url_for(endpoint) }}"{% if key == active %} aria-current="page"{% endif %}>{{ label }}</a>

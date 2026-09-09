@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.8.4 — 2026-09-09
+
+- Use ControlUnit as the home tab and remove the duplicate Live link.
+
 ## 4.8.3 — 2026-09-09
 
 - Label negative Baratron readings Below zero and retain signed residuals.

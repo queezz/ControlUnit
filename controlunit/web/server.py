@@ -168,7 +168,6 @@ PRESETS = (
 
 #: The tabs, in bar order. A tab with no endpoint is named and not built.
 TABS = (
-    ("live", "Live", "live"),
     ("log", "Log", "log"),
     ("lab", "Lab", "lab"),
 )

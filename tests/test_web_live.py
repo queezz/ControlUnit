@@ -656,4 +656,4 @@ def test_unified_modes_and_legacy_control_links():
         assert page.count('data-role="acq-start"') == 1
     page = client.get("/control?mode=monitor").get_data(as_text=True)
     assert '<body data-mode="operate">' in page
-    assert 'aria-current="page">Live<' in page
+    assert 'aria-current="page">ControlUnit ' in page
