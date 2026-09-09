@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.8.6 — 2026-09-09
+
+- Compact status, command feedback and readout size into one wrapping header above the readings, removing the reserved blank feedback row.
+
 ## 4.8.5 — 2026-09-09
 
 - Keep the mode switch at a stable top position instead of the distant bottom edge.

@@ -108,6 +108,13 @@
     </aside>
     <main class="page-main">
         <h1 class="sr-only">Live</h1>
+        <div class="view-toolbar" role="group" aria-label="View mode">
+            {% for name, label in modes %}
+            <button type="button" class="choice" data-mode="{{ name }}" aria-pressed="{{ 'true' if name == page_mode else 'false' }}">{{ label }}</button>
+            {% endfor %}
+
+        </div>
+        <div class="instrument-header">
         <div class="pills" aria-label="What the rig is doing">
             <span class="chip chip-idle" data-role="operating">stopped</span>
             <span class="pill-note" data-role="operating-outputs"></span>
@@ -115,11 +122,11 @@
             <span class="mono muted" data-role="data-age"></span>
         </div>
         <p class="command-status mono" data-role="status" role="status"></p>
-        <div class="view-toolbar" role="group" aria-label="View mode">
-            {% for name, label in modes %}
-            <button type="button" class="choice" data-mode="{{ name }}" aria-pressed="{{ 'true' if name == page_mode else 'false' }}">{{ label }}</button>
-            {% endfor %}
-
+        <div class="readout-toolbar" role="group" aria-label="Readout size">
+            <span class="muted">Readouts</span>
+            <button type="button" class="choice" data-display="normal" aria-pressed="true">small</button>
+            <button type="button" class="choice" data-display="big" aria-pressed="false">big</button>
+        </div>
         </div>
             <span class="mode-actions" data-role="mode-actions" hidden>
                 <button type="button" data-drawer="live-context" aria-controls="live-context" aria-expanded="false">Display</button>

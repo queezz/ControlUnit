@@ -1,8 +1,3 @@
-        <div class="readout-toolbar" role="group" aria-label="Readout size">
-            <span class="muted">Readouts</span>
-            <button type="button" class="choice" data-display="normal" aria-pressed="true">small</button>
-            <button type="button" class="choice" data-display="big" aria-pressed="false">big</button>
-        </div>
         <div class="readouts">
             {% for name, colour in pens %}
             <div class="readout" data-readout="{{ name }}" style="--pen: {{ colour }}">

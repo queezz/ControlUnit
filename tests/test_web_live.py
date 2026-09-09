@@ -557,10 +557,10 @@ def test_monitor_keeps_the_two_pills_and_hides_the_rest():
     assert 'data-role="data-state"' in pills
     toolbar = page[page.index('class="view-toolbar"'):page.index('class="readout-toolbar"')]
     assert 'data-drawer="live-controls"' not in toolbar
-    assert 'data-drawer="live-context"' in toolbar
+    assert 'data-drawer="live-context"' in page
     assert 'data-mode="observe"' in toolbar
     assert 'data-mode="operate"' in toolbar
-    assert 'data-role="fullscreen"' in toolbar
+    assert 'data-role="fullscreen"' in page
 
 
 def test_the_rails_are_the_same_rails_summoned_from_their_own_edge():

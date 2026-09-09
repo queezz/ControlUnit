@@ -1473,3 +1473,12 @@ body[data-mode="monitor"] .monitor-settings { display: flex; flex-wrap: wrap; ga
   body:has(.control-workspace) .tabbar { margin-bottom: 70px; }
   body[data-mode="monitor"] .container { padding-top: 116px; }
 }
+
+/* Status and readout sizing share one compact instrument header. */
+.instrument-header { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 8px; }
+.instrument-header .pills { flex: 1 1 auto; margin: 0; gap: 8px; }
+.instrument-header .pills .chip { min-width: 0; }
+.instrument-header .readout-toolbar { margin: 0 0 0 auto; flex: 0 0 auto; }
+.control-workspace .instrument-header .command-status { min-height: 0; margin: 0; font-size: 0.75rem; }
+.instrument-header .command-status:empty { display: none; }
+.instrument-header .pill-note:empty { display: none; }
