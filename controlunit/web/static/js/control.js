@@ -281,6 +281,31 @@
         if (manual) manual.hidden = mode !== "manual";
     }
 
+    /* The right rail's Settings group — QMS sync, sampling, gauges — is the
+       one fold on this page whose state is worth keeping: it is folded by
+       default because a shift does not touch it (queezz, 2026-09-10: "I
+       don't use those often"), and a shift that does open it should not have
+       to open it again on the next reload. Kept per browser, like the
+       cathode's mode above and for the same reason: which drawer a person
+       works with open is theirs, not the rig's. A browser that stores
+       nothing simply starts folded every time.
+
+       Read before `revealSection`, so a deep link into a moved section still
+       wins and opens the fold on its way in. */
+    var SETTINGS_KEY = "controlunit.settings.open";
+
+    function setupSettingsFold() {
+        var group = root.querySelector('[data-role="settings-group"]');
+        if (!group) return;
+        try {
+            group.open = window.localStorage.getItem(SETTINGS_KEY) === "1";
+        } catch (e) { /* private windows and blocked storage still operate */ }
+        group.addEventListener("toggle", function () {
+            try { window.localStorage.setItem(SETTINGS_KEY, group.open ? "1" : "0"); }
+            catch (e) { /* nothing to remember with; the page works regardless */ }
+        });
+    }
+
     function setupCathodeMode() {
         showCathodeMode(readCathodeMode());
         root.querySelectorAll('[data-role="cathode-mode"]').forEach(function (button) {
@@ -621,6 +646,7 @@
             send("/api/plasma-current", {off: true}, "the plasma PID off");
         });
 
+        setupSettingsFold();
         setupCathodeMode();
         var manual = root.querySelector('[data-role="cathode-manual-row"]');
         if (manual) setupDraftRow(manual, CATHODE_DRAFT);

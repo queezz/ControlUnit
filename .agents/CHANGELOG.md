@@ -1,3 +1,7 @@
+## 4.12.0 — 2026-09-10
+
+- The left rail is the real control: Start/Stop, Gas flow, Cathode, Stop all outputs. QMS sync, Sampling and Gauges moved into a folded Settings group in the right rail, after Display, folded by default and remembered per browser (queezz, 2026-09-10: "I don't use those often"). Observe hides it; Monitor reaches it through the right-rail drawer. Deep links to the moved sections still land and open the fold.
+
 ## 4.11.2 — 2026-09-10
 
 - Small readouts are small: a card is one compact row of name, number and unit with nothing reserved beneath, about half its former height; big keeps the large figure. "as measured" is gone.

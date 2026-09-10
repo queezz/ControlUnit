@@ -17,27 +17,14 @@
             </div>
             <p class="stop-note muted">Stop ends recording + outputs. <a href="#sec-who">Access</a></p>
         </section>
-        <section class="rail-card sync-card" aria-label="QMS sync" id="sec-sync">
-            <div class="sync-heading"><h2>QMS sync</h2><strong class="chip" data-role="sync-now">—</strong></div>
-            <div class="sets row-actions" role="group" aria-label="Set QMS sync">
-                <button type="button" class="choice" data-role="sync" data-on="1" aria-pressed="false">On</button>
-                <button type="button" class="choice" data-role="sync" data-on="0" aria-pressed="false">Off</button>
-            </div>
-        </section>
+        {# Left is gas and plasma, the two the hand is on all shift (queezz,
+           2026-09-10, looking at 4.11.2 on the rig: "Left rail got a bit
+           crowded. QMS signal, sampling, and IG panel can stay on the right,
+           and I don't use those often. And then the left becomes gas/plasma
+           real control."). QMS sync, Sampling and Gauges moved, whole and
+           once, into the right rail's folded Settings group below. #}
         <div class="operation-setters" aria-label="What this browser may set">
                 <div class="sets">
-                    <section class="fgroup" id="sec-acquisition">
-                        <h2>Sampling</h2>
-                        <div class="frow">
-                            <span class="row-actions">
-                                {% for seconds, label in sampling_choices %}
-                                <button type="button" class="choice" data-role="sampling"
-                                        data-seconds="{{ seconds }}" aria-pressed="false">{{ label }}</button>
-                                {% endfor %}
-                            </span>
-                        </div>
-                    </section>
-
                     <section class="fgroup" id="sec-gas">
                         <h2>Gas flow</h2>
                         {% for number, gas in gases %}
@@ -130,29 +117,6 @@
                         </div>
                     <p class="output-feedback"><b class="mono" data-role="plasma-setpoint">off</b> · Read Ip <b class="mono" data-role="plasma-measured">—</b></p>
                     </section>
-                    <details class="fgroup gauge-settings" id="sec-gauge" open>
-                        <summary>Gauges <span class="mono" data-role="gauge-mode-now">—</span> <span class="mono" data-role="gauge-range-now">—</span></summary>
-                        <div class="frow">
-                            <span class="row-name">Mode</span>
-                            <span class="row-actions">
-                                {% for mode in gauge_modes %}
-                                <button type="button" class="choice" data-role="gauge-mode"
-                                        data-mode="{{ mode }}" aria-pressed="false">{{ mode }}</button>
-                                {% endfor %}
-                            </span>
-                        </div>
-                        <div class="frow">
-                            <span class="row-name">Range</span>
-                            <span class="row-actions">
-                                {% for decade in gauge_range %}
-                                <button type="button" class="choice" data-role="gauge-range"
-                                        data-range="{{ decade }}" aria-pressed="false">1e{{ decade }}</button>
-                                {% endfor %}
-                            </span>
-                        </div>
-                    </details>
-
-
                 </div>
 
         </div>
@@ -298,6 +262,61 @@
             {% endfor %}
             </div>
         </section>
+        </details>
+
+        {# The three settings a shift reaches for rarely, folded away from the
+           two it reaches for constantly. Same elements as before, moved once
+           and not copied, so control.js finds the same data-roles and the
+           gate switches off the same buttons; the ids travel with them, so
+           #sec-sync, #sec-acquisition and #sec-gauge still land, this fold
+           opening on the way. Folded by default, and whether this reader
+           leaves it open is remembered in their own browser. #}
+        <details class="settings-group" data-role="settings-group">
+            <summary>Settings</summary>
+            <section class="rail-card sync-card" aria-label="QMS sync" id="sec-sync">
+                <div class="sync-heading"><h2>QMS sync</h2><strong class="chip" data-role="sync-now">—</strong></div>
+                <div class="sets row-actions" role="group" aria-label="Set QMS sync">
+                    <button type="button" class="choice" data-role="sync" data-on="1" aria-pressed="false">On</button>
+                    <button type="button" class="choice" data-role="sync" data-on="0" aria-pressed="false">Off</button>
+                </div>
+            </section>
+            <div class="operation-setters" aria-label="Instrument settings this browser may set">
+                <div class="sets">
+                    <section class="fgroup" id="sec-acquisition">
+                        <h2>Sampling</h2>
+                        <div class="frow">
+                            <span class="row-actions">
+                                {% for seconds, label in sampling_choices %}
+                                <button type="button" class="choice" data-role="sampling"
+                                        data-seconds="{{ seconds }}" aria-pressed="false">{{ label }}</button>
+                                {% endfor %}
+                            </span>
+                        </div>
+                    </section>
+
+                    <details class="fgroup gauge-settings" id="sec-gauge" open>
+                        <summary>Gauges <span class="mono" data-role="gauge-mode-now">—</span> <span class="mono" data-role="gauge-range-now">—</span></summary>
+                        <div class="frow">
+                            <span class="row-name">Mode</span>
+                            <span class="row-actions">
+                                {% for mode in gauge_modes %}
+                                <button type="button" class="choice" data-role="gauge-mode"
+                                        data-mode="{{ mode }}" aria-pressed="false">{{ mode }}</button>
+                                {% endfor %}
+                            </span>
+                        </div>
+                        <div class="frow">
+                            <span class="row-name">Range</span>
+                            <span class="row-actions">
+                                {% for decade in gauge_range %}
+                                <button type="button" class="choice" data-role="gauge-range"
+                                        data-range="{{ decade }}" aria-pressed="false">1e{{ decade }}</button>
+                                {% endfor %}
+                            </span>
+                        </div>
+                    </details>
+                </div>
+            </div>
         </details>
         <details class="run-details">
             <summary>This run</summary>

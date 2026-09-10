@@ -840,9 +840,16 @@ def test_control_combines_setters_feedback_and_shared_live_charts(control):
     access = control[control.index('aria-label="Access and display"'):]
     assert main.count('data-role="zero-now"') == 3
     assert 'class="chart-zero sets"' in main
-    for role in ("acq-start", "acq-stop", "mfc-set", "plasma-set",
-                 "sampling", "gauge-mode", "sync", "stop-all"):
+    # The left rail is the gas and the plasma, the two a shift has its hand
+    # on all day; the three it reaches for rarely stand in the right rail's
+    # folded Settings group (queezz, 2026-09-10: "the left becomes
+    # gas/plasma real control").
+    for role in ("acq-start", "acq-stop", "mfc-set", "plasma-set", "stop-all"):
         assert 'data-role="{}"'.format(role) in operations
+        assert 'data-role="{}"'.format(role) not in main
+    for role in ("sampling", "gauge-mode", "gauge-range", "sync"):
+        assert 'data-role="{}"'.format(role) in access
+        assert 'data-role="{}"'.format(role) not in operations
         assert 'data-role="{}"'.format(role) not in main
     for role in ("mfc-setpoint", "mfc-measured", "plasma-setpoint"):
         assert 'data-role="{}"'.format(role) in operations
@@ -882,6 +889,86 @@ def test_each_of_the_run_s_facts_is_read_in_exactly_one_place(control):
     for fact in ("samples", "file", "started", "hardware"):
         assert control.count('data-fact="{}"'.format(fact)) == 1
     assert control.count('data-role="sampling-now"') == 1
+
+
+def test_the_left_rail_is_the_run_the_gas_and_the_plasma_and_nothing_else(control):
+    """queezz, 2026-09-10, looking at 4.11.2 on the rig: "Left rail got a bit
+    crowded. QMS signal, sampling, and IG panel can stay on the right, and I
+    don't use those often. And then the left becomes gas/plasma real
+    control." Four things stand there now, in operating order."""
+    rail = control[control.index('id="live-controls"'):]
+    rail = rail[:rail.index("<main")]
+    assert 'id="sec-gas"' in rail
+    assert 'id="sec-plasma"' in rail
+    # And the three that moved are not in it any more.
+    for anchor in ("sec-sync", "sec-acquisition", "sec-gauge"):
+        assert 'id="{}"'.format(anchor) not in rail
+    order = [
+        rail.index('data-role="acq-start"'),
+        rail.index('id="sec-gas"'),
+        rail.index('id="sec-plasma"'),
+        rail.index('data-role="stop-all"'),
+    ]
+    assert order == sorted(order)
+
+
+def test_settings_folds_the_three_a_shift_reaches_for_rarely(control):
+    """One group, after Display and before This run, folded until pressed."""
+    right = control[control.index('id="live-context"'):]
+    groups = [
+        right.index("<summary>Operator and access"),
+        right.index("<summary>Display</summary>"),
+        right.index("<summary>Settings</summary>"),
+        right.index("<summary>This run</summary>"),
+    ]
+    assert groups == sorted(groups)
+
+    settings = right[right.index('<details class="settings-group"'):]
+    settings = settings[: settings.index("<summary>This run</summary>")]
+    # The group itself is shut; the Gauges fold inside it keeps its own open
+    # state, so opening Settings shows the mode and range at once.
+    assert settings[: settings.index(">")] == (
+        '<details class="settings-group" data-role="settings-group"'
+    )
+    for anchor in ("sec-sync", "sec-acquisition", "sec-gauge"):
+        assert 'id="{}"'.format(anchor) in settings
+    # In that order, and each still gated by the blanket that names `.sets`.
+    inside = [settings.index('id="sec-{}"'.format(name))
+              for name in ("sync", "acquisition", "gauge")]
+    assert inside == sorted(inside)
+    assert 'class="sets row-actions"' in settings
+    assert 'class="sets"' in settings
+
+
+def test_nothing_moved_into_settings_is_left_behind_as_a_copy(control):
+    """One DOM, moved rather than duplicated (fleet's WEBUI.md), so the
+    wiring and the gate cannot drift from a twin."""
+    for anchor in ("sec-sync", "sec-acquisition", "sec-gauge"):
+        assert control.count('id="{}"'.format(anchor)) == 1
+    assert control.count('data-role="sync-now"') == 1
+    assert control.count('data-role="gauge-mode-now"') == 1
+    assert control.count('data-role="gauge-range-now"') == 1
+    assert control.count('data-role="settings-group"') == 1
+    assert control.count("<summary>Settings</summary>") == 1
+
+
+def test_the_settings_fold_is_remembered_in_this_browser_and_only_there():
+    """Folded for a browser that has never opened it, and for one that
+    stores nothing at all; read before the deep link, so a link into a moved
+    section still opens the fold on its way in."""
+    script = _control_js()
+    assert '"controlunit.settings.open"' in script
+    fold = script[script.index("function setupSettingsFold"):]
+    fold = fold[: fold.index("function setupCathodeMode")]
+    assert "window.localStorage.getItem(SETTINGS_KEY)" in fold
+    assert "window.localStorage.setItem(SETTINGS_KEY" in fold
+    assert fold.count("catch (e)") == 2
+    wiring = script[script.index("function wire() {"):script.index("function revealSection")]
+    assert "setupSettingsFold();" in wiring
+    opening = script[script.index("function setup() {"):]
+    assert opening.index("wire();") < opening.index("revealSection();")
+    # Nothing is sent to the rig by folding or unfolding a group.
+    assert "send(" not in fold
 
 
 def _control_js():

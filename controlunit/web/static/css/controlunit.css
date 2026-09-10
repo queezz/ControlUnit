@@ -1394,6 +1394,20 @@ body[data-mode="monitor"] .rail .rail-card {
   flex: 0 0 auto;
 }
 
+/* The Settings group's own groups go the same way its QMS sync card just
+   did: the drawer is already the bounded panel, so their frames come off and
+   they stand flush, hairline apart, like every other section in here. Their
+   tint stays — that is what tells Sampling from Gauges at a glance, and a
+   background is not a frame. */
+body[data-mode="monitor"] .rail .operation-setters > .sets { gap: 0; }
+
+body[data-mode="monitor"] .rail .operation-setters .fgroup {
+  border: 0;
+  border-top: 1px solid var(--line-soft);
+  border-radius: 0;
+  padding: 14px 18px;
+}
+
 body[data-mode="monitor"] .drawer-close {
   display: block;
   margin: 0 18px 4px auto;
@@ -1465,7 +1479,13 @@ body[data-mode="monitor"] .control-workspace > .rail-left,
 body[data-mode="observe"] .chart-zero,
 body[data-mode="monitor"] .chart-zero,
 body[data-mode="observe"] .access-card,
-body[data-mode="monitor"] .access-card { display: none; }
+body[data-mode="monitor"] .access-card,
+/* Settings holds three setters — QMS sync, sampling, gauges — that moved
+   here from the left rail in 4.12.0. Observe is the mode that hides what
+   drives the rig, so it hides these too; Monitor keeps them, because there
+   the whole right rail is a drawer summoned from its own edge and this is
+   the only place those three can be reached at all. */
+body[data-mode="observe"] .settings-group { display: none; }
 body[data-mode="monitor"] .page.control-workspace { display: grid; grid-template-columns: minmax(0, 1fr); }
 @media (max-width: 1199px) {
   body[data-mode="observe"] .control-workspace { grid-template-columns: minmax(0, 1fr); }

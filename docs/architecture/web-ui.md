@@ -476,9 +476,15 @@ of the response can tell which question was asked.
     from the first paint, because that answer needs nobody.
 - **Operation on Live** — from 4.7.0, operation controls and their held/measured
   outputs stand beside the same live readouts and charts used by Live.
-  Start/Stop, QMS sync, sampling, gas flow and the cathode have distinct
-  cards in the left rail. Gauge mode and range start open beneath their
-  summary.
+  **The left rail is the gas and the plasma**, from 4.12.0: Start/Stop with
+  its access line, Gas flow, Cathode, Stop all outputs, and nothing else.
+  QMS sync, Sampling and Gauges stood there too until the owner looked at
+  4.11.2 on the rig (2026-09-10): *"Left rail got a bit crowded. QMS signal,
+  sampling, and IG panel can stay on the right, and I don't use those often.
+  And then the left becomes gas/plasma real control."* The three moved,
+  whole, into the right rail — the same elements, not copies, so the wiring
+  and the gate still find one of each — and their anchors moved with them,
+  so `#sec-sync`, `#sec-acquisition` and `#sec-gauge` still land.
 
   **The Cathode group offers the two ways the rig can drive its filament**
   (owner direction 2026-09-09, "I want two modes"). *PID* is the plasma-current
@@ -491,11 +497,25 @@ of the response can tell which question was asked.
   stated once, on the group's own feedback line, so the buttons never move on
   their own when somebody else sets the rig. Baseline zero buttons sit in the corresponding plot headers (4.7.2). Stop all outputs remains independently available.
 
-  The right rail holds operator/access setup, display choices and run
-  details. Access starts open when the browser needs a name, the lab word,
-  or the rig's Remote switch. Name and word remain outside the gated
-  setters. Readout size sits beside the readouts. Display retains window, median, fast polling and
+  The right rail holds four folded groups, in this order: **Operator and
+  access**, **Display**, **Settings** and **This run**. Access starts open
+  when the browser needs a name, the lab word, or the rig's Remote switch.
+  Name and word remain outside the gated setters. Readout size sits beside
+  the readouts. Display retains window, median, fast polling and
   presets; each pressure chart retains its own axis switches and pills.
+
+  **Settings** is the group the three moved setters live in from 4.12.0 —
+  QMS sync with its own state pill, Sampling, and Gauges with mode and
+  range. It is folded by default, because a shift does not touch it, and
+  whether this reader left it open is remembered in their own browser
+  (`controlunit.settings.open`, wrapped in try/catch: a browser that stores
+  nothing simply starts folded every time). A deep link into one of its
+  sections still wins over that memory — `revealSection` opens every
+  `<details>` between the page and the target, so `#sec-gauge` inside the
+  Gauges fold inside the Settings fold inside the rail lands with both open.
+  Observe hides Settings, being the mode that hides what drives the rig;
+  Monitor keeps it, because there the whole right rail is a drawer summoned
+  from its own edge and that drawer is the only way to reach those three.
   Since 4.8.0 this is the unified Live surface: Operate shows the controls,
   Observe hides hardware controls, and Monitor gives readings the window.
   Modes switch in place without clearing browser history or changing outputs.

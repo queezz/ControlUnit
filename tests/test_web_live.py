@@ -615,6 +615,53 @@ def test_the_rails_are_the_same_rails_summoned_from_their_own_edge():
     assert 'body[data-mode="monitor"] .rail.drawer-open' in css
 
 
+def test_settings_is_reachable_in_monitor_and_stands_aside_in_observe():
+    """The three setters that moved into the right rail in 4.12.0 travel with
+    it: Monitor summons that rail as a drawer, which is the only way to reach
+    them there, and Observe is the mode that hides what drives the rig."""
+    css = _client().get("/static/css/controlunit.css").get_data(as_text=True)
+    assert 'body[data-mode="observe"] .settings-group { display: none; }' in css
+    assert 'body[data-mode="monitor"] .settings-group' not in css
+    # And inside that drawer its groups lose their frames the way every other
+    # card in there already does: the drawer is the bounded panel.
+    assert 'body[data-mode="monitor"] .rail .operation-setters .fgroup {' in css
+    # The drawer the mode's own strip summons is the rail Settings is in.
+    page = _client().get("/?mode=monitor").get_data(as_text=True)
+    assert 'data-drawer="live-context"' in page
+    rail = page[page.index('id="live-context"'):]
+    assert 'class="settings-group"' in rail
+    for role in ("sync", "sampling", "gauge-mode", "gauge-range"):
+        assert page.count('data-role="{}"'.format(role)) >= 1
+    # And the left rail, which Monitor hides outright, no longer holds them.
+    left = page[page.index('id="live-controls"'):page.index("<main")]
+    for role in ("sync", "sampling", "gauge-mode", "gauge-range"):
+        assert 'data-role="{}"'.format(role) not in left
+
+
+def test_the_moved_sections_still_land_and_open_their_fold():
+    """`revealSection` opens every <details> between the page and the target,
+    so #sec-gauge inside the Settings fold inside the rail still lands."""
+    page = _client().get("/").get_data(as_text=True)
+    for anchor in ("sec-sync", "sec-acquisition", "sec-gauge"):
+        assert page.count('id="{}"'.format(anchor)) == 1
+    source = _control_js()
+    reveal = source[source.index("function revealSection"):]
+    reveal = reveal[:reveal.index("function setup()")]
+    assert 'if (parent.tagName === "DETAILS") parent.open = true;' in reveal
+    assert "while (parent && parent !== root)" in reveal
+    css = _client().get("/static/css/controlunit.css").get_data(as_text=True)
+    assert '[id^="sec-"] {' in css
+
+
+def _control_js():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    return (
+        root / "controlunit" / "web" / "static" / "js" / "control.js"
+    ).read_text(encoding="utf-8")
+
+
 def test_the_view_card_teaches_the_one_thing_its_rows_cannot_say():
     """A data surface states and one line teaches, once for the whole
     surface: that a mode is in the address is what a reader cannot see from
