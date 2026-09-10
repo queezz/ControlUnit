@@ -224,6 +224,19 @@ of the response can tell which question was asked.
 
 ## Tabs
 
+The page explains nothing about itself: what a chip or a choice means is
+written here and not in a card beside the controls (queezz, 2026-09-10,
+on the "Reading this page" card 4.12.0 still carried: "the towel of
+explanation text belongs in docs or in pihti-log, not in a card of control
+UI"). What that card used to say, kept here: the data chip reads `stale`
+after `stale_after` seconds without a sample (five sampling periods, never
+under two seconds; `/api/state` carries the number) and `idle` when
+acquisition is off; a mode stays in the address, so a screen can be
+bookmarked; Median smooths the curves and the readouts together; `Full`
+is what this browser has seen and `fast` polling is forgotten on reload;
+baselines change what is shown while the data file keeps the signal as
+measured, and a readout with a baseline held says `zeroed` beside its name.
+
 - **Live** — the five signals the rig's own graph draws, in its own pen
   colours, as readouts and three canvas strip charts: plasma current, the
   ion gauges (log axis by default) and the Baratrons (linear by default).
@@ -490,12 +503,38 @@ of the response can tell which question was asked.
   (owner direction 2026-09-09, "I want two modes"). *PID* is the plasma-current
   loop: a setpoint in amperes, and the loop moves the DAC. *Manual* is the knob:
   a millivolt value the DAC holds with the PID off, typed or nudged by
-  ±1000/100/10/1 mV like a gas line, sent only on Set. The Mode buttons are a
-  view choice remembered in the browser — they send nothing, and only one
-  setter row is shown at a time. Which of the two is actually holding the
-  cathode is read from `setpoints.plasma_a` and `setpoints.cathode_mv` and
-  stated once, on the group's own feedback line, so the buttons never move on
-  their own when somebody else sets the rig. Baseline zero buttons sit in the corresponding plot headers (4.7.2). Stop all outputs remains independently available.
+  ±1000/100/10/1 mV like a gas line, sent only on Set. The mode is a view
+  choice remembered in the browser — it sends nothing, and only one setter row
+  is shown at a time. Which of the two is actually holding the cathode is read
+  from `setpoints.plasma_a` and `setpoints.cathode_mv` and stated once, on the
+  group's own feedback line, so the switch never moves on its own when
+  somebody else sets the rig. Baseline zero buttons sit in the corresponding plot headers (4.7.2). Stop all outputs remains independently available.
+
+  **The mode switch is one control on the group's own heading line**, from
+  4.13.0 (owner direction 2026-09-10, looking at 4.12.0 on the rig: *"Can we
+  make Cathode / mode PID Manual bit better? I.e. one line: Cathode PID/Manual
+  toggle? Also for toggles I like visual toggles, not two buttons which happen
+  to be linked under the hood in the code."*). The separate Mode row is gone:
+  the word **Cathode** stands at the left of the heading row and a segmented
+  pill at the right of it — one rounded track, one border, the two labels
+  inside it, and a filled thumb that slides under the chosen one in 170 ms.
+  It is written as a reusable component (`.seg-toggle`, `.seg-thumb`,
+  `.seg-option`) so the next two-state control on this page wears the same
+  thing; the Cathode mode is the only one wearing it today.
+
+  Under the pill the two sides remain real `<button>`s carrying
+  `aria-pressed`, inside the block the gate's `.sets` blanket names — so Tab
+  reaches them, Enter and Space press them, a screen reader is told which
+  holds, and a closed gate switches the whole switch off exactly as it
+  switched off the two buttons. `aria-pressed` is the only state the script
+  writes: the thumb's position is derived from it in CSS
+  (`.seg-toggle:has(> .seg-option:last-child[aria-pressed="true"])`), by
+  position rather than by the cathode's own words, so there is no second
+  place for the switch to drift from what the keyboard is told. Both labels
+  carry one font weight, because a bolder chosen label would change the
+  track's width as it was pressed, and this row's height and the group's
+  width must not move between states. The page's `prefers-reduced-motion`
+  blanket already drops the slide.
 
   The right rail holds four folded groups, in this order: **Operator and
   access**, **Display**, **Settings** and **This run**. Access starts open
@@ -506,10 +545,14 @@ of the response can tell which question was asked.
 
   **Settings** is the group the three moved setters live in from 4.12.0 —
   QMS sync with its own state pill, Sampling, and Gauges with mode and
-  range. It is folded by default, because a shift does not touch it, and
-  whether this reader left it open is remembered in their own browser
-  (`controlunit.settings.open`, wrapped in try/catch: a browser that stores
-  nothing simply starts folded every time). A deep link into one of its
+  range. It shipped folded by default and opens open from 4.13.0 (owner
+  direction 2026-09-10: *"I don't like IGs hidden by default. But hiding
+  possibility is a right shape, sure."*): the fold stays, and folding it is
+  the reader's own act. Whether this reader folded it is remembered in their
+  own browser (`controlunit.settings.open`, wrapped in try/catch). Only a
+  browser that has actually chosen overrides the template's own `open`, so
+  one that stores nothing — a private window, site data blocked — simply
+  starts open every time. A deep link into one of its
   sections still wins over that memory — `revealSection` opens every
   `<details>` between the page and the target, so `#sec-gauge` inside the
   Gauges fold inside the Settings fold inside the rail lands with both open.

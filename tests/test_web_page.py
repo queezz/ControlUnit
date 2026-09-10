@@ -112,7 +112,7 @@ def test_live_offers_the_smoothing_the_current_needs(live):
         assert 'data-smooth="{}"'.format(samples) in live
     assert live.count('data-scale-ig="log"') == 1
     assert live.count('data-scale-bar="lin"') == 1
-    assert live.count("Median smooths the curves and the readouts.") == 1
+    assert "Median smooths the curves and the readouts." not in live
 
 
 def test_a_readout_card_is_a_name_a_number_a_unit_and_one_tag(live):
@@ -143,8 +143,8 @@ def test_nothing_on_a_card_lectures_or_reserves_a_line(live):
     assert "measurement-note" not in live
 
 
-def test_the_zero_is_explained_in_exactly_one_place(live):
-    assert live.count("the data file keeps the signal as measured") == 1
+def test_the_zero_is_explained_in_the_docs_not_on_the_page(live):
+    assert "the data file keeps the signal as measured" not in live
 
 
 def test_the_readout_cards_carry_their_own_pen(live):
@@ -153,8 +153,8 @@ def test_the_readout_cards_carry_their_own_pen(live):
         assert "--pen: {}".format(colour) in live
 
 
-def test_the_window_says_once_that_full_is_this_browser(live):
-    assert live.count("Full is what this browser has seen") == 1
+def test_the_window_does_not_explain_full_on_the_page(live):
+    assert "Full is what this browser has seen" not in live
 
 
 def test_live_offers_the_same_windows_as_the_rig(live):
@@ -175,7 +175,7 @@ def test_live_offers_a_readout_size_and_a_poll_rate(live):
     assert 'data-poll="fast"' in live
     # That the fast poll does not survive a reload is said once, on the
     # card's own heading line, and nowhere else on the page.
-    assert live.count("forgotten on reload") == 1
+    assert "forgotten on reload" not in live
 
 
 def test_the_big_readouts_are_one_class_over_the_same_dom(client, live):
@@ -617,9 +617,10 @@ def test_the_acting_as_field_offers_the_roster_when_this_machine_has_one(tmp_pat
     assert '<input type="text" id="actor-name"' not in card
 
 
-def test_the_data_states_are_explained_in_exactly_one_place(live):
+def test_the_data_states_are_not_explained_on_the_page(live):
+    """The chip states; the docs explain (queezz, 2026-09-10)."""
     for meaning in ("without a sample", "when acquisition is off"):
-        assert live.count(meaning) == 1
+        assert meaning not in live
 
 
 def test_saved_roster_identity_matches_normalized_option_on_reload(tmp_path):
@@ -637,13 +638,12 @@ def test_saved_roster_identity_matches_normalized_option_on_reload(tmp_path):
     assert 'data-role="actor-summary">{}</span>'.format(label) in page
 
 
-def test_the_rail_card_that_explains_the_pills_carries_none(live):
-    """The pills state at the head of the column; the rail teaches beside
-    them. A second copy of a chip inside the words that explain it is the
-    duplicate this house has been corrected for more than once."""
-    card = live[live.index('class="rail-label">Reading this page<'):]
-    card = card[:card.index("</section>")]
-    assert 'class="chip' not in card
+def test_the_rail_carries_no_explainer_card(live):
+    """The reasoning lives in the docs, never in a card of the control
+    surface (queezz, 2026-09-10: "the towel of explanation text belongs in
+    docs or in pihti-log, not in a card of control UI")."""
+    assert "Reading this page" not in live
+    assert 'data-role="stale-after"' not in live
 
 
 def test_the_head_of_the_column_carries_the_two_readings(live):
@@ -912,8 +912,76 @@ def test_the_left_rail_is_the_run_the_gas_and_the_plasma_and_nothing_else(contro
     assert order == sorted(order)
 
 
-def test_settings_folds_the_three_a_shift_reaches_for_rarely(control):
-    """One group, after Display and before This run, folded until pressed."""
+def test_the_cathode_heading_carries_its_mode_switch_on_one_line(control):
+    """queezz, 2026-09-10, looking at 4.12.0 on the rig: "Can we make Cathode
+    / mode PID Manual bit better? I.e. one line: Cathode PID/Manual toggle?"
+    The Mode row is gone; the word Cathode and the switch share the group's
+    own heading line."""
+    plasma = control[control.index('id="sec-plasma"'):]
+    plasma = plasma[: plasma.index("</section>")]
+    head = plasma[plasma.index('class="group-head"'):plasma.index("</div>")]
+    assert "<h2>Cathode</h2>" in head
+    assert 'class="seg-toggle"' in head
+    assert head.count('data-role="cathode-mode"') == 2
+    # No row of its own any more, and no name in the row-name column for it.
+    assert ">Mode</span>" not in plasma
+    assert plasma.index('class="group-head"') < plasma.index("cathode-pid-row")
+
+
+def test_the_mode_switch_is_one_control_the_keyboard_and_the_gate_reach(control):
+    """queezz, same message: "for toggles I like visual toggles, not two
+    buttons which happen to be linked under the hood in the code." One track,
+    one thumb — and still two real buttons carrying aria-pressed, so Tab
+    reaches them and the `.sets` blanket switches them off."""
+    plasma = control[control.index('id="sec-plasma"'):]
+    plasma = plasma[: plasma.index("</section>")]
+    head = plasma[plasma.index('class="group-head"'):plasma.index("</div>")]
+    assert 'role="group" aria-label="Cathode mode"' in head
+    assert head.count('class="seg-thumb"') == 1
+    assert head.count("<button type=") == 2
+    assert 'aria-pressed="true">PID<' in head
+    assert 'aria-pressed="false">Manual<' in head
+    # Inside the block the gate names, exactly as the two buttons were.
+    sets = control[control.index('class="sets"'):control.index("<main")]
+    assert 'class="seg-toggle"' in sets
+
+
+def test_the_segmented_switch_is_a_component_and_not_this_group_s_dressing(client):
+    """Built so the next two-state control on this page wears the same thing:
+    the thumb follows aria-pressed by position, never by the cathode's own
+    words, and the track keeps one border around both sides."""
+    css = client.get("/static/css/controlunit.css").get_data(as_text=True)
+    rules = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+
+    def block(selector):
+        start = rules.index(selector + " {")
+        return rules[start:rules.index("}", start)]
+
+    # No rule in this component knows what the Cathode's two sides are called.
+    assert "data-cathode-mode" not in rules
+    assert (
+        '.seg-toggle:has(> .seg-option:last-child[aria-pressed="true"])'
+        " .seg-thumb {" in rules
+    )
+    track = block(".seg-toggle")
+    assert "border: 1px solid var(--line)" in track
+    # The halves are equal, so the thumb's travel is its own width and the
+    # track's width cannot change with the choice.
+    assert "grid-template-columns: repeat(2, minmax(0, 1fr))" in track
+    option = block(".seg-option")
+    assert "border: 0" in option
+    # One weight on both sides: pressing must not reflow the heading row.
+    assert "font-weight" in option
+    assert "font-weight" not in block('.seg-option[aria-pressed="true"]')
+    # The thumb slides, and the page's reduced-motion blanket already stops it.
+    assert "transition: transform" in block(".seg-thumb")
+    assert "* { transition: none !important; animation: none !important; }" in css
+
+
+def test_settings_gathers_the_three_a_shift_reaches_for_rarely(control):
+    """One group, after Display and before This run — open on arrival, and
+    foldable (queezz, 2026-09-10: "I don't like IGs hidden by default. But
+    hiding possibility is a right shape, sure.")."""
     right = control[control.index('id="live-context"'):]
     groups = [
         right.index("<summary>Operator and access"),
@@ -925,10 +993,10 @@ def test_settings_folds_the_three_a_shift_reaches_for_rarely(control):
 
     settings = right[right.index('<details class="settings-group"'):]
     settings = settings[: settings.index("<summary>This run</summary>")]
-    # The group itself is shut; the Gauges fold inside it keeps its own open
-    # state, so opening Settings shows the mode and range at once.
+    # The group arrives open; the Gauges fold inside it is open too, so the
+    # mode and the range are read without a second press.
     assert settings[: settings.index(">")] == (
-        '<details class="settings-group" data-role="settings-group"'
+        '<details class="settings-group" data-role="settings-group" open'
     )
     for anchor in ("sec-sync", "sec-acquisition", "sec-gauge"):
         assert 'id="{}"'.format(anchor) in settings
@@ -953,15 +1021,20 @@ def test_nothing_moved_into_settings_is_left_behind_as_a_copy(control):
 
 
 def test_the_settings_fold_is_remembered_in_this_browser_and_only_there():
-    """Folded for a browser that has never opened it, and for one that
-    stores nothing at all; read before the deep link, so a link into a moved
-    section still opens the fold on its way in."""
+    """Open for a browser that has never touched it, and for one that stores
+    nothing at all; folded only for a browser that folded it. Read before the
+    deep link, so a link into a moved section still opens the fold on its way
+    in."""
     script = _control_js()
     assert '"controlunit.settings.open"' in script
     fold = script[script.index("function setupSettingsFold"):]
     fold = fold[: fold.index("function setupCathodeMode")]
     assert "window.localStorage.getItem(SETTINGS_KEY)" in fold
     assert "window.localStorage.setItem(SETTINGS_KEY" in fold
+    # Only a browser that has actually chosen overrides the template's own
+    # `open`; a missing key leaves the group exactly as the page shipped it.
+    assert 'if (chosen !== null) group.open = chosen === "1";' in fold
+    assert "group.open = window.localStorage" not in fold
     assert fold.count("catch (e)") == 2
     wiring = script[script.index("function wire() {"):script.index("function revealSection")]
     assert "setupSettingsFold();" in wiring

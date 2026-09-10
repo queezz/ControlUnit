@@ -61,18 +61,30 @@
                        "I want two modes: 1) PID 2) just give me a set
                        current, I want my knob"). PID holds a plasma current
                        and moves the DAC for you; Manual holds the DAC where
-                       you put it. The Mode buttons choose which setter this
-                       browser is shown and send nothing at all; what is
+                       you put it. Choosing a side picks which setter this
+                       browser is shown and sends nothing at all; what is
                        actually driving is the one feedback line below, read
-                       from the rig, so the buttons never move on their own. #}
+                       from the rig, so the switch never moves on its own.
+
+                       One line, one switch (queezz, 2026-09-10, looking at
+                       4.12.0: "Can we make Cathode / mode PID Manual bit
+                       better? I.e. one line: Cathode PID/Manual toggle? Also
+                       for toggles I like visual toggles, not two buttons
+                       which happen to be linked under the hood in the
+                       code."). The Mode row is gone; the segmented pill
+                       rides on the heading's own line, one track with a
+                       thumb under the chosen side. Its two sides are still
+                       real buttons inside `.sets`, so the keyboard reaches
+                       them and the gate switches them off with everything
+                       else. #}
                     <section class="fgroup" id="sec-plasma">
-                        <h2>Cathode</h2>
-                        <div class="frow">
-                            <span class="row-name">Mode</span>
-                            <span class="row-actions">
-                                <button type="button" class="choice" data-role="cathode-mode"
+                        <div class="group-head">
+                            <h2>Cathode</h2>
+                            <span class="seg-toggle" role="group" aria-label="Cathode mode">
+                                <span class="seg-thumb" aria-hidden="true"></span>
+                                <button type="button" class="seg-option" data-role="cathode-mode"
                                         data-cathode-mode="pid" aria-pressed="true">PID</button>
-                                <button type="button" class="choice" data-role="cathode-mode"
+                                <button type="button" class="seg-option" data-role="cathode-mode"
                                         data-cathode-mode="manual" aria-pressed="false">Manual</button>
                             </span>
                         </div>
@@ -264,14 +276,18 @@
         </section>
         </details>
 
-        {# The three settings a shift reaches for rarely, folded away from the
-           two it reaches for constantly. Same elements as before, moved once
-           and not copied, so control.js finds the same data-roles and the
-           gate switches off the same buttons; the ids travel with them, so
-           #sec-sync, #sec-acquisition and #sec-gauge still land, this fold
-           opening on the way. Folded by default, and whether this reader
-           leaves it open is remembered in their own browser. #}
-        <details class="settings-group" data-role="settings-group">
+        {# The three settings a shift reaches for rarely, gathered where they
+           can be folded away from the two it reaches for constantly. Same
+           elements as before, moved once and not copied, so control.js finds
+           the same data-roles and the gate switches off the same buttons; the
+           ids travel with them, so #sec-sync, #sec-acquisition and #sec-gauge
+           still land, this fold opening on the way.
+
+           Open by default (queezz, 2026-09-10, looking at 4.12.0: "I don't
+           like IGs hidden by default. But hiding possibility is a right
+           shape, sure."): the group still folds, and a browser that has
+           folded it stays folded on the next reload. #}
+        <details class="settings-group" data-role="settings-group" open>
             <summary>Settings</summary>
             <section class="rail-card sync-card" aria-label="QMS sync" id="sec-sync">
                 <div class="sync-heading"><h2>QMS sync</h2><strong class="chip" data-role="sync-now">—</strong></div>
@@ -334,13 +350,6 @@
             </dl>
         </section>
 
-            <section aria-label="Reading this page">
-            <h2 class="rail-label">Reading this page</h2>
-            <p class="muted">Stale after <span data-role="stale-after">{{ '%g' % state.data.stale_after }}</span> s without a sample; idle when acquisition is off.</p>
-            <p class="muted">a mode stays in the address, so a screen can be bookmarked</p>
-            <p class="muted">Median smooths the curves and the readouts. Full is what this browser has seen; fast is forgotten on reload.</p>
-            <p class="muted">Baselines change what is shown; the data file keeps the signal as measured. A readout with a baseline held says zeroed beside its name.</p>
-            </section>
         </details>
     </aside>
 </div>

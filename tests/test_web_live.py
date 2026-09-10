@@ -662,15 +662,13 @@ def _control_js():
     ).read_text(encoding="utf-8")
 
 
-def test_the_view_card_teaches_the_one_thing_its_rows_cannot_say():
-    """A data surface states and one line teaches, once for the whole
-    surface: that a mode is in the address is what a reader cannot see from
-    the buttons, and it is said nowhere else on this page."""
+def test_the_page_does_not_explain_itself():
+    """The reasoning is in the docs, never in a card of the control surface
+    (queezz, 2026-09-10: "the towel of explanation text belongs in docs or
+    in pihti-log, not in a card of control UI")."""
     page = _client().get("/").get_data(as_text=True)
-    assert page.count("a mode stays in the address, so a screen can be bookmarked") == 1
-    # And nothing here explains a second time what the zero card already
-    # teaches about the page and the file.
-    assert page.count("the data file keeps the signal as measured") == 1
+    assert "a mode stays in the address" not in page
+    assert "the data file keeps the signal as measured" not in page
 
 
 def test_the_mode_lives_in_the_address_so_back_and_reload_keep_it():

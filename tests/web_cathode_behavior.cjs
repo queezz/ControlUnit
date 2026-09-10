@@ -1,7 +1,14 @@
 /* The Cathode group: two modes for one filament.
  *
- * Mode is a view choice and never a command — pressing PID or Manual must
- * send nothing at all. The manual drive is a draft row like the gas lines:
+ * Mode is a view choice and never a command — pressing either side of the
+ * heading's switch must send nothing at all. From 4.13.0 the two sides are
+ * the halves of one segmented pill rather than two buttons standing side by
+ * side, and `aria-pressed` is the only state the script writes: the thumb
+ * slides under whichever side carries it, in CSS. So what is asserted here
+ * is unchanged and deliberately so — the switch's position, the keyboard's
+ * reading of it, and which setter row is shown are one fact, not three.
+ *
+ * The manual drive is a draft row like the gas lines:
  * steps move the box, Set sends it, and a poll arriving mid-edit leaves the
  * reader's typing alone. What is actually driving is read from the rig, so
  * the feedback line is checked against all three of its states.
@@ -103,7 +110,8 @@ test('mode is a view choice: it shows one setter row and sends nothing', () => {
     const d = build();
     d.api.setupCathodeMode();
 
-    // Default is PID, on a browser that has never chosen.
+    // Default is PID, on a browser that has never chosen. Exactly one side
+    // ever holds: the thumb has one place to be.
     assert.equal(d.modes[0].attrs['aria-pressed'], 'true');
     assert.equal(d.modes[1].attrs['aria-pressed'], 'false');
     assert.equal(d.pidRow.hidden, false);

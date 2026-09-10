@@ -1,3 +1,9 @@
+## 4.12.1 — 2026-09-10
+
+- The Cathode group's heading is one line, "Cathode" with a PID | Manual switch beside it: one pill with a sliding thumb, not two buttons linked in code (queezz, 2026-09-10: "for toggles I like visual toggles"). Built as a reusable component for the page's other two-state choices.
+- Settings in the right rail is open by default and still folds, remembered per browser ("I don't like IGs hidden by default").
+- The "Reading this page" card is gone; its sentences live in the Web View docs ("the towel of explanation text belongs in docs or in pihti-log, not in a card of control UI").
+
 ## 4.12.0 — 2026-09-10
 
 - The left rail is the real control: Start/Stop, Gas flow, Cathode, Stop all outputs. QMS sync, Sampling and Gauges moved into a folded Settings group in the right rail, after Display, folded by default and remembered per browser (queezz, 2026-09-10: "I don't use those often"). Observe hides it; Monitor reaches it through the right-rail drawer. Deep links to the moved sections still land and open the fold.

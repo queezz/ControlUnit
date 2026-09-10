@@ -253,7 +253,12 @@
        command: pressing PID or Manual sends nothing, and the rig is not told
        about it. Kept per browser, because which knob a person reaches for is
        theirs and not the rig's; a browser that stores nothing simply starts
-       on PID every time. */
+       on PID every time.
+
+       `aria-pressed` is the only state written: the segmented pill's thumb
+       slides under whichever side carries it, derived in CSS from that one
+       attribute, so there is no second place for the switch's position to
+       drift from what the keyboard and a screen reader are told. */
     var CATHODE_MODE_KEY = "controlunit.cathode.mode";
 
     function readCathodeMode() {
@@ -282,13 +287,16 @@
     }
 
     /* The right rail's Settings group — QMS sync, sampling, gauges — is the
-       one fold on this page whose state is worth keeping: it is folded by
-       default because a shift does not touch it (queezz, 2026-09-10: "I
-       don't use those often"), and a shift that does open it should not have
-       to open it again on the next reload. Kept per browser, like the
-       cathode's mode above and for the same reason: which drawer a person
-       works with open is theirs, not the rig's. A browser that stores
-       nothing simply starts folded every time.
+       one fold on this page whose state is worth keeping. It opens open
+       (queezz, 2026-09-10: "I don't like IGs hidden by default. But hiding
+       possibility is a right shape, sure."), so nothing a shift may want is
+       behind a press it has to discover; folding it is the reader's own act,
+       and a browser that has folded it stays folded on the next reload.
+       Kept per browser, like the cathode's mode above and for the same
+       reason: which drawer a person works with open is theirs, not the
+       rig's. Only a browser that has actually chosen overrides the
+       template's own `open`, so one that stores nothing — a private window,
+       site data blocked — simply starts open every time.
 
        Read before `revealSection`, so a deep link into a moved section still
        wins and opens the fold on its way in. */
@@ -298,7 +306,8 @@
         var group = root.querySelector('[data-role="settings-group"]');
         if (!group) return;
         try {
-            group.open = window.localStorage.getItem(SETTINGS_KEY) === "1";
+            var chosen = window.localStorage.getItem(SETTINGS_KEY);
+            if (chosen !== null) group.open = chosen === "1";
         } catch (e) { /* private windows and blocked storage still operate */ }
         group.addEventListener("toggle", function () {
             try { window.localStorage.setItem(SETTINGS_KEY, group.open ? "1" : "0"); }

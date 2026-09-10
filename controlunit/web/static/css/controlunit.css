@@ -1550,3 +1550,103 @@ body[data-mode="monitor"] .monitor-settings { display: flex; flex-wrap: wrap; ga
 #sec-plasma [data-role="cathode-manual-row"] .row-actions { display: flex; gap: 5px; }
 #sec-plasma [data-role="cathode-manual-row"] .row-actions button { min-height: 38px; }
 .flow-draft-changed [data-role="cathode-set"] { border-color: var(--accent, #e2ad41); }
+
+/* -- a two-state switch, on its group's own heading line ----------------- */
+
+/* queezz, 2026-09-10, looking at 4.12.0 on the rig: "for toggles I like
+   visual toggles, not two buttons which happen to be linked under the hood
+   in the code." So a two-state choice is one track with one border and a
+   thumb that slides under the chosen side — read as a switch, not as a pair.
+   Written as a component rather than as the Cathode group's own dressing, so
+   the next two-state control on this page wears the same thing; the Cathode
+   mode is the only one that wears it today.
+
+   The sides stay real <button>s carrying `aria-pressed`, so Tab reaches them,
+   Enter and Space press them, a screen reader is told which holds, and the
+   `.sets` gate blanket switches them off with every other setter. The thumb
+   follows that same attribute through :has(), so nothing has to be kept in
+   step by hand. */
+.group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.fgroup > .group-head h2 { margin: 0; }
+
+.seg-toggle {
+  position: relative;
+  display: grid;
+  /* Equal halves, so the thumb's own travel is exactly its own width and the
+     track's width never depends on which side is chosen. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  flex: 0 0 auto;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.seg-thumb {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
+  border-radius: 999px;
+  background: var(--accent);
+  pointer-events: none;
+  transition: transform 170ms ease;
+}
+
+/* Second side chosen: the thumb travels its own width, which is exactly one
+   half of the track's inside. Written by position rather than by the Cathode
+   mode's own value, so a second two-state control reusing this component gets
+   the same behaviour with its own words on the two sides. Global
+   `prefers-reduced-motion` above already drops the transition; the thumb
+   still arrives, it just does not slide. */
+.seg-toggle:has(> .seg-option:last-child[aria-pressed="true"]) .seg-thumb {
+  transform: translateX(100%);
+}
+
+.seg-option {
+  position: relative;
+  z-index: 1;
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  /* One weight on both sides. A bolder chosen label would widen the track by
+     a pixel or two as it changed, and this switch sits on a heading row whose
+     size must not move when it is pressed. */
+  font-weight: 600;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.seg-option[aria-pressed="true"] { color: #171a1f; }
+
+/* The unchosen side is still a place to press, and says so before the press. */
+.seg-option:not([aria-pressed="true"]):hover:not(:disabled) {
+  color: var(--fg);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* The base button rule drops the outline and paints a border instead; this
+   one has no border of its own, so it draws its own ring inside the track. */
+.seg-option:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.seg-option:hover, .seg-option:disabled:hover { border-color: transparent; }
+
+/* Shut by the gate: the whole switch dims once, rather than each half of it
+   dimming separately and reading as two controls again. */
+.seg-option:disabled { opacity: 1; }
+.seg-toggle:has(.seg-option:disabled) { opacity: 0.45; }
