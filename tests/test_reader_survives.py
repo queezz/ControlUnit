@@ -202,7 +202,9 @@ def test_a_conversion_that_never_finishes_raises_instead_of_spinning():
     chip.i2c = StuckBus()
     with pytest.raises(TimeoutError):
         chip.analog_read(0, adc_setter.ADS1115.DataRate.DR_860SPS, 0)
-    assert chip.i2c.reads == adc_setter.ADS1115.MAX_POLLS + 1
+    # Time, rather than a machine-dependent transaction count, bounds a
+    # busy converter now. It yields between polls instead of bus-spinning.
+    assert 1 < chip.i2c.reads < adc_setter.ADS1115.MAX_POLLS
 
 
 # MARK: the main thread's watchdog

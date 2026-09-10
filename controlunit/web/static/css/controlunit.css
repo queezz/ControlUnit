@@ -1650,3 +1650,36 @@ body[data-mode="monitor"] .monitor-settings { display: flex; flex-wrap: wrap; ga
    dimming separately and reading as two controls again. */
 .seg-option:disabled { opacity: 1; }
 .seg-toggle:has(.seg-option:disabled) { opacity: 0.45; }
+
+/* Mobile navigation and compact, independent gas disclosures. */
+.nav-toggle { display: none; }
+.main-tabs { display: flex; align-items: center; }
+#sec-gas .frow { display: block; }
+.gas-disclosure > summary {
+  display: flex; align-items: center; gap: 10px; cursor: pointer;
+  min-height: 44px; border-radius: 6px;
+}
+.gas-disclosure > summary::before { content: '▸'; color: var(--muted); }
+.gas-disclosure[open] > summary::before { content: '▾'; }
+.gas-disclosure > summary::-webkit-details-marker { display: none; }
+.gas-disclosure > summary:hover { background: rgba(255,255,255,0.04); }
+.gas-disclosure > summary:focus-visible { outline: 2px solid var(--accent); }
+.gas-disclosure .flow-readings { margin-left: auto; flex: 1; max-width: 240px; }
+.gas-disclosure .flow-readings b { font-size: 0.9rem; }
+.gas-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding-top: 10px; }
+@media (max-width: 620px) {
+  .tab-group { justify-content: space-between; }
+  .nav-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; }
+  .main-tabs { display: none; position: absolute; top: var(--bar); right: 12px;
+    padding: 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--header); }
+  .nav-toggle[aria-expanded="true"] + .main-tabs { display: flex; flex-direction: column; align-items: stretch; }
+  body:has(.control-workspace) .tabbar { margin-bottom: 0; }
+  .view-toolbar { position: static; order: -2; grid-column: 1 / -1; justify-self: start; align-self: flex-start;
+    margin-bottom: 12px; box-shadow: none; }
+  body[data-mode="monitor"] .container { padding-top: 14px; }
+  .chart--collapsed { padding: 8px 12px; }
+  .chart--collapsed .chart-head { margin-bottom: 4px; }
+  .chart--collapsed .chart-span, .chart--collapsed .chart-zero,
+  .chart--collapsed .chart-scale { display: none; }
+  .chart--collapsed .pen-legend { margin-bottom: 0; min-height: 0; }
+}

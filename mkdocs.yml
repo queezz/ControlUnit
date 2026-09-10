@@ -80,6 +80,8 @@ nav:
   - Record:
       - Archaeology: Archaeology.md
       - History: history.md
+      - Plasma run, September 10: diagnostics/2026-09-10-plasma-reader.md
+      - ADC timing investigation: diagnostics/2026-09-10-adc-timing-optimization.md
   - Architecture:
       - Qt Threading: architecture/qt-threading.md
       - Signal Flow: architecture/signal-flow.md

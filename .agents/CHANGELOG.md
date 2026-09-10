@@ -1,3 +1,19 @@
+## 4.13.0 — 2026-09-10
+
+- ADC sampling follows monotonic deadlines, including processing in the requested period. Overruns skip and count missed slots without fabricating rows or catch-up bursts.
+- Prepare one typed DataFrame per batch, retain numeric history types, and vectorize plot timestamps. Off-device three-row preparation fell from 20.8 to 0.84 ms; rig timing still needs validation.
+- Log bounded timing summaries for ADC stages and main-thread delivery, including slow successful reads and the slowest channel. Ready-bit polling yields and uses an elapsed timeout.
+- Emit completed buffered rows at worker Stop; discard partial scans and averages. Initial batch size follows configured sampling. Application-exit queue flushing remains a separate lifecycle issue.
+- Save the ADC investigation and add an off-device reproducible benchmark. No rig deployment in this session.
+
+## 4.12.2 — 2026-09-10
+
+- Phone navigation puts Log and Lab behind Menu; the view-mode selector starts the page and scrolls away instead of covering the readings.
+- H₂ and O₂ fold independently, remember their folds, and keep applied/measured feedback visible. Draft values survive closing and reopening.
+- Fully collapsed phone plots keep only the title and curve switches, about 71 px high. The curve press restores the plot controls.
+- Reloading an Access deep link now lands its heading below the header.
+- Recorded the September 10 plasma run analysis: 20,257 complete rows through a deliberate Stop, no reported ADC failures or recoveries. Continued acquisition is confirmed; a retry rescue and the earlier I²C fault hypothesis are not established by this run.
+
 ## 4.12.1 — 2026-09-10
 
 - The Cathode group's heading is one line, "Cathode" with a PID | Manual switch beside it: one pill with a sliding thumb, not two buttons linked in code (queezz, 2026-09-10: "for toggles I like visual toggles"). Built as a reusable component for the page's other two-state choices.

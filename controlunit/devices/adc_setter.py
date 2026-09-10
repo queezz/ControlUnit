@@ -3,6 +3,8 @@ Source:
 https://www.y2c.co.jp/i2c-r/aio-32-0ra-irc/raspberrypi-python/
 """
 
+import time
+
 try:
     import smbus
 except ModuleNotFoundError:
@@ -77,19 +79,21 @@ class ADS1115:
 
     i2c = smbus.SMBus(1)
 
-    #: How many times the conversion-ready bit is polled before the read is
-    #: given up as a fault. One poll is one I²C byte read, about a tenth of
-    #: a millisecond; the slowest data rate (8 SPS) needs some 1250 of them,
-    #: so ten thousand is a bound on a chip that has stopped answering
-    #: sensibly, never on a slow one. Without it the loop below spun
-    #: forever on a bus upset by an arc, and the reader could neither
-    #: record nor be stopped.
+    #: Secondary fuse; elapsed monotonic time is the normal timeout. A poll
+    #: count alone depends on bus and CPU speed, so was not a time bound.
     MAX_POLLS = 10000
+    RATES = (8, 16, 32, 64, 128, 250, 475, 860)
+    # Permit four nominal conversion periods, with a 50 ms scheduling margin
+    # at fast rates. OS remains authoritative: no result is read while busy.
+    # This bounds polling, not a kernel I2C call that has not returned.
+    MIN_TIMEOUT = 0.05
 
     def __init__(self, address):
         self.address = address
 
     def analog_read(self, mux, data_rate, pga):
+        conversion_seconds = 1.0 / self.RATES[data_rate]
+        deadline = time.monotonic() + max(self.MIN_TIMEOUT, 4 * conversion_seconds)
         self.i2c.write_word_data(
             self.address,
             self.Register.Config,
@@ -106,12 +110,17 @@ class ADS1115:
         while data & 0x80 == 0:
             data = self.i2c.read_byte_data(self.address, 1)
             polls += 1
-            if polls > self.MAX_POLLS:
+            if data & 0x80:
+                break
+            if time.monotonic() >= deadline or polls > self.MAX_POLLS:
                 raise TimeoutError(
                     "ADS1115 at 0x{:02x} never finished a conversion".format(
                         self.address
                     )
                 )
+            # Yield while the converter is busy instead of hammering the bus
+            # and competing with the GUI for interpreter time.
+            time.sleep(min(0.001, conversion_seconds / 4))
 
         self.i2c.write_byte_data(self.address, self.Register.Conversion, 1)
 

@@ -142,8 +142,10 @@ sibling's *repository* is still a letter.
 - Regenerate `docs/assets/graphviz/runtime_architecture.svg` from its DOT source
   with `scripts/build_graphviz.py` whenever the architecture diagram changes.
 
-Commit directly to `master` when asked, stage paths deliberately, and end every
-agent-written commit with the bare trailer `agent: <the agent that wrote it>`.
+Commit completed, validated work directly to `master` before handing back; do
+not wait for a separate commit request or leave a dirty tree for the next
+session (owner clarification 2026-09-11). Stage paths deliberately, and end
+every agent-written commit with the bare trailer `agent: <the agent that wrote it>`.
 Do not add `Co-Authored-By` trailers or create tags unless the owner asks.
 
 A session pushes `master` when queezz says so in the chat, and not on its

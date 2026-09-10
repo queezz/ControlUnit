@@ -1,6 +1,8 @@
 <nav class="tabbar" aria-label="Main">
     <div class="tab-group">
         <a class="tab brand-tab" href="{{ url_for('live') }}"{% if active == 'live' %} aria-current="page"{% endif %}>ControlUnit <span class="tab-version">v{{ app_version }}</span></a>
+        <button type="button" class="nav-toggle" aria-expanded="false" aria-controls="main-tabs" aria-label="Open navigation">☰ <span>Menu</span></button>
+        <div id="main-tabs" class="main-tabs">
         {% for key, label, endpoint in tabs %}
         {% if endpoint %}
         <a class="tab" href="{{ url_for(endpoint) }}"{% if key == active %} aria-current="page"{% endif %}>{{ label }}</a>
@@ -8,5 +10,6 @@
         <span class="tab tab-later" aria-disabled="true">{{ label }} <span class="tab-mark">soon</span></span>
         {% endif %}
         {% endfor %}
+        </div>
     </div>
 </nav>

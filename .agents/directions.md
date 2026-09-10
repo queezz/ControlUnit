@@ -69,6 +69,39 @@ holds what is still undecided or unbuilt.
 
 ## Ready to build
 
+- Log the cathode's own voltage and current from the Kikusui over LAN
+  (owner decision 2026-09-11: "lan it is then"; he wires the cable and
+  the address himself). Not the J1 monitor pins: they are referenced to
+  the supply's output negative, which floats at cathode potential, and
+  would need a second isolation stage and one more analog path into the
+  ADC board whose I²C bus already fails under an arc. Not the Hall sensor
+  with the ferrite ring: current only, and 30 A of rerouting. Over LAN
+  the supply is transformer-isolated by construction and answers SCPI
+  `MEAS:VOLT?` and `MEAS:CURR?` with its own calibrated numbers.
+  The build: a small worker thread beside the DAC workers that opens a
+  TCP socket to the supply (SCPI port 5025 on the PWR-01 series), asks
+  once per sample, and hands the main thread two numbers the ADC step
+  writes as the `Ci` and `Cv` columns the CSV already has (channels 7 and
+  8, never wired; retire the ADC reads of those two channels and their
+  conversions in `settings.yml`); a read that fails or times out is a
+  NaN in the row and one log line per complaint period, never a dead
+  thread, exactly as the ADC reader now behaves. The address lives in
+  `~/.controlunit/kikusui.yml` on the Pi (host, port, a `dummy: true`
+  for off-rig), never in git; absent file means the columns stay NaN
+  and the log says so once. Kurokawa-kun's 2023 SCPI driver for this
+  supply sits in the repository history under `kurokawa-dev/PWR.py`;
+  worth reading for the command set, not for reuse. The web readouts
+  gain nothing until the columns carry numbers; the Cathode group's
+  Measured cell already reads `Cv`, so it will simply start showing volts.
+  A letter to `code/pihti-log` when the CSV columns change meaning.
+  Needs from queezz before the first read: the supply's address on the
+  lab VLAN, and that its LAN is set to accept a socket (CF40). Physics
+  note from him, kept here because it decides nothing for LAN but will
+  for any future analog path: "my plasma power floats, not grounded by
+  design. But electrons pull ground close to cathode" — the discharge
+  itself ties the floating supply near chamber ground, and an arc makes
+  that tie a short.
+
 - A command line for the rig, over the web API it already has (queezz,
   2026-09-09: "Do you have cli to drive the ControlUnit? I think not. I
   think that'd be useful for tests and diagnosis"). Nothing exists today:
@@ -84,18 +117,14 @@ holds what is still undecided or unbuilt.
   lab's word from a machine-local file, never git. Off-rig it drives the
   dummy instance, which is what the tests want. Not urgent beside the
   mobile view: "Good mobile view is best. But still, some cli is good."
-- The phone view during a manual gas let-in (queezz, 2026-09-09, from
-  the rig): "I was searching for Cathode block, some UI blocks controls.
-  Can't see the upstream pressure from my phone when opening manual gas
-  valve to let Ar in." Three defects to reproduce at 390 px against the
-  dummy rig before touching anything: the Cathode group is hard to find
-  (the section index is a fold on phones, and the group sits below Gas
-  flow); something overlays the controls — find which, the sticky view
-  toolbar, a drawer, or the feedback header; and the upstream pressure
-  `Pu` is not beside the gas controls on a phone, where Operate's
-  readings stack below the faceplate and the person at the valve needs
-  Pu in the same eyeful as the gas row. A phone at the rig is the case
-  the layout is for.
+- Put upstream pressure Pu beside the gas controls on a phone during manual
+  Ar let-in (owner request 2026-09-09). Operate still stacks readouts below
+  the controls. The 4.12.2 mobile pass makes gas lines fold independently
+  and removes the mode selector overlay; colocating Pu remains open.
+- Keep the pressure grouping display choice available when Remote is off.
+  Browser QA on 2026-09-10 found By gauge / By vessel disabled by the gate
+  although they change only the local plot arrangement. Setter gating must
+  remain intact.
 
 - The owner accepted the fused Control layout on 2026-09-09. The five
   follow-up corrections ship in 4.7.1 (see the dated log): aligned navigation,
@@ -398,3 +427,8 @@ holds what is still undecided or unbuilt.
 - Sampling at 0.1 Hz on the rig is deliberate for long overnight runs
   (queezz, 2026-09-04); the web view's stale line follows the sampling
   time, so at 10 s it is 50 s.
+
+- Diagnose and correct the ADC sampling cadence: the September 10 run requested 0.1 s but averaged 0.175640 s, with 46 intervals above 0.3 s and five above 0.4 s. The fast path waits a full period before doing acquisition work; slow successful reads also escape exception logging. Measure stage durations and overruns before attributing burst delays to hardware or GUI load. Evidence: docs/diagnostics/2026-09-10-plasma-reader.md, Timing follow-up.
+
+
+- ADC timing follow-up implemented locally in 4.13.0: deadline scheduling, typed batch buffers, vectorized plotting, elapsed ready polling and stage summaries. Off-device benchmark and fault tests pass; obtain comparable rig timing before declaring 10 Hz resolved. Remaining concerns include unbounded history and queued tail/run identity at shutdown. See docs/diagnostics/2026-09-10-adc-timing-optimization.md.

@@ -8,6 +8,11 @@
 {% set fence_closed = state.fence.needed and not state.fence.passed %}
 <div class="page control-workspace" id="control" data-live data-actor="{{ actor }}"
      data-default-window="{{ default_window }}" data-pens='{{ pens | tojson }}'>
+    <div class="view-toolbar" role="group" aria-label="View mode">
+        {% for name, label in modes %}
+        <button type="button" class="choice" data-mode="{{ name }}" aria-pressed="{{ 'true' if name == page_mode else 'false' }}">{{ label }}</button>
+        {% endfor %}
+    </div>
     <aside class="rail rail-left operation-rail" id="live-controls" aria-label="Operation controls">
         <section class="rail-card">
             <h2 class="rail-label">Run</h2>
@@ -29,7 +34,13 @@
                         <h2>Gas flow</h2>
                         {% for number, gas in gases %}
                         <div class="frow" data-mfc="{{ number }}">
-                            <span class="row-name">{{ gas }}</span>
+                            <details class="gas-disclosure" open>
+                            <summary><span class="row-name">{{ gas }}</span>
+                            <span class="flow-readings">
+                                <span><small>Applied</small><b class="mono flow-applied" data-role="mfc-setpoint" data-mfc="{{ number }}">—</b></span>
+                                <span><small>Measured</small><b class="mono" data-role="mfc-measured" data-mfc="{{ number }}">—</b></span>
+                            </span></summary>
+                            <div class="gas-controls">
                             <label class="row-field">
                                 <input type="number" class="setpoint" data-role="mfc-input"
                                        min="0" max="{{ mfc_max }}" step="1" value="0" required
@@ -49,10 +60,8 @@
                                 {% endfor %}
                             </div>
                             <span class="flow-draft-note muted" data-role="mfc-draft-note">Draft · press Set to apply</span>
-                            <div class="flow-readings">
-                                <span><small>Applied</small><b class="mono flow-applied" data-role="mfc-setpoint" data-mfc="{{ number }}">—</b></span>
-                                <span><small>Measured</small><b class="mono" data-role="mfc-measured" data-mfc="{{ number }}">—</b></span>
                             </div>
+                            </details>
                         </div>
                         {% endfor %}
                     </section>
@@ -138,12 +147,6 @@
     </aside>
     <main class="page-main">
         <h1 class="sr-only">Live</h1>
-        <div class="view-toolbar" role="group" aria-label="View mode">
-            {% for name, label in modes %}
-            <button type="button" class="choice" data-mode="{{ name }}" aria-pressed="{{ 'true' if name == page_mode else 'false' }}">{{ label }}</button>
-            {% endfor %}
-
-        </div>
         <div class="instrument-header">
         <div class="pills" aria-label="What the rig is doing">
             <span class="chip chip-idle" data-role="operating">stopped</span>

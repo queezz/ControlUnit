@@ -41,17 +41,19 @@ Key structural notes:
 
 ## 2 · Acquisition data flow
 
-The ADC thread is the busiest path: hardware reads every 0.1 s, data
-accumulates across `STEP` ticks, then a Qt queued signal delivers a batch
-to the GUI thread for logging and plotting.
+The ADC thread follows monotonic sampling deadlines. Below one second it
+records one scan per period; at one second and above it averages raw scans
+through each window. `STEP` only batches completed rows for delivery to the
+GUI thread for CSV logging and plotting. Timing summaries distinguish read,
+processing and delivery costs; see the [timing investigation](../diagnostics/2026-09-10-adc-timing-optimization.md).
 
 ```mermaid
 flowchart LR
     subgraph ADC_LOOP["ADC.acquisition_loop  —  QThread"]
-        SLEEP["sleep\nsampling_time\n0.1 s default"]
+        SLEEP["wait until deadline\nwork inside period"]
         COLLECT["collect_data\nadc_setter\nN channels\nPCA9554 mux"]
-        APPEND["append row\nadc_values DataFrame\nconverted_values DataFrame"]
-        STEP_G{"step mod\nSTEP − 1 ?"}
+        APPEND["append raw + converted rows\nplain bounded buffers"]
+        STEP_G{"buffer length\n>= STEP ?"}
         PID_G{"Ip setpoint\n≠ 0 ?"}
         PID_CALC["simple_pid\np=0.3  i=0.1  d=0\noutput 0–4500 mV\nbaseline 1000 mV"]
     end
@@ -79,8 +81,8 @@ flowchart LR
     PID_G -- "no" --> STEP_G
     APPEND --> STEP_G
 
-    STEP_G -- "n < STEP − 1\naccumulate rows\naverage + amortise" --> SLEEP
-    STEP_G -- "n = STEP − 1\nemit data_ready\nQt queued signal" --> ON_STEP
+    STEP_G -- "n < STEP\naccumulate completed rows" --> SLEEP
+    STEP_G -- "n >= STEP\none typed DataFrame\nQt queued signal" --> ON_STEP
 
     ON_STEP --> CSV_W
     ON_STEP --> PLOT_W
@@ -92,9 +94,10 @@ flowchart LR
     style DORMANT fill:#181818,stroke:#4a4a4a,stroke-dasharray:6 3,color:#606060
 ```
 
-The `STEP` counter serves two jobs simultaneously: it averages noisy ADC
-readings *and* amortises Qt signal-emission overhead. A single tunable
-parameter does both — which is why it has never needed splitting.
+Batching amortises signal and main-thread costs; it does not average rows.
+Averaging is governed independently by `AVERAGE_FROM_SECONDS` (1 s) and
+`INNER_SECONDS` (0.2 s). Completed buffered rows are emitted when the worker
+stops; interrupted scans and partial averaging windows are discarded.
 
 ```python
 # controlunit/devices/device.py
@@ -168,7 +171,9 @@ between steps and look at the flag only afterwards, so at the rig's
 ten-second sampling the quit button came back ten seconds after Stop (owner
 report 2026-09-07). A worker now sleeps through `DeviceThread.pause`, which
 looks at the flag every tenth of a second (`sleep_unless_aborted` in
-`devices/device.py`), and a stop is answered within that.
+`devices/device.py`), and a sleeping worker notices Stop within that. A hardware read can take
+longer: the ADC checks abort between channels, but a blocked kernel I²C call
+cannot be interrupted by the Python polling deadline.
 
 > *"Haha — yes, guilty. It may still be somewhere in the Qt signals."* — Arseniy
 
@@ -220,10 +225,9 @@ Eight commits rewrite the acquisition loop to read from `AdcChannelProps`
 populated from `settings.yml` instead of hard-coded constants. Numpy arrays
 replaced with pandas DataFrames. `STEP` batching clarified.
 
-The `STEP` mechanism serves **two purposes simultaneously**: it averages noisy
-ADC samples *and* it amortises Qt signal-emission overhead between worker and
-GUI threads. One parameter does both jobs — which is why it has never needed
-to change.
+The historical batching code accumulated samples between worker and GUI
+updates. Current `STEP` batching and per-period averaging are independent;
+see the acquisition data flow above.
 
 ### Phase 4 — Worker superclass split (Aug 2024)
 

@@ -694,13 +694,16 @@
             parent = parent.parentElement;
         }
         window.requestAnimationFrame(function () {
-            target.scrollIntoView({block: "nearest"});
+            target.scrollIntoView({block: "start"});
         });
     }
 
     function setup() {
         wire();
         revealSection();
+        // Native reload scroll restoration can run after DOMContentLoaded.
+        // Land again once the page is laid out, with the heading below chrome.
+        window.addEventListener("load", revealSection);
         window.addEventListener("hashchange", revealSection);
         window.addEventListener("popstate", revealSection);
         if (root.hasAttribute("data-live")) {

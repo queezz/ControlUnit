@@ -1,12 +1,12 @@
 import argparse
 import sys, datetime, os
 import time
-from datetime import timedelta
 import pandas as pd
 from PyQt5 import QtCore, QtWidgets, QtGui
 
 from mainView import UIWindow
 from controlunit.devices.adc import ADC
+from controlunit.devices.timing import TimingDiagnostics
 from controlunit.devices.dac8532 import DAC8532
 from controlunit.devices.mcp4725 import MCP4725
 
@@ -618,13 +618,15 @@ class MainApp(QtCore.QObject, UIWindow):
         """
         # self.datadict[device_name] = pd.concat([self.datadict[device_name], self.newdata[device_name]], ignore_index=True)
         # Fix FutureWarning
-        self.datadict[device_name] = pd.concat(
-            [
-                self.datadict[device_name],
-                self.newdata[device_name].astype(self.datadict[device_name].dtypes),
-            ],
-            ignore_index=True,
-        )
+        incoming = self.newdata[device_name]
+        # An initially empty frame has object dtypes. Casting every batch to
+        # it made the entire run object-valued forever, including its numbers.
+        if self.datadict[device_name].empty:
+            self.datadict[device_name] = incoming.copy()
+        else:
+            self.datadict[device_name] = pd.concat(
+                [self.datadict[device_name], incoming], ignore_index=True
+            )
         # self.data = pd.concat([self.adc_values, new_data_row.astype(self.adc_values.dtypes)], ignore_index=True)
 
     def select_data_to_plot(self, device_name):
@@ -670,12 +672,15 @@ class MainApp(QtCore.QObject, UIWindow):
         self.update_current_values()
 
     def _adc_step(self, result):
+        received = time.monotonic()
         device_name = result[-1]
         self._note_sample_arrived()
         #  self.data_ready.emit([newdata, self.device_name])
         self.newdata[device_name] = result[0]
         self.append_data(device_name)
+        appended = time.monotonic()
         self.save_data(device_name)
+        saved = time.monotonic()
         for plotname, name in zip(
             self.config["ADC Signal Names"], self.config["ADC Converted Names"]
         ):
@@ -685,6 +690,17 @@ class MainApp(QtCore.QObject, UIWindow):
         self.baratronsignal2 = self.datadict["ADC"].iloc[-3:]["Bd"].mean()
         self.update_plots(device_name)
         self._publish_step(result[0])
+        finished = time.monotonic()
+        if not hasattr(self, '_adc_delivery_timing'):
+            self._adc_delivery_timing = TimingDiagnostics('ADC delivery', self.log_message)
+        emitted = result[0].attrs.get('adc_emitted_at', received)
+        period = result[0].attrs.get('adc_period', 0.1)
+        lag = max(0.0, received - emitted)
+        self._adc_delivery_timing.observe(
+            {'queue': lag, 'append': appended - received, 'save': saved - appended,
+             'display': finished - saved, 'total': finished - received},
+            slow=lag > max(0.1, 3 * period) or finished - received > max(0.1, period),
+        )
 
     def _membrane_heater_step(self, result):
         device_name = result[-1]
@@ -739,6 +755,9 @@ class MainApp(QtCore.QObject, UIWindow):
     # MARK: worker done
     @QtCore.pyqtSlot(str)
     def on_worker_done(self, device_name):
+        if device_name == "ADC" and hasattr(self, "_adc_delivery_timing"):
+            self._adc_delivery_timing.report()
+            del self._adc_delivery_timing
         self.log_message(
             f"Sensor thread <font size=4 color='blue'> {device_name}</font> <font size=4 color={'red'}>stopped</font>",
             htmltag="div",
@@ -806,11 +825,10 @@ class MainApp(QtCore.QObject, UIWindow):
         df = self.select_data_to_plot("ADC")
         # time = df["time"].values.astype(float)
         utc_offset = 9
-        time = (
-            df["date"]
-            .apply(lambda x: (x - timedelta(hours=utc_offset)).timestamp())
-            .values
-        )
+        # Vectorize the same naive timestamp arithmetic. Explicit nanoseconds
+        # keep this correct across pandas versions with different resolutions.
+        time = (df["date"].to_numpy(dtype='datetime64[ns]').astype('int64') / 1e9
+                - utc_offset * 3600)
         skip = self.calculate_skip_points(time.shape[0])
 
         what_to_plot = ["Ip", "Pu", "Pd", "Bu", "Bd"]

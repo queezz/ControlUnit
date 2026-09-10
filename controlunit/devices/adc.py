@@ -6,7 +6,6 @@ I2C アナログ入力ボード AIO-32/0RA-IRC
 https://www.y2c.co.jp/i2c-r/aio-32-0ra-irc/
 """
 
-import numpy as np
 import pandas as pd
 import time, datetime
 from PyQt5 import QtCore
@@ -14,6 +13,7 @@ from simple_pid import PID
 
 from controlunit.devices.adc_setter import AIO_32_0RA_IRC as adc
 from .device import DeviceThread
+from .timing import SampleClock, TimingDiagnostics
 
 
 #: The sampling time at which the reader starts averaging. Below it one
@@ -104,8 +104,8 @@ class ADC(DeviceThread):
             self.config["ADC Additional Columns"] + self.config["ADC Signal Names"]
         )
 
-        self.adc_values = pd.DataFrame(columns=self.adc_values_columns)
-        self.converted_values = pd.DataFrame(columns=self.config["ADC Converted Names"])
+        self._raw_rows = []
+        self._converted_rows = []
         self.__qmsSignal = 0
         self._mfc_presets = {1: 0.0, 2: 0.0}
         self.plasma_current_setpopint = 0
@@ -115,11 +115,15 @@ class ADC(DeviceThread):
         self.zero_ip = 0
         self.zero_bu = 0
         self.zero_bd = 0
-        self.sampling_time = self.config["Sampling Time"]
+        self.set_sampling_time(self.config["Sampling Time"])
         self.pid_verbose = self.config.get("Verbose.Plasma Current PID", False)
         self._read_failures = 0
         self._failing_since = None
         self._last_complaint = None
+        self._cadence = None
+        self._scan_seconds = 0.0
+        self._slowest_channel = ("none", 0.0)
+        self._last_sample_clock = None
 
         self.connect_signals()
 
@@ -235,63 +239,41 @@ class ADC(DeviceThread):
         self.adc_datarate = [self.aio.DataRate.DR_860SPS]
 
     # MARK: Data append
-    def put_new_data_in_dataframe(self):
-        """
-        Put new data from ADC and GUI into pandas dataframe
-        """
-        now = datetime.datetime.now()
-        dSec = (now - self.__startTime).total_seconds()
-        new_data_row = pd.DataFrame(
-            np.atleast_2d(
-                [
-                    now,
-                    dSec,
-                    self.__IGmode,
-                    self.__IGrange,
-                    self.__qmsSignal,
-                    self._mfc_presets[1],
-                    self._mfc_presets[2],
-                    self.control_voltage,
-                    *self.adc_voltages.values(),
-                ]
-            ),
-            columns=self.adc_values_columns,
+    @property
+    def adc_values(self):
+        """Compatibility snapshot; the acquisition path buffers plain rows."""
+        return pd.DataFrame.from_records(self._raw_rows, columns=self.adc_values_columns)
+
+    @property
+    def converted_values(self):
+        return pd.DataFrame.from_records(
+            self._converted_rows, columns=self.config["ADC Converted Names"]
         )
 
-        # self.adc_values = pd.concat([self.adc_values, new_data_row], ignore_index=True)
-        # adjusting the dtypes to remove it FutureWarning
-        self.adc_values = pd.concat(
-            [self.adc_values.astype(new_data_row.dtypes), new_data_row],
-            ignore_index=True,
-        )
+    def put_new_data_in_dataframe(self):
+        """Capture one raw row and its metadata, without allocating a table."""
+        now = datetime.datetime.now()
+        self._raw_rows.append([
+            now, (now - self.__startTime).total_seconds(),
+            self.__IGmode, self.__IGrange, self.__qmsSignal,
+            self._mfc_presets[1], self._mfc_presets[2], self.control_voltage,
+            *[self.adc_voltages[name] for name in self.adc_signals_columns],
+        ])
 
     def update_processed_signals_dataframe(self):
-        """
-        Update processed dataframe with new values
-        """
-        converted_values = []
-        raw_adc_debug = self.config.get("Debug.Raw ADC", False)
-        for name, value in self.adc_voltages.items():
+        """Convert exactly the voltages and gauge settings captured in the row."""
+        raw = self._raw_rows[-1]
+        converted = []
+        debug = self.config.get("Debug.Raw ADC", False)
+        for name, value in zip(self.adc_signals_columns, raw[8:]):
             conversion = self.adc_channels[name].conversion
-            if raw_adc_debug:
-                converted_values.append(value)
+            if debug:
+                converted.append(value)
             elif conversion.__name__ == "ionization_gauge":
-                converted_values.append(
-                    conversion(value, self.__IGmode, self.__IGrange)
-                )
+                converted.append(conversion(value, raw[2], raw[3]))
             else:
-                converted_values.append(conversion(value))
-
-        converted_values = pd.DataFrame(
-            np.atleast_2d(converted_values), columns=self.config["ADC Converted Names"]
-        )
-
-        # self.converted_values = pd.concat([self.converted_values, converted_values], ignore_index=True)
-        # Fixing FutureError
-        self.converted_values = pd.concat(
-            [self.converted_values.astype(converted_values.dtypes), converted_values],
-            ignore_index=True,
-        )
+                converted.append(conversion(value))
+        self._converted_rows.append(converted)
 
     def calculate_averaged_signals(self):
         """
@@ -305,17 +287,23 @@ class ADC(DeviceThread):
         Sends processed data to main thread in main.py
         Clears temporary dataframes to reset memory consumption.
         """
-        newdata = self.adc_values.join(self.converted_values)
+        if not self._raw_rows:
+            return
+        if len(self._raw_rows) != len(self._converted_rows):
+            raise ValueError("ADC raw and converted batch lengths differ")
+        newdata = pd.DataFrame.from_records(
+            [raw + converted for raw, converted in zip(self._raw_rows, self._converted_rows)],
+            columns=self.adc_values_columns + self.config["ADC Converted Names"],
+        )
+        newdata.attrs["adc_emitted_at"] = time.monotonic()
+        newdata.attrs["adc_period"] = self.sampling_time
         self.data_ready.emit([newdata, self.device_name])
         self.clear_datasets()
 
     # MARK: Data clear
     def clear_datasets(self):
-        """
-        Remove data from temporary dataframes
-        """
-        self.adc_values = self.adc_values.iloc[0:0]
-        self.converted_values = self.converted_values.iloc[0:0]
+        self._raw_rows.clear()
+        self._converted_rows.clear()
 
     # MARK: plasma current
 
@@ -410,10 +398,25 @@ class ADC(DeviceThread):
         One raw voltage per channel, straight from the board.
         Can change ADC gain at any time by updating self.adc_channels
         """
-        return {
-            ch.name: self.aio.analog_read_volt(ch.channel, *self.adc_datarate, ch.gain)
-            for _, ch in self.adc_channels.items()
-        }
+        values = {}
+        started = time.monotonic()
+        try:
+            for name in self.adc_signals_columns:
+                if self._abort:
+                    return None
+                ch = self.adc_channels[name]
+                before = time.monotonic()
+                try:
+                    values[name] = self.aio.analog_read_volt(
+                        ch.channel, *self.adc_datarate, ch.gain
+                    )
+                finally:
+                    elapsed = time.monotonic() - before
+                    if elapsed > self._slowest_channel[1]:
+                        self._slowest_channel = (name, elapsed)
+            return values
+        finally:
+            self._scan_seconds += time.monotonic() - started
 
     def collect_data(self):
         """Read every channel, and keep trying until the board answers.
@@ -433,6 +436,8 @@ class ADC(DeviceThread):
                 self._note_read_failure(error)
                 self.pause(RETRY_SECONDS)
                 continue
+            if self._abort or voltages is None:
+                return False
             self._note_read_recovered()
             self.hold_voltages(voltages)
             return True
@@ -497,13 +502,14 @@ class ADC(DeviceThread):
         )
 
     def collect_one_reading(self):
-        """The fast path's whole measurement: wait a period, convert once."""
-        if not self.pause(self.sampling_time):
+        """Wait until the next scan deadline, with processing inside the period."""
+        wait = self._cadence.remaining(time.monotonic()) if self._cadence else self.sampling_time
+        if not self.pause(wait):
             return False
         self.set_adc_datarate()
         return self.collect_data()
 
-    def collect_period_average(self, period):
+    def collect_period_average(self, period, deadline=None):
         """Convert every `INNER_SECONDS` through `period` and hold the mean.
 
         The mean of the *raw* voltages becomes `self.adc_voltages`, and is
@@ -524,7 +530,7 @@ class ADC(DeviceThread):
         then: a partial mean is not the sample the period promised.
         """
         started = time.monotonic()
-        end = started + period
+        end = started + period if deadline is None else deadline
         readings = []
         while not self._abort:
             self.set_adc_datarate()
@@ -558,54 +564,59 @@ class ADC(DeviceThread):
         is one conversion; at and above it the period is filled with
         conversions and the row holds their mean.
         """
-        totalStep = 0
-        step = 0
-
         self.prep_pid()
-        # self.set_cathode_current(325)
-
-        while not (self._abort):
-            # Read afresh, so a sampling time changed mid-run through
-            # `set_sampling_time` takes effect at the next period.
-            period = self.sampling_time
-            # Either path wakes within a tenth of a second of an abort,
-            # however long the period; a stop must not wait one out.
-            if period >= AVERAGE_FROM_SECONDS:
-                if not self.collect_period_average(period):
+        self._cadence = None
+        self._last_sample_clock = None
+        diagnostics = TimingDiagnostics("ADC timing", self.send_message.emit, clock=time.monotonic)
+        try:
+            while not self._abort:
+                period = self.sampling_time
+                now = time.monotonic()
+                if self._cadence is None or self._cadence.period != period:
+                    self._cadence = SampleClock(period, now)
+                    self._last_sample_clock = None
+                self._scan_seconds = 0.0
+                self._slowest_channel = ("none", 0.0)
+                if period >= AVERAGE_FROM_SECONDS:
+                    collected = self.collect_period_average(period, self._cadence.due)
+                else:
+                    collected = self.collect_one_reading()
+                if not collected:
                     break
-            elif not self.collect_one_reading():
-                break
-            # A row that cannot be recorded or controlled on is dropped,
-            # with the rows buffered beside it, and the loop goes on: an
-            # error here used to end the thread as quietly as a read error.
+                sampled = time.monotonic()
+                interval = None if self._last_sample_clock is None else sampled - self._last_sample_clock
+                self._last_sample_clock = sampled
+                try:
+                    self.put_new_data_in_dataframe()
+                    self.update_processed_signals_dataframe()
+                    if self.plasma_current_setpopint:
+                        self.plasma_current_control()
+                    if len(self._raw_rows) >= self.STEP:
+                        self.send_processed_data_to_main_thread()
+                except Exception as error:
+                    self._note_step_failure(error)
+                    self.clear_datasets()
+                finished = time.monotonic()
+                missed = self._cadence.advance(finished)
+                diagnostics.observe(
+                    {"period": period, "interval": interval,
+                     "read": self._scan_seconds, "process": finished - sampled,
+                     "cycle": finished - now},
+                    missed=missed,
+                    slow=bool(missed) or (interval is not None and interval > 1.5 * period),
+                    channel=self._slowest_channel,
+                )
+            # Preserve completed rows when Stop interrupts the next wait/read.
+            # A partial averaged period never entered these buffers.
             try:
-                self.put_new_data_in_dataframe()
-                self.update_processed_signals_dataframe()
-
-                if self.plasma_current_setpopint:
-                    self.plasma_current_control()
+                if self._raw_rows:
+                    self.send_processed_data_to_main_thread()
             except Exception as error:
                 self._note_step_failure(error)
                 self.clear_datasets()
-                continue
-
-            if self.STEP == 1:
-                self.send_processed_data_to_main_thread()
-                continue
-
-            if step % (self.STEP - 1) == 0 and step != 0:
-                # self.calculate_averaged_signals()
-                self.send_processed_data_to_main_thread()
-                step = 0
-            else:
-                step += 1
-            totalStep += 1
-        else:
-            # self.calculate_averaged_signals()
-            self.send_processed_data_to_main_thread()
-
-        self.sigDone.emit(self.device_name)
-        return
+        finally:
+            diagnostics.report()
+            self.sigDone.emit(self.device_name)
 
 
 if __name__ == "__main__":

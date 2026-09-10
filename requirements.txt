@@ -1,5 +1,5 @@
 numpy>=1.17.4
-pandas>=0.25.3
+pandas>=1.0
 PyQt5>=5.14.1
 PyQt5-sip>=12.7.0
 pyqtgraph>=0.10.0

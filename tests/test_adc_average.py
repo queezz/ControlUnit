@@ -7,7 +7,7 @@ line at that instant. From one second upwards it now converts every
 2026-09-07: "we don't care about transients in 0.1 Hz, just an
 overnight/overweekend log. So averages are cheap and good").
 
-Below one second nothing changed, and these tests hold that too. The loop is
+Below one second each row is still one scan, rather than an average. The loop is
 driven here in the test's own thread with a stubbed `collect_data`, so no
 hardware and no Qt thread is involved. Nothing here touches the rig.
 """

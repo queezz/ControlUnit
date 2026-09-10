@@ -19,7 +19,7 @@
 # the lab network. The second number moves for a feature, the third for a
 # fix; pyproject.toml carries the same number and a test holds them equal.
 # docs/history.md tells the eras in full.
-__version__ = "4.12.1"
+__version__ = "4.13.0"
 
 __about__ = """
 Version 4: the rig on the lab network.

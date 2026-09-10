@@ -761,3 +761,18 @@ Operate and Observe retain their existing size preference.
 Pressure plots can be grouped by gauge type or by vessel (Pu with Bu, Pd with Bd). The browser remembers the grouping and separate axes for each grouping. Vessel plots share one pressure axis per pair and retain the measured or zero-subtracted values: no alignment offset or normalization is applied. Channel visibility, smoothing, and baseline commands keep their existing meaning. Nonpositive values remain omitted only on logarithmic axes.
 
 Mass-flow click steps edit only the local draft, bounded by the server-declared limit. Set sends a validated integer millivolt value; Zero remains an immediate zero command. The applied and measured displays come from rig state, never the queued request. Polls initialize the draft once and do not overwrite an edited value.
+
+## Phone navigation and folds
+
+On narrow phones (up to 620 px), Menu opens Log and Lab; ControlUnit returns
+to the instrument view. The Operate / Observe / Monitor selector is at the
+start of the page and scrolls away with it. Desktop keeps the selector in
+the header. Menu closes on Escape, an outside press, or navigation.
+
+Each gas line folds independently by pressing its heading. Applied and
+measured values stay visible, and reopening preserves the current draft.
+The browser remembers each fold across reloads. Folding sends no command.
+
+When every curve in a chart is off, the phone view keeps a compact heading
+and curve pills. Press a curve pill to restore the plot and its axis and
+baseline controls.
