@@ -1,17 +1,21 @@
         <div class="readouts">
             {% for name, colour in pens %}
+            {# A card is a readout: the channel, the signed number, the unit.
+               The number is never replaced by words, and nothing here changes
+               the card's height between polls.
+
+               One tag rides in the name row, on every card, saying in a word
+               what state this number is in — `zeroed` while the rig holds a
+               baseline for the channel, `below zero` while the value is
+               negative. It is empty the rest of the time, and empty it takes
+               no room beyond the row it already shares. Which channels can be
+               zeroed is the rig's own answer, read from the zeros it carries,
+               so nothing is listed here twice. #}
             <div class="readout" data-readout="{{ name }}" style="--pen: {{ colour }}">
                 <span class="readout-name">{{ name }}</span>
-                <span class="readout-value mono" data-role="value">—</span>
+                <span class="readout-note" data-role="readout-note"></span>
                 <span class="readout-unit" data-role="unit"></span>
-                {% if name in ('Bu', 'Bd') %}
-                <span class="readout-residual mono" data-role="residual"></span>
-                {% endif %}
-                {# Which channels can be zeroed is the rig's own answer, read
-                   from the zeros it carries, never a list kept here too. #}
-                {% if name in state.zeros %}
-                <span class="readout-zero mono" data-role="zero">as measured</span>
-                {% endif %}
+                <span class="readout-value mono" data-role="value">—</span>
             </div>
             {% endfor %}
         </div>
@@ -73,9 +77,6 @@
                 </span>
                 {% endif %}
             </div>
-            {% if id == 'chart-bar' %}
-            <p class="measurement-note muted">Detection limit not characterized. Zeroed values are residuals; log shows positive values only.</p>
-            {% endif %}
             <canvas id="{{ id }}" height="{{ height }}" data-height="{{ height }}"
                     data-channels="{{ channels | join(',') }}"></canvas>
         </section>

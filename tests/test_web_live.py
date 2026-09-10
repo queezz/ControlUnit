@@ -478,6 +478,45 @@ def test_a_flat_curve_leaves_the_axis_to_the_ones_that_move():
     assert 'LEGEND_ASIDE = {off: "off", absent: "no data", nonpositive: "≤0 on log", flat: "flat", drawn: ""}' in source
 
 
+def test_a_negative_reading_stays_a_number_in_its_own_slot():
+    """queezz, 2026-09-10, on 4.11.0: "text jumps to numbers and back,
+    terrible. We should keep that as a READOUT, not a tiny manual with many
+    lines." So no word is ever written where the number goes, and the
+    residual line that stood under it is gone."""
+    source = _live_js()
+    paint = source[source.index("function paintState"):source.index("function text(fact")]
+    assert '.textContent = "Below zero"' not in paint
+    assert 'querySelector(\'[data-role="residual"]\')' not in paint
+    assert "readout--below-zero" not in source
+    # One tag, in the row the name and unit already occupy, saying which of
+    # the two states this number is in.
+    assert 'data-role="readout-note"' in paint
+    assert "tagForms(held, below)" in paint
+
+
+def test_the_state_tag_is_measured_rather_than_clipped():
+    """The narrowest card holds one word, not two, and at 1200px not even
+    the long form of that one. Which form a card carries is read from the
+    tag's own box, so a wider card keeps more of it and none is ever cut."""
+    source = _live_js()
+    tags = source[source.index("function tagForms"):source.index("function paintState")]
+    for form in ('"zeroed · below zero"', '"below zero"', '"below 0"'):
+        assert form in tags
+    assert "narrowest.el.scrollWidth <= narrowest.el.clientWidth + 1" in tags
+    # One wording for the whole strip, decided by the narrowest card in it
+    # and by nothing about today's numbers.
+    assert "paintTags(tags)" in source
+
+
+def test_the_baratron_chart_carries_no_paragraph_of_its_own():
+    """The detection-limit note was the lecture WEBUI.md's Teaching section
+    forbids; the reasoning lives on the docs page."""
+    page = _client().get("/").get_data(as_text=True)
+    assert "Detection limit not characterized" not in page
+    assert "measurement-note" not in page
+    assert "measurement-note" not in _live_js()
+
+
 def test_a_collapsed_curve_does_not_print_a_second_copy_of_its_value():
     """Every number on this page is read in its readout card; the legend
     says why a curve is missing, never what it last read."""

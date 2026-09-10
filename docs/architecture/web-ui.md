@@ -290,13 +290,33 @@ of the response can tell which question was asked.
     aside on the Window card's heading. A new run — a different start time or
     a different file — empties the store and refills it from the ring.
 
-    **Readouts.** A value reads as `1.22×10⁻⁵`, mantissa and a real
-    superscript exponent, never `1.22e-5`; zero reads `0`; a current in
-    amperes stays plain. Each card is washed with its own pen at 14% and
-    bordered with it at 45%, so the eye finds a channel before it reads the
-    name. On Ip, Bu and Bd one always-present line says what baseline the
-    number has already taken off — `zero -0.345 A`, or `as measured` — and
-    what a zero is is explained once, in the right rail's Data card.
+    **Readouts.** A card is a name, a signed number and a unit, and the
+    number is never replaced by words. A value reads as `1.22×10⁻⁵`,
+    mantissa and a real superscript exponent, never `1.22e-5`; zero reads
+    `0`; a current in amperes stays plain. Each card is washed with its own
+    pen at 14% and bordered with it at 45%, so the eye finds a channel
+    before it reads the name. Small is two rows of content and the padding
+    around them — no reserved blank line and no minimum height past what
+    those rows need — so the strip stands at about half the height it did
+    through 4.11 (measured at 1280px: a card 104px tall became 52px).
+
+    One tag rides in the name row, on every card: `zeroed` while the rig
+    holds a baseline for that channel, `below zero` while the value is
+    negative, `zeroed · below zero` when both. It is empty otherwise, and
+    empty it takes no room, so no card changes height between polls.
+    Whatever it says, it stays on the line it shares — the narrowest card
+    this page makes, five across the Operate column at 1280px, leaves the
+    tag about 50px, and `paintState` measures that box and keeps `below
+    zero`, the word that changes how the number is read, rather than
+    clipping. What a zero is is explained once, in the right rail's Data
+    card; a readout card never explains itself.
+
+    The line that used to stand under every zeroable card — `zero -0.345 A`,
+    or `as measured` — is gone, with the two lines of room it held open.
+    "as measured" said nothing that was not true of every signal on this
+    page (queezz, 2026-09-10, on 4.11.0: "It's all as measured. We are in
+    physics, we know what signals are"), and the height it reserved was the
+    "large boxes small font" that defeated the point of the small size.
 
     **Smoothing** is a centred moving median over `off | 5 | 15 | 51`
     samples, applied to every line and to the five readouts, for the plasma
@@ -646,18 +666,27 @@ $env:QT_QPA_PLATFORM = "offscreen"
 
 ### Baratron readings near zero
 
-Negative displayed values are labelled Below zero with the signed residual
-retained. Linear plots keep signed data. Log plots omit nonpositive values,
-label that exclusion separately from missing data, and leave gaps across
-excluded samples. With no positive values, the chart explains the log
-constraint instead of displaying an arbitrary pressure axis.
+A negative displayed value stays a number: the signed reading in the value
+slot, in the value's own size, with its unit, and the `below zero` tag in
+the name row beside it. Through 4.11 the card replaced the number with the
+words "Below zero" and added a `Residual …` line, so a Baratron sitting on
+its own baseline swapped between words and digits from one poll to the next
+and grew a line while it did — "terrible", and the reason both are gone
+(queezz, 2026-09-10). Linear plots keep signed data. Log plots omit
+nonpositive values, label that exclusion separately from missing data, and
+leave gaps across excluded samples. With no positive values, the chart
+explains the log constraint instead of displaying an arbitrary pressure
+axis.
 
 No system detection limit is characterized in the channel registry. Full
 scale and transducer resolution do not establish a validated detection
 limit for the installed transducer, electronics, zero drift and acquisition
-chain. The page states this uncertainty; positive near-zero readings are
-not censored using an invented cutoff. Establish a documented per-channel
-limit before replacing those readings with a less-than-limit indication.
+chain. Positive near-zero readings are not censored using an invented
+cutoff. Establish a documented per-channel limit before replacing those
+readings with a less-than-limit indication. This page is where that
+reasoning lives: the Baratron panel used to carry a paragraph of it under
+its own legend, which is the lecture the fleet's `WEBUI.md` Teaching
+section forbids — a data surface states, and the reading room explains.
 
 
 Monitor (4.8.5) uses the viewport width and shares available height among

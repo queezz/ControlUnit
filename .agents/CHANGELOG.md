@@ -1,3 +1,8 @@
+## 4.11.2 — 2026-09-10
+
+- Small readouts are small: a card is one compact row of name, number and unit with nothing reserved beneath, about half its former height; big keeps the large figure. "as measured" is gone.
+- A readout is always a number: a Baratron below zero shows its signed value in the value's own size, with a small "below zero" tag beside the name instead of words in the number's place and a residual line. A held baseline shows a "zeroed" tag the same way. No card changes height between polls. The detection-limit paragraph under the Baratron chart is gone; the reasoning lives in the docs.
+
 ## 4.11.1 — 2026-09-10
 
 - The web view no longer prints a line per request to stderr: on the rig, 4.11.0's new stderr file was filling with the browser's polls at one line every two seconds. Werkzeug's request log is set to warnings only; a real error still reaches the file.

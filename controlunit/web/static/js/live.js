@@ -322,12 +322,53 @@
 
     // -- state ---------------------------------------------------------------
 
+    /* How a card says the state its number is in, at each of the three
+       widths a tag is written for: roomy, tight, and the tightest. Five
+       cards across the Operate column leave the tag between 39px and 56px
+       depending on the window and on how wide the channel's own unit is, and
+       the words do not all fit in the narrow end of that. */
+    function tagForms(held, below) {
+        if (held && below) return ["zeroed · below zero", "below zero", "below 0"];
+        if (below) return ["below zero", "below zero", "below 0"];
+        if (held) return ["zeroed", "zeroed", "zeroed"];
+        return ["", "", ""];
+    }
+
+    /* The strip settles on one wording, and the narrowest card in it decides
+       which: a row that says "below zero" on one card and "below 0" on the
+       next reads as sloppiness, not as two different facts.
+
+       Which one is chosen is a question about the window, never about
+       today's numbers: the longest form this page can ever need is measured
+       against the narrowest tag's own box, so a value crossing zero on one
+       card cannot reword another, and a card keeps its wording from poll to
+       poll. A clipped word is never a form — "below z…" is worse than the
+       short sentence — and no form makes a card taller, because a tag's box
+       does not grow with its text. That a baseline is held is said again in
+       the rail's Data card, so nothing is lost where that is the part that
+       has to go. */
+    function paintTags(tags) {
+        if (!tags.length) return;
+        var narrowest = tags[0];
+        tags.forEach(function (tag) {
+            if (tag.el.clientWidth < narrowest.el.clientWidth) narrowest = tag;
+        });
+        var widest = tagForms(true, true);
+        var step = widest.length - 1;
+        for (var i = 0; i < step; i++) {
+            narrowest.el.textContent = widest[i];
+            if (narrowest.el.scrollWidth <= narrowest.el.clientWidth + 1) { step = i; break; }
+        }
+        tags.forEach(function (tag) { tag.el.textContent = tag.forms[step]; });
+    }
+
     function paintState(state) {
         var key = runKey(state);
         if (run === null) run = key;
         else if (key !== run) { run = key; forget(); fillFromRing(); }
 
         var zeros = state.zeros || {};
+        var tags = [];
         state.channels.forEach(function (channel) {
             var box = root.querySelector('.readout[data-readout="' + channel.name + '"]');
             if (!box) return;
@@ -340,29 +381,29 @@
                 var smoothed = latestMedian(channel.name, view.smooth);
                 if (smoothed !== null) value = smoothed;
             }
+            /* The signed number and its unit, always, in the value's own
+               size — a negative Baratron reads -5.00×10⁻³ Torr, not the word
+               "Below zero" where its number should be (owner, 2026-09-10:
+               "text jumps to numbers and back, terrible. We should keep that
+               as a READOUT"). */
             box.querySelector('[data-role="value"]').innerHTML = valueHtml(value, channel.unit);
             box.querySelector('[data-role="unit"]').textContent = channel.unit || "";
-            var residual = box.querySelector('[data-role="residual"]');
-            if (residual) {
-                var below = value !== null && value !== undefined && isFinite(value) && value < 0;
-                box.classList.toggle("readout--below-zero", below);
-                residual.innerHTML = below ? "Residual " + valueHtml(value, channel.unit) + " " + (channel.unit || "") : "";
-                if (below) {
-                    box.querySelector('[data-role="value"]').textContent = "Below zero";
-                    box.querySelector('[data-role="unit"]').textContent = "";
-                }
-            }
 
-            /* What baseline this number already has taken off. The unit is
-               not repeated: it is on this card already, beside the name. */
-            var zero = box.querySelector('[data-role="zero"]');
-            if (zero) {
-                var held = Number(zeros[channel.name] || 0);
-                zero.innerHTML = held
-                    ? "zero " + valueHtml(held, channel.unit)
-                    : "as measured";
+            /* One tag beside the name says what state the number is in: a
+               baseline is held for this channel, the value is negative, or
+               both. Empty otherwise, and empty it occupies no room, so the
+               card is the same height at every poll. */
+            var note = box.querySelector('[data-role="readout-note"]');
+            if (note) {
+                var below = value !== null && value !== undefined && isFinite(value) && value < 0;
+                var held = Number(zeros[channel.name] || 0) !== 0;
+                note.classList.toggle("readout-note--below", below);
+                tags.push({el: note, forms: tagForms(held, below)});
             }
         });
+        // Which of those forms every card carries is settled once, for the
+        // whole strip, after all five have been written.
+        paintTags(tags);
 
         var runFacts = state.run || {};
         text("file", runFacts.file || "—");
@@ -461,12 +502,6 @@
             var button = root.querySelector('[data-zero="' + name + '"]');
             if (button) (vessel && name === 'Bu' ? upper : lower).querySelector('.chart-zero').appendChild(button);
         });
-        var note = upper.querySelector('.measurement-note');
-        if (vessel && !note) {
-            note = lower.querySelector('.measurement-note').cloneNode(true);
-            upper.insertBefore(note, gauges);
-        }
-        if (note) note.hidden = !vessel;
         press('[data-pressure-group]', 'pressureGroup', view.pressureGroup);
         reflectPressureAxes();
     }

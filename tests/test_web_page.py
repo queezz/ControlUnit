@@ -115,20 +115,32 @@ def test_live_offers_the_smoothing_the_current_needs(live):
     assert live.count("Median smooths the curves and the readouts.") == 1
 
 
-def test_the_three_zeroable_channels_say_what_they_took_off(live):
-    """A reader must not have to guess whether a value is adjusted."""
-    for name in ("Ip", "Bu", "Bd"):
+def test_a_readout_card_is_a_name_a_number_a_unit_and_one_tag(live):
+    """Nothing else, and the same four on every card: what a card says can
+    change, how tall it stands cannot."""
+    for name in ("Ip", "Pu", "Pd", "Bu", "Bd"):
         card = live[live.index('data-readout="{}"'.format(name)):]
         card = card[:card.index("</div>")]
-        assert 'data-role="zero"' in card
-    for name in ("Pu", "Pd"):
-        card = live[live.index('data-readout="{}"'.format(name)):]
-        card = card[:card.index("</div>")]
-        assert 'data-role="zero"' not in card
-    assert live.count('data-role="zero"') == 3
-    # Reserved on all three, whatever the rig currently holds, so a zero
-    # taken while the page is open moves nothing.
-    assert live.count(">as measured<") == 3
+        assert 'class="readout-name"' in card
+        assert 'data-role="value"' in card
+        assert 'data-role="unit"' in card
+        assert 'data-role="readout-note"' in card
+    assert live.count('data-role="readout-note"') == 5
+    # The tag is written by the page from what the rig reports, so the
+    # markup ships it empty and no card holds a line open for it.
+    assert '<span class="readout-note" data-role="readout-note"></span>' in live
+
+
+def test_nothing_on_a_card_lectures_or_reserves_a_line(live):
+    """"as measured" said nothing — every signal on this page is as
+    measured — and the residual line and the detection-limit paragraph
+    were the tiny manual the owner asked to be rid of (2026-09-10)."""
+    assert ">as measured<" not in live
+    assert 'data-role="zero"' not in live
+    assert 'data-role="residual"' not in live
+    assert "readout-residual" not in live
+    assert "Detection limit not characterized" not in live
+    assert "measurement-note" not in live
 
 
 def test_the_zero_is_explained_in_exactly_one_place(live):
@@ -173,6 +185,33 @@ def test_the_big_readouts_are_one_class_over_the_same_dom(client, live):
     assert "live--big" in script
     assert ".live--big" in css
     assert live.count('class="readout"') == 5
+
+
+def test_small_readouts_reserve_no_room_they_are_not_using(client):
+    """queezz, 2026-09-10: "Small now have large boxes small font. Which
+    defeats the purpose." A small card is two rows of content and the
+    padding around them, in Operate as everywhere else."""
+    css = client.get("/static/css/controlunit.css").get_data(as_text=True)
+    # The rules, not the comments beside them: this file explains its own
+    # arithmetic, and an explanation naming a property is not that property.
+    rules = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+
+    def block(selector):
+        start = rules.index(selector + " {")
+        return rules[start:rules.index("}", start)]
+
+    for selector in (".readout", ".live--big .readout"):
+        assert "min-height" not in block(selector)
+    # The line that reserved two lines under every card, and the residual
+    # line beneath the Baratrons, are gone rather than merely emptied.
+    assert "readout-zero" not in rules
+    assert "readout-residual" not in rules
+    assert "measurement-note" not in rules
+    # The tag rides in the name row and cannot leave it, whatever it says.
+    note = block(".readout-note")
+    assert "grid-row: 1" in note and "white-space: nowrap" in note
+    # Operate keeps the same compact card; nothing here re-inflates it.
+    assert ".control-workspace:not(.live--big) .readout { padding: 6px 5px;" in rules
 
 
 def test_the_fast_poll_is_not_remembered_and_the_big_readouts_are(client):
