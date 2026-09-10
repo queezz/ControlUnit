@@ -218,3 +218,15 @@ def test_a_setpoint_that_is_not_a_number_is_not_a_live_output(real_hardware):
     rig = RigStatus(channels=9, sampling=0.1)
     rig.record_setpoints(ig_mode="Torr", ig_range=-8, cathode_mv="")
     assert status_module.live_outputs(rig.read()) == []
+
+
+def test_the_served_view_keeps_request_lines_out_of_stderr():
+    """One line per poll was filling the rig's stderr file (2026-09-10)."""
+    import logging
+
+    from controlunit.web import server
+
+    logging.getLogger("werkzeug").setLevel(logging.NOTSET)
+    server.quiet_request_log()
+    assert logging.getLogger("werkzeug").getEffectiveLevel() == logging.WARNING
+    assert not logging.getLogger("werkzeug").isEnabledFor(logging.INFO)

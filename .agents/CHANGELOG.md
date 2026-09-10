@@ -1,3 +1,7 @@
+## 4.11.1 — 2026-09-10
+
+- The web view no longer prints a line per request to stderr: on the rig, 4.11.0's new stderr file was filling with the browser's polls at one line every two seconds. Werkzeug's request log is set to warnings only; a real error still reaches the file.
+
 ## 4.11.0 — 2026-09-09
 
 - The ADC reader survives a board that stops answering: a failed I²C read is logged once, retried every half second and logged again every 30 s until the board answers, instead of ending the thread silently; a row that cannot be recorded is dropped and the loop goes on; a conversion that never finishes raises instead of spinning forever. The main thread says "Reader lost" in the log when samples stop for twice the stale line, and "Reader back" with the gap when they resume. The launcher keeps the program's error output in `~/work/cudata/controlunit.stderr.log`.

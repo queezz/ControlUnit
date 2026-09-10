@@ -20,6 +20,7 @@ over in the open. Stopping every output is the one exception and is always
 allowed.
 """
 
+import logging
 import math
 import threading
 
@@ -685,12 +686,24 @@ def _epoch(text):
     return max(0.0, value)
 
 
+def quiet_request_log():
+    """Keep Werkzeug's per-request lines out of stderr; warnings still pass."""
+    logging.getLogger("werkzeug").setLevel(logging.WARNING)
+
+
 def serve_in_thread(status, commands=None, host=DEFAULT_HOST, port=DEFAULT_PORT):
     """Start the web view on a daemon thread and return the thread.
 
     A daemon thread simply stops answering when the process ends, so the
     hardware-first shutdown order the Qt side owns is left exactly as it was.
+
+    The request log is quiet: Werkzeug prints one line per request to
+    stderr, and from 4.11.0 the launcher keeps stderr in a file beside the
+    data, which a browser polling every two seconds filled at a line each
+    (seen on the rig within a minute of the first start). Warnings and
+    errors still reach the file; a served poll is not news.
     """
+    quiet_request_log()
     app = create_app(status, commands=commands)
 
     def run():
