@@ -166,10 +166,12 @@ def test_a_slow_period_records_the_mean_of_its_readings(worker, monkeypatch):
         for name in driver.channels:
             expected = sum(one[name] for one in inner) / len(inner)
             assert recorded[name] == pytest.approx(expected)
-        # The row equals the mean, and that is the whole claim: demanding
-        # that it also differ from every single reading asked the wrong
-        # question, and about one run in eight a reading landed on the mean
-        # by chance and failed a test about nothing (noticed 2026-09-14).
+        # The row equals the mean, and that is the whole claim. The test
+        # used to demand that the mean also differ from every single
+        # reading, which asked the wrong question: the stub's readings step
+        # evenly, so whenever timing gave a period an odd number of them the
+        # mean was exactly the middle reading, and about one run in eight
+        # failed a test about nothing (noticed 2026-09-14).
 
 
 def test_the_recorded_row_converts_the_mean_it_recorded(worker, monkeypatch):
