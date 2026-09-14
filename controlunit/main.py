@@ -76,6 +76,9 @@ class MainApp(QtCore.QObject, UIWindow):
         self.workers = {}
         self._kikusui_logger = None
         self.kikusui_message.connect(self.log_message)
+        self.kikusui_display_timer = QtCore.QTimer(self)
+        self.kikusui_display_timer.timeout.connect(self._refresh_kikusui_display)
+        self.kikusui_display_timer.start(500)
         # Define presets
         # self.__temp = self.DEFAULT_TEMPERATURE
         self._mfc_presets = {1: self.DEFAULT_VOLTAGE, 2: self.DEFAULT_VOLTAGE}
@@ -424,6 +427,10 @@ class MainApp(QtCore.QObject, UIWindow):
         )
         self._start_kikusui_logging()
 
+    def _refresh_kikusui_display(self):
+        if self._kikusui_logger is not None:
+            self.plasma_control_dock.show_kikusui(self._kikusui_logger.snapshot())
+
     def _start_kikusui_logging(self):
         """Optional telemetry; a missing/broken LAN must not stop manual acquisition."""
         if self._kikusui_logger is not None:
@@ -432,9 +439,11 @@ class MainApp(QtCore.QObject, UIWindow):
         try:
             config = load_kikusui_config()
             if config is None:
+                self.plasma_control_dock.show_kikusui({"status": "disabled"})
                 self.log_message("Kikusui telemetry disabled: no kikusui.yml configured")
                 return
             if dummy_hardware_loaded() and not config.dummy:
+                self.plasma_control_dock.show_kikusui({"status": "error"})
                 self.log_message("Kikusui telemetry disabled: dummy hardware never contacts the supply")
                 return
             logger = KikusuiLogger(
@@ -443,7 +452,9 @@ class MainApp(QtCore.QObject, UIWindow):
             )
             logger.start()
             self._kikusui_logger = logger
+            self._refresh_kikusui_display()
         except Exception as error:  # noqa: BLE001 -- Optional telemetry cannot prevent acquisition.
+            self.plasma_control_dock.show_kikusui({"status": "error"})
             self.log_message(f"Kikusui telemetry unavailable: {error}; manual drive unchanged")
 
     def prep_worker(self, device_class, device_name, start_time):
@@ -515,6 +526,7 @@ class MainApp(QtCore.QObject, UIWindow):
         if logger is not None:
             if logger.stop():
                 self._kikusui_logger = None
+                self.plasma_control_dock.show_kikusui({"status": "idle"})
             else:
                 self.log_message("Kikusui recorder is still stopping; new telemetry start blocked")
 

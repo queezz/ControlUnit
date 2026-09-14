@@ -106,8 +106,15 @@ explicit loss-of-feedback policy.
 
 The existing ADC `Ci/Cv` columns and the Cathode Measured cell are still the
 old analog placeholders: **they are not these LAN measurements**. The separate
-file preserves the original ADC schema and independent timing. Live readouts,
-a telemetry snapshot API and retirement of those placeholders are later work.
+file preserves the original ADC schema and independent timing. From 4.16.0,
+the Qt Cathode panel shows Kikusui V/I and recording/output state beneath
+the manual controls. Hover for the file path and sample receipt time.
+The display updates every 500 ms from a locked copy of a flushed CSV row.
+Failed reads clear the numbers on the next display update; readings older
+than the configured interval plus timeout plus 0.5 s are withheld as stale.
+Stopping clears the readout. Simulated data is labelled SIMULATED.
+A telemetry snapshot API and retirement of the analog placeholders are
+later work; the web readouts do not yet show Kikusui telemetry.
 Filament resistance `V/I` and power `VI` can be derived during review; avoid
 dividing near zero current and compare resistance under similar thermal and
 operating conditions before interpreting it as thinning.
@@ -138,6 +145,19 @@ On 2026-09-14 the connected PWR401L (firmware VER01.24 BLD0056) answered
 these queries with output off. Ten voltage/current pairs from the office PC
 took 4.58 ms median, 19.53 ms maximum. This proves the transport, not its
 reliability during plasma; discharges and bakes are the next evidence.
+
+Six further read-only polls from the Pi itself on the same day succeeded
+with output off, taking 2.772–3.266 ms per voltage/current/output poll.
+
+## First run after deployment
+
+With the machine-local configuration above present, start acquisition from
+the rig GUI. The Cathode panel should show **Recording**, V/I and output
+state; the Log names `kikusui_<run timestamp>.csv` alongside the ADC file.
+During normal manual operation, compare those readings with the supply's
+display. Stop acquisition normally and inspect the paired files. Capture
+discharges and bakes before setting filament-condition thresholds or changing
+PID behaviour. The logger cannot switch on or set the supply.
 
 ## Sources
 

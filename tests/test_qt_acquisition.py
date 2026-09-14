@@ -184,6 +184,9 @@ def test_dummy_kikusui_records_with_the_run_and_stops_after_hardware(qt_app, hom
             time.sleep(0.02)
         assert ",1500," in logger.path.read_text()
         assert ",dummy," in logger.path.read_text()
+        widget._refresh_kikusui_display()
+        assert "0.000 V" in widget.plasma_control_dock.kikusui_readout.text()
+        assert "SIMULATED" in widget.plasma_control_dock.kikusui_status.text()
         original_stop = logger.stop
 
         def stop_after_hardware():
@@ -195,6 +198,8 @@ def test_dummy_kikusui_records_with_the_run_and_stops_after_hardware(qt_app, hom
         widget.stop_acquisition()
         assert widget._kikusui_logger is None
         assert not logger.thread.is_alive()
+        assert widget.plasma_control_dock.kikusui_status.text() == "Not recording"
+        assert "0.000" not in widget.plasma_control_dock.kikusui_readout.text()
     finally:
         widget.abort_all_threads()
 
@@ -214,3 +219,15 @@ def test_dummy_hardware_refuses_a_real_kikusui_config(qt_app, home, monkeypatch)
         assert widget.workers
     finally:
         widget.abort_all_threads()
+
+
+def test_kikusui_display_clears_numbers_on_loss(qt_app):
+    from controlunit.ui.docks.plasma_current import PlasmaCurrentDock
+
+    dock = PlasmaCurrentDock()
+    dock.show_kikusui({"status": "ok", "voltage_v": 2.4, "current_a": 12, "output_on": 1})
+    assert "12.000 A" in dock.kikusui_readout.text()
+    assert dock.kikusui_status.text() == "Recording · output on"
+    dock.show_kikusui({"status": "unavailable"})
+    assert "12.000" not in dock.kikusui_readout.text()
+    assert "retrying" in dock.kikusui_status.text()

@@ -224,3 +224,21 @@ def test_stop_interrupts_long_wait_and_does_not_overwrite(tmp_path):
     assert duplicate.stop()
     assert logger.path.read_bytes() == original
     assert any("recording STOPPED" in m for m in messages)
+
+
+def test_snapshot_withholds_stale_failed_and_stopped_measurements(tmp_path, monkeypatch):
+    logger = KikusuiLogger(KikusuiConfig(dummy=True), tmp_path / "cu_display.csv", lambda m: None)
+    assert logger.snapshot()["status"] == "connecting"
+    clock = [100.0]
+    monkeypatch.setattr(time, "monotonic", lambda: clock[0])
+    logger._publish({"status": "dummy", "voltage_v": 2.4, "current_a": 12, "output_on": 1}, 100)
+    snapshot = logger.snapshot()
+    assert snapshot["current_a"] == 12
+    snapshot["current_a"] = 999  # A consumer cannot corrupt the recorder's state.
+    assert logger.snapshot()["current_a"] == 12
+    clock[0] += 2.1
+    assert logger.snapshot()["status"] == "stale"
+    assert "current_a" not in logger.snapshot()
+    logger._publish({"status": "unavailable", "error": "timeout"}, clock[0])
+    assert "voltage_v" not in logger.snapshot()
+    assert logger.snapshot()["error"] == "timeout"

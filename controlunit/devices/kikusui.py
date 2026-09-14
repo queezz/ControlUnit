@@ -168,7 +168,28 @@ class KikusuiLogger:
         self.context = context
         self.client = client or (DummyClient() if config.dummy else ReadOnlyClient(config))
         self.stopping = threading.Event()
+        self._lock = threading.Lock()
+        self._latest = {"status": "connecting"}
+        self._received_at = None
         self.thread = threading.Thread(target=self._run, name="Kikusui telemetry", daemon=True)
+
+    def snapshot(self):
+        """Copy recorded telemetry, withholding measurements once they are stale."""
+        with self._lock:
+            result = self._latest.copy()
+            received = self._received_at
+        age = None if received is None else max(0, time.monotonic() - received)
+        if result["status"] in ("ok", "dummy") and age > (
+            self.config.interval_s + self.config.timeout_s + 0.5
+        ):
+            result = {"status": "stale"}
+        result.update(age_s=age, file=str(self.path))
+        return result
+
+    def _publish(self, row, received=None):
+        with self._lock:
+            self._latest = row.copy()
+            self._received_at = received
 
     def start(self):
         self.thread.start()
@@ -223,6 +244,7 @@ class KikusuiLogger:
                     )
                     writer.writerow(row)
                     target.flush()
+                    self._publish(row, now)
                     if status != state:
                         if status == "unavailable":
                             self.message(
@@ -241,3 +263,4 @@ class KikusuiLogger:
             self.message(f"Kikusui recording STOPPED: {error}; manual drive unchanged")
         finally:
             self.client.close()
+            self._publish({"status": "stopped"})

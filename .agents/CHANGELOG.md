@@ -1,3 +1,8 @@
+## 4.16.0 — 2026-09-14
+
+- Show Kikusui measured voltage/current and recording/output status below the Cathode panel's manual controls. The main thread reads a locked copy of flushed telemetry every 500 ms; unavailable, stale and stopped records never leave old measurements looking live.
+- Verified six read-only polls from the Pi to the supply with output off (2.8–3.3 ms per voltage/current/output poll). Deployment and an operator-run discharge/bake remain pending while the rig is acquiring.
+
 ## 4.15.0 — 2026-09-14
 
 - Optionally log Kikusui filament voltage, current and output-enable state at 2 Hz beside each ADC run in a separately timestamped `kikusui_*.csv`. Include software cathode command, PID target, identity and query time, so ordinary manual discharges and bakes can establish baselines before PID work.
