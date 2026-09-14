@@ -1,3 +1,9 @@
+## 4.15.0 — 2026-09-14
+
+- Optionally log Kikusui filament voltage, current and output-enable state at 2 Hz beside each ADC run in a separately timestamped `kikusui_*.csv`. Include software cathode command, PID target, identity and query time, so ordinary manual discharges and bakes can establish baselines before PID work.
+- LAN timeout, malformed response or disconnect writes an unavailable row, warns once per outage and retries without changing manual drive or blocking ADC acquisition. Reconnect sends queries only and verifies instrument identity. Shutdown interrupts reads/waits after hardware shutdown.
+- Machine-local configuration is opt-in; dummy hardware cannot contact a real supply. PID behaviour, ADC columns and live readouts remain unchanged in this first recording stage.
+
 ## 4.14.1 — 2026-09-14
 
 - Monitor on a phone had no way out: 4.14.0 moved the mode switch into the top bar's Menu, and Monitor hides the top bar ("Observe trapped me. No tri-state toggle anywhere"). The switch now docks into Monitor's own strip beside Display and Full screen on a phone, into the Menu in Operate and Observe, and stays in the header at wider widths; one element, moved, never copied. Escape walks back one mode at a time to Operate. A test fails if any mode ever renders no mode switch again.

@@ -9,6 +9,7 @@ from controlunit.devices.adc import ADC
 from controlunit.devices.timing import TimingDiagnostics
 from controlunit.devices.dac8532 import DAC8532
 from controlunit.devices.mcp4725 import MCP4725
+from controlunit.devices.kikusui import KikusuiLogger, load_config as load_kikusui_config
 
 import readsettings
 from striphtmltags import strip_tags
@@ -19,7 +20,7 @@ from controlunit.ui.text_shortcuts import RED, BLUE, RESET
 # Plain standard library: a few locked values the optional web view reads,
 # and the queue it puts commands on. Nothing here imports Flask, so a machine
 # without it starts as it always did.
-from controlunit.web.status import RigStatus, stale_after
+from controlunit.web.status import RigStatus, stale_after, dummy_hardware_loaded
 from controlunit.web import commands as web_commands
 
 #: How often the main thread looks at when the last sample arrived.
@@ -58,6 +59,7 @@ class MainApp(QtCore.QObject, UIWindow):
     zero_adjustment = {"Ip": 0, "Bu": 0, "Bd": 0}
 
     sigAbortWorkers = QtCore.pyqtSignal()
+    kikusui_message = QtCore.pyqtSignal(str)
 
     # MARK: init
     def __init__(self, app: QtWidgets.QApplication):
@@ -72,6 +74,8 @@ class MainApp(QtCore.QObject, UIWindow):
 
         self.__workers_done = 0
         self.workers = {}
+        self._kikusui_logger = None
+        self.kikusui_message.connect(self.log_message)
         # Define presets
         # self.__temp = self.DEFAULT_TEMPERATURE
         self._mfc_presets = {1: self.DEFAULT_VOLTAGE, 2: self.DEFAULT_VOLTAGE}
@@ -418,6 +422,29 @@ class MainApp(QtCore.QObject, UIWindow):
         self.indicator_led = IndicatorLED(
             self.__app, self.pi, self.workers["ADC"]["worker"]
         )
+        self._start_kikusui_logging()
+
+    def _start_kikusui_logging(self):
+        """Optional telemetry; a missing/broken LAN must not stop manual acquisition."""
+        if self._kikusui_logger is not None:
+            self.log_message("Kikusui recording unavailable: previous logger is still stopping")
+            return
+        try:
+            config = load_kikusui_config()
+            if config is None:
+                self.log_message("Kikusui telemetry disabled: no kikusui.yml configured")
+                return
+            if dummy_hardware_loaded() and not config.dummy:
+                self.log_message("Kikusui telemetry disabled: dummy hardware never contacts the supply")
+                return
+            logger = KikusuiLogger(
+                config, self.savepaths["ADC"], self.kikusui_message.emit,
+                context=lambda: self.web_status.read()["setpoints"],
+            )
+            logger.start()
+            self._kikusui_logger = logger
+        except Exception as error:  # noqa: BLE001 -- Optional telemetry cannot prevent acquisition.
+            self.log_message(f"Kikusui telemetry unavailable: {error}; manual drive unchanged")
 
     def prep_worker(self, device_class, device_name, start_time):
         """
@@ -483,6 +510,13 @@ class MainApp(QtCore.QObject, UIWindow):
         self.terminate_indicator_thread()
         if hasattr(self, "pi"):
             self.pi.stop()
+        # All hardware shutdown work precedes the optional LAN recorder's wait.
+        logger = getattr(self, "_kikusui_logger", None)
+        if logger is not None:
+            if logger.stop():
+                self._kikusui_logger = None
+            else:
+                self.log_message("Kikusui recorder is still stopping; new telemetry start blocked")
 
     def terminate_indicator_thread(self):
         if hasattr(self, "indicator_led"):

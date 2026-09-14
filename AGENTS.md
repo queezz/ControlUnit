@@ -179,3 +179,15 @@ tell you to"). Fleet's `RULES.md` §1 reserves pushes for queezz so that no
 session puts work on a remote he has not seen; his word in the chat is that
 seeing. Tags remain his. Pulling to the rig's idle checkout is a session's,
 as `.agents/README.md` says.
+
+## Kikusui measurement first
+
+Owner decision 2026-09-14: collect read-only Kikusui LAN voltage/current
+records during manual discharges and bakes before changing PID. The initial
+recorder is a separately timestamped sidecar; it must not control outputs,
+block the ADC or reuse stale readings as fresh ones. LAN loss leaves manual
+drive unchanged, records unavailable measurements and retries. The future
+PID is for an already ignited discharge, taking over the held filament drive
+smoothly; its telemetry-loss policy is separate work. Filament warnings wait
+for measured operating baselines. The preanode short is solved by the owner's
+physical repair to the plasma source, not by software.

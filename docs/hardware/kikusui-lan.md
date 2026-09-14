@@ -40,36 +40,104 @@ Kikusui's PWR-01 Interface Manual (IB035082, 2020) and the PWR-01 FAQ.
    remote-control panel. Setting a password there is optional; **CF60:
    LCI** resets the interface if the password is forgotten.
 
-## What the program will do
+## Read-only logging (4.15.0)
 
-Socket to port **5025** (SCPI-RAW; the port is fixed), one line per
-command, terminated with LF (`\n`). The two queries:
+The first stage records the supply while the operator drives discharges and
+bakes manually. Collect normal behaviour before changing the plasma PID or
+inventing filament-condition warning thresholds (owner decision 2026-09-14).
+There is no automatic ignition and this logger sends no control commands.
+
+On the Pi, create `~/.controlunit/kikusui.yml` with its actual address:
+
+```yaml
+host: 192.0.2.10  # example only: replace with the supply's numeric LAN address
+port: 5025
+interval_s: 0.5
+timeout_s: 1.0
+retry_s: 5.0
+```
+
+Configuration is read at acquisition Start. An absent file disables logging
+with one message; an invalid file reports the problem without preventing
+normal acquisition. The host is a numeric IPv4 or IPv6 address so DNS cannot
+hold up shutdown. `interval_s` accepts 0.1–60 s, `timeout_s` 0.1–5 s, and
+`retry_s` 1–60 s. The defaults record at about 2 Hz independently of the ADC's
+sampling period. Long polls reduce telemetry cadence, never cause catch-up
+bursts. For off-rig testing use `dummy: true`; rows say `dummy` and contain
+synthetic zero output. Dummy hardware refuses real LAN configuration.
+
+Each run creates `kikusui_YYYYMMDD_HHMMSS.csv` beside its
+`cu_YYYYMMDD_HHMMSS.csv`. A header identifies the paired ADC file and schema
+`controlunit-kikusui/v1`. The columns are:
+
+| Column | Meaning |
+|---|---|
+| `date` | Receipt time in ISO format with the local UTC offset |
+| `logger_elapsed_s` | Monotonic time since this recorder started |
+| `query_ms` | Time for the poll, including reconnect/identity when needed |
+| `voltage_v`, `current_a` | Supply's measured output in volts and amperes |
+| `output_on` | Queried output-enable state, 0 or 1; not proof of delivered power |
+| `commanded_cathode_mv` | Software's requested DAC command, captured before the poll; not measured DAC voltage |
+| `plasma_target_a` | Software's PID target, captured before the poll; zero when off |
+| `status` | `ok`, `unavailable`, or `dummy` |
+| `error` | Failure description for an unavailable poll |
+| `identity` | Supply identity on successful polls |
+
+Every row is flushed. Existing telemetry files are never overwritten. A file
+write failure stops this recorder with an explicit application-log message;
+it does not stop the ADC or alter outputs. Voltage, current and output state
+are queried sequentially, not simultaneously; the time column marks receipt,
+not an instrument-provided measurement timestamp. Align with the ADC by time,
+converting the offset-aware timestamp to the rig's local time as needed.
+The DAC can clamp its command; the requested value is not proof of the
+applied voltage. There is one row per attempted poll, not one row per nominal
+sampling slot: use timestamps and status transitions to measure outage
+duration, rather than counting unavailable rows as 0.5-second intervals.
+
+**On LAN failure:** the entire poll is unavailable, its measurement/output
+fields are empty, and the application Log says `Kikusui telemetry LOST` once
+per outage. The background recorder retries and logs `BACK` on recovery.
+There is no reuse of the last good reading as a new measurement, no zero
+substitution, and no change to manual drive. Reconnection verifies model and
+serial identity and sends only queries. Stop interrupts a connected read and
+all retry/sampling waits; hardware shutdown takes precedence over waiting for
+this recorder. A future PID that depends on telemetry will need its own
+explicit loss-of-feedback policy.
+
+The existing ADC `Ci/Cv` columns and the Cathode Measured cell are still the
+old analog placeholders: **they are not these LAN measurements**. The separate
+file preserves the original ADC schema and independent timing. Live readouts,
+a telemetry snapshot API and retirement of those placeholders are later work.
+Filament resistance `V/I` and power `VI` can be derived during review; avoid
+dividing near zero current and compare resistance under similar thermal and
+operating conditions before interpreting it as thinning.
+
+## Transport
+
+Socket to port **5025** (SCPI-RAW), one line per command terminated with LF.
+The recorder's complete wire command set is:
 
 ```text
-*IDN?            → KIKUSUI,PWR401L,<serial>,<firmware>
-MEASure:VOLTage? → the output voltage, in volts
-MEASure:CURRent? → the output current, in amperes
+*IDN?       -> identity (on connection/reconnection)
+MEAS:VOLT?  -> output voltage in volts
+MEAS:CURR?  -> output current in amperes
+OUTP?       -> output-enable state, 0 or 1
 ```
 
-The supply refreshes its measured voltage and current alternately every
-25 ms, so asking faster than every 50 ms returns the previous value; the
-rig samples at 0.1 s or slower, well inside that. `SYST:COMM:RLST REM` is
-the manual's recommended first command in a program (it puts the panel in
-remote); it is not required for measuring, and the program will not send
-it, so the front panel keeps working while the rig logs.
+The recorder maintains one socket, sends one query at a time and reads a
+complete newline-terminated reply before sending another. A single `recv`
+is not guaranteed to contain even one complete reply. One timeout bounds the
+whole poll, including fragmented responses; invalid numbers, output states
+or identity are failures rather than plausible-looking measurements.
 
-A quick check from the office PC, once the address is known:
+It does not send `SYST:COMM:RLST REM`, output/setpoint commands, reset or
+clear-status commands. Reading must not take over the front panel or clear
+an instrument alarm. The existing J1 current control remains the actuator.
 
-```powershell
-& "$env:USERPROFILE\.venvs\hardware-dev\Scripts\python.exe" -c "import socket; s=socket.create_connection(('<address>', 5025), timeout=3); s.sendall(b'*IDN?\nMEAS:VOLT?\nMEAS:CURR?\n'); print(s.recv(256).decode())"
-```
-
-The build itself is described in `.agents/directions.md` (a worker beside
-the DAC workers, the answers written as the `Ci` and `Cv` columns, NaN
-and one log line when the supply does not answer, the address in
-`~/.controlunit/kikusui.yml` on the Pi and never in git). The Cathode
-group's Measured cell on the web already reads `Cv`, so it will simply
-start showing volts.
+On 2026-09-14 the connected PWR401L (firmware VER01.24 BLD0056) answered
+these queries with output off. Ten voltage/current pairs from the office PC
+took 4.58 ms median, 19.53 ms maximum. This proves the transport, not its
+reliability during plasma; discharges and bakes are the next evidence.
 
 ## Sources
 

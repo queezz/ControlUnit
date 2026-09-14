@@ -41,6 +41,18 @@ Key structural notes:
 
 ## 2 · Acquisition data flow
 
+The ownership diagram above covers the core Qt workers. From 4.15.0 an
+optional `KikusuiLogger`, owned separately by `MainApp._kikusui_logger`,
+runs in a Python thread alongside them. It owns its read-only TCP socket
+and separate run CSV; its only input from the application is a copy of the
+locked `RigStatus` setpoints. Messages cross to the main thread through
+`kikusui_message`, a queued Qt signal. It never touches a widget or a hardware
+worker. ADC delivery does not wait for LAN reads, and telemetry continues
+through an ADC retry. The hardware workers and GPIO shut down before the
+main thread interrupts and joins this optional recorder. Socket deadlines
+and interruptible waits bound its shutdown; a recorder that has not stopped
+blocks a second telemetry start rather than overlapping files/connections.
+
 The ADC thread follows monotonic sampling deadlines. Below one second it
 records one scan per period; at one second and above it averages raw scans
 through each window. `STEP` only batches completed rows for delivery to the

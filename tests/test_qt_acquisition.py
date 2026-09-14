@@ -158,3 +158,59 @@ def test_a_real_run_at_one_second_sampling_delivers_averaged_samples(qt_app, hom
         assert len(widget.datadict["ADC"]) >= 2
     finally:
         widget.abort_all_threads()
+
+
+def test_dummy_kikusui_records_with_the_run_and_stops_after_hardware(qt_app, home, monkeypatch):
+    import time
+
+    from controlunit.devices.kikusui import ReadOnlyClient
+    from controlunit.main import MainApp
+
+    config = home / ".controlunit"
+    config.mkdir()
+    (config / "kikusui.yml").write_text("dummy: true\ninterval_s: 0.1\n")
+    # Even an accidental construction of a network client fails this off-rig check.
+    monkeypatch.setattr(ReadOnlyClient, "__init__", lambda *args: pytest.fail("real PSU access"))
+    widget = MainApp(qt_app)
+    try:
+        widget.start_acquisition()
+        logger = widget._kikusui_logger
+        assert logger is not None
+        widget.web_status.record_setpoints(cathode_mv=1500)
+        deadline = time.monotonic() + 2
+        while time.monotonic() < deadline:
+            if logger.path.exists() and ",1500," in logger.path.read_text():
+                break
+            time.sleep(0.02)
+        assert ",1500," in logger.path.read_text()
+        assert ",dummy," in logger.path.read_text()
+        original_stop = logger.stop
+
+        def stop_after_hardware():
+            assert widget.workers == {}
+            assert widget.web_status.read()["setpoints"]["cathode_mv"] == 0
+            return original_stop()
+
+        monkeypatch.setattr(logger, "stop", stop_after_hardware)
+        widget.stop_acquisition()
+        assert widget._kikusui_logger is None
+        assert not logger.thread.is_alive()
+    finally:
+        widget.abort_all_threads()
+
+
+def test_dummy_hardware_refuses_a_real_kikusui_config(qt_app, home, monkeypatch):
+    from controlunit.devices.kikusui import ReadOnlyClient
+    from controlunit.main import MainApp
+
+    config = home / ".controlunit"
+    config.mkdir()
+    (config / "kikusui.yml").write_text("host: 127.0.0.1\n")
+    monkeypatch.setattr(ReadOnlyClient, "__init__", lambda *args: pytest.fail("real PSU access"))
+    widget = MainApp(qt_app)
+    try:
+        widget.start_acquisition()
+        assert widget._kikusui_logger is None
+        assert widget.workers
+    finally:
+        widget.abort_all_threads()

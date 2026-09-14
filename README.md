@@ -17,6 +17,7 @@ The box exists. It sits in a multi-chamber plasma lab. It is used today.
 | MFC gas control — H₂ + O₂ via DAC8532 | **live** |
 | Plasma current PID via galvanically isolated MCP4725 | **live** (Apr 2026) |
 | GPIO sync signal for external loggers (QMS, others) | **live** |
+| Kikusui LAN voltage/current recording | **optional**, read-only timestamped file; [setup](docs/hardware/kikusui-lan.md) |
 | Membrane temperature control via MAX6675 + SSR | dormant — migrated to NI/Windows |
 
 Hardware: Raspberry Pi 4 (8 GB) + custom PCB.

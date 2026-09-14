@@ -69,38 +69,31 @@ holds what is still undecided or unbuilt.
 
 ## Ready to build
 
-- Log the cathode's own voltage and current from the Kikusui over LAN
-  (owner decision 2026-09-11: "lan it is then"; he wires the cable and
-  the address himself). Not the J1 monitor pins: they are referenced to
-  the supply's output negative, which floats at cathode potential, and
-  would need a second isolation stage and one more analog path into the
-  ADC board whose I²C bus already fails under an arc. Not the Hall sensor
-  with the ferrite ring: current only, and 30 A of rerouting. Over LAN
-  the supply is transformer-isolated by construction and answers SCPI
-  `MEAS:VOLT?` and `MEAS:CURR?` with its own calibrated numbers.
-  The build: a small worker thread beside the DAC workers that opens a
-  TCP socket to the supply (SCPI port 5025 on the PWR-01 series), asks
-  once per sample, and hands the main thread two numbers the ADC step
-  writes as the `Ci` and `Cv` columns the CSV already has (channels 7 and
-  8, never wired; retire the ADC reads of those two channels and their
-  conversions in `settings.yml`); a read that fails or times out is a
-  NaN in the row and one log line per complaint period, never a dead
-  thread, exactly as the ADC reader now behaves. The address lives in
-  `~/.controlunit/kikusui.yml` on the Pi (host, port, a `dummy: true`
-  for off-rig), never in git; absent file means the columns stay NaN
-  and the log says so once. Kurokawa-kun's 2023 SCPI driver for this
-  supply sits in the repository history under `kurokawa-dev/PWR.py`;
-  worth reading for the command set, not for reuse. The web readouts
-  gain nothing until the columns carry numbers; the Cathode group's
-  Measured cell already reads `Cv`, so it will simply start showing volts.
-  A letter to `code/pihti-log` when the CSV columns change meaning.
-  Needs from queezz before the first read: the supply's address on the
-  lab VLAN, and that its LAN is set to accept a socket (CF40). Physics
-  note from him, kept here because it decides nothing for LAN but will
-  for any future analog path: "my plasma power floats, not grounded by
-  design. But electrons pull ground close to cathode" — the discharge
-  itself ties the floating supply near chamber ground, and an arc makes
-  that tie a short.
+- Kikusui follow-up after the first read-only recorder (owner decision
+  2026-09-14): collect ordinary manual discharges and bakes before fixing PID
+  or setting filament-condition alarm thresholds. 4.15.0 records a separate
+  timestamped Kikusui CSV, including manual command, with explicit LAN-loss
+  rows and recovery. Setup is in docs/hardware/kikusui-lan.md; deployment and
+  real-run validation remain. The cable/address are established in the lab
+  record and read-only SCPI was verified with output off.
+  Later: publish fresh telemetry for live Ci/Cv and a snapshot API, retire
+  the unwired analog placeholders with a versioned data contract, and make
+  PID engage on an already ignited discharge with a smooth handover from
+  manual filament current. Do not silently redefine the old ADC columns.
+  Fix elapsed-manual-time integral saturation, the post-limit 1000 mV offset,
+  and manual-command CSV metadata before relying on that loop; define a
+  telemetry-dependent PID's loss/hold/off response before implementation.
+  Filament monitoring should compare measured V/I and VI at matched operating
+  conditions, with a healthy baseline and no automatic thinning diagnosis.
+  Evidence: docs/diagnostics/2026-09-14-run-and-kikusui.md.
+
+- Coordinate a PIHTI Log action to attach all known ControlUnit parameters as
+  an immutable instant snapshot, a table and optionally a picture; a clearly
+  labelled short averaging window is an option, not a fixed owner choice.
+  Request posted on the owner's explicit word, 2026-09-14, as
+  `20260914-86630ead-525f3f` to `code/pihti-log`. The initial Kikusui sidecar is
+  not yet a live API field; coordinate the snapshot contract before exposing
+  it and never present legacy Ci/Cv placeholders as PSU measurements.
 
 - A command line for the rig, over the web API it already has (queezz,
   2026-09-09: "Do you have cli to drive the ControlUnit? I think not. I

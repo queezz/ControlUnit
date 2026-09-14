@@ -53,4 +53,8 @@ again. The manual pages are scans in the lab vault under
 
 ## Logging its voltage and current
 
-The supply's own measured voltage and current are read over its LAN port; the setup and the commands are in [Kikusui over LAN](kikusui-lan.md).
+From 4.15.0, optional read-only LAN logging writes the supply's measured
+voltage/current to a separate timestamped file beside each acquisition.
+Manual drive and PID behaviour are unchanged. The old ADC `Ci/Cv` values
+are not LAN measurements. Setup, file fields and the loss-of-connection
+behaviour are described in [Kikusui over LAN](kikusui-lan.md).
