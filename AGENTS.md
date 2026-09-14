@@ -51,6 +51,30 @@ run to the Pi itself. The view reads a small status record the main thread
 writes and never touches a worker; what a browser may set goes through a
 queue the main thread drains, behind the Remote switch on the rig's screen.
 
+### Off the rig, with dummy hardware
+
+To check the web view on a laptop before it is pulled onto the Pi, the
+lab registry has an alias (registered 2026-09-14, owner ask: "I forget
+the spell"):
+
+```powershell
+lab controlunit-dummy
+```
+
+It starts the same program with its dummy hardware, the web view on
+`http://127.0.0.1:4187/`, and opens the browser. The Qt window opens
+beside it; turn the Remote switch on there before a browser may set
+anything, then Start acquisition from either. Data lands in
+`~/work/cudata` on that machine. Without `lab`, the same spell by hand,
+from the repository root:
+
+```powershell
+& "$env:USERPROFILE\.venvs\hardware-dev\Scripts\python.exe" -m controlunit.main --web --host 127.0.0.1
+```
+
+This is for looking at the view, never for driving the rig: the rig is
+started only from its own desktop shortcut.
+
 ### Before pulling a new version onto the Pi
 
 A pull and a restart take the rig away from whoever is using it, and "not
