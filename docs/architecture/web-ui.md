@@ -818,7 +818,19 @@ Below 620px the Operate / Observe / Monitor switch and the Stop all outputs
 button move into the ☰ Menu, in that order, and move back above it. They are
 the same elements, reparented by `dockModes` in `live.js` on the breakpoint
 — never a second copy — so their presses, their state and their gating are
-untouched. At desktop widths the mode switch keeps its place in the header
+untouched.
+
+**The mode switch is on the screen in every mode, at every width.** Monitor
+takes the whole tab bar away, and with it the Menu, so on a phone Monitor
+docks the switch in the strip it does put on the screen, beside Display and
+Full screen; Operate and Observe keep the bar, so there it rides in the Menu.
+`modeSwitchHost` decides, and `applyMode` re-docks on every mode change.
+Escape is the second way out: it closes an open drawer first, then walks one
+mode back towards Operate — Monitor to Observe, Observe to Operate — and
+stops there. Between 621px and 1199px there is no Menu and the switch simply
+stays in the header, where all three modes render it.
+
+At desktop widths the mode switch keeps its place in the header
 and Stop all outputs stands at the foot of the right rail's Operator and
 access group: it is not a safety device (the rig's own switches are), it is
 the rare press that zeroes gas and the cathode while a recording continues,

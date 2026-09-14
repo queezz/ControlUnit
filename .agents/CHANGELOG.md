@@ -1,3 +1,7 @@
+## 4.14.1 — 2026-09-14
+
+- Monitor on a phone had no way out: 4.14.0 moved the mode switch into the top bar's Menu, and Monitor hides the top bar ("Observe trapped me. No tri-state toggle anywhere"). The switch now docks into Monitor's own strip beside Display and Full screen on a phone, into the Menu in Operate and Observe, and stays in the header at wider widths; one element, moved, never copied. Escape walks back one mode at a time to Operate. A test fails if any mode ever renders no mode switch again.
+
 ## 4.14.0 — 2026-09-14
 
 - Every card on Live folds to one row that still shows its numbers, each independently, remembered per browser: Gas flow, Cathode, the readouts strip, each chart, and the right rail's groups. Start/Stop never folds (queezz: "I can simply scroll down, they are not in the way"). The header is pixel-identical folded or open; the fold mark is a chevron at the row's right end, one CSS rule. On a phone the left rail goes from about 900 px to 200 px with gas and cathode folded.

@@ -8,7 +8,11 @@
 {% set fence_closed = state.fence.needed and not state.fence.passed %}
 <div class="page control-workspace" id="control" data-live data-actor="{{ actor }}"
      data-default-window="{{ default_window }}" data-pens='{{ pens | tojson }}'>
-    <div class="view-toolbar" role="group" aria-label="View mode">
+    {# The one mode switch on the page. It is moved between the places a mode
+       actually leaves on the screen (live.js, `modeSwitchHost`) and never
+       copied, so there is exactly one of these in the document and pressing
+       it always means the same thing. #}
+    <div class="view-toolbar" data-role="mode-switch" role="group" aria-label="View mode">
         {% for name, label in modes %}
         <button type="button" class="choice" data-mode="{{ name }}" aria-pressed="{{ 'true' if name == page_mode else 'false' }}">{{ label }}</button>
         {% endfor %}

@@ -1893,6 +1893,13 @@ body[data-mode="monitor"] .monitor-settings { display: flex; flex-wrap: wrap; ga
     border: 0; background: none; padding: 6px 0 0; margin: 4px 0 0;
     border-top: 1px solid var(--line-soft); justify-content: stretch; }
   .main-tabs > .view-toolbar > button { flex: 1 1 auto; width: auto; }
+  /* Monitor takes the tab bar away, so on a phone the switch rides in the
+     one strip Monitor does put on the screen, beside Display and Full
+     screen — never behind a Menu that mode has removed. */
+  .mode-actions > .view-toolbar { position: static; transform: none; box-shadow: none;
+    border: 0; background: none; padding: 0; margin: 0 auto 0 0; gap: 4px; }
+  .mode-actions > .view-toolbar > button { width: auto; flex: 0 0 auto;
+    padding: 3px 10px; font-size: 0.84rem; }
   /* And the one press that zeroes the outputs rides there too, quiet and
      bordered, under a hairline of its own. */
   .main-tabs > .stop-all { margin: 6px 0 0; padding: 8px 12px;

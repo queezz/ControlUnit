@@ -1016,6 +1016,9 @@
         press("[data-mode]", "mode", mode);
         var actions = root.querySelector('[data-role="mode-actions"]');
         if (actions) actions.hidden = mode !== "monitor";
+        // Which strip a phone's mode switch rides in depends on the mode, so
+        // it is settled here, every time the mode changes.
+        dockModes();
         closeDrawers();
         root.querySelectorAll('[data-monitor-setting]').forEach(function (card) {
             if (!card.originalParent) {
@@ -1104,26 +1107,47 @@
     /* Stop all outputs travels with it, and for the same reason: it is the
        rare press that zeroes gas and the cathode while a run keeps recording,
        so it stands at the foot of Operator and access on a desktop and in the
-       Menu on a phone — never where a thumb finds it during a good run. */
-    function dockToMenu(el, menu, phone) {
+       Menu on a phone — never where a thumb finds it during a good run.
+
+       `null` means "back where the page put you". */
+    function dockTo(el, host) {
         if (!el) return;
         if (!el.homeSlot) {
             el.homeSlot = document.createComment("docked control");
             el.parentNode.insertBefore(el.homeSlot, el);
         }
-        if (phone) {
-            if (el.parentNode !== menu) menu.appendChild(el);
-        } else if (el.parentNode === menu) {
-            el.homeSlot.parentNode.insertBefore(el, el.homeSlot.nextSibling);
-        }
+        var wanted = host || el.homeSlot.parentNode;
+        if (!wanted || el.parentNode === wanted) return;
+        if (host) host.appendChild(el);
+        else el.homeSlot.parentNode.insertBefore(el, el.homeSlot.nextSibling);
     }
 
+    /* Where the mode switch stands on a phone — and it must be somewhere the
+       mode it is in actually renders (queezz, 2026-09-14, on his phone:
+       "Observe trapped me. No tri-state toggle anywhere"). Monitor takes the
+       whole tab bar away, and 4.14.0 had just moved the switch into the Menu
+       inside it, so Monitor became a room whose only door was the Escape key.
+       Operate and Observe keep the bar, so there the Menu carries it;
+       Monitor does not, so there it rides in the strip Monitor already puts
+       on the screen beside Display and Full screen. One element, moved —
+       never a second copy of a control that changes the page's shape. */
+    function modeSwitchHost() {
+        if (!window.matchMedia || !window.matchMedia(PHONE).matches) return null;
+        return mode === "monitor"
+            ? root.querySelector('[data-role="mode-actions"]')
+            : document.getElementById("main-tabs");
+    }
+
+    /* Both of these are looked up from the document and never from `root`:
+       once one has been docked into the Menu it is no longer inside the page
+       element at all, and a `root`-scoped query would never find it again —
+       which is exactly how Monitor kept the switch it had been told to give
+       back. */
     function dockModes() {
-        var menu = document.getElementById("main-tabs");
-        if (!menu) return;
         var phone = Boolean(window.matchMedia && window.matchMedia(PHONE).matches);
-        dockToMenu(root.querySelector(".view-toolbar"), menu, phone);
-        dockToMenu(document.querySelector('[data-role="stop-all"]'), menu, phone);
+        var menu = document.getElementById("main-tabs");
+        dockTo(document.querySelector('[data-role="mode-switch"]'), modeSwitchHost());
+        dockTo(document.querySelector('[data-role="stop-all"]'), phone ? menu : null);
     }
 
     function setupModes() {
@@ -1153,12 +1177,20 @@
         document.addEventListener("fullscreenchange", reflectFullscreen);
 
         /* Escape always gets the reader out of wherever they are: out of an
-           open drawer first, and out of the mode itself when none is open,
-           so a mode is never a room without a door. */
+           open drawer first, then one mode back towards Operate, so no mode
+           is a room without a door. Monitor falls to Observe and Observe
+           falls to Operate — a second, harmless way out beside the switch
+           itself, which is on the screen in every mode.
+
+           An open phone Menu is navigation.js's to close, and it says so by
+           stopping the event; this only checks the same flag, in case the
+           two listeners are registered the other way round. */
         document.addEventListener("keydown", function (event) {
             if (event.key !== "Escape") return;
+            if (document.querySelector('.nav-toggle[aria-expanded="true"]')) return;
             if (root.querySelector(".rail.drawer-open")) { closeDrawers(); return; }
             if (mode === "monitor") setMode("observe");
+            else if (mode === "observe") setMode("operate");
         });
 
         window.addEventListener("popstate", function () {
@@ -1292,7 +1324,6 @@
     function setup() {
         recall();
         reflectView();
-        dockModes();
         if (window.matchMedia) {
             var watch = window.matchMedia(PHONE);
             var moved = function () { dockModes(); };

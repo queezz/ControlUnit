@@ -75,8 +75,11 @@ function instrument(cardRoom) {
     let saved;
     const context = vm.createContext({
         document: {
-            querySelector() { return root; },
+            // Only the page's own root; everything else this harness does not
+            // model is simply absent, as it is on a page without it.
+            querySelector(selector) { return selector === '[data-live]' ? root : null; },
             getElementById(id) { return id === 'chart-bar' ? canvas : null; },
+            createComment() { return {}; },
             body: {dataset: {}}, documentElement: {}
         },
         URL, URLSearchParams,
@@ -101,6 +104,196 @@ function instrument(cardRoom) {
     api.drawAll();
     return {api, buttons, canvas, cards, folded, units};
 }
+
+/* -- the phone, and the one way out of a mode ---------------------------- *
+ *
+ * queezz, 2026-09-14, on his phone at the rig: "Observe trapped me. No
+ * tri-state toggle anywhere." 4.14.0 had moved the mode switch into the ☰
+ * Menu, which lives in the tab bar — and Monitor removes the tab bar, so the
+ * switch went with it and the mode's only door was the Escape key.
+ *
+ * What is asserted below is the general claim, not that one mode: in every
+ * mode, at phone width, the switch stands somewhere that mode actually
+ * renders. "Renders" is read from the page's own two answers — the `hidden`
+ * flag live.js writes, and the `display: none` rules the stylesheet carries
+ * for that mode — so the test fails the moment either of them moves under it.
+ */
+const CSS = fs.readFileSync(
+    path.join(__dirname, '../controlunit/web/static/css/controlunit.css'), 'utf8');
+
+function el(spec) {
+    const node = Object.assign({
+        dataset: {}, className: '', id: '', hidden: false, children: [],
+        parentNode: null, attrs: {}, handlers: {},
+        classList: {contains() { return false; }, add() {}, remove() {}, toggle() {}},
+        setAttribute(name, value) { this.attrs[name] = value; },
+        getAttribute(name) { return this.attrs[name]; },
+        addEventListener(kind, fn) { this.handlers[kind] = fn; },
+        focus() {},
+        detach(child) { const i = this.children.indexOf(child); if (i >= 0) this.children.splice(i, 1); },
+        appendChild(child) {
+            if (child.parentNode) child.parentNode.detach(child);
+            child.parentNode = this; this.children.push(child); return child;
+        },
+        insertBefore(child, ref) {
+            if (child.parentNode) child.parentNode.detach(child);
+            child.parentNode = this;
+            const at = ref ? this.children.indexOf(ref) : -1;
+            if (at >= 0) this.children.splice(at, 0, child); else this.children.push(child);
+            return child;
+        },
+        querySelector() { return null; },
+        querySelectorAll() { return []; }
+    }, spec || {});
+    Object.defineProperty(node, 'nextSibling', {
+        get() {
+            if (!this.parentNode) return null;
+            const at = this.parentNode.children.indexOf(this);
+            return at >= 0 ? this.parentNode.children[at + 1] || null : null;
+        }
+    });
+    return node;
+}
+
+/* The page as a phone sees it: the switch, the two places it can stand, and
+   the ancestors whose `display` a mode may take away. */
+function phone(startMode) {
+    const buttons = ['operate', 'observe', 'monitor'].map(name =>
+        el({dataset: {mode: name}}));
+    const toolbar = el({className: 'view-toolbar', dataset: {role: 'mode-switch'},
+        querySelectorAll() { return buttons; }});
+    const menu = el({id: 'main-tabs', ancestors: ['.tabbar', '#main-tabs']});
+    const actions = el({dataset: {role: 'mode-actions'}, hidden: true,
+        ancestors: ['.mode-actions']});
+    const stop = el({dataset: {role: 'stop-all'}});
+    const home = el({className: 'control-workspace'});
+    home.appendChild(toolbar);
+    const away = el({className: 'rail-card'});
+    away.appendChild(stop);
+
+    const root = el({
+        className: 'page control-workspace', dataset: {live: '', defaultWindow: '300'},
+        /* A root-scoped query answers only for what is still inside root.
+           The Menu is in the tab bar, outside it — so a control docked there
+           is no longer root's to find, and code that looks for it with
+           `root.querySelector` can never bring it back. */
+        querySelector(selector) {
+            if (selector.indexOf('mode-switch') !== -1) {
+                return (toolbar.parentNode === home || toolbar.parentNode === actions)
+                    ? toolbar : null;
+            }
+            if (selector.indexOf('mode-actions') !== -1) return actions;
+            return null;
+        },
+        querySelectorAll(selector) {
+            if (selector === '[data-mode]') return buttons;
+            return [];
+        }
+    });
+
+    const keys = [];
+    const body = {dataset: {mode: startMode || 'operate'}};
+    const context = vm.createContext({
+        document: {
+            querySelector(selector) {
+                if (selector === '[data-live]') return root;
+                if (selector.indexOf('mode-switch') !== -1) return toolbar;
+                if (selector.indexOf('stop-all') !== -1) return stop;
+                return null;   // no open Menu, no open drawer, no backdrop
+            },
+            getElementById(id) { return id === 'main-tabs' ? menu : null; },
+            createComment() { return el({}); },
+            addEventListener(kind, fn) { if (kind === 'keydown') keys.push(fn); },
+            body: body, documentElement: {}
+        },
+        URL, URLSearchParams,
+        window: {
+            devicePixelRatio: 1,
+            matchMedia(query) { return {matches: query.indexOf('620px') !== -1,
+                addEventListener() {}, addListener() {}}; },
+            location: {href: 'http://localhost/', search: startMode && startMode !== 'operate'
+                ? '?mode=' + startMode : ''},
+            history: {pushState(state, title, url) {
+                context.window.location.href = url;
+                context.window.location.search = new URL(url).search;
+            }},
+            addEventListener() {}, setInterval() { return 0; }, clearInterval() {},
+            setTimeout() { return 0; }, clearTimeout() {}
+        },
+        fetch() { throw new Error('a mode change must not reach the rig'); },
+        getComputedStyle() { return {getPropertyValue() { return ''; }}; },
+        localStorage: {setItem() {}, getItem() { return null; }}
+    });
+    const source = fs.readFileSync(
+        path.join(__dirname, '../controlunit/web/static/js/live.js'), 'utf8');
+    const end = source.indexOf('    if (document.readyState === "loading")');
+    vm.runInContext(source.slice(0, end) +
+        'globalThis.phone = {setupModes, applyMode, setMode, modeInAddress};\n}());', context);
+    context.phone.setupModes();
+    context.phone.applyMode();
+    return {api: context.phone, toolbar, menu, actions, buttons, body,
+            escape() { keys.forEach(fn => fn({key: 'Escape'})); }};
+}
+
+/* Does this mode take the element away? Both answers the page itself gives:
+   the flag live.js writes, and the stylesheet's own rule for that mode. */
+function rendered(host, mode) {
+    if (!host || host.hidden) return false;
+    return !(host.ancestors || []).some(selector =>
+        CSS.indexOf('body[data-mode="' + mode + '"] ' + selector + ' { display: none') !== -1);
+}
+
+test('at phone width every mode keeps the one mode switch on the screen', () => {
+    for (const mode of ['operate', 'observe', 'monitor']) {
+        const rig = phone();
+        rig.api.setMode(mode);
+        const host = rig.toolbar.parentNode;
+        assert.ok(host, mode + ': the switch has nowhere to stand');
+        assert.ok(rendered(host, mode),
+            mode + ' renders no mode switch: it is docked in something this '
+            + 'mode hides');
+        // Reached by a bookmark rather than by a press, the same must hold.
+        const direct = phone(mode);
+        assert.ok(rendered(direct.toolbar.parentNode, mode),
+            mode + ' opened directly renders no mode switch');
+    }
+});
+
+test('the switch is moved between its homes and never copied', () => {
+    const rig = phone();
+    const seen = new Set();
+    for (const mode of ['observe', 'monitor', 'operate', 'monitor', 'observe']) {
+        rig.api.setMode(mode);
+        seen.add(rig.toolbar.parentNode);
+        // Wherever it stands, it stands there once.
+        const homes = [rig.menu, rig.actions];
+        const copies = homes.reduce(
+            (n, h) => n + h.children.filter(c => c === rig.toolbar).length, 0);
+        assert.equal(copies, rig.toolbar.parentNode === rig.menu
+            || rig.toolbar.parentNode === rig.actions ? 1 : 0);
+    }
+    // Monitor's strip and the Menu are two homes, not two switches.
+    assert.ok(seen.has(rig.menu) && seen.has(rig.actions));
+    assert.equal(rig.buttons.length, 3);
+});
+
+test('Escape walks one mode back towards Operate, and stops there', () => {
+    // A second, harmless way out beside the switch itself.
+    const rig = phone('monitor');
+    assert.equal(rig.api.modeInAddress(), 'monitor');
+    rig.escape();
+    assert.equal(rig.api.modeInAddress(), 'observe');
+    rig.escape();
+    assert.equal(rig.api.modeInAddress(), 'operate');
+    rig.escape();
+    assert.equal(rig.api.modeInAddress(), 'operate', 'Operate is the ground floor');
+
+    // And straight out of Observe, which is the mode that trapped him.
+    const observing = phone('observe');
+    assert.equal(observing.api.modeInAddress(), 'observe');
+    observing.escape();
+    assert.equal(observing.api.modeInAddress(), 'operate');
+});
 
 /* One rig reading, shaped as /api/state answers it. The run key never moves
    between calls, so a repaint is a repaint and not a new run. */

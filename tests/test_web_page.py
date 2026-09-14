@@ -1135,22 +1135,58 @@ def test_the_menu_carries_the_mode_switch_and_the_rare_press_on_a_phone():
     """queezz, 2026-09-14: the fixed Operate/Observe/Monitor bar "costs a
     permanent row… on mobile they belong maybe in the hamburger", and Stop all
     outputs "must not sit where a thumb finds it during a good run". Both are
-    one element moved between two homes on the breakpoint — never a copy."""
+    one element moved between its homes on the breakpoint — never a copy."""
     source = _live_js()
-    dock = source[source.index("function dockToMenu"):source.index("function setupModes")]
+    dock = source[source.index("function dockTo"):source.index("function setupModes")]
     assert 'document.getElementById("main-tabs")' in dock
-    assert "menu.appendChild(el)" in dock
+    assert "host.appendChild(el)" in dock
     assert "el.homeSlot" in dock
-    assert 'dockToMenu(root.querySelector(".view-toolbar"), menu, phone)' in dock
-    assert 'dockToMenu(document.querySelector(\'[data-role="stop-all"]\'), menu, phone)' in dock
+    # Looked up from the document, never from `root`: once it is docked into
+    # the Menu it is outside the page element, and a root-scoped query would
+    # never find it to bring it back.
+    assert 'dockTo(document.querySelector(\'[data-role="mode-switch"]\'), modeSwitchHost())' in dock
+    assert "root.querySelector('[data-role=\"mode-switch\"]')" not in source
+    assert 'dockTo(document.querySelector(\'[data-role="stop-all"]\'), phone ? menu : null)' in dock
     assert "cloneNode" not in source
     assert "window.matchMedia(PHONE)" in source
     page = _client_page()
+    assert page.count('data-role="mode-switch"') == 1
     assert page.count('class="view-toolbar"') == 1
     assert page.count('data-role="stop-all"') == 1
     css = _css()
     assert ".main-tabs > .view-toolbar {" in css
     assert ".main-tabs > .stop-all {" in css
+
+
+def test_no_mode_is_a_room_without_a_door(client):
+    """queezz, 2026-09-14, on his phone at the rig: "Observe trapped me. No
+    tri-state toggle anywhere." Monitor removes the tab bar, and 4.14.0 had
+    just moved the switch into the Menu inside it. The switch now docks in a
+    strip the mode it is in actually renders, and Escape walks one mode back
+    towards Operate besides."""
+    source = _live_js()
+    host = source[source.index("function modeSwitchHost"):source.index("function dockModes")]
+    # Monitor keeps no tab bar, so the switch rides in the strip it does keep.
+    assert 'mode === "monitor"' in host
+    assert '[data-role="mode-actions"]' in host
+    assert 'document.getElementById("main-tabs")' in host
+    # And the choice is made again on every mode change, not once at startup.
+    applied = source[source.index("function applyMode"):source.index("function setMode")]
+    assert "dockModes();" in applied
+    escape = source[source.index('if (event.key !== "Escape") return;'):]
+    escape = escape[: escape.index("});")]
+    assert escape.index("closeDrawers(); return;") < escape.index('setMode("observe")')
+    assert 'else if (mode === "observe") setMode("operate");' in escape
+    # An open phone Menu is navigation.js's to close, not this handler's.
+    assert '.nav-toggle[aria-expanded="true"]' in escape
+    css = _css()
+    # Monitor is the one mode that takes the bar away; nothing else does.
+    assert 'body[data-mode="monitor"] .tabbar { display: none; }' in css
+    assert 'body[data-mode="observe"] .tabbar' not in css
+    assert ".mode-actions > .view-toolbar {" in css
+    # The strip the switch docks into in Monitor is the one Monitor shows.
+    page = client.get("/?mode=monitor").get_data(as_text=True)
+    assert 'data-role="mode-actions"' in page
 
 
 def _client_page():
