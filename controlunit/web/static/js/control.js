@@ -229,6 +229,10 @@
 
     function paintGas(state, map) {
         var sp = state.setpoints || {};
+        /* What the folded card says, built from the same two numbers the
+           open card shows rather than from a second reading of the state:
+           applied, then measured, per line. */
+        var folded = [];
         root.querySelectorAll(".frow[data-mfc]").forEach(function (row) {
             var number = row.dataset.mfc;
             var held = Number(sp["mfc" + number + "_v"] || 0);
@@ -242,11 +246,16 @@
             set('[data-role="mfc-setpoint"][data-mfc="' + number + '"]',
                 Math.round(held) + " mV");
             var measured = map["MFC" + number];
+            var reads = measured && measured.value !== null && measured.value !== undefined
+                ? String(Math.round(Number(measured.value) * 1000))
+                : "—";
             set('[data-role="mfc-measured"][data-mfc="' + number + '"]',
-                measured && measured.value !== null && measured.value !== undefined
-                    ? Math.round(Number(measured.value) * 1000) + " mV"
-                    : "—");
+                reads === "—" ? "—" : reads + " mV");
+            var named = row.querySelector(".row-name");
+            folded.push((named ? named.textContent : "MFC" + number) + " " +
+                Math.round(held) + " / " + reads + " mV");
         });
+        set('[data-role="fold-gas"]', folded.join(" · "));
     }
 
     /* Which setter this browser is shown. It is a view choice and never a
@@ -286,32 +295,71 @@
         if (manual) manual.hidden = mode !== "manual";
     }
 
-    /* The right rail's Settings group — QMS sync, sampling, gauges — is the
-       one fold on this page whose state is worth keeping. It opens open
-       (queezz, 2026-09-10: "I don't like IGs hidden by default. But hiding
+    /* Every card on this page folds, and there is one piece of code that
+       makes that true (queezz, 2026-09-14, on his phone at the rig:
+       "Minimized gas control takes too much space, which is a killer on my
+       phone… Hide 'any' card then, not all. I need CONTROL and HIDE
+       WHATEVER IN THE WAY"). The mechanism is the one the right rail's four
+       groups already used — a <details> whose <summary> is the card's own
+       heading line — so the Start/Stop card, the gas lines, the cathode,
+       Stop all outputs, the readouts strip and each chart all fold the same
+       way and are all remembered the same way.
+
+       One key per card, `controlunit.fold.<card>`, written only when the
+       reader actually folds something. Every card ships open (queezz,
+       2026-09-10: "I don't like IGs hidden by default. But hiding
        possibility is a right shape, sure."), so nothing a shift may want is
-       behind a press it has to discover; folding it is the reader's own act,
-       and a browser that has folded it stays folded on the next reload.
-       Kept per browser, like the cathode's mode above and for the same
-       reason: which drawer a person works with open is theirs, not the
-       rig's. Only a browser that has actually chosen overrides the
-       template's own `open`, so one that stores nothing — a private window,
-       site data blocked — simply starts open every time.
+       behind a press it has to discover; only a browser that has actually
+       chosen overrides the template's own `open`, and one that stores
+       nothing — a private window, site data blocked — simply starts open
+       every time.
 
-       Read before `revealSection`, so a deep link into a moved section still
+       Read before `revealSection`, so a deep link into a folded card still
        wins and opens the fold on its way in. */
-    var SETTINGS_KEY = "controlunit.settings.open";
+    var FOLD_KEY = "controlunit.fold.";
 
-    function setupSettingsFold() {
-        var group = root.querySelector('[data-role="settings-group"]');
-        if (!group) return;
-        try {
-            var chosen = window.localStorage.getItem(SETTINGS_KEY);
-            if (chosen !== null) group.open = chosen === "1";
-        } catch (e) { /* private windows and blocked storage still operate */ }
-        group.addEventListener("toggle", function () {
-            try { window.localStorage.setItem(SETTINGS_KEY, group.open ? "1" : "0"); }
-            catch (e) { /* nothing to remember with; the page works regardless */ }
+    /* The card's own heading line, and never a nested card's: a gas line's
+       own disclosure lives inside the Gas flow fold and keeps its own. */
+    function foldHead(fold) {
+        var head = fold.querySelector("summary");
+        return head && head.parentNode === fold ? head : null;
+    }
+
+    function markFold(fold) {
+        var head = foldHead(fold);
+        if (head) head.setAttribute("aria-expanded", fold.open ? "true" : "false");
+    }
+
+    /* A press that landed on a control riding on the heading line — the
+       cathode's PID/Manual switch, a chart's Zero buttons, the readouts'
+       small/big — presses that control and leaves the fold alone. Cancelling
+       the summary's own activation is what stops the fold; the button's own
+       handlers have already run by then. */
+    function pressedAControl(head, target) {
+        while (target && target !== head) {
+            if (target.dataset && target.dataset.foldKeep !== undefined) return true;
+            target = target.parentNode;
+        }
+        return false;
+    }
+
+    function setupFolds() {
+        root.querySelectorAll("[data-fold]").forEach(function (fold) {
+            try {
+                var chosen = window.localStorage.getItem(FOLD_KEY + fold.dataset.fold);
+                if (chosen !== null) fold.open = chosen === "1";
+            } catch (e) { /* private windows and blocked storage still operate */ }
+            markFold(fold);
+            fold.addEventListener("toggle", function () {
+                markFold(fold);
+                try { window.localStorage.setItem(FOLD_KEY + fold.dataset.fold, fold.open ? "1" : "0"); }
+                catch (e) { /* nothing to remember with; the page works regardless */ }
+            });
+            var head = foldHead(fold);
+            if (!head) return;
+            head.addEventListener("click", function (event) {
+                if (pressedAControl(head, event.target)) event.preventDefault();
+            });
         });
     }
 
@@ -335,14 +383,20 @@
         var sp = state.setpoints || {};
         var amperes = Number(sp.plasma_a || 0);
         var millivolts = Number(sp.cathode_mv || 0);
-        set('[data-role="plasma-setpoint"]',
-            amperes > 0
-                ? "Held · PID " + amperes.toFixed(2) + " A"
-                : millivolts > 0
-                    ? "Held · manual " + Math.round(millivolts) + " mV"
-                    : "off");
+        var driving = amperes > 0
+            ? "Held · PID " + amperes.toFixed(2) + " A"
+            : millivolts > 0
+                ? "Held · manual " + Math.round(millivolts) + " mV"
+                : "off";
+        set('[data-role="plasma-setpoint"]', driving);
         var ip = map.Ip;
-        set('[data-role="plasma-measured"]', ip ? fmt(ip.value, ip.unit) + " A" : "—");
+        var current = ip ? fmt(ip.value, ip.unit) + " A" : "—";
+        set('[data-role="plasma-measured"]', current);
+        /* The folded card carries the same sentence the open card ends with,
+           less the word the card's own name already says: what is driving
+           the filament, and what the rig reads back. */
+        set('[data-role="fold-plasma"]',
+            driving.replace("Held · ", "") + " · read " + current);
 
         var row = root.querySelector('[data-role="cathode-manual-row"]');
         if (row) {
@@ -655,7 +709,7 @@
             send("/api/plasma-current", {off: true}, "the plasma PID off");
         });
 
-        setupSettingsFold();
+        setupFolds();
         setupCathodeMode();
         var manual = root.querySelector('[data-role="cathode-manual-row"]');
         if (manual) setupDraftRow(manual, CATHODE_DRAFT);

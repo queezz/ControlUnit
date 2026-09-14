@@ -56,12 +56,19 @@ function instrument(cardRoom) {
         parentNode: {classList: {toggle() {}}, querySelector() { return legend; }},
         getContext() { return new Proxy({}, {get: () => () => {}}); }
     };
+    /* The strip's own folded line: one cell per channel and one trailing
+       unit, written by the same paint that writes the cards. */
+    const folded = Object.fromEntries(['Bu', 'Bd'].map(name => [name, {textContent: ''}]));
+    const units = {textContent: ''};
     const root = {
         classList: {toggle() {}},
         dataset: {},
         querySelector(selector) {
             const readout = selector.match(/^\.readout\[data-readout="(.*?)"\]$/);
-            return readout ? cards[readout[1]] || null : null;
+            if (readout) return cards[readout[1]] || null;
+            if (selector.indexOf('fold-units') !== -1) return units;
+            const fold = selector.match(/\[data-fold-readout="(.*?)"\]/);
+            return fold ? folded[fold[1]] || null : null;
         },
         querySelectorAll(selector) { return selector === '[data-channel]' ? Object.values(buttons) : []; }
     };
@@ -92,7 +99,7 @@ function instrument(cardRoom) {
         Bd: [[1, 0.001], [2, 0.002], [3, 0.003], [4, 0.004]]}});
     api.setupRails();
     api.drawAll();
-    return {api, buttons, canvas, cards};
+    return {api, buttons, canvas, cards, folded, units};
 }
 
 /* One rig reading, shaped as /api/state answers it. The run key never moves
@@ -194,6 +201,41 @@ test('a readout is a number: the value slot never carries a word', () => {
     api.paintState(reading({Bu: 0.004, Bd: 0.004}));
     assert.equal(Bu.value.innerHTML, '4.00×10<sup>-3</sup>');
     assert.equal(Bu.unit.textContent, 'Torr');
+});
+
+
+test('folded, the readouts strip carries the same five numbers', () => {
+    // queezz, 2026-09-14: "Don't spell readouts. SHOW THEM small in a line
+    // with colors." Five values have to stand on one row of a 390px phone,
+    // so the folded line writes two significant figures and a plain
+    // exponent, and says the unit they share once at its end. Every poll
+    // writes it from the same value the card gets.
+    const {api, cards, folded, units} = instrument();
+    api.paintState(reading({Bu: -0.004, Bd: 0.004}));
+    assert.equal(cards.Bu.parts.value.innerHTML, '-4.00×10<sup>-3</sup>');
+    assert.equal(folded.Bu.textContent, '-4.0e-3');
+    assert.equal(folded.Bd.textContent, '4.0e-3');
+    // Said once for the strip, never four times along it.
+    assert.equal(units.textContent, 'Torr');
+
+    api.paintState(reading({Bu: 0, Bd: 0.004}));
+    assert.equal(folded.Bu.textContent, '0');
+
+    // A channel whose unit the line does not carry keeps its own.
+    api.paintState({
+        run: {started_at: 100, file: 'cu.csv'}, zeros: {},
+        channels: [{name: 'Bu', unit: 'A', value: -0.308},
+                   {name: 'Bd', unit: 'Torr', value: 0.004}]
+    });
+    assert.equal(folded.Bu.textContent, '-0.31 A');
+    assert.equal(units.textContent, '');
+
+    // Smoothing moves both together: the card and the folded line read the
+    // median of what this browser holds, not the raw value just published.
+    api.view.smooth = 5;
+    api.paintState(reading({Bu: 9, Bd: 0.004}));
+    assert.equal(cards.Bu.parts.value.innerHTML, '-4.00×10<sup>-3</sup>');
+    assert.equal(folded.Bu.textContent, '-4.0e-3');
 });
 
 

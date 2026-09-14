@@ -773,6 +773,58 @@ Each gas line folds independently by pressing its heading. Applied and
 measured values stay visible, and reopening preserves the current draft.
 The browser remembers each fold across reloads. Folding sends no command.
 
+## Every card folds
+
+Every card on the Live page folds independently, at every window width, and
+each fold is remembered per browser under `controlunit.fold.<card>`: Gas
+flow, Cathode, the readouts strip, each chart, and the right rail's Operator
+and access, Display, Settings and This run. Start and Stop is the one card
+that does not fold. Every card ships open; only a browser that has folded one
+overrides that, and a browser that cannot store anything works unchanged.
+
+A card is a `<details>` and its heading line is the `<summary>`. The whole
+row is the press target. The title starts at the row's left edge; a small
+muted chevron at the far end turns from ▸ to ▾; `aria-expanded` on the
+summary says the same thing to the keyboard and to a screen reader. The
+header row is identical in both states — same padding, same height, same
+position for the title, for anything riding on the line and for the chevron
+— so opening a card adds a body below the header and moves nothing above or
+inside it. Controls that ride on a heading line are marked `data-fold-keep`
+and stay pressable without folding the card: the Cathode's PID/Manual
+switch, each chart's Zero buttons, and the readouts' small/big.
+
+Folded, a card is that one row: its name and the numbers a person wants
+without opening it, written by the same poll that writes the open card.
+Gas flow says applied and measured per gas; Cathode says what is driving and
+what Ip reads; each chart keeps its title and its span line and gives up its
+legend, its axis switches and its canvas. While a card is open its folded
+line is hidden but keeps its box, which is what holds the header still. Deep
+links (`#sec-gas`, `#sec-plasma`, `#sec-gauge`, …) open every fold between
+the page and the target before landing.
+
+The readouts strip's folded row is the numbers alone: no heading word and no
+small/big switch, five values in their pen colours at two significant
+figures with the unit they share said once at the end, sized from the window
+so the row never wraps or is cut. The size switch returns when the strip is
+open. Each gas line inside Gas flow is one row too — name, applied,
+measured — with `Applied` and `Measured` said once for the group.
+
+Observe and Monitor hide what they already hid; folds apply inside what a
+mode shows.
+
+## What the phone's Menu carries
+
+Below 620px the Operate / Observe / Monitor switch and the Stop all outputs
+button move into the ☰ Menu, in that order, and move back above it. They are
+the same elements, reparented by `dockModes` in `live.js` on the breakpoint
+— never a second copy — so their presses, their state and their gating are
+untouched. At desktop widths the mode switch keeps its place in the header
+and Stop all outputs stands at the foot of the right rail's Operator and
+access group: it is not a safety device (the rig's own switches are), it is
+the rare press that zeroes gas and the cathode while a recording continues,
+so it is never where a thumb finds it during a good run. It remains allowed
+when every other setter is refused, and it still asks before it sends.
+
 When every curve in a chart is off, the phone view keeps a compact heading
 and curve pills. Press a curve pill to restore the plot and its axis and
 baseline controls.

@@ -273,6 +273,36 @@
         return e.mantissa + "×10<sup>" + e.exponent + "</sup>";
     }
 
+    /* The same number for the strip's own folded line, where five of them
+       and their names have to stand on one row of a 390px phone without
+       wrapping and without being cut (queezz, 2026-09-14: "SHOW THEM small
+       in a line with colors"). Two significant figures and a plain `e`
+       exponent is what buys the room; the unit the pressures share is said
+       once at the end of the line rather than four times along it. */
+    function foldValue(value, unit) {
+        if (value === null || value === undefined || !isFinite(value)) return "—";
+        if (value === 0) return "0";
+        if (!wantsExponent(value, unit)) {
+            var magnitude = Math.abs(value);
+            return value.toFixed(magnitude >= 100 ? 0 : magnitude >= 10 ? 1 : 2);
+        }
+        var e = exponential(value, 1);
+        return e.mantissa + "e" + e.exponent;
+    }
+
+    /* The unit more than one channel shares, which is the one worth saying
+       once at the end. Anything else keeps its unit beside its own number. */
+    function sharedUnit(channels) {
+        var count = {}, best = "", most = 1;
+        channels.forEach(function (channel) {
+            var unit = channel.unit || "";
+            if (!unit) return;
+            count[unit] = (count[unit] || 0) + 1;
+            if (count[unit] > most) { most = count[unit]; best = unit; }
+        });
+        return best;
+    }
+
     /* The same number for the canvas, where the exponent is glyphs. */
     function valueText(value, unit) {
         if (value === null || value === undefined || !isFinite(value)) return "—";
@@ -369,6 +399,7 @@
 
         var zeros = state.zeros || {};
         var tags = [];
+        var shared = sharedUnit(state.channels);
         state.channels.forEach(function (channel) {
             var box = root.querySelector('.readout[data-readout="' + channel.name + '"]');
             if (!box) return;
@@ -389,6 +420,18 @@
             box.querySelector('[data-role="value"]').innerHTML = valueHtml(value, channel.unit);
             box.querySelector('[data-role="unit"]').textContent = channel.unit || "";
 
+            /* The same number, once more, on the strip's own folded line —
+               painted by this poll like the card it belongs to, and hidden
+               by CSS whenever the strip is open, so only one of the two is
+               ever on the page. A channel whose unit the line says at its
+               end does not repeat it here. */
+            var folded = root.querySelector(
+                '[data-fold-readout="' + channel.name + '"] [data-role="fold-value"]');
+            if (folded) {
+                var own = channel.unit && channel.unit !== shared ? " " + channel.unit : "";
+                folded.textContent = foldValue(value, channel.unit) + own;
+            }
+
             /* One tag beside the name says what state the number is in: a
                baseline is held for this channel, the value is negative, or
                both. Empty otherwise, and empty it occupies no room, so the
@@ -404,6 +447,8 @@
         // Which of those forms every card carries is settled once, for the
         // whole strip, after all five have been written.
         paintTags(tags);
+        var units = root.querySelector('[data-role="fold-units"]');
+        if (units) units.textContent = shared;
 
         var runFacts = state.run || {};
         text("file", runFacts.file || "—");
@@ -856,7 +901,8 @@
                 var margins = (parseFloat(style.marginTop) || 0) + (parseFloat(style.marginBottom) || 0);
                 if (child.classList.contains('chart')) {
                     var canvas = child.querySelector('canvas');
-                    if (canvas && anyChosen(canvas)) active += 1;
+                    // A folded panel draws nothing and asks for no height.
+                    if (canvas && anyChosen(canvas) && child.open !== false) active += 1;
                     occupied += (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0) + 2 + margins;
                     Array.prototype.forEach.call(child.children, function (part) {
                         if (part.tagName === 'CANVAS') return;
@@ -1046,6 +1092,40 @@
         button.textContent = on ? "Leave full screen" : "Full screen";
     }
 
+    /* On a phone the mode switch rides in the same Menu the tabs do (queezz,
+       2026-09-14, on his phone: the fixed Operate/Observe/Monitor bar "costs
+       a permanent row… on mobile they belong maybe in the hamburger"). One
+       element, moved between its two homes on the breakpoint — never a second
+       copy, so the presses, the pressed state and the address all stay the
+       one thing they already are. Above the breakpoint it is exactly where it
+       has always been. */
+    var PHONE = "(max-width: 620px)";
+
+    /* Stop all outputs travels with it, and for the same reason: it is the
+       rare press that zeroes gas and the cathode while a run keeps recording,
+       so it stands at the foot of Operator and access on a desktop and in the
+       Menu on a phone — never where a thumb finds it during a good run. */
+    function dockToMenu(el, menu, phone) {
+        if (!el) return;
+        if (!el.homeSlot) {
+            el.homeSlot = document.createComment("docked control");
+            el.parentNode.insertBefore(el.homeSlot, el);
+        }
+        if (phone) {
+            if (el.parentNode !== menu) menu.appendChild(el);
+        } else if (el.parentNode === menu) {
+            el.homeSlot.parentNode.insertBefore(el, el.homeSlot.nextSibling);
+        }
+    }
+
+    function dockModes() {
+        var menu = document.getElementById("main-tabs");
+        if (!menu) return;
+        var phone = Boolean(window.matchMedia && window.matchMedia(PHONE).matches);
+        dockToMenu(root.querySelector(".view-toolbar"), menu, phone);
+        dockToMenu(document.querySelector('[data-role="stop-all"]'), menu, phone);
+    }
+
     function setupModes() {
         root.querySelectorAll("[data-preset]").forEach(function (button) {
             button.addEventListener("click", function () { applyPreset(button); });
@@ -1212,6 +1292,13 @@
     function setup() {
         recall();
         reflectView();
+        dockModes();
+        if (window.matchMedia) {
+            var watch = window.matchMedia(PHONE);
+            var moved = function () { dockModes(); };
+            if (watch.addEventListener) watch.addEventListener("change", moved);
+            else if (watch.addListener) watch.addListener(moved);
+        }
         applyPressureGrouping();
         setupRails();
         setupModes();

@@ -295,7 +295,7 @@ def test_the_run_controls_stand_together_and_their_numbers_beside_them(control):
     assert "data-fact=" not in group
     assert 'data-role="sampling-now"' not in group
     # It is read beside them instead.
-    readings = control[control.index('class="run-details"'):]
+    readings = control[control.index('class="run-details'):]
     assert 'data-role="sampling-now"' in readings
     assert 'data-fact="samples"' in readings
 
@@ -844,10 +844,10 @@ def test_control_combines_setters_feedback_and_shared_live_charts(control):
     # on all day; the three it reaches for rarely stand in the right rail's
     # folded Settings group (queezz, 2026-09-10: "the left becomes
     # gas/plasma real control").
-    for role in ("acq-start", "acq-stop", "mfc-set", "plasma-set", "stop-all"):
+    for role in ("acq-start", "acq-stop", "mfc-set", "plasma-set"):
         assert 'data-role="{}"'.format(role) in operations
         assert 'data-role="{}"'.format(role) not in main
-    for role in ("sampling", "gauge-mode", "gauge-range", "sync"):
+    for role in ("sampling", "gauge-mode", "gauge-range", "sync", "stop-all"):
         assert 'data-role="{}"'.format(role) in access
         assert 'data-role="{}"'.format(role) not in operations
         assert 'data-role="{}"'.format(role) not in main
@@ -874,13 +874,24 @@ def test_the_name_and_the_word_are_outside_the_block_the_gate_shuts(control):
     assert ".page-main button" not in script
 
 
-def test_the_one_always_allowed_press_is_still_the_rail_s(control):
-    """Stop all outputs is not the faceplate's: it is allowed when nothing
-    else is, and it must be findable without reading anything."""
-    rail = control[control.index('class="rail rail-left operation-rail"'):]
-    rail = rail[:rail.index("<main")]
-    assert 'data-role="stop-all"' in rail
+def test_the_one_always_allowed_press_is_out_of_the_hand_s_way(control):
+    """queezz, 2026-09-14: Stop all outputs "is not a safety device (the
+    physical switches are); it is the rare press that zeroes gas and cathode
+    while the recording continues, and it must not sit where a thumb finds it
+    during a good run." So it stands at the foot of Operator and access, and
+    on a phone live.js moves that same element into the Menu — one element,
+    never two, and still allowed when everything else is refused."""
+    left = control[control.index('class="rail rail-left operation-rail"'):]
+    left = left[:left.index("<main")]
+    assert 'data-role="stop-all"' not in left
     assert control.count('data-role="stop-all"') == 1
+    access = control[control.index('class="rail-card access-card fold"'):]
+    access = access[: access.index("<details")]
+    assert 'data-role="stop-all"' in access
+    assert access.index("sec-who") < access.index('data-role="stop-all"')
+    # Outside the block the gate shuts, exactly as it was in its own card.
+    sets = control[control.index('class="sets"'):control.index("<main")]
+    assert 'data-role="stop-all"' not in sets
 
 
 def test_each_of_the_run_s_facts_is_read_in_exactly_one_place(control):
@@ -895,7 +906,8 @@ def test_the_left_rail_is_the_run_the_gas_and_the_plasma_and_nothing_else(contro
     """queezz, 2026-09-10, looking at 4.11.2 on the rig: "Left rail got a bit
     crowded. QMS signal, sampling, and IG panel can stay on the right, and I
     don't use those often. And then the left becomes gas/plasma real
-    control." Four things stand there now, in operating order."""
+    control." Three things stand there now, in operating order, since Stop
+    all outputs left for the right rail in 4.14.0."""
     rail = control[control.index('id="live-controls"'):]
     rail = rail[:rail.index("<main")]
     assert 'id="sec-gas"' in rail
@@ -907,25 +919,36 @@ def test_the_left_rail_is_the_run_the_gas_and_the_plasma_and_nothing_else(contro
         rail.index('data-role="acq-start"'),
         rail.index('id="sec-gas"'),
         rail.index('id="sec-plasma"'),
-        rail.index('data-role="stop-all"'),
     ]
     assert order == sorted(order)
+
+
+def _cathode(page):
+    """The Cathode card, which is the <details> that folds it."""
+    plasma = page[page.index('id="sec-plasma"'):]
+    return plasma[: plasma.index("</details>")]
+
+
+def _cathode_head(page):
+    """Its heading line: the summary the whole card folds on."""
+    head = _cathode(page)
+    return head[head.index('class="fold-head group-head"'):head.index("</summary>")]
 
 
 def test_the_cathode_heading_carries_its_mode_switch_on_one_line(control):
     """queezz, 2026-09-10, looking at 4.12.0 on the rig: "Can we make Cathode
     / mode PID Manual bit better? I.e. one line: Cathode PID/Manual toggle?"
     The Mode row is gone; the word Cathode and the switch share the group's
-    own heading line."""
-    plasma = control[control.index('id="sec-plasma"'):]
-    plasma = plasma[: plasma.index("</section>")]
-    head = plasma[plasma.index('class="group-head"'):plasma.index("</div>")]
-    assert "<h2>Cathode</h2>" in head
+    own heading line — which from 4.14.0 is also the line that folds the card,
+    so the switch and the fold live on one row and not two."""
+    plasma = _cathode(control)
+    head = _cathode_head(control)
+    assert '<h2 class="fold-name">Cathode</h2>' in head
     assert 'class="seg-toggle"' in head
     assert head.count('data-role="cathode-mode"') == 2
     # No row of its own any more, and no name in the row-name column for it.
     assert ">Mode</span>" not in plasma
-    assert plasma.index('class="group-head"') < plasma.index("cathode-pid-row")
+    assert plasma.index('class="fold-head group-head"') < plasma.index("cathode-pid-row")
 
 
 def test_the_mode_switch_is_one_control_the_keyboard_and_the_gate_reach(control):
@@ -933,9 +956,7 @@ def test_the_mode_switch_is_one_control_the_keyboard_and_the_gate_reach(control)
     buttons which happen to be linked under the hood in the code." One track,
     one thumb — and still two real buttons carrying aria-pressed, so Tab
     reaches them and the `.sets` blanket switches them off."""
-    plasma = control[control.index('id="sec-plasma"'):]
-    plasma = plasma[: plasma.index("</section>")]
-    head = plasma[plasma.index('class="group-head"'):plasma.index("</div>")]
+    head = _cathode_head(control)
     assert 'role="group" aria-label="Cathode mode"' in head
     assert head.count('class="seg-thumb"') == 1
     assert head.count("<button type=") == 2
@@ -984,19 +1005,20 @@ def test_settings_gathers_the_three_a_shift_reaches_for_rarely(control):
     hiding possibility is a right shape, sure.")."""
     right = control[control.index('id="live-context"'):]
     groups = [
-        right.index("<summary>Operator and access"),
-        right.index("<summary>Display</summary>"),
-        right.index("<summary>Settings</summary>"),
-        right.index("<summary>This run</summary>"),
+        right.index('<h2 class="fold-name">Operator and access</h2>'),
+        right.index('<h2 class="fold-name">Display</h2>'),
+        right.index('<h2 class="fold-name">Settings</h2>'),
+        right.index('<h2 class="fold-name">This run</h2>'),
     ]
     assert groups == sorted(groups)
 
-    settings = right[right.index('<details class="settings-group"'):]
-    settings = settings[: settings.index("<summary>This run</summary>")]
+    settings = right[right.index('<details class="settings-group'):]
+    settings = settings[: settings.index('<h2 class="fold-name">This run</h2>')]
     # The group arrives open; the Gauges fold inside it is open too, so the
     # mode and the range are read without a second press.
     assert settings[: settings.index(">")] == (
-        '<details class="settings-group" data-role="settings-group" open'
+        '<details class="settings-group fold" data-role="settings-group"'
+        ' data-fold="settings" open'
     )
     for anchor in ("sec-sync", "sec-acquisition", "sec-gauge"):
         assert 'id="{}"'.format(anchor) in settings
@@ -1017,31 +1039,273 @@ def test_nothing_moved_into_settings_is_left_behind_as_a_copy(control):
     assert control.count('data-role="gauge-mode-now"') == 1
     assert control.count('data-role="gauge-range-now"') == 1
     assert control.count('data-role="settings-group"') == 1
-    assert control.count("<summary>Settings</summary>") == 1
+    assert control.count('<h2 class="fold-name">Settings</h2>') == 1
 
 
-def test_the_settings_fold_is_remembered_in_this_browser_and_only_there():
-    """Open for a browser that has never touched it, and for one that stores
-    nothing at all; folded only for a browser that folded it. Read before the
-    deep link, so a link into a moved section still opens the fold on its way
-    in."""
+def test_every_card_on_the_live_page_folds_and_folds_the_same_way(control):
+    """queezz, 2026-09-14, on his phone at the rig: "Minimized gas control
+    takes too much space, which is a killer on my phone… Hide 'any' card then,
+    not all. I need CONTROL and HIDE WHATEVER IN THE WAY." Every card is a
+    <details> whose <summary> is its own heading line, and every one of them
+    ships open, so nothing a shift wants is behind a press it has to
+    discover."""
+    cards = (
+        "gas", "plasma",                                       # the left rail
+        "readouts", "chart-plasma", "chart-ig", "chart-bar",   # the column
+        "access", "display", "settings", "run-details",        # the right rail
+        "gauge",
+    )
+    for card in cards:
+        assert control.count('data-fold="{}"'.format(card)) == 1, card
+        opened = control[control.index('data-fold="{}"'.format(card)):]
+        opened = opened[: opened.index(">")]
+        assert "open" in opened, card
+    # One idiom, and there is never a second kind of fold beside it: every
+    # fold on the page — these cards and the two gas lines inside Gas flow —
+    # is a <details class="fold"> with a .fold-head summary.
+    assert control.count("data-fold=") == len(cards)
+    heads = control.count('class="fold-head') + control.count(' fold-head"')
+    assert heads == len(cards) + 2
+    assert control.count('class="gas-disclosure fold"') == 2
+    # Every card names itself on its own row — except the readouts strip,
+    # whose row is its five numbers and nothing else.
+    assert control.count('class="fold-name"') == len(cards) - 1
+    assert '<summary class="fold-head" aria-label="Readouts">' in control
+
+
+def test_start_and_stop_is_the_one_card_that_does_not_fold(control):
+    """queezz, 2026-09-14, looking at the first build of this: "Folding
+    start/stop is not too good. I can simply scroll down, they are not in the
+    way." It stays the plain card 4.13.0 left, with no mark on it."""
+    rail = control[control.index('id="live-controls"'):control.index("<main")]
+    run = rail[: rail.index('class="operation-setters"')]
+    assert '<section class="rail-card">' in run
+    assert 'data-role="acq-start"' in run
+    assert "fold" not in run
+    assert 'data-fold="run"' not in control
+    assert 'data-role="fold-run"' not in control
+
+
+def test_a_folded_card_is_one_line_that_still_carries_its_numbers(control):
+    """Folded, a card says its name and the numbers a person wants without
+    opening it — and they are painted by the same poll that paints the open
+    card, never by a second reading of the rig."""
+    for role in ("fold-gas", "fold-plasma"):
+        assert control.count('data-role="{}"'.format(role)) == 1
+    # The strip's five values, one per pen, in the order the cards stand in.
+    for channel in ("Ip", "Pu", "Pd", "Bu", "Bd"):
+        assert control.count('data-fold-readout="{}"'.format(channel)) == 1
+    assert control.count('data-role="fold-value"') == 5
+    # A chart's folded line is the head it already had: its title and its
+    # span. The legend, the axis switches and the canvas are body and go with
+    # the fold (queezz, 2026-09-14: "The plasma current toggle is still
+    # showing too much hidden").
+    charts = control[control.index('class="chart fold"'):]
+    head = charts[charts.index('class="chart-head fold-head"'):charts.index("</summary>")]
+    assert '<h2 class="fold-name">' in head
+    assert 'class="chart-span muted"' in head
+    assert "pen-legend" not in head
+    assert "chart-scale" not in head
+    assert "<canvas" not in head
+    css = _css()
+    assert ".chart-head.fold-head { flex-wrap: nowrap" in css
+
+
+def test_the_folded_readouts_row_is_the_numbers_and_nothing_else(client):
+    """queezz, 2026-09-14, looking at the folded row on his phone: "Don't show
+    big/small toggle when folded. Don't spell readouts. SHOW THEM small in a
+    line with colors." The size switch belongs to the open strip; folded, the
+    whole row is five values in their pens with the unit they share said once
+    at the end, sized from the window so it never wraps or is cut."""
+    css = client.get("/static/css/controlunit.css").get_data(as_text=True)
+    assert ".readouts-fold:not([open]) .readout-toolbar { display: none; }" in css
+    assert ".fold-readouts { font-size: clamp(" in css
+    line = css[css.index(".fold-line {"):]
+    line = line[: line.index("}")]
+    assert "white-space: nowrap" in line
+    source = _live_js()
+    # Two significant figures and a plain exponent is what buys the room.
+    fold = source[source.index("function foldValue"):source.index("function sharedUnit")]
+    assert 'e.mantissa + "e" + e.exponent' in fold
+    assert "function sharedUnit" in source
+    assert 'units.textContent = shared' in source
+
+
+def test_the_menu_carries_the_mode_switch_and_the_rare_press_on_a_phone():
+    """queezz, 2026-09-14: the fixed Operate/Observe/Monitor bar "costs a
+    permanent row… on mobile they belong maybe in the hamburger", and Stop all
+    outputs "must not sit where a thumb finds it during a good run". Both are
+    one element moved between two homes on the breakpoint — never a copy."""
+    source = _live_js()
+    dock = source[source.index("function dockToMenu"):source.index("function setupModes")]
+    assert 'document.getElementById("main-tabs")' in dock
+    assert "menu.appendChild(el)" in dock
+    assert "el.homeSlot" in dock
+    assert 'dockToMenu(root.querySelector(".view-toolbar"), menu, phone)' in dock
+    assert 'dockToMenu(document.querySelector(\'[data-role="stop-all"]\'), menu, phone)' in dock
+    assert "cloneNode" not in source
+    assert "window.matchMedia(PHONE)" in source
+    page = _client_page()
+    assert page.count('class="view-toolbar"') == 1
+    assert page.count('data-role="stop-all"') == 1
+    css = _css()
+    assert ".main-tabs > .view-toolbar {" in css
+    assert ".main-tabs > .stop-all {" in css
+
+
+def _client_page():
+    from controlunit.web.neighbours import NeighbourBoard
+    from controlunit.web.server import create_app
+
+    nowhere = __import__("pathlib").Path("nowhere-at-all")
+    app = create_app(board=NeighbourBoard(home=nowhere))
+    return app.test_client().get("/").get_data(as_text=True)
+
+
+def test_the_header_is_one_row_and_the_chevron_costs_it_nothing(client):
+    """queezz, 2026-09-14, twice over: "that arrow for folding eats a line. On
+    every card." and "do we need the arrow if the header works as a hide/show
+    toggle? That arrow only wastes space." The title starts at the row's own
+    left edge with nothing before it; the chevron is a small muted hint at the
+    far end; the head is one flex line that cannot wrap."""
+    css = client.get("/static/css/controlunit.css").get_data(as_text=True)
+    # Nothing stands before the title — that is what took the row.
+    assert ".fold-head::before" not in css
+    assert ".fold-name::before" not in css
+    head = css[css.index(".fold-head {"):]
+    head = head[: head.index("}")]
+    assert "flex-wrap: nowrap" in head
+    assert "min-height: 36px" in head
+    # The chevron is one rule and one flip of it: delete the pair and every
+    # fold on the page loses its hint and nothing else.
+    hint = css[css.index(".fold-head::after {"):]
+    hint = hint[: hint.index("}")]
+    assert "margin-left: auto" in hint
+    # Big enough to see on a real phone (queezz, 2026-09-14: "the toggle
+    # indicator arrow could be a bit bigger, actually").
+    assert "font-size: 1em" in hint
+    assert "color: var(--muted)" in hint
+    assert ".fold[open] > .fold-head::after { content: '▾'; }" in css
+    assert css.count("content: '▸'") == 1
+    assert css.count("content: '▾'") == 1
+    # The row is the press target, and says so before and during the press.
+    assert ".fold-head:hover {" in css
+    assert ".fold-head:active {" in css
+
+
+def test_a_fold_header_does_not_move_when_the_card_opens(client):
+    """queezz, 2026-09-14, two screenshots of Gas flow: "Jumpy heading. Why not
+    FIX it with minimum padding in the first place? Hate jumping UI." The card
+    carries its minimum top padding in both states and the folded line keeps
+    its box when it is hidden, so opening adds a body below the header and
+    moves nothing above or inside it."""
+    css = client.get("/static/css/controlunit.css").get_data(as_text=True)
+    rules = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    # Hidden, not removed: a line that left the row would move what follows it.
+    assert ".fold[open] > .fold-head > .fold-line { visibility: hidden; }" in rules
+    assert ".fold-head > .fold-line { display: none" not in rules
+    # One top padding for both states; only the room under the body changes.
+    same = rules[rules.index(".chart.fold { padding-top"):]
+    same = same[: same.index("}")]
+    assert "padding-top: 2px" in same and "padding-bottom: 2px" in same
+    opened = rules[rules.index(".chart.fold[open] { padding-bottom"):]
+    opened = opened[: opened.index("}")]
+    assert "padding-top" not in opened
+
+
+def test_a_gas_line_is_one_row_and_its_words_are_said_once(control):
+    """queezz, 2026-09-14: 4.13.0's per-gas block was a heading plus a
+    two-column Applied/Measured stack, about 90px a gas. Each gas is now one
+    row — name, applied, measured — with the words said once for the group."""
+    gas = control[control.index('id="sec-gas"'):]
+    gas = gas[: gas.index('id="sec-plasma"')]
+    assert gas.count("<small>") == 0
+    assert gas.count("Applied") == 1
+    assert gas.count("Measured") == 1
+    assert gas.index("Applied") < gas.index('class="gas-disclosure fold"')
+    for number in ("1", "2"):
+        line = gas[gas.index('data-mfc="{}"'.format(number)):]
+        line = line[: line.index("</summary>")]
+        assert 'class="row-name"' in line
+        assert 'data-role="mfc-setpoint"' in line
+        assert 'data-role="mfc-measured"' in line
+    # The legend and the rows stand on the same three tracks.
+    css = _css()
+    assert ".control-workspace .gas-disclosure > .fold-head,\n.flow-legend {" in css
+
+
+def test_the_folded_numbers_are_written_by_the_poll_that_writes_the_card():
+    """One source, two places to show it: the folded line is composed from the
+    same values `paintGas`, `paintCathode` and `paintState` already wrote into
+    the open card, so the two cannot drift."""
     script = _control_js()
-    assert '"controlunit.settings.open"' in script
-    fold = script[script.index("function setupSettingsFold"):]
+    gas = script[script.index("function paintGas"):script.index("/* Which setter")]
+    assert 'set(\'[data-role="fold-gas"]\', folded.join(" · "));' in gas
+    cathode = script[script.index("function paintCathode"):script.index("function paintGauge")]
+    assert 'set(\'[data-role="plasma-setpoint"]\', driving);' in cathode
+    assert 'driving.replace("Held · ", "") + " · read " + current);' in cathode
+    live = _live_js()
+    assert '[data-fold-readout="\' + channel.name + \'"] [data-role="fold-value"]' in live
+
+
+def test_a_fold_is_remembered_in_this_browser_and_only_there():
+    """One code path, one key per card, `controlunit.fold.<card>`. Open for a
+    browser that has never touched a card, and for one that stores nothing at
+    all; folded only for a browser that folded it. Read before the deep link,
+    so a link into a folded card still opens it on its way in."""
+    script = _control_js()
+    assert '"controlunit.fold."' in script
+    fold = script[script.index("function setupFolds"):]
     fold = fold[: fold.index("function setupCathodeMode")]
-    assert "window.localStorage.getItem(SETTINGS_KEY)" in fold
-    assert "window.localStorage.setItem(SETTINGS_KEY" in fold
+    assert "window.localStorage.getItem(FOLD_KEY + fold.dataset.fold)" in fold
+    assert "window.localStorage.setItem(FOLD_KEY + fold.dataset.fold" in fold
     # Only a browser that has actually chosen overrides the template's own
-    # `open`; a missing key leaves the group exactly as the page shipped it.
-    assert 'if (chosen !== null) group.open = chosen === "1";' in fold
-    assert "group.open = window.localStorage" not in fold
+    # `open`; a missing key leaves the card exactly as the page shipped it.
+    assert 'if (chosen !== null) fold.open = chosen === "1";' in fold
+    assert "fold.open = window.localStorage" not in fold
     assert fold.count("catch (e)") == 2
+    # The keyboard and a screen reader are told the same thing the mark says.
+    assert 'head.setAttribute("aria-expanded", fold.open ? "true" : "false")' in script
     wiring = script[script.index("function wire() {"):script.index("function revealSection")]
-    assert "setupSettingsFold();" in wiring
+    assert "setupFolds();" in wiring
     opening = script[script.index("function setup() {"):]
     assert opening.index("wire();") < opening.index("revealSection();")
-    # Nothing is sent to the rig by folding or unfolding a group.
+    # Nothing is sent to the rig by folding or unfolding a card.
     assert "send(" not in fold
+
+
+def test_a_control_on_a_heading_line_is_pressed_and_does_not_fold(control):
+    """The cathode's switch, a chart's Zero buttons and the readouts' size
+    ride on heading lines that are themselves the fold's press target. A press
+    that lands on one of them presses it and leaves the fold alone."""
+    assert control.count("data-fold-keep") == 5  # cathode, 2 charts, readouts
+    for owner in ('class="seg-toggle" data-fold-keep',
+                  'class="chart-zero sets" data-fold-keep',
+                  'class="readout-toolbar" data-fold-keep'):
+        assert owner in control
+    script = _control_js()
+    guard = script[script.index("function pressedAControl"):]
+    guard = guard[: guard.index("function setupFolds")]
+    assert "target.dataset.foldKeep !== undefined" in guard
+    assert "if (pressedAControl(head, event.target)) event.preventDefault();" in script
+
+
+def _live_js():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    return (
+        root / "controlunit" / "web" / "static" / "js" / "live.js"
+    ).read_text(encoding="utf-8")
+
+
+def _css():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    return (
+        root / "controlunit" / "web" / "static" / "css" / "controlunit.css"
+    ).read_text(encoding="utf-8")
 
 
 def _control_js():

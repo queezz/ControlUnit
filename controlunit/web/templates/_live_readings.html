@@ -1,3 +1,29 @@
+        {# The strip folds like every other card, and folded it is its own
+           five numbers on one line, each in its channel's pen — the same
+           values the cards below carry, written by the same poll.
+
+           No word and no size switch on that folded row (queezz, 2026-09-14,
+           looking at it on his phone: "Don't show big/small toggle when
+           folded. Don't spell readouts. SHOW THEM small in a line with
+           colors."): the whole row is the numbers, in a compact notation
+           that fits a 390px phone without wrapping or clipping, with the one
+           unit the pressures share said once at its end. The size switch
+           comes back the moment the strip is open, where it belongs beside
+           the readouts it sizes (AGENTS.md's own invariant), and is pressed
+           there without folding the strip. #}
+        <details class="readouts-fold fold" data-fold="readouts" open>
+            <summary class="fold-head" aria-label="Readouts">
+                <span class="fold-line fold-readouts">
+                    {% for name, colour in pens %}
+                    <span class="fold-readout" data-fold-readout="{{ name }}" style="--pen: {{ colour }}"><b>{{ name }}</b> <span class="mono" data-role="fold-value">—</span></span>
+                    {% endfor %}
+                    <span class="fold-units" data-role="fold-units"></span>
+                </span>
+                <span class="readout-toolbar" data-fold-keep role="group" aria-label="Readout size">
+                    <button type="button" class="choice" data-display="normal" aria-pressed="true">small</button>
+                    <button type="button" class="choice" data-display="big" aria-pressed="false">big</button>
+                </span>
+            </summary>
         <div class="readouts">
             {% for name, colour in pens %}
             {# A card is a readout: the channel, the signed number, the unit.
@@ -19,6 +45,7 @@
             </div>
             {% endfor %}
         </div>
+        </details>
 
         {# One list of panels on the server, drawn here in one loop, so a
            chart's legend and the channels its canvas actually draws cannot
@@ -45,12 +72,17 @@
             <button type="button" class="choice" data-pressure-group="vessel" aria-pressed="false">By vessel</button>
         </div>
         {% endif %}
-        <section class="chart" aria-label="{{ title }}">
-            <header class="chart-head">
-                <h2>{{ title }}</h2>
+        {# A chart folds on its own head, which already carried everything a
+           folded one owes the reader: the panel's title and the span line
+           that says how much history is drawn. The Zero buttons stay on that
+           line and stay pressable — `data-fold-keep` — so folding never
+           takes a control away. #}
+        <details class="chart fold" data-fold="{{ id }}" aria-label="{{ title }}" open>
+            <summary class="chart-head fold-head">
+                <h2 class="fold-name">{{ title }}</h2>
                 {% set chart_zeros = channels | select("in", zero_channels | default([])) | list %}
                 {% if chart_zeros or id == 'chart-ig' %}
-                <span class="chart-zero sets" role="group" aria-label="Display baselines">
+                <span class="chart-zero sets" data-fold-keep role="group" aria-label="Display baselines">
                     {% for name in chart_zeros %}
                     <button type="button" data-zero="{{ name }}" data-role="zero-now"
                             title="Zero displayed {{ name }}; recorded values stay unchanged">Zero {{ name }}</button>
@@ -58,7 +90,7 @@
                 </span>
                 {% endif %}
                 <span class="chart-span muted" data-role="{{ span }}"></span>
-            </header>
+            </summary>
             <div class="pen-legend" role="group" aria-label="Curves in {{ title }}">
                 {% for name in channels %}
                 <button type="button" class="pen" data-channel="{{ name }}"
@@ -79,5 +111,5 @@
             </div>
             <canvas id="{{ id }}" height="{{ height }}" data-height="{{ height }}"
                     data-channels="{{ channels | join(',') }}"></canvas>
-        </section>
+        </details>
         {% endfor %}

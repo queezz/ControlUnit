@@ -13,6 +13,22 @@
         <button type="button" class="choice" data-mode="{{ name }}" aria-pressed="{{ 'true' if name == page_mode else 'false' }}">{{ label }}</button>
         {% endfor %}
     </div>
+    {# Every card on this page folds, and folds the same way (queezz,
+       2026-09-14, on his phone at the rig: "Minimized gas control takes too
+       much space, which is a killer on my phone… Hide 'any' card then, not
+       all. I need CONTROL and HIDE WHATEVER IN THE WAY"). The mechanism is
+       the one the right rail's groups already used — a <details> whose
+       <summary> is the card's own heading line — so there is one code path
+       and one stored convention, `controlunit.fold.<card>`, rather than a
+       second kind of fold invented for the left rail. Folded, the card is
+       that one row and nothing else: the mark, the name and the numbers a
+       person wants without opening it, all inline, repainted by the same
+       poll that paints the open card.
+
+       Every card but this first one (queezz, same day, looking at the fold
+       work through the dummy instance: "Folding start/stop is not too good.
+       I can simply scroll down, they are not in the way."). Start and Stop
+       stay exactly as 4.13.0 left them — no fold, no mark. #}
     <aside class="rail rail-left operation-rail" id="live-controls" aria-label="Operation controls">
         <section class="rail-card">
             <h2 class="rail-label">Run</h2>
@@ -30,16 +46,28 @@
            once, into the right rail's folded Settings group below. #}
         <div class="operation-setters" aria-label="What this browser may set">
                 <div class="sets">
-                    <section class="fgroup" id="sec-gas">
-                        <h2>Gas flow</h2>
+                    <details class="fgroup fold" id="sec-gas" data-fold="gas" open>
+                        <summary class="fold-head">
+                            <h2 class="fold-name">Gas flow</h2>
+                            <span class="fold-line" data-role="fold-gas"></span>
+                        </summary>
+                        {# Said once for the group, not twice on every line
+                           (queezz, 2026-09-14: the per-gas block was a
+                           heading plus a two-column Applied/Measured stack,
+                           about 90px a gas). Each gas is now one row —
+                           name, applied, measured — and the input and the
+                           step pad drop under it when it opens. #}
+                        <div class="flow-legend" aria-hidden="true">
+                            <span></span><span>Applied</span><span>Measured</span>
+                        </div>
                         {% for number, gas in gases %}
                         <div class="frow" data-mfc="{{ number }}">
-                            <details class="gas-disclosure" open>
-                            <summary><span class="row-name">{{ gas }}</span>
-                            <span class="flow-readings">
-                                <span><small>Applied</small><b class="mono flow-applied" data-role="mfc-setpoint" data-mfc="{{ number }}">—</b></span>
-                                <span><small>Measured</small><b class="mono" data-role="mfc-measured" data-mfc="{{ number }}">—</b></span>
-                            </span></summary>
+                            <details class="gas-disclosure fold" open>
+                            <summary class="fold-head">
+                                <span class="row-name">{{ gas }}</span>
+                                <b class="mono flow-applied" data-role="mfc-setpoint" data-mfc="{{ number }}">—</b>
+                                <b class="mono" data-role="mfc-measured" data-mfc="{{ number }}">—</b>
+                            </summary>
                             <div class="gas-controls">
                             <label class="row-field">
                                 <input type="number" class="setpoint" data-role="mfc-input"
@@ -64,7 +92,7 @@
                             </details>
                         </div>
                         {% endfor %}
-                    </section>
+                    </details>
 
                     {# Two ways to drive one hot filament (queezz, 2026-09-09:
                        "I want two modes: 1) PID 2) just give me a set
@@ -86,17 +114,23 @@
                        real buttons inside `.sets`, so the keyboard reaches
                        them and the gate switches them off with everything
                        else. #}
-                    <section class="fgroup" id="sec-plasma">
-                        <div class="group-head">
-                            <h2>Cathode</h2>
-                            <span class="seg-toggle" role="group" aria-label="Cathode mode">
+                    <details class="fgroup fold" id="sec-plasma" data-fold="plasma" open>
+                        <summary class="fold-head group-head">
+                            <h2 class="fold-name">Cathode</h2>
+                            <span class="fold-line" data-role="fold-plasma"></span>
+                            {# The switch rides on the heading line and is
+                               pressed there, folded or open: `data-fold-keep`
+                               tells the one fold handler to cancel the
+                               summary's own activation for a press that
+                               landed on a control rather than on the line. #}
+                            <span class="seg-toggle" data-fold-keep role="group" aria-label="Cathode mode">
                                 <span class="seg-thumb" aria-hidden="true"></span>
                                 <button type="button" class="seg-option" data-role="cathode-mode"
                                         data-cathode-mode="pid" aria-pressed="true">PID</button>
                                 <button type="button" class="seg-option" data-role="cathode-mode"
                                         data-cathode-mode="manual" aria-pressed="false">Manual</button>
                             </span>
-                        </div>
+                        </summary>
                         <div class="frow" data-plasma data-role="cathode-pid-row">
                             <span class="row-name">Ip</span>
                             <label class="row-field">
@@ -137,13 +171,10 @@
                             </div>
                         </div>
                     <p class="output-feedback"><b class="mono" data-role="plasma-setpoint">off</b> · Read Ip <b class="mono" data-role="plasma-measured">—</b></p>
-                    </section>
+                    </details>
                 </div>
 
         </div>
-        <section class="rail-card stop-card">
-            <button type="button" class="stop-all" data-role="stop-all">Stop all outputs</button>
-        </section>
     </aside>
     <main class="page-main">
         <h1 class="sr-only">Live</h1>
@@ -155,11 +186,6 @@
             <span class="mono muted" data-role="data-age"></span>
         </div>
         <p class="command-status mono" data-role="status" role="status"></p>
-        <div class="readout-toolbar" role="group" aria-label="Readout size">
-            <span class="muted">Readouts</span>
-            <button type="button" class="choice" data-display="normal" aria-pressed="true">small</button>
-            <button type="button" class="choice" data-display="big" aria-pressed="false">big</button>
-        </div>
         </div>
             <span class="mode-actions" data-role="mode-actions" hidden>
                 <button type="button" data-drawer="live-context" aria-controls="live-context" aria-expanded="false">Display</button>
@@ -170,8 +196,11 @@
     </main>
     <aside class="rail rail-right operation-rail" id="live-context" aria-label="Access and display">
         <button class="drawer-close" type="button">Close</button>
-        <details class="rail-card access-card" {{ 'open' if fence_closed or not state.remote or not actor or (state.control.holder and not state.control.mine) else '' }}>
-            <summary>Operator and access <span class="actor-summary" data-role="actor-summary">{{ actor_label or 'Choose operator' }}</span></summary>
+        <details class="rail-card access-card fold" data-fold="access" {{ 'open' if fence_closed or not state.remote or not actor or (state.control.holder and not state.control.mine) else '' }}>
+            <summary class="fold-head">
+                <h2 class="fold-name">Operator and access</h2>
+                <span class="fold-line actor-summary" data-role="actor-summary">{{ actor_label or 'Choose operator' }}</span>
+            </summary>
             <div class="gate">
                 <p class="remote-line">Remote on rig
                     <span class="chip chip-idle" data-role="remote-chip">off</span>
@@ -226,9 +255,19 @@
                 {% endif %}
             </section>
 
+            {# Not a safety device — the rig's own switches are (queezz,
+               2026-09-14: it "is not a safety device… it is the rare press
+               that zeroes gas and cathode while the recording continues, and
+               it must not sit where a thumb finds it during a good run"). So
+               it leaves the left rail for the foot of this group, and on a
+               phone live.js moves this same element into the Menu. One
+               element, reparented; its data-role, its always-allowed gating
+               and its confirmation are untouched. #}
+            <button type="button" class="stop-all" data-role="stop-all">Stop all outputs</button>
+
         </details>
-        <details class="display-settings" open>
-            <summary>Display</summary>
+        <details class="display-settings fold" data-fold="display" open>
+            <summary class="fold-head"><h2 class="fold-name">Display</h2></summary>
         <section class="rail-card rail-card--fit" data-monitor-setting>
             {# The window cuts a history this browser keeps for itself, so
                Full is this browser's own memory rather than the rig's ring.
@@ -290,8 +329,8 @@
            like IGs hidden by default. But hiding possibility is a right
            shape, sure."): the group still folds, and a browser that has
            folded it stays folded on the next reload. #}
-        <details class="settings-group" data-role="settings-group" open>
-            <summary>Settings</summary>
+        <details class="settings-group fold" data-role="settings-group" data-fold="settings" open>
+            <summary class="fold-head"><h2 class="fold-name">Settings</h2></summary>
             <section class="rail-card sync-card" aria-label="QMS sync" id="sec-sync">
                 <div class="sync-heading"><h2>QMS sync</h2><strong class="chip" data-role="sync-now">—</strong></div>
                 <div class="sets row-actions" role="group" aria-label="Set QMS sync">
@@ -313,8 +352,8 @@
                         </div>
                     </section>
 
-                    <details class="fgroup gauge-settings" id="sec-gauge" open>
-                        <summary>Gauges <span class="mono" data-role="gauge-mode-now">—</span> <span class="mono" data-role="gauge-range-now">—</span></summary>
+                    <details class="fgroup gauge-settings fold" id="sec-gauge" data-fold="gauge" open>
+                        <summary class="fold-head"><h2 class="fold-name">Gauges</h2> <span class="mono" data-role="gauge-mode-now">—</span> <span class="mono" data-role="gauge-range-now">—</span></summary>
                         <div class="frow">
                             <span class="row-name">Mode</span>
                             <span class="row-actions">
@@ -337,10 +376,9 @@
                 </div>
             </div>
         </details>
-        <details class="run-details">
-            <summary>This run</summary>
+        <details class="run-details fold" data-fold="run-details" open>
+            <summary class="fold-head"><h2 class="fold-name">This run</h2></summary>
         <section class="rail-card rail-card--fit">
-            <h2 class="rail-label">This run</h2>
             <dl class="facts">
                 <dt class="wide">File</dt>
                 <dd class="mono wide" data-fact="file">{{ state.run.file or '—' }}</dd>

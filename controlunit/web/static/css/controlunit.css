@@ -536,30 +536,41 @@ dl.facts dd.wide { margin-top: -2px; }
   margin-bottom: 20px;
 }
 
+/* One row, not two (queezz, 2026-09-14, looking at big on the dummy
+   instance: "Looks like the 'big' wastes a lot of real estate just to say
+   'Pd' or 'Ip'"). The name — and its tag under it, in small — stand at the
+   left, straddling the number's own middle; the number stands beside them;
+   the unit sits at the card's right edge. The card is then the number's line
+   plus its padding, about half what two rows cost. */
 .live--big .readout {
   /* The value is sized from the card it stands in, so the widest a pressure
      ever reads — -5.00×10⁻³ — stays on one line at every width this page is
-     read at, phone included. No min-height: the figure and the name row are
-     the card, now that no line is held open beneath them. */
+     read at, phone included. Four tracks, one row: the name, its tag in the
+     one flexible track so a long wording can never widen the card, the
+     number, and the unit at the edge. */
   container-type: inline-size;
-  padding: 12px 16px 14px;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0 8px;
+  padding: 8px 14px;
 }
 
-.live--big .readout-name,
-.live--big .readout-unit { font-size: 1.05rem; }
-/* Room to spare: the narrowest card this grid makes in big is 15rem, 248px
-   of content between the two rails at 1200px and 262px on a 320px phone,
-   against 118px for "zeroed · below zero" at 0.9rem. */
-.live--big .readout-note { font-size: 0.9rem; }
+.live--big .readout-name { grid-column: 1; grid-row: 1; font-size: 1.05rem; }
+.live--big .readout-note { grid-column: 2; grid-row: 1; font-size: 0.8rem; }
+.live--big .readout-unit { grid-column: 4; grid-row: 1; justify-self: end; font-size: 1.05rem; }
 
-/* 17cqi, not the 19cqi the old notation could afford: at 5.58 em for
-   -5.00×10⁻³ against a container of 100 cqi, 17 leaves 5% of the card
-   spare and 19 would overrun it by 6%. The rem fallback is measured the
-   same way against the narrowest card this grid makes, 15rem wide, whose
-   content box is 206 px: 5.58 × 33.6 px = 188 px. */
+/* 9.2cqi, measured against the narrowest card this grid makes. At 15rem
+   (240px) the padding takes 28px, the name about 26px, the unit "Torr" 33px
+   and the two gaps 16px, leaving the number 137px; -5.00×10⁻³ is 5.58 em, so
+   the number may be 24.5px and 9.2cqi is 22.1px. The rem fallback is the
+   same arithmetic for a browser without container units. */
 .live--big .readout-value {
-  font-size: 2.1rem;            /* what a browser without cq units gets */
-  font-size: min(3.6rem, 17cqi);
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+  align-self: center;
+  font-size: 1.3rem;            /* what a browser without cq units gets */
+  font-size: min(2.8rem, 9.2cqi);
   font-weight: 600;
   line-height: 1.2;
 }
@@ -600,7 +611,7 @@ dl.facts dd.wide { margin-top: -2px; }
   gap: 6px;
   margin: 0 0 8px;
 }
-.readout-toolbar { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin: 0 0 8px; font-size: 0.82rem; }
+.readout-toolbar { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin: 0; font-size: 0.82rem; }
 .readout-toolbar .choice { padding: 3px 8px; }
 
 .chart-scale { display: inline-flex; gap: 4px; margin-left: auto; }
@@ -1235,7 +1246,9 @@ dl.facts dd.wide { margin-top: -2px; }
 .gauge-settings[open] > summary .mono { display: none; }
 .control-workspace #sec-gas h2 { color: #60b7c4; }
 .control-workspace #sec-plasma h2 { color: #b48ae9; }
-.actor-summary { display: block; color: var(--fg); font-size: 0.95rem; font-weight: 400; overflow-wrap: anywhere; }
+/* Who is acting, on the group's own folded line — the same shape every other
+   card's numbers wear, so the access head is one row like all the rest. */
+.actor-summary { color: var(--fg); font-weight: 400; }
 .fence-saved { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; color: var(--live); }
 .fence-saved[hidden], .fence-row[hidden] { display: none; }
 .control-workspace .operation-setters { padding-block: 8px; }
@@ -1243,12 +1256,12 @@ dl.facts dd.wide { margin-top: -2px; }
 .control-workspace .frow { margin-bottom: 6px; gap: 3px 6px; }
 .control-workspace .fgroup summary { padding: 4px 0; font-size: 0.85rem; }
 .control-workspace .rail-left > .rail-card:first-child .rail-label { display: none; }
-.control-workspace .stop-card .remote-status { min-height: 3.1em; }
+/* The rare press, at the foot of the group that holds the rest of the rig's
+   access — quiet, bordered, no fill, so it is findable and never inviting. */
+.access-card .stop-all { margin-top: 12px; }
 .output-feedback { display: block; flex-basis: 100%; font-size: 0.75rem; color: var(--muted); white-space: nowrap; margin: 0; }
 .output-feedback b { font-weight: 400; color: var(--fg); }
-.control-workspace .stop-card { position: sticky; bottom: 0; }
 .control-workspace .command-status { min-height: 1.6em; margin: -8px 0 8px; font-size: 0.8rem; color: var(--accent); overflow-wrap: anywhere; }
-.control-workspace .stop-card .remote-status { font-size: 0.75rem; min-height: 3.1em; margin-top: 6px; }
 .control-workspace .access-card .holder-line { min-height: 3.1em; }
 .control-workspace .access-card .remote-why { min-height: 3.1em; }
 .control-workspace details { flex: 0 0 auto; }
@@ -1264,12 +1277,15 @@ dl.facts dd.wide { margin-top: -2px; }
    enough for "below zero" (50px at 0.64rem) at 1280 and for its short form
    at 1200, where the roomier spacing the rest of the page uses left 36px and
    clipped the word. `paintState` picks which form each card carries. */
-.control-workspace.live--big .readout { padding: 10px; }
+.control-workspace.live--big .readout { padding: 8px 12px; }
 .control-workspace:not(.live--big) .readout { padding: 6px 5px; gap: 0 4px; }
 .control-workspace:not(.live--big) .readout-name { font-size: 0.9rem; }
 .control-workspace:not(.live--big) .readout-unit { font-size: 0.7rem; }
 .control-workspace .readout-value { font-size: clamp(0.85rem, 1.2vw, 1.4rem); }
-.control-workspace.live--big .readout-value { font-size: clamp(1.5rem, 2.4vw, 2.5rem); }
+/* Sized from the card, not from the window: on one row the number shares its
+   card with the name and the unit, and the card's width is what decides how
+   much is left for it. */
+.control-workspace.live--big .readout-value { font-size: min(2.5rem, 9.2cqi); }
 @media (max-width: 1199px) and (min-width: 761px) {
   .page.control-workspace { display: grid; grid-template-columns: 20rem minmax(0, 1fr); }
   .control-workspace > .rail-left { position: sticky; top: calc(var(--bar) + var(--content-gap)); height: calc(100vh - var(--bar) - var(--content-gap) - 20px); overflow-y: auto; }
@@ -1279,7 +1295,6 @@ dl.facts dd.wide { margin-top: -2px; }
   .page.control-workspace { display: flex; flex-direction: column; }
   .control-workspace > .rail { width: 100%; }
   .control-workspace .readout-value { font-size: 1.1rem; }
-  .control-workspace .stop-card { position: static; }
 }
 
 /* -- below the rail breakpoint ----------------------------------------- */
@@ -1442,7 +1457,18 @@ body[data-mode="monitor"] .drawer-backdrop:not([hidden]) { display: block; }
 .chart-zero { display: flex; gap: 5px; }
 .chart-zero:empty { display: none; }
 .chart-zero button { padding: 3px 8px; font-size: 0.78rem; }
-.chart-head .chart-span { margin-left: auto; }
+/* The span takes the room the title and the Zero buttons leave, so it reads
+   flush right and the fold's chevron lands at the row's own end behind it. */
+.chart-head .chart-span {
+  /* It yields before the title does: a panel cut to "Baratr…" tells a reader
+     less than a span cut to "last 4 m 25 s…". */
+  flex: 1 4 auto;
+  text-align: right;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 .control-workspace .operation-setters { padding: 0; flex: 0 0 auto; }
 .control-workspace .operation-setters > .sets { display: grid; gap: 10px; }
@@ -1515,7 +1541,7 @@ body[data-mode="monitor"] .monitor-settings { display: flex; flex-wrap: wrap; ga
 .instrument-header { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 8px; }
 .instrument-header .pills { flex: 1 1 auto; margin: 0; gap: 8px; }
 .instrument-header .pills .chip { min-width: 0; }
-.instrument-header .readout-toolbar { margin: 0 0 0 auto; flex: 0 0 auto; }
+.instrument-header .command-status { flex: 1 1 auto; }
 .control-workspace .instrument-header .command-status { min-height: 0; margin: 0; font-size: 0.75rem; }
 .instrument-header .command-status:empty { display: none; }
 .instrument-header .pill-note:empty { display: none; }
@@ -1651,21 +1677,205 @@ body[data-mode="monitor"] .monitor-settings { display: flex; flex-wrap: wrap; ga
 .seg-option:disabled { opacity: 1; }
 .seg-toggle:has(.seg-option:disabled) { opacity: 0.45; }
 
+/* -- a card that folds, and every card on this page is one -------------- */
+
+/* queezz, 2026-09-14, on his phone at the rig: "Minimized gas control takes
+   too much space, which is a killer on my phone… Hide 'any' card then, not
+   all. I need CONTROL and HIDE WHATEVER IN THE WAY."
+ *
+ * One idiom, everywhere: the card is a <details>, its heading line is the
+ * <summary>, and the whole line is the press target — the same shape the
+ * right rail's four groups already wore, so there is one thing to learn and
+ * one code path behind it. Folded, the card is that line and nothing else:
+ * the name, a mark that turns, and the numbers a person wants without
+ * opening it.
+ *
+ * Nothing moves horizontally. A fold changes only its own card's height;
+ * the rails keep their fixed widths and the reading column keeps its own. */
+.fold-head {
+  display: flex;
+  /* One flex line, always. queezz, 2026-09-14, looking at the first build:
+     "that arrow for folding eats a line. On every card. So all folded still
+     takes a lot of space." Nothing on this row may be pushed onto a row of
+     its own — not the mark, not the title, not the numbers — so the head
+     never wraps and the numbers shrink into what the line has left. */
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  /* One row of text, and the mark and any control that rides on the line
+     fit inside it: a folded card is a line, never a box. */
+  min-height: 36px;
+  padding: 4px 0;
+  border-radius: 8px;
+  cursor: pointer;
+  /* The mark on the title below is the disclosure affordance; the browser's
+     own triangle would be a second one. `display: flex` already drops it in
+     modern engines and the ::-webkit- rule covers the older ones. */
+  list-style: none;
+}
+
+.fold-head::-webkit-details-marker { display: none; }
+
+/* THE CHEVRON — the whole of it, and the one thing to delete if it is ever
+   unwanted (queezz, 2026-09-14: "do we need the arrow if the header works as
+   a hide/show toggle? That arrow only wastes space."). It is a hint and not
+   a control: small, muted, at the far end of the row, so the title starts at
+   the row's own left edge and the arrow costs the line nothing. The row
+   itself is the press target, and the folded numbers after the title are the
+   second hint. Nothing here animates, so there is nothing for
+   prefers-reduced-motion to switch off. */
+.fold-head::after {
+  content: '▸';
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--muted);
+  /* Big enough to read on a real phone at arm's length (queezz, 2026-09-14:
+     "the toggle indicator arrow could be a bit bigger, actually"), and still
+     the smallest thing on the row. */
+  font-size: 1em;
+  line-height: 1;
+}
+
+.fold[open] > .fold-head::after { content: '▾'; }
+
+/* The row says it is pressable before it is pressed, and says it is being
+   pressed while it is — the right rail's own idiom, now every card's. */
+.fold-head:hover { background: rgba(255, 255, 255, 0.05); }
+.fold-head:active { background: rgba(255, 255, 255, 0.09); }
+.fold-head:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* A folded card owes the page no air beneath its own line. */
+.fold:not([open]) > .fold-head { margin-bottom: 0; }
+
+.fold-name {
+  flex: 0 0 auto;
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+  white-space: nowrap;
+}
+
+/* The numbers a folded card carries. It takes whatever the line has left and
+   shrinks into it rather than moving to a row of its own — and it stays on
+   one line, because a folded head that grew a second line would be the
+   jumping header the rule above exists to forbid. */
+.fold-line {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fold-line::before { content: '· '; }
+
+/* One number, in one place: an open card shows its own values, so the folded
+   line is neither drawn nor read aloud while the card is open (fleet's
+   WEBUI.md, "a page states its data once"). It keeps its box rather than
+   leaving the row, which is what makes the header pixel-identical in both
+   states: the title, anything riding on the line and the chevron stand at
+   the same x whether the card is open or shut. */
+.fold[open] > .fold-head > .fold-line { visibility: hidden; }
+
+/* A control that rides on a heading line — the cathode's PID/Manual switch,
+   a chart's Zero buttons, the readouts' small/big — keeps its own cursor, so
+   the line reads as a fold everywhere except where it is a control. */
+.fold-head [data-fold-keep] { cursor: auto; }
+/* Short enough that the switch cannot make the row taller than its own
+   36px: with it the head measured 36.64px and without it 36, and that
+   two-thirds of a pixel is the header moving when the strip opens. */
+.fold-head .readout-toolbar { flex: 0 0 auto; }
+.fold-head .readout-toolbar .choice { padding: 2px 8px; line-height: 1.4; }
+
+/* The strip's five values on one line, each in its own pen, in the order the
+   cards below stand in, with the unit they share said once at the end. */
+.fold-readout { color: var(--pen, var(--muted)); }
+.fold-readout .mono { color: var(--fg); font-size: 1em; }
+.fold-readout + .fold-readout::before { content: ' · '; color: var(--dim); }
+.fold-units { color: var(--muted); }
+.fold-units:not(:empty)::before { content: ' '; }
+.readouts-fold:not([open]) { margin-bottom: 12px; }
+/* The size switch belongs to the open strip: folded, the whole row is the
+   numbers. It leaves the row rather than standing empty in it, and the row's
+   own height does not depend on it either way. */
+.readouts-fold:not([open]) .readout-toolbar { display: none; }
+/* Five values, their names and the trailing unit have to stand on one row of
+   whatever window this is, without wrapping and without being cut — so the
+   size is taken from the window rather than picked on one screen. Measured
+   against the longest line this page renders (`Ip -2.39 A · Pu 3.2e-5 ·
+   Pd 4.1e-3 · Bu 5.1e-2 · Bd 5.1e-3 Torr`, 356px at 0.72rem): the row leaves
+   it 345px at 390, 273px at 320 and 688px at 1280, and this ramp fits all
+   three with room over. */
+.fold-readouts { font-size: clamp(0.5rem, 2.4vw, 0.78rem); }
+
+.control-workspace .fold > .fold-head { display: flex; padding: 4px 0; color: var(--fg); font-weight: 400; }
+
+/* A folded chart is exactly one row — its title, its span and the chevron
+   (queezz, 2026-09-14, on his phone: "The plasma current toggle is still
+   showing too much hidden"). Everything else the panel has is body: the
+   legend, the axis switches and the canvas all go with the fold. The head
+   never wraps, so a narrow phone shortens the title or the span rather than
+   spending a second row on them. */
+.chart-head.fold-head { flex-wrap: nowrap; align-items: center; }
+.chart-head.fold-head .fold-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chart-head .chart-zero { flex: 0 0 auto; }
+
+/* The header is built once and stands in the same place in both states
+   (queezz, 2026-09-14, two screenshots of Gas flow: "Jumpy heading. Why not
+   FIX it with minimum padding in the first place? Hate jumping UI."). The
+   card's top padding is its minimum and never changes; opening adds a body
+   *below* the header and nothing above or inside it. Only the room under the
+   body — the card's bottom padding — has anything to give. */
+.control-workspace .operation-rail > .rail-card.fold,
+.control-workspace .operation-setters .fgroup.fold,
+.chart.fold { padding-top: 2px; padding-bottom: 2px; }
+
+.control-workspace .operation-rail > .rail-card.fold[open],
+.control-workspace .operation-setters .fgroup.fold[open],
+.chart.fold[open] { padding-bottom: 10px; }
+
+/* One gas is one row: its name, what is applied, what is measured, and the
+   chevron — the same row whether the line is open or shut, with the input
+   and the four sizes of nudge dropping under it. The words "Applied" and
+   "Measured" are said once for the group, in the legend above the rows, on
+   the same three tracks so a number stands under its own word. */
+.control-workspace .gas-disclosure > .fold-head,
+.flow-legend {
+  display: grid;
+  grid-template-columns: 3.2rem minmax(0, 1fr) minmax(0, 1fr) 1.1em;
+  align-items: center;
+  gap: 8px;
+}
+
+.flow-legend {
+  padding: 0 0 2px;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.gas-disclosure > .fold-head .row-name { font-weight: 600; }
+.gas-disclosure > .fold-head b { font-size: 0.95rem; font-weight: 500; }
+.flow-applied { color: #ff796b; }
+
 /* Mobile navigation and compact, independent gas disclosures. */
 .nav-toggle { display: none; }
 .main-tabs { display: flex; align-items: center; }
-#sec-gas .frow { display: block; }
-.gas-disclosure > summary {
-  display: flex; align-items: center; gap: 10px; cursor: pointer;
-  min-height: 44px; border-radius: 6px;
-}
-.gas-disclosure > summary::before { content: '▸'; color: var(--muted); }
-.gas-disclosure[open] > summary::before { content: '▾'; }
-.gas-disclosure > summary::-webkit-details-marker { display: none; }
-.gas-disclosure > summary:hover { background: rgba(255,255,255,0.04); }
-.gas-disclosure > summary:focus-visible { outline: 2px solid var(--accent); }
-.gas-disclosure .flow-readings { margin-left: auto; flex: 1; max-width: 240px; }
-.gas-disclosure .flow-readings b { font-size: 0.9rem; }
+/* The line's own room is its heading row's; the group no longer pads a
+   block that is now a single line. */
+#sec-gas .frow { display: block; padding: 0; }
+#sec-gas .frow + .frow { margin-top: 4px; }
 .gas-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding-top: 10px; }
 @media (max-width: 620px) {
   .tab-group { justify-content: space-between; }
@@ -1674,6 +1884,20 @@ body[data-mode="monitor"] .monitor-settings { display: flex; flex-wrap: wrap; ga
     padding: 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--header); }
   .nav-toggle[aria-expanded="true"] + .main-tabs { display: flex; flex-direction: column; align-items: stretch; }
   body:has(.control-workspace) .tabbar { margin-bottom: 0; }
+  /* The mode switch rides in the Menu on a phone (queezz, 2026-09-14: the
+     fixed bar "costs a permanent row… on mobile they belong maybe in the
+     hamburger"). live.js moves the one element into #main-tabs on this
+     breakpoint; here it loses the fixed shell and becomes a row of that
+     panel, in the same segmented shape it wears on a desktop. */
+  .main-tabs > .view-toolbar { position: static; transform: none; box-shadow: none;
+    border: 0; background: none; padding: 6px 0 0; margin: 4px 0 0;
+    border-top: 1px solid var(--line-soft); justify-content: stretch; }
+  .main-tabs > .view-toolbar > button { flex: 1 1 auto; width: auto; }
+  /* And the one press that zeroes the outputs rides there too, quiet and
+     bordered, under a hairline of its own. */
+  .main-tabs > .stop-all { margin: 6px 0 0; padding: 8px 12px;
+    background: transparent; color: var(--stop-fg); border-color: var(--stop); }
+  .main-tabs > .stop-all:hover { background: var(--stop-wash); }
   .view-toolbar { position: static; order: -2; grid-column: 1 / -1; justify-self: start; align-self: flex-start;
     margin-bottom: 12px; box-shadow: none; }
   body[data-mode="monitor"] .container { padding-top: 14px; }

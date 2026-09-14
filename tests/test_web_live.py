@@ -629,7 +629,7 @@ def test_settings_is_reachable_in_monitor_and_stands_aside_in_observe():
     page = _client().get("/?mode=monitor").get_data(as_text=True)
     assert 'data-drawer="live-context"' in page
     rail = page[page.index('id="live-context"'):]
-    assert 'class="settings-group"' in rail
+    assert 'class="settings-group fold"' in rail
     for role in ("sync", "sampling", "gauge-mode", "gauge-range"):
         assert page.count('data-role="{}"'.format(role)) >= 1
     # And the left rail, which Monitor hides outright, no longer holds them.

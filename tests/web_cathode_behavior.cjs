@@ -60,13 +60,14 @@ function build(storageThrows) {
         el({dataset: {cathodeMode: 'pid'}}),
         el({dataset: {cathodeMode: 'manual'}})
     ];
-    const cells = {feedback: el(), ip: el(), applied: el(), measured: el()};
+    const cells = {feedback: el(), ip: el(), applied: el(), measured: el(), fold: el()};
     const root = {
         dataset: {},
         hasAttribute() { return false; },
         querySelector(s) {
             if (s.includes('cathode-manual-row')) return manualRow;
             if (s.includes('cathode-pid-row')) return pidRow;
+            if (s.includes('fold-plasma')) return cells.fold;
             if (s.includes('plasma-setpoint')) return cells.feedback;
             if (s.includes('plasma-measured')) return cells.ip;
             if (s.includes('cathode-applied')) return cells.applied;
@@ -98,12 +99,12 @@ function build(storageThrows) {
     vm.runInContext(
         source.slice(0, source.indexOf('    if (document.readyState'))
         + 'send = (path, body) => sent.push({path, body});'
-        + ' globalThis.api = {setupDraftRow, setupCathodeMode, paintCathode,'
-        + ' CATHODE_DRAFT}; }());',
+        + ' globalThis.api = {setupDraftRow, setupCathodeMode, setupFolds,'
+        + ' paintCathode, CATHODE_DRAFT}; }());',
         ctx
     );
     return {api: ctx.api, input, setButton, offButton, note, steps, manualRow,
-            pidRow, modes, cells, sent, store};
+            pidRow, modes, cells, sent, store, root};
 }
 
 test('mode is a view choice: it shows one setter row and sends nothing', () => {
@@ -240,6 +241,70 @@ test('the feedback line says what is driving, in all three states', () => {
 
     d.api.paintCathode({setpoints: {}}, {});
     assert.equal(d.cells.feedback.textContent, 'off');
+});
+
+test('folded, the Cathode card says what is driving and what Ip reads', () => {
+    // queezz, 2026-09-14: a folded card is one row that still answers the
+    // question the card exists for. The same poll writes both lines, from
+    // the same two values, so the folded card cannot drift from the open one.
+    const d = build();
+
+    d.api.paintCathode({setpoints: {}}, {Ip: {value: -0.308, unit: 'A'}});
+    assert.equal(d.cells.fold.textContent, 'off · read -0.308 A');
+    assert.equal(d.cells.feedback.textContent, 'off');
+    assert.equal(d.cells.ip.textContent, '-0.308 A');
+
+    d.api.paintCathode({setpoints: {plasma_a: 0.5}}, {Ip: {value: 0.421, unit: 'A'}});
+    assert.equal(d.cells.feedback.textContent, 'Held · PID 0.50 A');
+    // The card's own name already says "Cathode", so the folded line does
+    // not spend a word of a narrow row repeating "Held".
+    assert.equal(d.cells.fold.textContent, 'PID 0.50 A · read 0.421 A');
+
+    d.api.paintCathode({setpoints: {cathode_mv: 1900}}, {});
+    assert.equal(d.cells.fold.textContent, 'manual 1900 mV · read —');
+});
+
+test('a fold is remembered per card and pressing one sends nothing', () => {
+    // One code path, one key per card: `controlunit.fold.<card>`.
+    const d = build();
+    const folds = {};
+    const card = function (name, open) {
+        return {
+            dataset: {fold: name}, open: open, handlers: {},
+            addEventListener(kind, fn) { this.handlers[kind] = fn; },
+            querySelector() { return null; }
+        };
+    };
+    const gas = card('gas', true), stop = card('stop', true);
+    d.root.querySelectorAll = function (s) {
+        return s === '[data-fold]' ? [gas, stop] : [];
+    };
+    d.store['controlunit.fold.gas'] = '0';
+    d.api.setupFolds();
+    assert.equal(gas.open, false, 'a browser that folded this card keeps it folded');
+    assert.equal(stop.open, true, 'a card never chosen ships as the page shipped it');
+
+    stop.open = false;
+    stop.handlers.toggle();
+    assert.equal(d.store['controlunit.fold.stop'], '0');
+    stop.open = true;
+    stop.handlers.toggle();
+    assert.equal(d.store['controlunit.fold.stop'], '1');
+    assert.equal(d.sent.length, 0, 'folding must not reach the rig');
+});
+
+test('a browser that stores nothing still folds every card', () => {
+    const d = build(true);
+    const shut = {
+        dataset: {fold: 'gas'}, open: true, handlers: {},
+        addEventListener(kind, fn) { this.handlers[kind] = fn; },
+        querySelector() { return null; }
+    };
+    d.root.querySelectorAll = function (s) { return s === '[data-fold]' ? [shut] : []; };
+    assert.doesNotThrow(function () { d.api.setupFolds(); });
+    assert.equal(shut.open, true);
+    shut.open = false;
+    assert.doesNotThrow(function () { shut.handlers.toggle(); });
 });
 
 test('Ip is read beside the drive; the cathode volts only when reported', () => {

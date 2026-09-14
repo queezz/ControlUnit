@@ -1,3 +1,10 @@
+## 4.14.0 — 2026-09-14
+
+- Every card on Live folds to one row that still shows its numbers, each independently, remembered per browser: Gas flow, Cathode, the readouts strip, each chart, and the right rail's groups. Start/Stop never folds (queezz: "I can simply scroll down, they are not in the way"). The header is pixel-identical folded or open; the fold mark is a chevron at the row's right end, one CSS rule. On a phone the left rail goes from about 900 px to 200 px with gas and cathode folded.
+- Folded readouts are the five values in their colours on one line, no label and no size switch; folded charts are their title, Zero and span; gas lines inside Gas flow are one row each with Applied and Measured said once.
+- Big readouts are one row per card, name beside the number, about half the height.
+- Stop all outputs leaves the left rail: it lives at the foot of Operator and access, and in the phone's Menu together with the Operate | Observe | Monitor switch, which no longer takes a fixed row on the phone.
+
 ## 4.13.0 — 2026-09-10
 
 - ADC sampling follows monotonic deadlines, including processing in the requested period. Overruns skip and count missed slots without fabricating rows or catch-up bursts.
