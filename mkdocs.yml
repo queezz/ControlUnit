@@ -89,5 +89,6 @@ nav:
   - Hardware:
       - Channel Map: hardware/channel-map.md
       - Cathode Control: hardware/cathode-control.md
+      - Kikusui over LAN: hardware/kikusui-lan.md
   - Ecosystem:
       - Related Projects: ecosystem/related-projects.md

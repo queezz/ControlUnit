@@ -50,3 +50,7 @@ supply's own input). Set CF10 back to ON to hand control to the program
 again. The manual pages are scans in the lab vault under
 `Hardware/Equipment/Kikusui Power Supplies.md`, and the lab's own page is
 [aklab-howto](https://queezz.github.io/aklab-howto/hardware/equipment/kikusui-pwr/).
+
+## Logging its voltage and current
+
+The supply's own measured voltage and current are read over its LAN port; the setup and the commands are in [Kikusui over LAN](kikusui-lan.md).
