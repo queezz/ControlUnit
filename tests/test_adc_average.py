@@ -166,8 +166,10 @@ def test_a_slow_period_records_the_mean_of_its_readings(worker, monkeypatch):
         for name in driver.channels:
             expected = sum(one[name] for one in inner) / len(inner)
             assert recorded[name] == pytest.approx(expected)
-        # And the mean is nobody's single reading.
-        assert all(one["Ip"] != recorded["Ip"] for one in inner)
+        # The row equals the mean, and that is the whole claim: demanding
+        # that it also differ from every single reading asked the wrong
+        # question, and about one run in eight a reading landed on the mean
+        # by chance and failed a test about nothing (noticed 2026-09-14).
 
 
 def test_the_recorded_row_converts_the_mean_it_recorded(worker, monkeypatch):
