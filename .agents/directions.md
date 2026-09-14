@@ -76,7 +76,8 @@ holds what is still undecided or unbuilt.
   rows and recovery. Setup is in docs/hardware/kikusui-lan.md; deployment and
   real-run validation remain. The cable/address are established in the lab
   record and read-only SCPI was verified with output off.
-  Later: publish fresh telemetry for live Ci/Cv and a snapshot API, retire
+  4.17.0 publishes fresh Kikusui V/I in Qt, full WebUI cards and a separate
+  `/api/state` `kikusui` object. Later: retire
   the unwired analog placeholders with a versioned data contract, and make
   PID engage on an already ignited discharge with a smooth handover from
   manual filament current. Do not silently redefine the old ADC columns.
@@ -91,9 +92,9 @@ holds what is still undecided or unbuilt.
   an immutable instant snapshot, a table and optionally a picture; a clearly
   labelled short averaging window is an option, not a fixed owner choice.
   Request posted on the owner's explicit word, 2026-09-14, as
-  `20260914-86630ead-525f3f` to `code/pihti-log`. The initial Kikusui sidecar is
-  not yet a live API field; coordinate the snapshot contract before exposing
-  it and never present legacy Ci/Cv placeholders as PSU measurements.
+  `20260914-86630ead-525f3f` to `code/pihti-log`. The Kikusui snapshot now rides in
+  `/api/state` under `kikusui` (4.17.0),
+  with independent freshness; never present legacy Ci/Cv as PSU measurements.
 
 - A command line for the rig, over the web API it already has (queezz,
   2026-09-09: "Do you have cli to drive the ControlUnit? I think not. I

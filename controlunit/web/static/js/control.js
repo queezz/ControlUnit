@@ -410,14 +410,7 @@
         }
         set('[data-role="cathode-applied"]', Math.round(millivolts) + " mV");
 
-        /* The cathode's own voltage is a reading and never a setpoint. The
-           channel is prepared and not deployed on this rig, so the cell says
-           so plainly rather than showing a number nobody measured. */
-        var cathode = map.Cv;
-        set('[data-role="cathode-measured"]',
-            cathode && cathode.value !== null && cathode.value !== undefined
-                ? fmt(cathode.value, cathode.unit) + " " + (cathode.unit || "")
-                : "—");
+        // Measured filament V/I have their own LAN-backed readout cards.
     }
 
     function paintGauge(state) {

@@ -120,8 +120,32 @@ class RigStatus:
         self._remote = False
         self._zeros = {name: 0.0 for name in ZERO_CHANNELS}
         self._last_command = None
+        self._kikusui = {"status": "idle"}
+        self._kikusui_at = self._clock()
 
     # -- what the main thread writes -----------------------------------------
+
+    def record_kikusui(self, snapshot):
+        """Copy the GUI's telemetry record; no web request reaches the recorder."""
+        with self._lock:
+            self._kikusui = dict(snapshot)
+            self._kikusui_at = self._clock()
+
+    def _read_kikusui(self, now):
+        result = self._kikusui.copy()
+        if result.get("age_s") is not None:
+            result["age_s"] += max(0, now - self._kikusui_at)
+        if result.get("status") in ("ok", "dummy") and (
+            result.get("age_s") is None
+            or result["age_s"] > result.get("stale_after_s", 0)
+        ):
+            result["status"] = "stale"
+        if result.get("status") not in ("ok", "dummy"):
+            for key in ("voltage_v", "current_a", "output_on"):
+                result.pop(key, None)
+        # The browser needs the run filename, not the host's home directory.
+        result["file"] = result.get("file", "").replace("\\", "/").rsplit("/", 1)[-1]
+        return result
 
     def describe_run(self, channels, sampling, names=None, units=None):
         """Record the channel count and sampling time the config declares."""
@@ -236,6 +260,7 @@ class RigStatus:
                 age = max(0.0, now - self._last_sample_at)
             return {
                 "acquiring": self._acquiring,
+                "kikusui": self._read_kikusui(now),
                 "channels": self._channels,
                 "sampling": self._sampling,
                 "dummy": dummy_hardware_loaded(),
@@ -634,4 +659,5 @@ def state_body(status, version, control=None, fence=None, roster=None):
         # own route and the Acting-as field's business.
         "roster": dict(roster) if roster else None,
         "channels": channels,
+        "kikusui": snapshot["kikusui"],
     }

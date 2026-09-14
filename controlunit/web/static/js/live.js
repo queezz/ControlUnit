@@ -503,15 +503,52 @@
         if (el) el.textContent = value;
     }
 
+    var kikusuiExpiry = null;
+    function paintKikusui(telemetry) {
+        var panel = root.querySelector('.kikusui-panel');
+        if (!panel) return;
+        window.clearTimeout(kikusuiExpiry);
+        var k = telemetry || {status: "disabled"};
+        var fresh = (k.status === "ok" || k.status === "dummy")
+            && typeof k.age_s === "number" && typeof k.stale_after_s === "number"
+            && k.age_s <= k.stale_after_s
+            && typeof k.voltage_v === "number" && isFinite(k.voltage_v)
+            && typeof k.current_a === "number" && isFinite(k.current_a)
+            && (k.output_on === 0 || k.output_on === 1);
+        var status = k.status;
+        if (!fresh && (status === "ok" || status === "dummy")) status = "stale";
+        var labels = {idle: "Not recording", disabled: "Not configured",
+            connecting: "Connecting…", unavailable: "LAN unavailable · retrying",
+            stale: "Telemetry stale", stopped: "Recording stopped",
+            error: "Recorder unavailable · see Log", unreachable: "ControlUnit unreachable"};
+        panel.querySelector('[data-role="kikusui-status"]').textContent = fresh
+            ? (status === "dummy" ? "SIMULATED" : "Recording") + " · output " + (k.output_on === 1 ? "on" : "off")
+            : (labels[status] || "Telemetry unavailable");
+        ["voltage_v", "current_a"].forEach(function (key) {
+            panel.querySelector('[data-kikusui-readout="' + key + '"] [data-role="value"]').textContent =
+                fresh ? k[key].toFixed(3) : "—";
+        });
+        panel.querySelector('[data-role="kikusui-fold"]').textContent = fresh
+            ? (status === "dummy" ? "SIM " : "") + k.voltage_v.toFixed(2) + " V · " + k.current_a.toFixed(2) + " A"
+            : "— V · — A";
+        if (fresh) {
+            // Expire even when a fetch hangs or the browser loses the Pi.
+            kikusuiExpiry = window.setTimeout(function () {
+                paintKikusui({status: "stale"});
+            }, Math.max(1, (k.stale_after_s - k.age_s) * 1000));
+        }
+    }
+
     function pollState() {
         fetch("/api/state", {headers: {Accept: "application/json"}})
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (state) {
-                if (!state) return;
+                if (!state) { paintKikusui({status: "unreachable"}); return; }
+                paintKikusui(state.kikusui);
                 paintState(state);
                 root.dispatchEvent(new CustomEvent("controlunit:state", {detail: state}));
             })
-            .catch(function () { /* keep what is on the page */ });
+            .catch(function () { paintKikusui({status: "unreachable"}); });
     }
 
     // -- charts --------------------------------------------------------------

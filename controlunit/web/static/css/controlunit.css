@@ -421,6 +421,10 @@ dl.facts dd.wide { margin-top: -2px; }
   margin-bottom: 16px;
 }
 
+.kikusui-panel { margin-bottom: 16px; }
+.kikusui-readouts { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 0; }
+.control-workspace .kikusui-readouts .readout-value { font-size: 1.5rem; }
+
 /* One value per box, washed with its own pen so the eye finds the channel
    before it reads the name, and the box is sized so a value that grows a
    digit never pushes the charts beneath it. `--pen` is set on the element
@@ -1781,6 +1785,11 @@ body[data-mode="monitor"] .monitor-settings { display: flex; flex-wrap: wrap; ga
    states: the title, anything riding on the line and the chevron stand at
    the same x whether the card is open or shut. */
 .fold[open] > .fold-head > .fold-line { visibility: hidden; }
+
+/* Kikusui uses the same summary slot for status when open, V/I when folded. */
+.kikusui-panel.fold[open] > .fold-head > .fold-line { visibility: visible; }
+.kikusui-panel[open] [data-role="kikusui-fold"],
+.kikusui-panel:not([open]) [data-role="kikusui-status"] { display: none; }
 
 /* A control that rides on a heading line — the cathode's PID/Manual switch,
    a chart's Zero buttons, the readouts' small/big — keeps its own cursor, so

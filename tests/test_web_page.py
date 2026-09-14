@@ -184,7 +184,8 @@ def test_the_big_readouts_are_one_class_over_the_same_dom(client, live):
     css = client.get("/static/css/controlunit.css").get_data(as_text=True)
     assert "live--big" in script
     assert ".live--big" in css
-    assert live.count('class="readout"') == 5
+    assert live.count('class="readout"') == 7
+    assert live.count('data-kikusui-readout=') == 2
 
 
 def test_small_readouts_reserve_no_room_they_are_not_using(client):
@@ -1051,7 +1052,7 @@ def test_every_card_on_the_live_page_folds_and_folds_the_same_way(control):
     discover."""
     cards = (
         "gas", "plasma",                                       # the left rail
-        "readouts", "chart-plasma", "chart-ig", "chart-bar",   # the column
+        "readouts", "kikusui", "chart-plasma", "chart-ig", "chart-bar",   # the column
         "access", "display", "settings", "run-details",        # the right rail
         "gauge",
     )

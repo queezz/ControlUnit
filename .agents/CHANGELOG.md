@@ -1,3 +1,8 @@
+## 4.17.0 — 2026-09-14
+
+- Give measured Kikusui filament voltage and current full WebUI readout cards in all three modes, with small/big sizing, an independently remembered fold and recording/output status. Remove the unwired analog Cv placeholder from the manual cathode measured-voltage display.
+- Publish a separate Kikusui snapshot through the main-thread status record. Its freshness ages independently of ADC data; missing/stale measurements are withheld, and the browser expires readings even if a request hangs or the Pi stops answering. Recording and manual-drive behavior are unchanged.
+
 ## 4.16.0 — 2026-09-14
 
 - Show Kikusui measured voltage/current and recording/output status below the Cathode panel's manual controls. The main thread reads a locked copy of flushed telemetry every 500 ms; unavailable, stale and stopped records never leave old measurements looking live.

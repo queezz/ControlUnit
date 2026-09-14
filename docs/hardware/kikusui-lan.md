@@ -113,8 +113,20 @@ The display updates every 500 ms from a locked copy of a flushed CSV row.
 Failed reads clear the numbers on the next display update; readings older
 than the configured interval plus timeout plus 0.5 s are withheld as stale.
 Stopping clears the readout. Simulated data is labelled SIMULATED.
-A telemetry snapshot API and retirement of the analog placeholders are
-later work; the web readouts do not yet show Kikusui telemetry.
+From 4.17.0 the WebUI has full filament voltage/current cards under
+**Kikusui** in Operate, Observe and Monitor. The existing small/big switch
+sizes these readings too, and folding keeps both values on the summary.
+The manual control no longer displays the unwired analog `Cv` placeholder
+as a measured supply voltage. The ADC columns retain their original meaning.
+
+`/api/state` carries a separate `kikusui` object: `status`, measured
+`voltage_v`, `current_a`, `output_on`, receipt `date`, `age_s`,
+`stale_after_s`, query timing, identity and the telemetry filename when
+available. The main thread publishes the recorder snapshot; the web thread
+reads plain locked values. Age continues increasing if the main thread
+stalls, independently of ADC freshness. Non-fresh states omit V/I/output
+fields, and browser-side expiry also clears the cards if requests hang.
+These are instantaneous receipt-time measurements, not averaged ADC samples.
 Filament resistance `V/I` and power `VI` can be derived during review; avoid
 dividing near zero current and compare resistance under similar thermal and
 operating conditions before interpreting it as thinning.

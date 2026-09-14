@@ -187,6 +187,7 @@ def test_dummy_kikusui_records_with_the_run_and_stops_after_hardware(qt_app, hom
         widget._refresh_kikusui_display()
         assert "0.000 V" in widget.plasma_control_dock.kikusui_readout.text()
         assert "SIMULATED" in widget.plasma_control_dock.kikusui_status.text()
+        assert widget.web_status.read()["kikusui"]["status"] == "dummy"
         original_stop = logger.stop
 
         def stop_after_hardware():
@@ -199,6 +200,7 @@ def test_dummy_kikusui_records_with_the_run_and_stops_after_hardware(qt_app, hom
         assert widget._kikusui_logger is None
         assert not logger.thread.is_alive()
         assert widget.plasma_control_dock.kikusui_status.text() == "Not recording"
+        assert widget.web_status.read()["kikusui"]["status"] == "idle"
         assert "0.000" not in widget.plasma_control_dock.kikusui_readout.text()
     finally:
         widget.abort_all_threads()

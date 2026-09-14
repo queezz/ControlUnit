@@ -429,7 +429,11 @@ class MainApp(QtCore.QObject, UIWindow):
 
     def _refresh_kikusui_display(self):
         if self._kikusui_logger is not None:
-            self.plasma_control_dock.show_kikusui(self._kikusui_logger.snapshot())
+            self._publish_kikusui(self._kikusui_logger.snapshot())
+
+    def _publish_kikusui(self, snapshot):
+        self.plasma_control_dock.show_kikusui(snapshot)
+        self.web_status.record_kikusui(snapshot)
 
     def _start_kikusui_logging(self):
         """Optional telemetry; a missing/broken LAN must not stop manual acquisition."""
@@ -439,11 +443,11 @@ class MainApp(QtCore.QObject, UIWindow):
         try:
             config = load_kikusui_config()
             if config is None:
-                self.plasma_control_dock.show_kikusui({"status": "disabled"})
+                self._publish_kikusui({"status": "disabled"})
                 self.log_message("Kikusui telemetry disabled: no kikusui.yml configured")
                 return
             if dummy_hardware_loaded() and not config.dummy:
-                self.plasma_control_dock.show_kikusui({"status": "error"})
+                self._publish_kikusui({"status": "error"})
                 self.log_message("Kikusui telemetry disabled: dummy hardware never contacts the supply")
                 return
             logger = KikusuiLogger(
@@ -454,7 +458,7 @@ class MainApp(QtCore.QObject, UIWindow):
             self._kikusui_logger = logger
             self._refresh_kikusui_display()
         except Exception as error:  # noqa: BLE001 -- Optional telemetry cannot prevent acquisition.
-            self.plasma_control_dock.show_kikusui({"status": "error"})
+            self._publish_kikusui({"status": "error"})
             self.log_message(f"Kikusui telemetry unavailable: {error}; manual drive unchanged")
 
     def prep_worker(self, device_class, device_name, start_time):
@@ -526,7 +530,7 @@ class MainApp(QtCore.QObject, UIWindow):
         if logger is not None:
             if logger.stop():
                 self._kikusui_logger = None
-                self.plasma_control_dock.show_kikusui({"status": "idle"})
+                self._publish_kikusui({"status": "idle"})
             else:
                 self.log_message("Kikusui recorder is still stopping; new telemetry start blocked")
 

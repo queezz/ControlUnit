@@ -54,6 +54,30 @@ def test_samples_land_in_the_latest_values_and_the_count():
     assert snapshot["file"] == "cu_20260904_120000.csv"
 
 
+def test_kikusui_freshness_is_independent_of_adc_and_gui_refresh():
+    clock = Clock()
+    status = rig(clock)
+    status.set_acquiring(True)
+    status.record_samples([clock()], {"Cv": [999], "Ci": [999]})
+    record = {"status": "ok", "voltage_v": 2.4, "current_a": 12.0, "output_on": 1,
+              "age_s": 0.25, "stale_after_s": 2.0, "file": "/home/test/kikusui_run.csv"}
+    status.record_kikusui(record)
+    record["current_a"] = 999
+    body = state_body(status, __version__)
+    assert body["kikusui"]["current_a"] == 12.0
+    assert body["kikusui"]["file"] == "kikusui_run.csv"
+    clock.now += 1.8  # Qt stopped publishing, although the web thread still responds.
+    status.record_samples([clock()], {"Cv": [999]})
+    body = state_body(status, __version__)
+    assert body["data"]["state"] == "live"
+    assert body["kikusui"]["status"] == "stale"
+    assert "current_a" not in body["kikusui"]
+    status.record_kikusui({"status": "unavailable", "current_a": 12.0})
+    assert "current_a" not in state_body(status, __version__)["kikusui"]
+    status.record_kikusui({"status": "idle"})
+    assert state_body(status, __version__)["kikusui"]["status"] == "idle"
+
+
 def test_a_new_run_empties_the_ring():
     status = rig()
     status.start_run("first.csv")

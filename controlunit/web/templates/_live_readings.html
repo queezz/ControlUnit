@@ -47,6 +47,25 @@
         </div>
         </details>
 
+        <details class="kikusui-panel fold" data-fold="kikusui" open>
+            <summary class="fold-head">
+                <h2 class="fold-name">Kikusui</h2>
+                <span class="fold-line">
+                    <span class="mono" data-role="kikusui-fold">— V · — A</span>
+                    <span data-role="kikusui-status">Not recording</span>
+                </span>
+            </summary>
+            <div class="readouts kikusui-readouts">
+                {% for key, name, unit in [('voltage_v', 'Voltage', 'V'), ('current_a', 'Current', 'A')] %}
+                <div class="readout" data-kikusui-readout="{{ key }}">
+                    <span class="readout-name">{{ name }}</span>
+                    <span class="readout-unit">{{ unit }}</span>
+                    <span class="readout-value mono" data-role="value">—</span>
+                </div>
+                {% endfor %}
+            </div>
+        </details>
+
         {# One list of panels on the server, drawn here in one loop, so a
            chart's legend and the channels its canvas actually draws cannot
            drift apart.

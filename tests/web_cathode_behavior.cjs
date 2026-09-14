@@ -307,16 +307,16 @@ test('a browser that stores nothing still folds every card', () => {
     assert.doesNotThrow(function () { shut.handlers.toggle(); });
 });
 
-test('Ip is read beside the drive; the cathode volts only when reported', () => {
+test('Ip is read beside the drive; an analog placeholder cannot pose as Kikusui volts', () => {
     const d = build();
     d.api.paintCathode({setpoints: {}}, {});
     assert.equal(d.cells.ip.textContent, '—');
-    assert.equal(d.cells.measured.textContent, '—');
+    assert.equal(d.cells.measured.textContent, '');
 
     d.api.paintCathode(
         {setpoints: {}},
         {Ip: {value: 0.421, unit: 'A'}, Cv: {value: 3.1, unit: 'V'}}
     );
     assert.equal(d.cells.ip.textContent, '0.421 A');
-    assert.equal(d.cells.measured.textContent, '3.100 V');
+    assert.equal(d.cells.measured.textContent, '');
 });

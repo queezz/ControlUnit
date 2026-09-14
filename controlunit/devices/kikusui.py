@@ -179,11 +179,10 @@ class KikusuiLogger:
             result = self._latest.copy()
             received = self._received_at
         age = None if received is None else max(0, time.monotonic() - received)
-        if result["status"] in ("ok", "dummy") and age > (
-            self.config.interval_s + self.config.timeout_s + 0.5
-        ):
+        expires = self.config.interval_s + self.config.timeout_s + 0.5
+        if result["status"] in ("ok", "dummy") and age > expires:
             result = {"status": "stale"}
-        result.update(age_s=age, file=str(self.path))
+        result.update(age_s=age, stale_after_s=expires, file=str(self.path))
         return result
 
     def _publish(self, row, received=None):
