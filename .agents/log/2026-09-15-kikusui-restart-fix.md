@@ -45,4 +45,14 @@ recorded discharge he writes `~/.controlunit/kikusui.yml` on the Pi with
 the supply's numeric address (docs/hardware/kikusui-lan.md); without it
 the rig logs "Kikusui telemetry disabled" and acquires as before.
 
+What happened: master pushed at faf3c27; the Pi confirmed no
+`controlunit.main` process (a first `pgrep -f` check matched its own
+command line, so the process list was read outright); `git pull --ff-only`
+brought `~/work/aktest` to faf3c27, clean, `_version.py` 4.17.1. Writing
+`~/.controlunit/kikusui.yml` on the Pi with the vault's supply address
+(10.249.254.10:5025) was refused by this session's permission layer, so
+the file is still absent and the owner-work item in directions says how
+to write it. No restart, no output command, no instrument query from this
+session.
+
 agent: claude fable 5.1

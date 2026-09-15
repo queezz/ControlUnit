@@ -22,11 +22,20 @@ holds what is still undecided or unbuilt.
 
 ## Work only queezz can do
 
-- Restart the rig onto 4.6.0, on a rig that is not acquiring and not
-  holding gas or the cathode — owner work pending. `master` in the office
-  checkout is at 4.6.0 and none of it has been pushed; say the word and a
-  session pushes it, pulls the Pi's checkout at `~/work/aktest`, and leaves
-  the restart to you. On restart: the Live charts stop growing on a Retina
+- Restart the rig onto 4.17.1 from its desktop shortcut — owner work
+  pending. On 2026-09-15, on your word "fix then deploy", master was pushed
+  and the Pi's checkout at `~/work/aktest` pulled to `faf3c27` (4.17.1)
+  while the program was not running. The Pi has no `~/.controlunit/kikusui.yml`
+  yet (this session's write of it was refused by the permission layer), so
+  before the first recorded discharge write it there by hand, five lines,
+  with the supply's lab address from the vault's troubleshooting note of
+  2026-09-14: `host: 10.249.254.10`, `port: 5025`, `interval_s: 0.5`,
+  `timeout_s: 1.0`, `retry_s: 5.0`. Without it the rig logs "Kikusui
+  telemetry disabled" and acquires as before; with it the first Start
+  records `kikusui_*.csv` beside the ADC file and shows the supply's V
+  and I on the Cathode dock and the WebUI. Everything from
+  4.6.0 up is new to the rig, which last ran 4.14.1. From 4.6.0: the Live
+  charts stop growing on a Retina
   Mac; an idle rig reads `ok` instead of `degraded` on all three service
   boards; the rig says whether it is stopped, measuring only, or holding
   gas or the cathode, on its own Live tab and on all three service boards;
@@ -39,7 +48,7 @@ holds what is still undecided or unbuilt.
   window, and a Vacuum and a Plasma preset over the curve switches; and the
   Control tab's presses stand in one faceplate with their numbers beside
   them.
-  Done when: `http://pihti:4187/api/health` reports 4.6.0 and, with
+  Done when: `http://pihti:4187/api/health` reports 4.17.1 and, with
   acquisition off and every output at zero, `status` reads `ok` with the
   detail "idle, not recording".
 - Add the Mac-reachable address to the Pi's neighbours file — owner work
@@ -73,9 +82,14 @@ holds what is still undecided or unbuilt.
   2026-09-14): collect ordinary manual discharges and bakes before fixing PID
   or setting filament-condition alarm thresholds. 4.15.0 records a separate
   timestamped Kikusui CSV, including manual command, with explicit LAN-loss
-  rows and recovery. Setup is in docs/hardware/kikusui-lan.md; deployment and
-  real-run validation remain. The cable/address are established in the lab
-  record and read-only SCPI was verified with output off.
+  rows and recovery. Setup is in docs/hardware/kikusui-lan.md. Deployed
+  2026-09-15: the Pi's checkout is at 4.17.1 (which also fixes a stale
+  recorder reference that blocked every later Start after one slow stop);
+  its `kikusui.yml` is still to be written by hand (the owner-work item
+  above says how), and real-run validation waits on the owner's restart
+  and first manual discharge. The cable/address are
+  established in the lab record and read-only SCPI was verified with
+  output off.
   4.17.0 publishes fresh Kikusui V/I in Qt, full WebUI cards and a separate
   `/api/state` `kikusui` object. Later: retire
   the unwired analog placeholders with a versioned data contract, and make
