@@ -56,4 +56,15 @@ in this session's transcript or from the noise-study item in directions.
   small and the exponent digit full height.
 - The cathode's colour is #ff6b35 everywhere; nothing else wears it.
 
+## The analysis landed
+
+docs/diagnostics/2026-09-15-plasma-run-and-noise.md with six plots and
+the vault note are written and committed; the findings and what each
+asks of the code are a directions item ("Findings of the 2026-09-15
+evening analysis"). Headlines: the ADC file's PresetV_* columns are dead
+for a manual run; Ip carries two instrument lines (0.133 Hz and fs/3)
+that a 3-sample boxcar and a 1 s mean remove; the plasma followed
+filament power up the staircase; the discharge supply's own 1 A is not
+logged anywhere; off states cannot be told from the analogue channels.
+
 agent: claude fable 5.1

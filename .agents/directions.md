@@ -571,6 +571,41 @@ holds what is still undecided or unbuilt.
   folder and to docs/diagnostics/, with the numbers; any filter change is
   a separate, versioned build afterwards, never a silent change to what
   is recorded.
+- Findings of the 2026-09-15 evening analysis (docs/diagnostics/
+  2026-09-15-plasma-run-and-noise.md; vault note "Plasma run and noise
+  2026-09-15"), each with what it asks of the code:
+  - The ADC file's `PresetV_cathode`, `PresetV_mfc1` and `PresetV_mfc2`
+    were 0 in all 24,708 rows of the plasma run: the manual cathode drive
+    reaches the record only through the Kikusui sidecar's
+    `commanded_cathode_mv`, and the gas was opened outside ControlUnit.
+    The manual drive must write `PresetV_cathode` (the 2026-09-14 note
+    named this; still open), and the file header should say what those
+    columns carry.
+  - Ip noise is the instrument's, not the plasma's: sd 0.018 A quiet and
+    0.021 A at 0.79 A. Two lines on Ip only: 0.1333 Hz (7.5 s, 13–18 mA,
+    present before the Kikusui was configured) and 3.3333 Hz = fs/3
+    (lag-3/6/9 autocorrelation 0.72/0.60/0.52). A 3-sample boxcar puts an
+    exact zero on fs/3 where a 3-median does not; 21 samples (1 s) for the
+    rest; Bu and Pu want 11; Bd cannot usefully be filtered (a 109 s
+    wander and a −0.8 mTorr standing offset). Whether fs/3 is the read
+    schedule needs a run at another sampling rate. This is the filter
+    build the noise-study item asked for.
+  - The "1 A by the PSU" is not in any file: the Kikusui read 16.5 A
+    (filament heating current); the discharge supply's own readout is a
+    separate instrument ControlUnit does not log. Ip followed filament
+    power (97 W → 0.12 A, 105 W → 0.26 A, 116 W → 0.42 A, ignition at
+    18:54:14 in two samples), gas moving 0.7 % across the staircase —
+    evidence for his item (a) on holding power. Inside the settled
+    discharge Ip and Ic are uncorrelated (r = 0.006).
+  - Off states are not self-evident in the analogue channels: Pu2 off
+    reads 3e-10 Torr, Pd 1e-8 Torr all evening (off or unresponsive, the
+    file cannot tell), Bd −0.87 mTorr; the Kikusui kept `output_on=1` for
+    98 s after the drive went to 0 mV, then `unavailable` from 19:11:58.
+    So the instrument-off flag must be operator-set or read from the
+    controller — the toggles item above stands as designed.
+  - Bu went electrically noisy 19:20:50–19:23:50 (sd 1.4e-4 Torr,
+    negative excursions) with nothing logged; one 0.35 s gap in the main
+    run; zero tracebacks.
 - A noise floor per channel, so the current with no plasma can step out of
   the way too (queezz, 2026-09-07: the current plot with no plasma is "a
   noisy waste of space"). 4.5.0 collapses a curve whose excursion is smaller
