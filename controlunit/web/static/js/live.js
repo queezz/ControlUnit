@@ -507,7 +507,12 @@
        reading standing on the card looking current. */
     var CATHODE_TAGS = {idle: "not recording", disabled: "not configured",
         connecting: "connecting", unavailable: "LAN lost", stale: "stale",
-        stopped: "stopped", error: "see Log", unreachable: "unreachable"};
+        stopped: "stopped", error: "see Log", unreachable: "unreachable",
+        /* The row a press leaves behind: the supply was switched, not
+           measured, so the cards read "—" for one poll and say which of the
+           two writes went out rather than falling back on "unavailable". */
+        output_on: "output on sent", output_off: "output off sent",
+        output_on_failed: "output on FAILED", output_off_failed: "output off FAILED"};
     var CATHODE_UNITS = {voltage_v: "V", current_a: "A"};
     var kikusuiExpiry = null;
     function paintKikusui(telemetry) {
@@ -545,6 +550,36 @@
                     ? k[key].toFixed(2) + " " + CATHODE_UNITS[key] : "—";
             }
         });
+        /* The supply's own output, on the Cathode card's heading line. It is
+           painted from this same telemetry — one reading, two places, so the
+           lamp and the cards can never say different things — and pressed in
+           control.js, where every other press of this page lives.
+
+           The direction is decided here because freshness is: a green lamp
+           presses off, a grey one presses on, and a dim one presses off,
+           because off is the press that needs neither a measurement nor a
+           gate. The off direction is re-enabled here too — this paint runs on
+           its own expiry timer between polls, and a safety press must never
+           be left switched off by a gate that has stopped applying to it. */
+        var lamp = root.querySelector('[data-role="cathode-output"]');
+        if (lamp) {
+            var closed = fresh && k.output_on === 1;
+            var next = fresh && !closed ? "on" : "off";
+            lamp.dataset.lamp = fresh ? (closed ? "on" : "off") : "unknown";
+            lamp.dataset.next = next;
+            lamp.setAttribute("aria-label", "Turn the supply's output " + next);
+            // Never a state display: what it says is in the word beside it,
+            // and what a press does is in the label.
+            lamp.setAttribute("aria-pressed", "false");
+            if (next === "off") lamp.disabled = false;
+            /* The word the lamp's colour stands for. It is written here and
+               shown by a pointer rather than on the row, which has no width
+               for it (see `.lamp-word` in the CSS); the same word is on the
+               two readout cards this paint has just written. */
+            lamp.title = tag;
+            var word = lamp.querySelector('[data-role="cathode-output-word"]');
+            if (word) word.textContent = tag;
+        }
         if (fresh) {
             // Expire even when a fetch hangs or the browser loses the Pi.
             kikusuiExpiry = window.setTimeout(function () {

@@ -206,3 +206,19 @@ PID is for an already ignited discharge, taking over the held filament drive
 smoothly; its telemetry-loss policy is separate work. Filament warnings wait
 for measured operating baselines. The preanode short is solved by the owner's
 physical repair to the plasma source, not by software.
+
+**Two writes, and no third (owner decision 2026-09-15, live).** The link is no
+longer read-only. It may send exactly `OUTP 0` and `OUTP 1` — the supply's own
+output off and on — and nothing else, ever: no setpoint, no reset, no
+clear-status. "Kikusui has LAN now, I want the one-off signal button in our
+control. Then we turn that one off no matter the dac voltage", and, the same
+day, "Off and on. Why not? Then we have full cathode control when powered".
+Off is a safety press, always allowed like Stop all outputs — no Remote
+switch, no name, no lab's word, no run — because the cathode DAC and the
+supply's output are different wires and a person must be able to open the
+second whatever the first holds; Stop all outputs sends it too. On is a setter
+and wears every gate a setter wears, and is refused while the telemetry cannot
+see the supply, so nothing is ever closed onto a filament blind. Both are
+carried by the recorder's own thread on the socket it already owns, or by a
+short one-shot connection when nothing is recording. The recorder still never
+drives the supply of its own accord: every write is a press.

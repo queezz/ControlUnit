@@ -1,5 +1,6 @@
 import argparse
 import sys, datetime, os
+import threading
 import time
 import pandas as pd
 from PyQt5 import QtCore, QtWidgets, QtGui
@@ -9,7 +10,11 @@ from controlunit.devices.adc import ADC
 from controlunit.devices.timing import TimingDiagnostics
 from controlunit.devices.dac8532 import DAC8532
 from controlunit.devices.mcp4725 import MCP4725
-from controlunit.devices.kikusui import KikusuiLogger, load_config as load_kikusui_config
+from controlunit.devices.kikusui import (
+    KikusuiLogger,
+    load_config as load_kikusui_config,
+    set_output as set_supply_output,
+)
 
 import readsettings
 from striphtmltags import strip_tags
@@ -233,6 +238,13 @@ class MainApp(QtCore.QObject, UIWindow):
         )
         self.plasma_control_dock.cathode_off_btn.clicked.connect(
             self.turn_off_cathode_drive
+        )
+        # The supply's own output switch, beside the drive that feeds it.
+        self.plasma_control_dock.output_on_btn.clicked.connect(
+            self.turn_on_cathode_output
+        )
+        self.plasma_control_dock.output_off_btn.clicked.connect(
+            self.turn_off_cathode_output
         )
 
     def _init_calibration_connections(self):
@@ -1225,6 +1237,90 @@ class MainApp(QtCore.QObject, UIWindow):
         self.workers["PlasmaCurrent"]["worker"].output_voltage_signal.emit(value)
         self.web_status.record_setpoints(plasma_a=0.0, cathode_mv=value)
         self.log_message(f"Cathode drive set to {value:.0f} mV, PID off")
+
+    # MARK: the supply's own output
+    #: Why a press could not even be attempted, in the words the browser and
+    #: the rig's own Log both use. `web.commands.NO_SUPPLY_ANSWER` is held
+    #: equal to the first by a test, so a refusal reads the same everywhere.
+    NO_SUPPLY_ANSWER = "the supply is not answering; turn it on at the supply"
+    NO_SUPPLY_LINK = "the supply's LAN link is not configured here"
+
+    def _cathode_output_state(self):
+        """What the telemetry last said the supply's output was, or `None`.
+
+        `None` is every kind of not-knowing at once — no recorder, LAN lost,
+        stale, never configured — and they are one fact for this purpose:
+        nothing may be switched *on* by somebody who cannot see it. Off is
+        not asked this question; zeroing something is safe from blind.
+        """
+        snapshot = getattr(self, "_kikusui_snapshot", None) or {}
+        if snapshot.get("status") not in ("ok", "dummy"):
+            return None
+        state = snapshot.get("output_on")
+        return state if state in (0, 1) else None
+
+    def set_cathode_output(self, on):
+        """The supply's output switch, the only thing this program writes.
+
+        Owner decision 2026-09-15, live: "Kikusui has LAN now, I want the
+        one-off signal button in our control. Then we turn that one off no
+        matter the dac voltage", and, the same day, "Off and on. Why not?
+        Then we have full cathode control when powered".
+
+        Nothing here waits on a network. While a run records, the request is
+        handed to the recorder's own thread, which owns the socket; with no
+        recorder a short daemon thread opens a connection of its own and
+        says how it went through `kikusui_message`, the queued signal that
+        already carries this recorder's words to the Log. Either way this
+        method returns at once, and the Log carries the outcome.
+
+        Returns `(whether the write is on its way, why not)`.
+        """
+        if on and self._cathode_output_state() is None:
+            return False, self.NO_SUPPLY_ANSWER
+        logger = getattr(self, "_kikusui_logger", None)
+        if logger is not None and logger.request_output(on):
+            return True, ""
+        try:
+            config = load_kikusui_config()
+        except Exception as error:  # noqa: BLE001 -- a broken file is a reason, not a crash
+            return False, str(error)
+        if config is None:
+            return False, self.NO_SUPPLY_LINK
+        if dummy_hardware_loaded() and not config.dummy:
+            return False, "dummy hardware never contacts the supply"
+        threading.Thread(
+            target=set_supply_output,
+            args=(config, on, self.kikusui_message.emit),
+            name="Kikusui output switch",
+            daemon=True,
+        ).start()
+        return True, ""
+
+    def turn_on_cathode_output(self):
+        """Switch the supply's output on, if the telemetry can see it."""
+        return self._press_cathode_output(True)
+
+    def turn_off_cathode_output(self):
+        """Switch the supply's output off, whatever the DAC is holding.
+
+        This is the press queezz asked for: the drive and the output are two
+        different wires, and dropping the drive to zero is not the same as
+        opening the output. It is always allowed, from the dock and from a
+        browser, like Stop all outputs.
+        """
+        return self._press_cathode_output(False)
+
+    def _press_cathode_output(self, on):
+        """One press, and the Log line when it could not even be attempted."""
+        sent, reason = self.set_cathode_output(on)
+        if not sent:
+            self.log_message(
+                "Kikusui output {} not sent: {}; manual drive unchanged".format(
+                    "ON" if on else "OFF", reason
+                )
+            )
+        return sent, reason
 
     @QtCore.pyqtSlot()
     def turn_off_cathode_drive(self):

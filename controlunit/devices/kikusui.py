@@ -1,14 +1,29 @@
-"""Optional, read-only PWR401L telemetry in a separately timestamped CSV.
+"""PWR401L telemetry in a separately timestamped CSV, and the two writes.
 
-This module cannot drive the supply. Its only wire commands are the four
-queries below. The logger owns its socket and file; it never calls a Qt
-widget, the ADC reader or a DAC worker.
+The link is a measurement link with exactly two exceptions. Its wire
+commands are the four queries below plus `OUTP 0` and `OUTP 1` — the
+supply's output off and on (owner decision 2026-09-15, live: "Kikusui has
+LAN now, I want the one-off signal button in our control. Then we turn that
+one off no matter the dac voltage", and, the same day, "Off and on. Why not?
+Then we have full cathode control when powered"). There is no third write:
+no setpoint, no reset, no clear-status, nothing that could hand the supply a
+voltage or a current. The recorder still never drives the supply of its own
+accord; both writes happen only because a person pressed something.
+
+Off is a safety press and is never gated. On is gated like any other setter,
+and refused unless the telemetry is fresh, so nothing is ever switched on
+blind.
+
+The logger owns its socket and file; it never calls a Qt widget, the ADC
+reader or a DAC worker. A press from any thread is handed to the logger's
+own thread, which is the only thread that ever touches the socket.
 """
 
 import csv
 import datetime
 import ipaddress
 import math
+import queue
 import socket
 import threading
 import time
@@ -64,8 +79,20 @@ def load_config(path=None):
     return KikusuiConfig(**values)
 
 
+#: The whole of what this program may ever put on the wire, and the sentence
+#: it refuses everything else in. Four queries and two writes; `VOLT`, `CURR`,
+#: `*RST`, `OUTP ON` and every other SCPI word are refused before a byte is
+#: sent, because a client that can only say these six cannot set a supply.
+PERMITTED = "Only the four telemetry queries and OUTP 0 / OUTP 1 are permitted"
+
+
 class ReadOnlyClient:
+    """Read-only but for the output switch: it cannot set a voltage or current."""
+
     QUERIES = ("*IDN?", "MEAS:VOLT?", "MEAS:CURR?", "OUTP?")
+    #: The two writes, in the words the supply reads them in.
+    WRITES = ("OUTP 0", "OUTP 1")
+    ALLOWED = QUERIES + WRITES
 
     def __init__(self, config):
         self.config = config
@@ -82,21 +109,39 @@ class ReadOnlyClient:
                 pass
             sock.close()
 
-    def _query(self, command, deadline):
-        if command not in self.QUERIES:
-            raise ValueError("Only telemetry queries are permitted")
+    def _deadline(self, sock, deadline):
+        """Arm the socket for whatever is left of this transaction's budget."""
+        value = deadline - time.monotonic()
+        if value <= 0:
+            raise TimeoutError("Telemetry query deadline exceeded")
+        sock.settimeout(value)
+
+    def _send(self, command, deadline):
+        """The one place a byte reaches the supply, and the allowlist gate.
+
+        Every command, query or write, passes through here, so the allowlist
+        is a property of the transport rather than of each caller: an
+        unpermitted word raises before `sendall`, with nothing on the wire.
+        """
+        if command not in self.ALLOWED:
+            raise ValueError(PERMITTED)
         sock = self.sock
         if sock is None:
             raise OSError("Telemetry connection closed")
+        self._deadline(sock, deadline)
+        sock.sendall((command + "\n").encode("ascii"))
+        return sock
+
+    def _query(self, command, deadline):
+        # A write answers nothing, so reading one back would only wait for a
+        # reply the supply will never send.
+        if command not in self.QUERIES:
+            raise ValueError(PERMITTED)
+        sock = self._send(command, deadline)
 
         def remaining():
-            value = deadline - time.monotonic()
-            if value <= 0:
-                raise TimeoutError("Telemetry query deadline exceeded")
-            sock.settimeout(value)
+            self._deadline(sock, deadline)
 
-        remaining()
-        sock.sendall((command + "\n").encode("ascii"))
         reply = bytearray()
         while b"\n" not in reply:
             remaining()
@@ -111,25 +156,47 @@ class ReadOnlyClient:
             raise ValueError("Unexpected extra SCPI reply")
         return line.decode("ascii").strip()
 
+    def _connect(self, deadline):
+        """Open the socket if it is shut, and prove what answered on it."""
+        if self.sock is not None:
+            return
+        address = ipaddress.ip_address(self.config.host)
+        sock = socket.socket(socket.AF_INET6 if address.version == 6 else socket.AF_INET)
+        self.sock = sock
+        sock.settimeout(self.config.timeout_s)
+        sock.connect((self.config.host, self.config.port))
+        identity = self._query("*IDN?", deadline)
+        parts = identity.split(",")
+        if len(parts) != 4 or parts[:2] != ["KIKUSUI", "PWR401L"]:
+            raise ValueError("Expected a KIKUSUI PWR401L")
+        # A reconnection to another serial number must not silently splice runs.
+        key = tuple(parts[:3])
+        if self.expected_identity is not None and key != self.expected_identity:
+            raise ValueError("Supply identity changed during this run")
+        self.expected_identity = key
+        self.identity = identity
+
+    def set_output(self, on):
+        """The one write, in its two directions, with the supply's own answer.
+
+        Identity is verified before anything is written, so `OUTP 0` can only
+        reach a PWR401L this client has identified — never whatever else
+        happens to be answering on that address. The readback is queried back
+        on the same socket and returned, so a press that did not take is
+        reported as one that did not take rather than assumed.
+        """
+        deadline = time.monotonic() + self.config.timeout_s
+        self._connect(deadline)
+        self._send("OUTP 1" if on else "OUTP 0", deadline)
+        state = self._query("OUTP?", deadline)
+        if state not in ("0", "1"):
+            raise ValueError("Invalid SCPI output state")
+        return int(state)
+
     def sample(self):
         # One deadline for the entire transaction, even on a slow trickle of bytes.
         deadline = time.monotonic() + self.config.timeout_s
-        if self.sock is None:
-            address = ipaddress.ip_address(self.config.host)
-            sock = socket.socket(socket.AF_INET6 if address.version == 6 else socket.AF_INET)
-            self.sock = sock
-            sock.settimeout(self.config.timeout_s)
-            sock.connect((self.config.host, self.config.port))
-            identity = self._query("*IDN?", deadline)
-            parts = identity.split(",")
-            if len(parts) != 4 or parts[:2] != ["KIKUSUI", "PWR401L"]:
-                raise ValueError("Expected a KIKUSUI PWR401L")
-            # A reconnection to another serial number must not silently splice runs.
-            key = tuple(parts[:3])
-            if self.expected_identity is not None and key != self.expected_identity:
-                raise ValueError("Supply identity changed during this run")
-            self.expected_identity = key
-            self.identity = identity
+        self._connect(deadline)
         voltage = float(self._query("MEAS:VOLT?", deadline))
         current = float(self._query("MEAS:CURR?", deadline))
         output = self._query("OUTP?", deadline)
@@ -141,17 +208,77 @@ class ReadOnlyClient:
 
 
 class DummyClient:
+    """Off-rig stand-in. It holds an output flag so a press has something to
+    move, and it is never mistaken for a supply: every message it produces
+    says SIMULATED and every row it writes says `dummy`."""
+
     identity = "DUMMY,PWR401L,SIMULATED,0"
 
+    def __init__(self):
+        self.output_on = 0
+
     def sample(self):
-        return 0.0, 0.0, 0
+        return 0.0, 0.0, self.output_on
+
+    def set_output(self, on):
+        self.output_on = 1 if on else 0
+        return self.output_on
 
     def close(self):
         pass
 
 
+def _report_output(message, on, state, dummy):
+    """The one sentence a press leaves in the Log, and whether it stuck.
+
+    Said in one place because the recorder's thread and the one-shot helper
+    must not word the same event two ways. A readback that does not match
+    what was asked for is reported as exactly that — the write went out, the
+    supply says otherwise — and never as a confirmation.
+    """
+    word = "ON" if on else "OFF"
+    if dummy:
+        message(
+            "Kikusui output {} SIMULATED: no supply is connected; "
+            "manual drive unchanged".format(word)
+        )
+        return False
+    if state == (1 if on else 0):
+        message("Kikusui output {} (confirmed)".format(word))
+        return True
+    message("Kikusui output {} sent, readback {}".format(word, state))
+    return False
+
+
+def set_output(config, on, message):
+    """The same write with no recorder running: connect, write, read back, close.
+
+    Called on a short daemon thread so the GUI thread never waits on a LAN,
+    and it therefore swallows nothing: every ending leaves a line in the Log.
+    """
+    client = DummyClient() if config.dummy else ReadOnlyClient(config)
+    try:
+        state = client.set_output(on)
+    except Exception as error:  # noqa: BLE001 -- a press must never end silently.
+        message(
+            "Kikusui output {} FAILED: {}; manual drive unchanged".format(
+                "ON" if on else "OFF", error
+            )
+        )
+        return False
+    finally:
+        client.close()
+    return _report_output(message, on, state, config.dummy)
+
+
 class KikusuiLogger:
-    """A run-scoped recorder. Loss of LAN never changes an apparatus output."""
+    """A run-scoped recorder. Loss of LAN never changes an apparatus output.
+
+    It also carries the two presses, because it owns the socket: a request
+    from the main thread waits on `_presses` until this thread is between
+    polls, and the write and its readback then go out on the connection the
+    recorder already has. Nothing here presses anything on its own.
+    """
 
     COLUMNS = (
         "date", "logger_elapsed_s", "query_ms", "voltage_v", "current_a",
@@ -168,6 +295,14 @@ class KikusuiLogger:
         self.context = context
         self.client = client or (DummyClient() if config.dummy else ReadOnlyClient(config))
         self.stopping = threading.Event()
+        #: Presses waiting for this recorder's own thread, oldest first. Any
+        #: thread may put one here; only this recorder's thread takes them,
+        #: which is what keeps two threads off one socket. A request that
+        #: arrives mid-poll simply waits for the poll to finish.
+        self._presses = queue.Queue()
+        #: One wait to interrupt, for both a stop and a press: without it a
+        #: press during an outage would sit through the whole retry delay.
+        self._wake = threading.Event()
         self._lock = threading.Lock()
         self._latest = {"status": "connecting"}
         self._received_at = None
@@ -193,11 +328,89 @@ class KikusuiLogger:
     def start(self):
         self.thread.start()
 
+    def request_output(self, on):
+        """Ask this recorder's thread for the one write. Any thread may call.
+
+        Returns whether there is a live thread to carry it, so a caller whose
+        press has nowhere to go can open its own short-lived connection
+        rather than believe a press nothing will ever send. A request that
+        makes it onto the queue is always answered in the Log: if the thread
+        ends first, its own shutdown says the press was not sent.
+        """
+        if self.stopping.is_set() or not self.thread.is_alive():
+            return False
+        self._presses.put(bool(on))
+        self._wake.set()
+        return True
+
+    def _drop_pending(self, why):
+        """No press is ever lost in silence, not even to a shutdown."""
+        while True:
+            try:
+                on = self._presses.get_nowait()
+            except queue.Empty:
+                return
+            self.message(
+                "Kikusui output {} FAILED: {}; manual drive unchanged".format(
+                    "ON" if on else "OFF", why
+                )
+            )
+
+    def _wait(self, seconds):
+        """Sleep between polls, and wake at once for a stop or a press."""
+        self._wake.wait(max(0.01, seconds))
+        self._wake.clear()
+
     def stop(self):
         self.stopping.set()
+        self._wake.set()
         self.client.close()  # Interrupt a connected recv; connect has a bounded timeout.
         self.thread.join(self.config.timeout_s + 0.5)
         return not self.thread.is_alive()
+
+    def _stamp(self, row, before, started):
+        """The three time columns every row carries, written in one place."""
+        now = time.monotonic()
+        row.update(
+            date=datetime.datetime.now().astimezone().isoformat(timespec="microseconds"),
+            logger_elapsed_s=round(now - started, 6),
+            query_ms=round((now - before) * 1000, 3),
+        )
+        return now
+
+    def _write_press(self, on, started):
+        """Carry out one press here, on the socket this thread already owns.
+
+        It is a row of its own in the sidecar, with the readback in
+        `output_on` and no voltage or current: the supply was switched, not
+        measured, and an event row must never look like a measurement. A
+        failure leaves manual drive exactly as it was — the DAC is a
+        different wire — and says so.
+        """
+        before = time.monotonic()
+        context = self.context()
+        word = "on" if on else "off"
+        row = {
+            "commanded_cathode_mv": context.get("cathode_mv", ""),
+            "plasma_target_a": context.get("plasma_a", ""),
+        }
+        try:
+            answered = self.client.set_output(on)
+            row.update(
+                output_on=answered,
+                status="output_" + word,
+                identity=self.client.identity,
+            )
+            _report_output(self.message, on, answered, self.config.dummy)
+        except (OSError, ValueError, UnicodeError) as error:
+            self.client.close()
+            row.update(status="output_{}_failed".format(word), error=str(error)[:240])
+            self.message(
+                "Kikusui output {} FAILED: {}; manual drive unchanged".format(
+                    word.upper(), error
+                )
+            )
+        return row, self._stamp(row, before, started)
 
     def _run(self):
         started = time.monotonic()
@@ -217,6 +430,19 @@ class KikusuiLogger:
                 target.flush()
                 self.message(f"Kikusui telemetry file: {self.path.name}")
                 while not self.stopping.is_set():
+                    # A press first, between polls: one thread, one socket,
+                    # and a request that arrived mid-poll has waited for it.
+                    while not self.stopping.is_set():
+                        try:
+                            pressed = self._presses.get_nowait()
+                        except queue.Empty:
+                            break
+                        press, at = self._write_press(pressed, started)
+                        writer.writerow(press)
+                        target.flush()
+                        self._publish(press, at)
+                    if self.stopping.is_set():
+                        break
                     before = time.monotonic()
                     context = self.context()
                     row = {
@@ -235,12 +461,7 @@ class KikusuiLogger:
                         row.update(status=status, error=str(error)[:240])
                     if self.stopping.is_set():
                         break
-                    now = time.monotonic()
-                    row.update(
-                        date=datetime.datetime.now().astimezone().isoformat(timespec="microseconds"),
-                        logger_elapsed_s=round(now - started, 6),
-                        query_ms=round((now - before) * 1000, 3),
-                    )
+                    now = self._stamp(row, before, started)
                     writer.writerow(row)
                     target.flush()
                     self._publish(row, now)
@@ -257,9 +478,12 @@ class KikusuiLogger:
                         state = status
                     delay = self.config.retry_s if status == "unavailable" else self.config.interval_s
                     # No catch-up bursts; a slow poll reduces only this recorder's cadence.
-                    self.stopping.wait(max(0.01, delay - (time.monotonic() - before)))
+                    self._wait(delay - (time.monotonic() - before))
         except Exception as error:  # noqa: BLE001 -- Report any recorder failure, never lose it silently.
             self.message(f"Kikusui recording STOPPED: {error}; manual drive unchanged")
         finally:
             self.client.close()
             self._publish({"status": "stopped"})
+            # A press queued in the instant this thread was ending is told so,
+            # rather than disappearing with the thread that was to send it.
+            self._drop_pending("the telemetry recorder stopped first")

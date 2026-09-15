@@ -31,6 +31,7 @@ from controlunit import readsettings as _settings
 #: Every kind of command a browser may send, in operating order.
 KINDS = (
     "stop_all",
+    "cathode_output",
     "take_over",
     "start",
     "stop",
@@ -48,6 +49,14 @@ KINDS = (
 #: or not they typed a name and whether or not the switch on the rig is on.
 #: Starting and stopping a run is not in here: a run is the whole point of
 #: the switch on the rig, so it is gated like every other setter.
+#:
+#: The supply's output is not in here, because only one of its two
+#: directions belongs: *off* is a safety press of exactly the shape Stop all
+#: outputs has, and *on* is a setter like any other. A command whose gate
+#: depends on its value is weighed by `always_allowed` and `is_locked`
+#: below, which take the value; these tuples answer for kinds alone, and
+#: their answer for such a kind is the gated one, which is the safe way to
+#: be wrong.
 ALWAYS_ALLOWED = ("stop_all",)
 
 #: Gauge settings may be prepared while idle and applied at startup.
@@ -77,6 +86,26 @@ LOCKED = (
     "sync",
     "zero",
 )
+
+
+def always_allowed(kind, value=None):
+    """Whether this very command is a press no gate stands in front of.
+
+    The kind alone answers for every command but one. The supply's output
+    carries its direction in its value: off is always allowed, on never is.
+    Asked about a `cathode_output` with no value to read, the answer is no —
+    an ungated press must be one that has been *seen* to be the off one.
+    """
+    if kind == "cathode_output":
+        return (value or {}).get("on") is False
+    return kind in ALWAYS_ALLOWED
+
+
+def is_locked(kind, value=None):
+    """Whether the operator lock has anything to say about this command."""
+    if kind == "cathode_output":
+        return not always_allowed(kind, value)
+    return kind in LOCKED
 
 #: The sampling times the rig offers, in seconds, exactly the choices the Qt
 #: Settings dock's combo carries (`ui/docks/settings.py`). A test builds that
@@ -140,6 +169,15 @@ NO_ACQUISITION = "no acquisition running"
 NO_FENCE_WORD = "type the lab's word first"
 WRONG_FENCE_WORD = "that is not the lab's word"
 ALREADY_ACQUIRING = "acquisition is already running"
+#: The supply's output, in the two sentences its own refusals are worded in.
+#: Switching it on needs a measurement to switch it on *against*: a rig whose
+#: telemetry is idle, stale or lost cannot say what the supply is doing, and
+#: nothing is ever closed onto a filament blind. Switching it off asks
+#: nothing of the telemetry — zeroing something is safe from blind.
+#: `MainApp.NO_SUPPLY_ANSWER` is held equal to the first by a test.
+CATHODE_OUTPUT_WORDS = "the supply's output is either on or off"
+NO_SUPPLY_ANSWER = "the supply is not answering; turn it on at the supply"
+NO_SUPPLY_LINK = "the supply's LAN link is not configured here"
 NO_SAMPLES = "no samples to take a baseline from yet"
 TOO_MANY = "too many commands are already waiting"
 
@@ -334,7 +372,7 @@ class CommandQueue(object):
         # A setter that made it onto the queue is what takes control: from
         # here on the next person sees this one's name rather than quietly
         # setting the same gas line.
-        if kind in LOCKED:
+        if is_locked(kind, value):
             self.control.claim(actor, origin)
         return command
 
@@ -439,6 +477,21 @@ def validate_cathode(body):
     if not (0 <= millivolts <= CATHODE_MAX_MV):
         raise Invalid(words)
     return {"mv": int(millivolts)}
+
+
+def validate_cathode_output(body):
+    """`{"on": false}` or `{"on": true}`: the supply's own output switch.
+
+    The body says which of the two writes the LAN link may carry and nothing
+    else — there is no third thing to say, and a body that says anything
+    else is refused rather than read charitably. Off is the safety press; on
+    is gated like every other setter and refused while the supply cannot be
+    seen (`NO_SUPPLY_ANSWER`).
+    """
+    body = _body(body)
+    if set(body) != {"on"} or not isinstance(body["on"], bool):
+        raise Invalid(CATHODE_OUTPUT_WORDS)
+    return {"on": body["on"]}
 
 
 def validate_gauge(body):
@@ -556,6 +609,8 @@ def validate(kind, body, number=None):
         return validate_plasma(body)
     if kind == "cathode":
         return validate_cathode(body)
+    if kind == "cathode_output":
+        return validate_cathode_output(body)
     if kind == "gauge":
         return validate_gauge(body)
     if kind == "sync":
@@ -568,7 +623,7 @@ def validate(kind, body, number=None):
 # -- who may press what -------------------------------------------------------
 
 
-def refusal(kind, remote, actor, origin="", control=None):
+def refusal(kind, remote, actor, origin="", control=None, value=None):
     """Why this command may not be queued, or an empty string if it may.
 
     Reading is open to anyone on the lab network. Setting needs two things:
@@ -587,12 +642,16 @@ def refusal(kind, remote, actor, origin="", control=None):
     where the machine serving the page holds one. It stays in `server.py`
     because it is answered by a cookie, and a cookie is the web thread's to
     read; the words it is refused in are `NO_FENCE_WORD` above.
+
+    `value` is the checked body, for the one command whose gate depends on
+    what it says: the supply's output off is always allowed and on is not.
+    Without it a value-gated kind is treated as gated.
     """
-    if kind in ALWAYS_ALLOWED:
+    if always_allowed(kind, value):
         return ""
     if not remote:
         return NO_REMOTE
-    if kind in LOCKED and control is not None:
+    if is_locked(kind, value) and control is not None:
         blocker = control.blocks(actor, origin)
         if blocker:
             return holder_sentence(blocker)
@@ -644,6 +703,8 @@ def summarise(kind, value):
         if value.get("off"):
             return "cathode drive off"
         return "cathode drive {} mV".format(int(value.get("mv", 0)))
+    if kind == "cathode_output":
+        return "cathode output {}".format("on" if value.get("on") else "off")
     if kind == "gauge":
         gauge = value.get("gauge", "gauge")
         parts = []
@@ -674,9 +735,22 @@ def _mfc_digits(millivolts):
 
 
 def _apply_stop_all(app):
-    """The same call the shutdown path makes, plus the screen agreeing."""
+    """The same call the shutdown path makes, plus the screen agreeing.
+
+    And then the supply's own output, after the DACs are at zero (owner
+    decision 2026-09-15): zeroing the drive is not opening the output, and a
+    press called Stop all outputs must mean all of them. It is sent from
+    here rather than from inside `turn_off_voltages`, because that method is
+    also the shutdown path's, and a shutdown must not start a network write
+    on a recorder it is about to join.
+    """
     running = bool(getattr(app, "workers", None))
     app.turn_off_voltages()
+    # `set_cathode_output` rather than the pressed form: a rig with no LAN
+    # link to the supply has nothing to say about one, and Stop all outputs
+    # must not leave a line about it in the Log every time it is pressed. A
+    # link that is there and fails still says so, from the thread that tried.
+    app.set_cathode_output(False)
     # The rig's own screen must not keep showing a setpoint the hardware no
     # longer holds, so the spinboxes this drove go to zero as well.
     app.plasma_control_dock.ampere_spin_box.setValue(0.0)
@@ -752,6 +826,24 @@ def _apply_cathode(app, value):
     return APPLIED, ""
 
 
+def _apply_cathode_output(app, value):
+    """The supply's own output switch, over the LAN link the recorder owns.
+
+    This is the one thing the Kikusui link writes (owner decision
+    2026-09-15). The main thread does not wait on the network here: the
+    method hands the press to the recorder's thread, or to a short daemon
+    thread when nothing is recording, and the outcome — confirmed, sent with
+    a disagreeing readback, or failed — arrives in the Log from there.
+    """
+    on = bool(value.get("on"))
+    sent, reason = (
+        app.turn_on_cathode_output() if on else app.turn_off_cathode_output()
+    )
+    if sent:
+        return APPLIED, ""
+    return REFUSED, reason or NO_SUPPLY_LINK
+
+
 def _apply_gauge(app, value):
     # A validated body always names its gauge; a bare one means the first.
     gauge = value.get("gauge") or GAUGES[0]
@@ -796,6 +888,7 @@ _APPLIERS = {
     "mfc": _apply_mfc,
     "plasma": _apply_plasma,
     "cathode": _apply_cathode,
+    "cathode_output": _apply_cathode_output,
     "gauge": _apply_gauge,
     "sync": _apply_sync,
     "zero": _apply_zero,

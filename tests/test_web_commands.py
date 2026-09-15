@@ -140,6 +140,75 @@ def test_a_baseline_is_taken_for_one_of_three_channels():
             commands.validate_zero(body)
 
 
+def test_the_supply_s_output_is_on_or_off_and_nothing_else():
+    """One thing to say, in two directions, and no third reading of it."""
+    assert commands.validate_cathode_output({"on": False}) == {"on": False}
+    assert commands.validate_cathode_output({"on": True}) == {"on": True}
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {},
+        None,
+        {"on": "false"},
+        {"on": 0},
+        {"on": 1},
+        {"on": None},
+        {"off": True},
+        {"on": False, "mv": 1900},
+    ],
+)
+def test_a_bad_supply_output_body_is_refused(body):
+    with pytest.raises(commands.Invalid, match="either on or off"):
+        commands.validate_cathode_output(body)
+
+
+def test_the_supply_s_output_off_is_a_safety_press_and_on_is_a_setter():
+    """The gate of this one command is read from its body, not its kind.
+
+    Off is Stop all outputs in another wire: no switch, no name, no word, no
+    lock. On is every other setter. A `cathode_output` with no body to read
+    is treated as the gated one, which is the safe way to be wrong.
+    """
+    off, on = {"on": False}, {"on": True}
+    assert commands.always_allowed("cathode_output", off) is True
+    assert commands.always_allowed("cathode_output", on) is False
+    assert commands.always_allowed("cathode_output") is False
+    assert commands.is_locked("cathode_output", off) is False
+    assert commands.is_locked("cathode_output", on) is True
+    assert commands.is_locked("cathode_output") is True
+
+    assert commands.refusal("cathode_output", False, "", value=off) == ""
+    assert commands.refusal("cathode_output", False, "", value=on) == commands.NO_REMOTE
+    assert commands.refusal("cathode_output", True, "", value=on) == ""
+    # And the kind alone is never enough to let one through.
+    assert "cathode_output" not in commands.ALWAYS_ALLOWED
+    assert commands.refusal("cathode_output", False, "") == commands.NO_REMOTE
+
+
+def test_switching_the_supply_on_takes_the_lock_and_switching_it_off_does_not():
+    desk = commands.CommandQueue()
+    desk.submit("cathode_output", {"on": False}, actor="Ivan", origin="10.249.254.31")
+    assert desk.control.read()["holder"] == ""
+    desk.submit("cathode_output", {"on": True}, actor="Ivan", origin="10.249.254.31")
+    assert desk.control.read()["holder"] == "Ivan"
+    # The holder's neighbour may still open the output, and may not close it.
+    assert commands.refusal(
+        "cathode_output", True, "Arseniy", origin="10.249.254.30",
+        control=desk.control, value={"on": False},
+    ) == ""
+    assert commands.refusal(
+        "cathode_output", True, "Arseniy", origin="10.249.254.30",
+        control=desk.control, value={"on": True},
+    ).startswith("Ivan has control")
+
+
+def test_the_supply_s_output_needs_no_acquisition_in_either_direction():
+    assert commands.needs_acquisition("cathode_output") is False
+    assert commands.needs_idle("cathode_output") is False
+
+
 def test_stop_all_says_nothing_and_needs_nothing():
     assert commands.validate_stop_all(None) == {}
     assert commands.validate_stop_all({"anything": 1}) == {}
@@ -199,6 +268,8 @@ def test_the_three_new_summaries_read_as_the_log_will_print_them():
     assert commands.summarise("sampling", {"seconds": 10.0}) == "sampling 10 s"
     assert commands.summarise("sampling", {"seconds": 0.1}) == "sampling 0.1 s"
     assert commands.summarise("sampling", {"seconds": 0.01}) == "sampling 0.01 s"
+    assert commands.summarise("cathode_output", {"on": False}) == "cathode output off"
+    assert commands.summarise("cathode_output", {"on": True}) == "cathode output on"
 
 
 def test_an_unknown_kind_is_refused():
@@ -561,6 +632,22 @@ class FakeApp(object):
     def turn_off_cathode_drive(self):
         self.calls.append(("turn_off_cathode_drive",))
 
+    #: What the real `MainApp` answers: whether the write is on its way, and
+    #: why not when it is not. Nothing here waits on a network there either.
+    supply_link = True
+
+    def set_cathode_output(self, on):
+        self.calls.append(("set_cathode_output", on))
+        if not self.supply_link:
+            return False, commands.NO_SUPPLY_LINK
+        return True, ""
+
+    def turn_on_cathode_output(self):
+        return self.set_cathode_output(True)
+
+    def turn_off_cathode_output(self):
+        return self.set_cathode_output(False)
+
     def update_ig_mode(self, gauge=None):
         gauge = gauge or "Pd"
         mode_box, _ = self.control_dock.gauges[gauge]
@@ -681,6 +768,29 @@ def test_the_log_line_reads_as_a_sentence_for_every_kind():
     assert app.messages[-1] == "Remote: queezz: all outputs to zero"
 
 
+def test_the_supply_s_output_reaches_the_one_method_in_both_directions():
+    app = FakeApp()
+    app.web_commands.submit("cathode_output", {"on": False}, actor="queezz")
+    app.web_commands.submit("cathode_output", {"on": True}, actor="queezz")
+    assert commands.drain(app) == 2
+    assert app.calls == [("set_cathode_output", False), ("set_cathode_output", True)]
+    assert app.messages[-2] == "Remote: queezz: cathode output off"
+    assert app.messages[-1] == "Remote: queezz: cathode output on"
+    assert app.web_status.read()["last_command"]["outcome"] == commands.APPLIED
+
+
+def test_a_press_the_rig_cannot_even_attempt_is_refused_with_its_reason():
+    """A rig with no LAN link to the supply says so, rather than answering
+    `applied` for a write that was never sent."""
+    app = FakeApp()
+    app.supply_link = False
+    app.web_commands.submit("cathode_output", {"on": False}, actor="queezz")
+    commands.drain(app)
+    record = app.web_status.read()["last_command"]
+    assert record["outcome"] == commands.REFUSED
+    assert record["reason"] == commands.NO_SUPPLY_LINK
+
+
 def test_stop_all_turns_the_outputs_off_and_zeroes_the_screen():
     app = FakeApp()
     app.plasma_control_dock.ampere_spin_box.setValue(2.0)
@@ -688,7 +798,9 @@ def test_stop_all_turns_the_outputs_off_and_zeroes_the_screen():
     app.gasflow_dock.mfc_spinboxes[1][0].setValue(4)
     app.web_commands.submit("stop_all", {})
     commands.drain(app)
-    assert app.calls == [("turn_off_voltages",)]
+    # The DACs first, then the supply's own output: zeroing the drive is not
+    # opening the output, and "all outputs" means all of them (2026-09-15).
+    assert app.calls == [("turn_off_voltages",), ("set_cathode_output", False)]
     assert app.plasma_control_dock.ampere_spin_box.value() == 0.0
     assert app.plasma_control_dock.cathode_spin_box.value() == 0
     assert app.gasflow_dock.millivolts(1) == 0
@@ -821,7 +933,9 @@ def test_stopping_without_workers_still_runs_and_says_so():
     app = FakeApp(running=False)
     app.web_commands.submit("stop_all", {})
     commands.drain(app)
-    assert app.calls == [("turn_off_voltages",)]
+    # An idle rig still gets the press: the supply's output does not care
+    # whether anything is recording, and nor does a person pressing this.
+    assert app.calls == [("turn_off_voltages",), ("set_cathode_output", False)]
     assert app.web_status.read()["last_command"]["outcome"] == "applied"
 
 
@@ -1094,6 +1208,120 @@ def test_stopping_is_queued_with_no_name_and_no_switch(remote, tmp_path):
     response = client.post("/api/stop-all", json={})
     assert response.status_code == 202
     assert [c.kind for c in desk.take_all()] == ["stop_all"]
+
+
+def seeing(remote=False, acquiring=True, output_on=0):
+    """A rig whose telemetry can actually see the supply right now."""
+    status = rig(remote=remote, acquiring=acquiring)
+    status.record_kikusui({
+        "status": "ok", "voltage_v": 2.4, "current_a": 12.0,
+        "output_on": output_on, "age_s": 0.0, "stale_after_s": 2.0,
+    })
+    return status
+
+
+@pytest.mark.parametrize("remote", [False, True])
+def test_the_supply_s_output_off_is_queued_with_no_name_and_no_switch(remote, tmp_path):
+    """The safety press, over the wire: the same freedom Stop all outputs has
+    (owner decision 2026-09-15), because the DAC and the supply's output are
+    two different wires."""
+    desk = commands.CommandQueue()
+    client = app_for(
+        seeing(remote=remote, acquiring=False), tmp_path, desk
+    ).test_client()
+    answer = client.post("/api/cathode-output", json={"on": False})
+    assert answer.status_code == 202
+    assert answer.get_json()["value"] == "cathode output off"
+    queued = desk.take_all()
+    assert [(c.kind, c.value) for c in queued] == [("cathode_output", {"on": False})]
+    # And it took no control on the way through.
+    assert desk.control.read()["holder"] == ""
+
+
+def test_switching_the_supply_on_still_needs_the_switch_on_the_rig(tmp_path):
+    desk = commands.CommandQueue()
+    client = app_for(seeing(remote=False), tmp_path, desk).test_client()
+    answer = client.post("/api/cathode-output", json={"on": True})
+    assert answer.status_code == 403
+    assert answer.get_json()["reason"] == commands.NO_REMOTE
+    assert desk.take_all() == []
+
+
+def test_switching_the_supply_on_is_queued_with_the_switch_on(tmp_path):
+    desk = commands.CommandQueue()
+    client = app_for(seeing(remote=True, acquiring=False), tmp_path, desk).test_client()
+    answer = client.post("/api/cathode-output", json={"on": True})
+    # No acquisition needed: the supply can be switched on before the first
+    # sample, as the gauge settings can be prepared before it.
+    assert answer.status_code == 202
+    assert [c.value for c in desk.take_all()] == [{"on": True}]
+
+
+@pytest.mark.parametrize(
+    "telemetry",
+    [
+        None,
+        {"status": "idle"},
+        {"status": "unavailable", "error": "timeout"},
+        {"status": "ok", "output_on": 1, "age_s": 9.0, "stale_after_s": 2.0},
+    ],
+)
+def test_the_supply_is_never_switched_on_blind(telemetry, tmp_path):
+    """No fresh answer from the supply, no closing its output onto a filament.
+
+    Idle, lost and stale are one fact here: nobody can see what is at the
+    other end. Switching it *off* asks none of this.
+    """
+    desk = commands.CommandQueue()
+    status = rig(remote=True)
+    if telemetry is not None:
+        status.record_kikusui(telemetry)
+    client = app_for(status, tmp_path, desk).test_client()
+    answer = client.post("/api/cathode-output", json={"on": True})
+    assert answer.status_code == 409
+    assert answer.get_json()["reason"] == commands.NO_SUPPLY_ANSWER
+    assert desk.take_all() == []
+
+    assert client.post("/api/cathode-output", json={"on": False}).status_code == 202
+
+
+@pytest.mark.parametrize("body", [{}, {"on": "false"}, {"on": 0}, {"off": True}])
+def test_a_supply_output_body_the_rig_cannot_read_is_a_four_hundred(body, tmp_path):
+    client = app_for(seeing(remote=True), tmp_path).test_client()
+    answer = client.post("/api/cathode-output", json=body)
+    assert answer.status_code == 400
+    assert answer.get_json()["reason"] == commands.CATHODE_OUTPUT_WORDS
+
+
+def test_the_supply_s_output_on_is_behind_the_lab_s_word_and_off_is_not(tmp_path):
+    """The fence gates what the switch gates, and neither gates a safety press."""
+    home = tmp_path / "fenced"
+    home.mkdir()
+    (home / "fence.txt").write_text("plasma", encoding="utf-8")
+    desk = commands.CommandQueue()
+    client = app_for(
+        seeing(remote=True), tmp_path, desk, fence_home=home
+    ).test_client()
+    refused = client.post("/api/cathode-output", json={"on": True})
+    assert refused.status_code == 403
+    assert refused.get_json()["reason"] == commands.NO_FENCE_WORD
+    assert client.post("/api/cathode-output", json={"on": False}).status_code == 202
+    assert [c.value for c in desk.take_all()] == [{"on": False}]
+
+
+def test_the_live_page_renders_the_output_lamp(tmp_path):
+    """The lamp is one control: what the supply answers and the press that
+    changes it, on the Cathode card's own heading line."""
+    page = app_for(rig(remote=True), tmp_path).test_client().get("/")
+    body = page.get_data(as_text=True)
+    assert 'data-role="cathode-output"' in body
+    assert 'aria-label="Turn the supply\'s output off"' in body
+    assert 'aria-pressed="false"' in body
+    # It rests dim, saying why, rather than in a colour nobody measured.
+    assert 'data-lamp="unknown"' in body
+    assert 'data-role="cathode-output-word"' in body
+    # And pressing it presses it, rather than folding the card it rides on.
+    assert body.index('data-role="cathode-output"') > body.index('id="sec-plasma"')
 
 
 def test_identify_sets_the_name_this_browser_carries(tmp_path):

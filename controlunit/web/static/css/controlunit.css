@@ -1697,6 +1697,79 @@ body[data-mode="monitor"] .monitor-settings { display: flex; flex-wrap: wrap; ga
 .seg-option:disabled { opacity: 1; }
 .seg-toggle:has(.seg-option:disabled) { opacity: 0.45; }
 
+/* -- the supply's own output, as a lamp that presses ---------------------- */
+
+/* One element for two jobs, and that is the point: the lamp says what the
+   Kikusui answers when asked `OUTP?`, and pressing it sends the opposite
+   (owner decision 2026-09-15, live). A separate indicator and button would
+   be two things to read and a chance for them to disagree.
+ *
+ * It wears the base button's border and fill, so it looks pressable at rest
+ * (WEBUI.md, "every control looks pressable"), and it sits on the Cathode
+ * card's heading line beside the PID/Manual pill with `data-fold-keep`, so
+ * pressing it presses it rather than folding the card. Its padding is cut to
+ * the row's own 36px: nothing riding on a heading line may make that line
+ * taller than it already is.
+ *
+ * Three states, three appearances, and the dim one is a ring with no colour
+ * at all — an unmeasured supply must never be rendered in a colour a reader
+ * could take for a state (WEBUI.md's honesty rule). */
+.output-lamp {
+  display: flex;
+  /* It never yields: at 24px it is the smallest thing on the row, and what
+     gives when the row is tight is the folded line of numbers beside it,
+     which is a copy of what the open card shows anyway (`.fold-line`). */
+  flex: 0 0 auto;
+  align-items: center;
+  padding: 2px;
+  border-radius: 999px;
+  color: var(--muted);
+  line-height: 1;
+}
+
+/* Measured, not assumed: the Cathode card's heading line is 297px in the
+   rail on a 1280px screen and 342px on a 390px phone, and its name, its
+   folded numbers, the PID/Manual switch and the fold's chevron already ask
+   for more than that — the numbers were ellipsized before this lamp existed.
+   A lamp carrying its word as well (97px) drove those numbers to nothing on
+   the desktop and clipped them on the phone. So the lamp is the lamp: the
+   state is its colour, which costs the row 24px and leaves the folded
+   numbers legible, and the word it would have carried is written in full on
+   the two cathode readout cards, which this very paint writes at the same
+   moment from the same reading. Saying it in both places would be the
+   textbook defect WEBUI.md's Teaching law names; the `title` carries it for
+   a pointer, and `aria-label` says what the press does. */
+.output-lamp .lamp-word { display: none; }
+
+.lamp-dot {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  /* The ring is the resting shape; a state fills it. */
+  border: 2px solid var(--line);
+  background: transparent;
+}
+
+.output-lamp[data-lamp="on"] .lamp-dot {
+  border-color: var(--live);
+  background: var(--live);
+}
+
+/* Off is a fact, not a fault: the supply answered, and it answered zero. So
+   it is the page's own muted grey rather than the stop red, which belongs to
+   the presses that end a run. */
+.output-lamp[data-lamp="off"] .lamp-dot {
+  border-color: var(--muted);
+  background: rgba(236, 233, 226, 0.22);
+}
+
+/* On a phone the row is tighter still, and 18px is what keeps it from
+   pushing the page sideways at 320. */
+@media (max-width: 480px) {
+  .output-lamp .lamp-dot { width: 18px; height: 18px; }
+}
+
 /* -- a card that folds, and every card on this page is one -------------- */
 
 /* queezz, 2026-09-14, on his phone at the rig: "Minimized gas control takes
@@ -1782,7 +1855,15 @@ body[data-mode="monitor"] .monitor-settings { display: flex; flex-wrap: wrap; ga
    one line, because a folded head that grew a second line would be the
    jumping header the rule above exists to forbid. */
 .fold-line {
-  flex: 1 1 auto;
+  /* It gives its width up before anything else on the row does. A heading
+     line that carries a control beside these numbers — the cathode's
+     PID/Manual switch, the supply's lamp — is tight on a 390px phone, and
+     what must yield there is the line of numbers, which is a copy of what
+     the open card shows anyway. Shrinking is share-of-basis work, so a
+     plain `1` would take the deficit out of the control instead. The basis
+     stays `auto` in both states, so nothing on the line stands at a
+     different x open than shut. */
+  flex: 1 100 auto;
   min-width: 0;
   color: var(--muted);
   font-size: 0.8rem;

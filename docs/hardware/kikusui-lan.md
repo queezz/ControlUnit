@@ -45,7 +45,9 @@ Kikusui's PWR-01 Interface Manual (IB035082, 2020) and the PWR-01 FAQ.
 The first stage records the supply while the operator drives discharges and
 bakes manually. Collect normal behaviour before changing the plasma PID or
 inventing filament-condition warning thresholds (owner decision 2026-09-14).
-There is no automatic ignition and this logger sends no control commands.
+There is no automatic ignition, and until 2026-09-15 this logger sent no
+command at all; it now sends the two output writes below, and only when a
+person presses for them (see [The two writes](#the-two-writes)).
 
 On the Pi, create `~/.controlunit/kikusui.yml` with its actual address:
 
@@ -79,7 +81,7 @@ Each run creates `kikusui_YYYYMMDD_HHMMSS.csv` beside its
 | `output_on` | Queried output-enable state, 0 or 1; not proof of delivered power |
 | `commanded_cathode_mv` | Software's requested DAC command, captured before the poll; not measured DAC voltage |
 | `plasma_target_a` | Software's PID target, captured before the poll; zero when off |
-| `status` | `ok`, `unavailable`, or `dummy` |
+| `status` | `ok`, `unavailable` or `dummy` for a poll; `output_on`, `output_off`, `output_on_failed` or `output_off_failed` for the row a press leaves |
 | `error` | Failure description for an unavailable poll |
 | `identity` | Supply identity on successful polls |
 
@@ -99,7 +101,7 @@ fields are empty, and the application Log says `Kikusui telemetry LOST` once
 per outage. The background recorder retries and logs `BACK` on recovery.
 There is no reuse of the last good reading as a new measurement, no zero
 substitution, and no change to manual drive. Reconnection verifies model and
-serial identity and sends only queries. Stop interrupts a connected read and
+serial identity before anything is sent, writes included. Stop interrupts a connected read and
 all retry/sampling waits; hardware shutdown takes precedence over waiting for
 this recorder. A future PID that depends on telemetry will need its own
 explicit loss-of-feedback policy.
@@ -131,6 +133,71 @@ Filament resistance `V/I` and power `VI` can be derived during review; avoid
 dividing near zero current and compare resistance under similar thermal and
 operating conditions before interpreting it as thinning.
 
+## The two writes
+
+Owner decision 2026-09-15, live, in front of the standing rule of 2026-09-14
+that this link was read-only: *"Kikusui has LAN now, I want the one-off signal
+button in our control. Then we turn that one off no matter the dac voltage"*
+and, the same day, *"Off and on. Why not? Then we have full cathode control
+when powered"*. The link may now send exactly two commands, `OUTP 0` and
+`OUTP 1`, and nothing else ever: no voltage or current setpoint, no `*RST`,
+no status clear. The allowlist in `ReadOnlyClient` is the whole of it —
+six words, four queries and these two — and a test holds it to those six and
+proves that `OUTP ON`, `VOLT`, `CURR` and `*RST` raise before a byte is sent.
+
+**The output is not the drive.** The cathode DAC feeds the supply's external
+current-control input; the output is the supply's own switch between it and
+the filament. Dropping the drive to zero is not the same as opening the
+output, which is the press this exists for.
+
+**Off is always allowed; on is gated.** Off asks nothing of anybody — no
+Remote switch, no name, no lab's word, no acquisition — exactly as Stop all
+outputs asks nothing, and Stop all outputs sends it too. On is a setter: the
+Remote switch on the rig's screen, the lab's word where the machine holds
+one, and the operator lock, all as any setpoint. On is refused outright while
+the telemetry is not fresh (`the supply is not answering; turn it on at the
+supply`), so nothing is closed onto a filament that nobody can see.
+
+**Who sends it.** A press never runs on the Qt main thread and never waits on
+the LAN there. While a run is recording, the press is handed to the
+recorder's own thread, which carries it *between polls* on the socket it
+already owns — one thread, one socket, and a press that arrives mid-poll
+waits for the poll. With no recorder running, a short daemon thread opens its
+own connection, verifies the supply's identity, writes, reads back and closes.
+Either way the `OUTP?` readback is queried on the same connection and the Log
+says one of three things:
+
+```text
+Kikusui output OFF (confirmed)                   the supply answered 0
+Kikusui output OFF sent, readback 1              the write went out; the supply disagrees
+Kikusui output OFF FAILED: <reason>; manual drive unchanged
+```
+
+with `ON` in place of `OFF` for the other direction, and a fourth line —
+`Kikusui output OFF SIMULATED: no supply is connected` — on dummy hardware,
+where the press moves a simulated flag and nothing else.
+
+**In the sidecar.** A press writes one row of its own, with the readback in
+`output_on`, no voltage or current (the supply was switched, not measured),
+and `status` one of `output_on`, `output_off`, `output_on_failed`,
+`output_off_failed`. No column is added and the schema line stays
+`controlunit-kikusui/v1`; a reader that selects `status == "ok"` rows is
+unaffected, and one that counts states should know these four. The recorder
+publishes that row as its snapshot, so the Live page's Cathode card reads
+`output off sent` for the one poll between the write and the next
+measurement rather than a number nobody measured.
+
+**On the web.** `POST /api/cathode-output` takes `{"on": false}` or
+`{"on": true}`. On the Live page the Cathode card's heading line carries a
+lamp: green while the telemetry is fresh and the output is closed, grey while
+it is fresh and open, and an uncoloured ring while there is no fresh answer.
+The word for that state — `output on`, `output off`, or the reason there is
+none — is on the lamp's tooltip and, in full, on the two cathode readout
+cards; the heading row has no width for it beside the PID/Manual switch, and
+saying it twice on one screen is the defect fleet's Teaching law names.
+Pressing the lamp sends the opposite of what it shows; from the dim state it
+sends only off, which is the press no gate stands in front of.
+
 ## Transport
 
 Socket to port **5025** (SCPI-RAW), one line per command terminated with LF.
@@ -141,6 +208,8 @@ The recorder's complete wire command set is:
 MEAS:VOLT?  -> output voltage in volts
 MEAS:CURR?  -> output current in amperes
 OUTP?       -> output-enable state, 0 or 1
+OUTP 0      -> open the output   (a press, never the recorder's own doing)
+OUTP 1      -> close the output  (a press, gated; see The two writes)
 ```
 
 The recorder maintains one socket, sends one query at a time and reads a
@@ -149,9 +218,10 @@ is not guaranteed to contain even one complete reply. One timeout bounds the
 whole poll, including fragmented responses; invalid numbers, output states
 or identity are failures rather than plausible-looking measurements.
 
-It does not send `SYST:COMM:RLST REM`, output/setpoint commands, reset or
-clear-status commands. Reading must not take over the front panel or clear
-an instrument alarm. The existing J1 current control remains the actuator.
+It does not send `SYST:COMM:RLST REM`, any voltage or current setpoint, reset
+or clear-status command. Reading must not take over the front panel or clear
+an instrument alarm. The existing J1 current control remains the actuator:
+the two writes switch the supply's output, they never set what it delivers.
 
 On 2026-09-14 the connected PWR401L (firmware VER01.24 BLD0056) answered
 these queries with output off. Ten voltage/current pairs from the office PC
@@ -169,7 +239,8 @@ state; the Log names `kikusui_<run timestamp>.csv` alongside the ADC file.
 During normal manual operation, compare those readings with the supply's
 display. Stop acquisition normally and inspect the paired files. Capture
 discharges and bakes before setting filament-condition thresholds or changing
-PID behaviour. The logger cannot switch on or set the supply.
+PID behaviour. The logger sets nothing; the only thing it can switch is the output, and only
+when somebody presses for it.
 
 ## Sources
 

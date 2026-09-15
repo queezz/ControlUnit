@@ -1146,7 +1146,11 @@ def test_the_mode_switch_is_one_control_the_keyboard_and_the_gate_reach(control)
     head = _cathode_head(control)
     assert 'role="group" aria-label="Cathode mode"' in head
     assert head.count('class="seg-thumb"') == 1
-    assert head.count("<button type=") == 2
+    assert head.count('class="seg-option"') == 2
+    # Three buttons ride on this line now: the switch's two sides and the
+    # supply's output lamp beside them (owner decision 2026-09-15).
+    assert head.count("<button type=") == 3
+    assert head.count('class="output-lamp"') == 1
     assert 'aria-pressed="true">PID<' in head
     assert 'aria-pressed="false">Manual<' in head
     # Inside the block the gate names, exactly as the two buttons were.
@@ -1510,8 +1514,10 @@ def test_a_control_on_a_heading_line_is_pressed_and_does_not_fold(control):
     """The cathode's switch, a chart's Zero buttons and the readouts' size
     ride on heading lines that are themselves the fold's press target. A press
     that lands on one of them presses it and leaves the fold alone."""
-    assert control.count("data-fold-keep") == 5  # cathode, 2 charts, readouts
+    # cathode mode, the supply's output lamp beside it, 2 charts, readouts
+    assert control.count("data-fold-keep") == 6
     for owner in ('class="seg-toggle" data-fold-keep',
+                  'class="output-lamp" data-fold-keep',
                   'class="chart-zero sets" data-fold-keep',
                   'class="readout-toolbar" data-fold-keep'):
         assert owner in control

@@ -14,6 +14,10 @@ class PlasmaCurrentDock(Dock):
     turns the other off, in `main.py`; the dock only offers the two boxes.
     The manual row used to live in the Settings dock as "Output voltage",
     where nobody running a plasma looked for it.
+
+    The third row is the supply itself: the Kikusui's own output, switched
+    over its LAN link. It is not a third way to drive the filament — it is
+    the wire between the supply and the filament, and it is off or on.
     """
 
     #: The manual drive's bounds in millivolts, the DAC's own unit. The
@@ -44,6 +48,26 @@ class PlasmaCurrentDock(Dock):
         self.ampere_spin_box.setMinimum(0.0)
         self.ampere_spin_box.setSingleStep(0.1)
 
+        # The supply's own output switch, which is not the drive above it:
+        # the DAC feeds the Kikusui's current-control input, and the output
+        # is the contactor between the supply and the filament (owner
+        # decision 2026-09-15, live: "Kikusui has LAN now, I want the one-off
+        # signal button in our control. Then we turn that one off no matter
+        # the dac voltage" and "Off and on. Why not? Then we have full
+        # cathode control when powered"). Rare presses, so they wear the
+        # dock's ordinary size rather than the 20pt of the two rows a person
+        # has a hand on all shift; the row costs the dock one short line and
+        # the Scales dock below it keeps its room.
+        self.output_label = QtWidgets.QLabel("Supply")
+        self.output_on_btn = QtWidgets.QPushButton("output on")
+        self.output_off_btn = QtWidgets.QPushButton("output off")
+        self.output_on_btn.setToolTip(
+            "Close the Kikusui's own output over its LAN link"
+        )
+        self.output_off_btn.setToolTip(
+            "Open the Kikusui's own output over its LAN link, whatever the DAC holds"
+        )
+
         self.manual_label = QtWidgets.QLabel("Manual")
         self.cathode_spin_box = QtWidgets.QSpinBox()
         self.cathode_set_btn = QtWidgets.QPushButton("set")
@@ -62,7 +86,9 @@ class PlasmaCurrentDock(Dock):
             self.cathode_off_btn,
         ):
             button.setStyleSheet("font: 20pt")
-        for label in (self.pid_label, self.manual_label):
+        for button in (self.output_on_btn, self.output_off_btn):
+            button.setStyleSheet("font: 12pt")
+        for label in (self.pid_label, self.manual_label, self.output_label):
             label.setStyleSheet("font: 14pt")
         for box in (self.ampere_spin_box, self.cathode_spin_box):
             box.setStyleSheet(
@@ -80,6 +106,9 @@ class PlasmaCurrentDock(Dock):
         self.widget.addWidget(self.cathode_spin_box, 1, 1)
         self.widget.addWidget(self.cathode_set_btn, 1, 2)
         self.widget.addWidget(self.cathode_off_btn, 1, 3)
+        self.widget.addWidget(self.output_label, 2, 0)
+        self.widget.addWidget(self.output_on_btn, 2, 1)
+        self.widget.addWidget(self.output_off_btn, 2, 2, 1, 2)
         # The supply's measured volts and amperes used to stand here as two
         # lines; they are read in the Control dock's value browser now, so
         # this dock ends at its two rows and the Scales dock below it is not
@@ -92,7 +121,7 @@ class PlasmaCurrentDock(Dock):
             0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
         )
         self.widget.layout.setVerticalSpacing(3)
-        self.widget.layout.addItem(self.verticalSpacer, 2, 0, 1, 4)
+        self.widget.layout.addItem(self.verticalSpacer, 3, 0, 1, 4)
 
 
 if __name__ == "__main__":

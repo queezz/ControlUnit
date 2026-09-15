@@ -1,3 +1,7 @@
+## 4.21.0 — 2026-09-15
+
+- The Kikusui's output can be switched off and on from the rig's Cathode dock and from the web Cathode card's lamp, the link's only two writes ever: `OUTP 0` and `OUTP 1`, held to that by a test, sent by the recorder's own thread between polls (or a one-shot connection when nothing is recording), confirmed by reading the state back, logged, and written as a row in the sidecar (owner decision 2026-09-15: "I want the one-off signal button in our control", then "Off and on. Why not? Then we have full cathode control when powered"). Off is a safety press, always allowed, and Stop all outputs sends it too; on is gated like every setter and refused while the supply is not answering. The lamp is green with the output on, grey off, dim while the telemetry is not fresh. AGENTS.md carries the dated amendment to the read-only rule.
+
 ## 4.20.0 — 2026-09-15
 
 - The cathode supply's current is a curve on the Plasma current chart, `Ic`, in the cathode's orange on its own right-hand axis in amperes, with its own legend pill, on in the All and Plasma presets (queezz: "add cathode current to the current plot. So it'll be obvious when plasma is on... Is it the Hall sensor drifting or the plasma died"). Its points ride the sidecar's own timestamps in a second ring beside the ADC samples; a stale snapshot never repeats a point, and sample counts stay the ADC's.

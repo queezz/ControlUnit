@@ -76,6 +76,104 @@ def test_the_browser_s_cathode_bound_is_the_dock_s(qt_app):
     assert dock.ampere_spin_box.maximum() == commands.PLASMA_MAX_A
 
 
+def test_the_cathode_dock_carries_the_supply_s_own_output_switch(qt_app):
+    """Two buttons for the wire the drive does not reach (owner decision
+    2026-09-15): the supply's output, off and on, beside the drive rows."""
+    from controlunit.ui.docks.plasma_current import PlasmaCurrentDock
+
+    dock = PlasmaCurrentDock()
+    assert dock.output_off_btn.text() == "output off"
+    assert dock.output_on_btn.text() == "output on"
+    # And they are not a third way to drive the filament: nothing about them
+    # is a value.
+    assert not hasattr(dock, "output_spin_box")
+
+
+def test_the_refusal_is_worded_once_for_the_rig_and_the_browser(qt_app):
+    from controlunit.main import MainApp
+
+    assert MainApp.NO_SUPPLY_ANSWER == commands.NO_SUPPLY_ANSWER
+    assert MainApp.NO_SUPPLY_LINK == commands.NO_SUPPLY_LINK
+
+
+def test_the_supply_s_output_is_switched_on_dummy_hardware(qt_app, home, monkeypatch):
+    """The whole press on the main thread, with dummy hardware at the far end.
+
+    The dock's own button and the browser's command reach one method; the
+    recorder's thread carries the write; the dummy's flag moves; and every
+    sentence says SIMULATED, so a simulated press is never read as a real one.
+    """
+    import time
+
+    from controlunit.devices.kikusui import ReadOnlyClient
+    from controlunit.main import MainApp
+
+    config = home / ".controlunit"
+    config.mkdir()
+    (config / "kikusui.yml").write_text("dummy: true\ninterval_s: 0.1\n")
+    monkeypatch.setattr(ReadOnlyClient, "__init__", lambda *args: pytest.fail("real PSU access"))
+    widget = MainApp(qt_app)
+    try:
+        widget.control_dock.remoteSW.setChecked(True)
+        widget._toggle_remote()
+        widget.start_acquisition()
+        logger = widget._kikusui_logger
+        assert logger is not None
+
+        def wait_for(predicate, seconds=3):
+            end = time.monotonic() + seconds
+            while time.monotonic() < end and not predicate():
+                qt_app.processEvents()
+                time.sleep(0.02)
+            assert predicate()
+
+        wait_for(lambda: widget.web_status.read()["kikusui"].get("output_on") == 0)
+
+        # On, from the browser's own path: queued, drained, and carried by
+        # the recorder's thread rather than this one.
+        widget.web_commands.submit(
+            "cathode_output", {"on": True}, actor="tester", origin="10.0.0.9"
+        )
+        assert commands.drain(widget) == 1
+        assert widget.web_status.read()["last_command"]["outcome"] == commands.APPLIED
+        wait_for(lambda: logger.client.output_on == 1)
+        wait_for(lambda: any("output ON SIMULATED" in m for m in _log_of(widget)))
+
+        # Off, from the rig's own dock button, which is the same method.
+        widget.plasma_control_dock.output_off_btn.click()
+        wait_for(lambda: logger.client.output_on == 0)
+        wait_for(lambda: any("output OFF SIMULATED" in m for m in _log_of(widget)))
+        assert ",output_on," in logger.path.read_text()
+        assert ",output_off," in logger.path.read_text()
+    finally:
+        widget.abort_all_threads()
+
+
+def test_the_supply_is_not_switched_on_while_nothing_can_see_it(qt_app, home):
+    """No recorder, no fresh reading, no closing an output onto a filament."""
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        sent, reason = widget.turn_on_cathode_output()
+        assert sent is False
+        assert reason == commands.NO_SUPPLY_ANSWER
+        # Off asks none of that; here there is simply no link configured, and
+        # the rig says so rather than pretending a write went out.
+        widget._publish_kikusui({"status": "unavailable"})
+        sent, reason = widget.turn_off_cathode_output()
+        assert sent is False
+        assert reason == commands.NO_SUPPLY_LINK
+        assert any("output OFF not sent" in m for m in _log_of(widget))
+    finally:
+        widget.abort_all_threads()
+
+
+def _log_of(widget):
+    """The message log as the Log tab reads it."""
+    return [line["text"] for line in widget.web_status.log_since(0)["lines"]]
+
+
 def test_a_browser_starts_stops_and_retimes_a_real_run(qt_app, home):
     """The whole path: queue, drain, workers, and the record a browser reads.
 

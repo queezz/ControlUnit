@@ -379,15 +379,17 @@ def create_app(
         carried = request.cookies.get(FENCE_COOKIE) if request else None
         return {"needed": True, "passed": str(carried or "").strip() == word}
 
-    def fence_refusal(kind):
+    def fence_refusal(kind, value=None):
         """Why the lab's word stands in the way, or an empty string.
 
         It gates exactly what the switch gates — every locked kind and the
         taking of control — and nothing else. **Stop all outputs is never
-        fenced**: a person who can see the rig must be able to zero it,
-        whether or not they have been told a word.
+        fenced**, and neither is the supply's output *off*: a person who can
+        see the rig must be able to zero it and to open its output, whether
+        or not they have been told a word. Switching the output *on* is a
+        setter, and is fenced with the rest of them.
         """
-        if kind not in command_desk.LOCKED and kind != "take_over":
+        if not command_desk.is_locked(kind, value) and kind != "take_over":
             return ""
         standing = fence_now()
         if standing["needed"] and not standing["passed"]:
@@ -594,17 +596,39 @@ def create_app(
         actor, origin = who_is_asking()
         snapshot = rig.read()
 
+        # The body is read before the gates rather than after them, because
+        # one command's gate depends on what it says: the supply's output off
+        # is a safety press and on is a setter. A body that says nothing
+        # legible is refused on its own terms below, with the same words it
+        # always was.
+        try:
+            value = command_desk.validate(kind, _json_body(), number=number)
+        except command_desk.Invalid as reason:
+            return jsonify({"reason": str(reason)}), 400
+
         refused = command_desk.refusal(
-            kind, snapshot.get("remote"), actor, origin=origin, control=desk.control
+            kind,
+            snapshot.get("remote"),
+            actor,
+            origin=origin,
+            control=desk.control,
+            value=value,
         )
         if refused:
             return jsonify({"reason": refused}), 403
         # The lab's word stands beside the switch, and behind it: a rig whose
         # switch is off says so first, because that is the fact a person can
         # do something about by walking to the machine.
-        refused = fence_refusal(kind)
+        refused = fence_refusal(kind, value)
         if refused:
             return jsonify({"reason": refused}), 403
+        # Nothing is switched on that cannot be seen: closing the supply's
+        # output needs a measurement of the supply to close it against, and a
+        # rig whose telemetry is idle, stale or lost has none.
+        if kind == "cathode_output" and value.get("on"):
+            telemetry = snapshot.get("kikusui") or {}
+            if telemetry.get("output_on") not in (0, 1):
+                return jsonify({"reason": command_desk.NO_SUPPLY_ANSWER}), 409
         if command_desk.needs_acquisition(kind) and not snapshot.get("acquiring"):
             return jsonify({"reason": command_desk.NO_ACQUISITION}), 409
         # Starting is the one command that means something only while idle,
@@ -613,7 +637,6 @@ def create_app(
             return jsonify({"reason": command_desk.ALREADY_ACQUIRING}), 409
 
         try:
-            value = command_desk.validate(kind, _json_body(), number=number)
             queued = desk.submit(kind, value, actor=actor, origin=origin)
         except command_desk.Invalid as reason:
             code = 409 if str(reason) == command_desk.TOO_MANY else 400
@@ -680,6 +703,20 @@ def create_app(
         current control"). Gated exactly as `plasma` is.
         """
         return send("cathode")
+
+    @app.route("/api/cathode-output", methods=["POST"])
+    def cathode_output():
+        """The supply's own output, the one thing the Kikusui link writes.
+
+        `{"on": false}` is a safety press of the same shape as Stop all
+        outputs — no switch, no name, no word, no run needed — because the
+        cathode DAC and the supply's output are two different wires and a
+        person must be able to open the second one whatever the first holds
+        (owner decision 2026-09-15, live). `{"on": true}` is a setter and is
+        gated like every other setter, and refused while the telemetry
+        cannot see the supply.
+        """
+        return send("cathode_output")
 
     @app.route("/api/gauge", methods=["POST"])
     def gauge():

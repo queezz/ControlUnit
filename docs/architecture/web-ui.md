@@ -99,10 +99,18 @@ Without the switch a setter is `403` with the reason; a command that needs
 the workers when none are running is `409`. Gauge mode/range can be prepared
 while idle (4.8.2): the displayed setting updates immediately and startup
 passes it to the ADC. Remote and operator gates still apply. A body that does not say
-something the rig accepts is `400`. **Stop all outputs** is the one exception and is
-always allowed — name or no name, switch or no switch, acquiring or not —
-because it only ever calls the `turn_off_voltages` the shutdown path calls
-and drives the hardware to zero.
+something the rig accepts is `400`. **Stop all outputs** is the first exception
+and is always allowed — name or no name, switch or no switch, acquiring or
+not — because it only ever calls the `turn_off_voltages` the shutdown path
+calls and drives the hardware to zero. **The supply's output off** is the
+second, for the same reason and with the same freedom (owner decision
+2026-09-15): the cathode DAC and the Kikusui's output are different wires,
+and a person who can see the rig must be able to open the second whatever the
+first holds. Switching that output *on* is a setter like any other, and is a
+`409` while the telemetry cannot see the supply. The gate of a command whose
+two directions differ is weighed from its checked body, not from its kind
+(`commands.always_allowed`, `commands.is_locked`), and the body is therefore
+checked before the gates.
 
 Every drained command is written to the message log with the name, the
 value, the origin address and the time, so it appears in the Qt Log dock,
@@ -123,7 +131,9 @@ or under the address itself while it has saved none. So the same name from
 another address is another person — two laptops, one shared name, still two
 people at one rig — and saving a name after taking control renames the
 holder rather than locking them out of their own session.
-**Stop all outputs never takes the lock and is never gated by it.**
+**Stop all outputs never takes the lock and is never gated by it**, and
+neither does the supply's output *off*; switching that output *on* takes and
+obeys the lock like every other setter.
 
 Every Control page says who holds it, in one line in the Remote card of the
 left rail: *"Arseniy has control since 21:40 from 10.249.254.30"*, or *"Nobody
@@ -244,13 +254,14 @@ point. A new run empties these series with the rest of the ring.
 | `POST /api/identify` | `{"name": "..."}` — remember, in this browser, the name to write beside a command |
 | `POST /api/fence` | `{"word": "..."}` — the lab's word; `200 {"fenced": true}` and a cookie when it matches, `200 {"fenced": false}` where this machine has no word, `403` when it does not match |
 | `POST /api/take-over` | take control of the rig from whoever holds it; `200` either way, `403` without the switch |
-| `POST /api/stop-all` | every output to zero; always allowed |
+| `POST /api/stop-all` | every output to zero, and the supply's own output off with them; always allowed |
 | `POST /api/acquisition/start` | begin a run; `409` when one is already running |
 | `POST /api/acquisition/stop` | end the run, close the data file, drop every output |
 | `POST /api/sampling` | `{"seconds": 10\|1\|0.1\|0.01}` — the sampling times the Settings dock offers |
 | `POST /api/mfc/<1\|2>` | `{"mv": 0..5000}` — a gas flow setpoint; `0` is the Zero button |
 | `POST /api/plasma-current` | `{"a": 0..3}` or `{"off": true}` — the plasma-current PID, which moves the cathode DAC for you |
 | `POST /api/cathode` | `{"mv": 0..5000}` or `{"off": true}` — the cathode DAC held at a millivolt value with the PID off; whole millivolts, gated exactly as the PID setpoint is |
+| `POST /api/cathode-output` | `{"on": false}` or `{"on": true}` — the supply's own output switch, the only thing the Kikusui LAN link writes (`OUTP 0` / `OUTP 1`, owner decision 2026-09-15). Off is always allowed, like `stop-all`: no switch, no name, no word, no run. On is gated like every other setter and answers `409` with `the supply is not answering; turn it on at the supply` while the telemetry is not fresh. The outcome — confirmed, sent with a disagreeing readback, or failed — arrives in the Log, not in this reply |
 | `POST /api/gauge` | `{"gauge": "Pd"\|"Pu2", "mode": "Torr"\|"Pa"}` and/or `{"range": -8..-3}` — one ionization gauge's own mode and exponent; a body naming no gauge means the first, `Pd` |
 | `POST /api/sync` | `{"on": true\|false}` — the QMS sync line |
 | `POST /api/zero` | `{"channel": "Ip"\|"Bu"\|"Bd"}` — take that channel's baseline |

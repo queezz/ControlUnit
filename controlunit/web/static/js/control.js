@@ -374,6 +374,25 @@
         });
     }
 
+    /* The supply's own output. What the lamp shows and which way it will go
+       are painted in live.js, from the telemetry; this is only the press and
+       the gate, which is where every other press of this page is written.
+
+       The two directions are two different commands. Off is a safety press —
+       the cathode DAC and the supply's output are different wires, and a
+       person must be able to open the second whatever the first holds — so it
+       is never gated, exactly as Stop all outputs is never gated. On is a
+       setter, and wears the same gate as every other setter. */
+    function setupOutputLamp() {
+        var lamp = root.querySelector('[data-role="cathode-output"]');
+        if (!lamp) return;
+        lamp.addEventListener("click", function () {
+            var on = lamp.dataset.next === "on";
+            send("/api/cathode-output", {on: on},
+                 "the supply's output " + (on ? "on" : "off"));
+        });
+    }
+
     /* One filament, two ways to drive it, and one line that says which of
        them is actually holding it — read from the rig, never from which
        button this browser last pressed. The PID setpoint wins the sentence
@@ -565,6 +584,19 @@
             control.disabled = !(Boolean(state.remote) && !fenced && mine);
         });
 
+        /* The supply's output lamp rides on the Cathode card's heading line,
+           inside the block the blanket covers, and only one of its two
+           directions belongs under that blanket. Off is a safety press and is
+           switched back on here, like Stop all outputs, which escapes the
+           blanket by standing outside `.sets` entirely. On is a setter, but
+           not one that needs a run: the supply can be switched on before the
+           first sample, as the gauge settings can be prepared before it. */
+        var lamp = root.querySelector('[data-role="cathode-output"]');
+        if (lamp) {
+            lamp.disabled = lamp.dataset.next === "on"
+                && !(Boolean(state.remote) && !fenced && mine);
+        }
+
         /* Start is the one control the run's absence enables rather than
            disables, so it is set after the blanket above rather than being
            an exception written into it. */
@@ -717,6 +749,7 @@
 
         setupFolds();
         setupCathodeMode();
+        setupOutputLamp();
         var manual = root.querySelector('[data-role="cathode-manual-row"]');
         if (manual) setupDraftRow(manual, CATHODE_DRAFT);
 

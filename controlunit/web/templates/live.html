@@ -134,6 +134,37 @@
                                 <button type="button" class="seg-option" data-role="cathode-mode"
                                         data-cathode-mode="manual" aria-pressed="false">Manual</button>
                             </span>
+                            {# The supply's own output: a lamp that says what
+                               the Kikusui answers and a press that changes it
+                               (owner decision 2026-09-15, live: "Kikusui has
+                               LAN now, I want the one-off signal button in
+                               our control… Then we turn that one off no
+                               matter the dac voltage", and "Off and on. Why
+                               not? Then we have full cathode control when
+                               powered").
+
+                               It is the same wire the readout cards read, so
+                               it says the same thing they do: green while the
+                               telemetry is fresh and the output is closed,
+                               grey while it is fresh and open, and a ring
+                               with no colour at all — never a colour that
+                               could be read as a state — while there is no
+                               fresh answer to show. The word for that state,
+                               or the reason there is none, is written here
+                               and carried by the lamp's `title`: the heading
+                               row has no width for it beside the switch, and
+                               the two cathode readout cards already say it in
+                               full (see `.lamp-word` in the CSS). Pressing it
+                               sends the opposite of what it shows; from dim
+                               it only ever sends off, which is the press no
+                               gate stands in front of. #}
+                            <button type="button" class="output-lamp" data-fold-keep
+                                    data-role="cathode-output" data-lamp="unknown"
+                                    data-next="off" aria-pressed="false"
+                                    aria-label="Turn the supply's output off">
+                                <span class="lamp-dot" aria-hidden="true"></span>
+                                <span class="lamp-word" data-role="cathode-output-word">not recording</span>
+                            </button>
                         </summary>
                         <div class="frow" data-plasma data-role="cathode-pid-row">
                             <span class="row-name">Ip</span>

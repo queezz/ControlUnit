@@ -61,12 +61,17 @@ function build(storageThrows) {
         el({dataset: {cathodeMode: 'manual'}})
     ];
     const cells = {feedback: el(), ip: el(), applied: el(), measured: el(), fold: el()};
+    /* The output lamp, as control.js sees it: the direction is written onto
+       it by live.js, from the telemetry, and read back here. */
+    const lamp = el({dataset: {next: 'off'}, disabled: false});
+    const gated = [el({disabled: false}), el({disabled: false})];
     const root = {
         dataset: {},
         hasAttribute() { return false; },
         querySelector(s) {
             if (s.includes('cathode-manual-row')) return manualRow;
             if (s.includes('cathode-pid-row')) return pidRow;
+            if (s.includes('cathode-output')) return lamp;
             if (s.includes('fold-plasma')) return cells.fold;
             if (s.includes('plasma-setpoint')) return cells.feedback;
             if (s.includes('plasma-measured')) return cells.ip;
@@ -75,7 +80,9 @@ function build(storageThrows) {
             return null;
         },
         querySelectorAll(s) {
-            return s.includes('cathode-mode') ? modes : [];
+            if (s.includes('cathode-mode')) return modes;
+            if (s.includes('.sets button')) return gated;
+            return [];
         }
     };
 
@@ -100,11 +107,11 @@ function build(storageThrows) {
         source.slice(0, source.indexOf('    if (document.readyState'))
         + 'send = (path, body) => sent.push({path, body});'
         + ' globalThis.api = {setupDraftRow, setupCathodeMode, setupFolds,'
-        + ' paintCathode, CATHODE_DRAFT}; }());',
+        + ' paintCathode, setupOutputLamp, paintGate, CATHODE_DRAFT}; }());',
         ctx
     );
     return {api: ctx.api, input, setButton, offButton, note, steps, manualRow,
-            pidRow, modes, cells, sent, store, root};
+            pidRow, modes, cells, sent, store, root, lamp, gated};
 }
 
 test('mode is a view choice: it shows one setter row and sends nothing', () => {
@@ -305,6 +312,64 @@ test('a browser that stores nothing still folds every card', () => {
     assert.equal(shut.open, true);
     shut.open = false;
     assert.doesNotThrow(function () { shut.handlers.toggle(); });
+});
+
+/* The supply's own output, which the drive above it does not reach.
+ *
+ * Owner decision 2026-09-15, live. Two directions, two different presses:
+ * off is a safety press of the shape Stop all outputs has, and on is a
+ * setter. The lamp shows what the supply answers and sends the opposite;
+ * which way that is has been written onto it by live.js, from the telemetry,
+ * so this half only has to press it and gate it.
+ */
+test('the lamp sends the opposite of what the supply answers', () => {
+    const d = build();
+    d.api.setupOutputLamp();
+
+    d.lamp.dataset.next = 'off';
+    d.lamp.press();
+    assert.equal(d.sent[0].path, '/api/cathode-output');
+    assert.equal(d.sent[0].body.on, false);
+
+    d.lamp.dataset.next = 'on';
+    d.lamp.press();
+    assert.equal(d.sent[1].path, '/api/cathode-output');
+    assert.equal(d.sent[1].body.on, true);
+    assert.equal(d.sent.length, 2);
+});
+
+test('the gate never switches off the press that opens the output', () => {
+    // The lamp rides inside `.sets`, which the gate covers with one blanket;
+    // off escapes it the way Stop all outputs does, by standing outside.
+    const d = build();
+    const shut = {remote: false, acquiring: false, fence: {}};
+    d.lamp.dataset.next = 'off';
+    d.api.paintGate(shut, {});
+    assert.equal(d.lamp.disabled, false, 'a safety press is never gated');
+    assert.ok(d.gated.every((c) => c.disabled), 'everything else is');
+
+    d.api.paintGate({remote: true, acquiring: true, fence: {}}, {mine: true});
+    assert.equal(d.lamp.disabled, false);
+});
+
+test('closing the output is a setter and wears every gate one wears', () => {
+    const d = build();
+    d.lamp.dataset.next = 'on';
+
+    d.api.paintGate({remote: false, acquiring: true, fence: {}}, {mine: true});
+    assert.equal(d.lamp.disabled, true, 'the switch on the rig is off');
+
+    d.api.paintGate({remote: true, acquiring: true, fence: {needed: true, passed: false}},
+                    {mine: true});
+    assert.equal(d.lamp.disabled, true, "the lab's word has not been typed");
+
+    d.api.paintGate({remote: true, acquiring: true, fence: {}},
+                    {holder: 'Ivan', mine: false});
+    assert.equal(d.lamp.disabled, true, 'somebody else has control');
+
+    // No run needed: the supply can be switched on before the first sample.
+    d.api.paintGate({remote: true, acquiring: false, fence: {}}, {mine: true});
+    assert.equal(d.lamp.disabled, false);
 });
 
 test('Ip is read beside the drive; an analog placeholder cannot pose as Kikusui volts', () => {

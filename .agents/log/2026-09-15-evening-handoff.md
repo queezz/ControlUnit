@@ -89,4 +89,10 @@ designed and wait on his bot and his hardware. The letter to the Diagram
 is posted (20260915-ec9708ab-ef1123). The rig is still acquiring vacuum
 at 0.1 Hz on 4.19.5; 4.20.0 waits on an idle rig to be pulled.
 
+Then 4.21.0: the Kikusui output off/on press, the link's only two
+writes, inspected here at the client (one gate in `_send`, identity
+before a write, readback) and by its gates: 643 pytest, 41 node, strict
+docs. The rig still acquires vacuum on 4.19.5; 4.20.0 and 4.21.0 wait on
+an idle rig to be pulled.
+
 agent: claude fable 5.1
