@@ -445,6 +445,25 @@ holds what is still undecided or unbuilt.
   jumping between tabs, which the house's rail law warns against). Both are
   worth queezz's eye before anyone builds them; neither is worth doing
   quietly.
+- A noise study of every channel with the rig doing nothing (queezz,
+  2026-09-15, looking at 33 minutes of quiet Ip and Bu at 10 Hz: "one of
+  these times one should look at our signals when doing nothing and
+  identify the noise. So we might filter it better. And know the noise
+  from signal"). Analysis, not code, first: take a quiet stretch of a real
+  10 Hz file (2026-09-15's `cu_20260915_170626.csv` has one: Ip at about
+  -0.33 A with roughly ±0.03 A of fast noise, Bu at 3e-4 Torr with a
+  visible band), and for each channel report the standard deviation, the
+  autocorrelation and the spectrum up to the 5 Hz Nyquist of 10 Hz
+  sampling, looking in particular for mains-related lines folded down by
+  the sampling and for anything the I²C reads share across channels; then
+  say per channel which filter separates the noise from the signal at
+  the least cost in delay (the browser's median, a running mean over the
+  period as the ≥1 s sampling already does, or a proper low-pass in the
+  worker), and what the noise floor is, which is the number the item
+  below has been waiting for. Result goes to the vault's Troubleshooting
+  folder and to docs/diagnostics/, with the numbers; any filter change is
+  a separate, versioned build afterwards, never a silent change to what
+  is recorded.
 - A noise floor per channel, so the current with no plasma can step out of
   the way too (queezz, 2026-09-07: the current plot with no plasma is "a
   noisy waste of space"). 4.5.0 collapses a curve whose excursion is smaller
