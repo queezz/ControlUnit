@@ -83,6 +83,7 @@ nav:
       - Plasma run, September 10: diagnostics/2026-09-10-plasma-reader.md
       - ADC timing investigation: diagnostics/2026-09-10-adc-timing-optimization.md
       - September 14 run and Kikusui: diagnostics/2026-09-14-run-and-kikusui.md
+      - September 15 plasma run and noise: diagnostics/2026-09-15-plasma-run-and-noise.md
   - Architecture:
       - Qt Threading: architecture/qt-threading.md
       - Signal Flow: architecture/signal-flow.md
