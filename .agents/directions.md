@@ -368,8 +368,26 @@ holds what is still undecided or unbuilt.
     `/api/state` carries each instrument's off mark beside its value, and
     the PIHTI Diagram reads ControlUnit — values, pressures, on/off — and
     shows what the rig sees; a letter to the Diagram once the switches
-    exist. Nothing here ever reads the Diagram. "PSUs off" in his words
-    means the plasma power supplies.
+    exist. ControlUnit may consult the Diagram's vacuum state as advice
+    and never overwrites it ("control doesn't overwrite diagram. It
+    consults"). "PSUs off" in his words means the plasma power supplies.
+  - Heuristics suggest, the operator decides (queezz, 2026-09-15: "An
+    off IG unit usually reads low values.. we note those, and suggest").
+    An ion gauge whose raw volts sit near the floor for a minute gets a
+    "looks off?" note beside its readout and a log line, never an
+    automatic off mark; today's file has the example (Pu2 raw 0.0003–
+    0.0009 V from 18:49:55 while the plasma ran, converting to 3e-10
+    Torr). The same shape for "time to zero the Baratrons": a note when
+    a Baratron reads steady and negative, or when the chamber is known
+    to be far below its range, suggesting Zero, never pressing it.
+  - Validity floors per channel, the first one given: Bd is meaningful
+    above 1e-5 Torr and reads its offset below that — tonight's −0.8
+    mTorr is a chamber near 1e-9 Torr, far under what it can read
+    ("historically we know when that one works. Above 1e-5"). Below its
+    floor a channel's readout says so in its tag and its curve steps out
+    of the way, the way a flat curve already does; the number is still
+    recorded. The other floors (Ip without plasma, Bu) are still his to
+    name in the noise-floor item below.
   - Declared off, the Kikusui recorder stops polling and writes one
     `status=off` row (no LAN-lost warnings, no retries every 5 s); an ion
     gauge declared off keeps its raw volts in the file but its converted
