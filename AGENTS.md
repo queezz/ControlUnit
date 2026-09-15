@@ -75,15 +75,20 @@ from the repository root:
 This is for looking at the view, never for driving the rig: the rig is
 started only from its own desktop shortcut.
 
-**Stopping and starting the rig's program from a session (owner decision
-2026-09-15, live).** A session may stop or start the rig's program only
-when queezz asks for it directly in the chat, and never on its own: "I
-run experiments. Or students. Session interfering can ruin a run. But
-me in dev asking you, why not?" Asked, a session still refuses while an
-output is live, and until the graceful stop exists (the SIGTERM path
-that zeroes the outputs first; see directions) it stops the program only
-when the outputs are already at zero, because a killed process leaves
-the DACs holding whatever they held.
+**Stopping, starting or setting anything on the rig from a session (owner
+decision 2026-09-15, live).** A session may stop or start the rig's
+program, or set anything on it through the web API, only when queezz
+asks for it directly in the chat, and never on its own: "I run
+experiments. Or students. Session interfering can ruin a run. But me in
+dev asking you, why not?" Reading — `/api/state`, `/api/log`,
+`/api/series`, `/api/health` — is always fine. Asked to stop, a session
+still refuses while an output is live, and until the graceful stop
+exists (the SIGTERM path that zeroes the outputs first; see directions)
+it stops the program only when the outputs are already at zero, because
+a killed process leaves the DACs holding whatever they held. Asked to
+set, the same gates as a browser apply: the Remote switch on the rig's
+screen must be on, and the name and the lab's word come from a
+machine-local file, never git.
 
 ### Before pulling a new version onto the Pi
 

@@ -161,6 +161,15 @@ holds what is still undecided or unbuilt.
   lab's word from a machine-local file, never git. Off-rig it drives the
   dummy instance, which is what the tests want. Not urgent beside the
   mobile view: "Good mobile view is best. But still, some cli is good."
+  The use he named on 2026-09-15: from a remote session on his phone,
+  through the office PC (which is on the lab LAN and reaches the rig; no
+  VPN needed for the rig), "check the state of the rig and the log", "set
+  the sampling to slow 10s for overnights if I forget", "or just listen
+  to what's up" — so `watch` is the first command to build, then `state`,
+  `log --since` and `sampling`. A session sets anything only on his
+  direct word (AGENTS.md), and only while the rig's Remote switch is on,
+  so an evening he may want to reach from home is an evening to leave
+  that switch on.
 - Put upstream pressure Pu beside the gas controls on a phone during manual
   Ar let-in (owner request 2026-09-09). Operate still stacks readouts below
   the controls. The 4.12.2 mobile pass makes gas lines fold independently
