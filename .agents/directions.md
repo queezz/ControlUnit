@@ -207,6 +207,64 @@ holds what is still undecided or unbuilt.
     chart collapses.
   - Nothing here changes what is recorded.
 
+- Design directions from queezz, 2026-09-15, during the first 4.18.0 run
+  with the Kikusui recording live (1.078 V, 5.050 A, output on, beside a
+  599 mV manual drive) — "write it down while I'm on it":
+
+  a) The plasma PID's variable. His words: "I need PID for keeping cathode
+     current constant... I think. Or maybe the power. Cause filament
+     thinning out results in less current at the same voltage.. ah.. well,
+     less electrons, so plasma current drops. So if we simplify PID from
+     keeping plasma current constant to keeping cathode power constant,
+     most likely the plasma current will follow and stay constant. We can
+     test some of it out. I need to work out which one it is. Yeah, power
+     ~ U^2/R, R ~ L/A... and rho depends on the temp... so maybe power
+     it is." Not a build order yet: which quantity the loop holds —
+     cathode current, cathode power, or plasma current as now — is his to
+     work out, and the Kikusui record is what he works it out from. What
+     software can do meanwhile: keep recording U and I at 2 Hz beside
+     every manual discharge, and offer both I and U·I as candidate
+     process variables when the PID is rebuilt (the directions item on
+     PID handover above already says the loop engages on an established
+     discharge and never at ignition).
+  b) The cathode current joins the plasma current chart: "so it'll be
+     obvious when plasma is on. Data would be there for post processing,
+     but this way it's obvious what's happening. Is it the Hall sensor
+     drifting or the plasma died." Build: the Kikusui current as a second
+     curve on the Plasma current panel, in the cathode colour, with its
+     own legend pill, on its own axis or scale where amperes of filament
+     current would swamp a plasma current of tenths — its samples carry
+     their own timestamps at 2 Hz from the sidecar, so the web ring
+     records them as their own series beside the ADC rows and `/api/series`
+     serves them by name. Nothing recorded changes; the sidecar file stays
+     the record. Queued after the 4.19.0 readouts and rail work.
+  c) A letter to the PIHTI Diagram about its plotter: "to update the
+     plotter properly. To include new data, and to manage it properly and
+     maybe arrange lines and log/lin as we already do here. And of course
+     export all data. Since cathode current now lives in a separate file."
+     What the letter carries: the ADC file's new columns (`Pu2`, `Pu2_c`,
+     `IGmode_Pu2`, `IGscale_Pu2`), the separate `kikusui_<stamp>.csv`
+     beside each `cu_<stamp>.csv` with its own `date` column and 2 Hz
+     cadence (schema `controlunit-kikusui/v1`, fields in
+     docs/hardware/kikusui-lan.md), the ask that its plotter draw both
+     files on one time axis with per-curve switches and log/lin as this
+     Live tab does, and that its export carry every column of both files.
+     Ready to post to `code/2024-interactive-diagram` on his word; not
+     posted yet.
+  d) Backup of the rig's data to the NAS, the share now named: "We would
+     backup to \10.249.254.52\Public\Kuzmin\<pihti-data> (or similar).
+     But I need to ask for credentials, I always forget." This answers the
+     first of the NAS item's questions below (the address and share); the
+     others stand (push from the Pi or pull from the office PC, how often,
+     marking a finished run). Credentials are never in git: a machine-local
+     file on whichever side does the copying.
+- Ask the NAS's keeper for credentials for `\10.249.254.52\Public\Kuzmin`
+  — owner work pending. Nothing about the backup can be built or tried
+  until the copying machine can open that share.
+  Done when: the share opens from the Pi (or the office PC, whichever
+  will copy) with a saved credential, and the credential lives in a
+  machine-local file named in the NAS item, never in git.
+
 - Should the time window stay a set of fixed spans (now a compact choice
   on the charts' toolbar) or become direct: drag across a chart to zoom,
   double-press to go back to live? — the owner's call. He said the fixed
