@@ -99,6 +99,41 @@ holds what is still undecided or unbuilt.
   conditions, with a healthy baseline and no automatic thinning diagnosis.
   Evidence: docs/diagnostics/2026-09-14-run-and-kikusui.md.
 
+- The PID rebuild, for the week queezz is away (his ask, 2026-09-15:
+  "What about my PID? Can it pick up from running plasma?" — today it
+  cannot: enabling it after a manual stretch neither resets its clock nor
+  starts from the held drive, its integral arrives saturated and the
+  first command is 5500 mV, which on 2026-09-14 put the plasma out; and
+  "for the PID, we need to log the success/failure, a way to improve the
+  tuning ... if it's not painful, maybe we do it anyways. Cause plasma
+  changes, things change"). One packet, a backend build with no UI law
+  to route through beyond the two buttons it already has:
+  - Bumpless pickup on a lit discharge: at engage the integrator is
+    preset so the first output equals the cathode drive already held, the
+    loop's clock starts at engage, the integral does not wind while the
+    output sits at a clamp, and the post-limit 1000 mV offset is removed.
+    Engage is refused, with its reason in the log and on the page, while
+    Ip is below an ignition threshold (a number queezz sets; a safe
+    default well above the -0.33 A off-plasma baseline plus its noise),
+    so the loop never tries to light the plasma. Hand-back to Manual
+    leaves the drive where the loop last put it.
+  - The held quantity is a choice, not a rebuild: plasma current as now
+    (Ip from the ADC), or the cathode current, or the cathode power U·I
+    from the Kikusui reading — item (a) above is his to settle by trying
+    them. In the two Kikusui modes a stale or lost telemetry holds the
+    last output and says so, never drives on a stale number (the
+    telemetry-loss policy the Kikusui item asked for).
+  - A tuning log, always on, as cheap as the Kikusui sidecar: one file
+    beside each run, `pid_<stamp>.csv`, one row per loop step — time,
+    mode, held quantity, setpoint, measured, error, P, I and D terms, raw
+    and clamped output in mV, and one row for every engage, hand-back and
+    refusal with its reason. Gains and period in the header. Nothing in
+    the ADC file changes.
+  - Tests drive the loop offline with a recorded run (the 2026-09-14 file
+    reproduces the 5500 mV) and prove the first command after engage
+    equals the held drive.
+  Evidence for the defects: docs/diagnostics/2026-09-14-run-and-kikusui.md.
+
 - Coordinate a PIHTI Log action to attach all known ControlUnit parameters as
   an immutable instant snapshot, a table and optionally a picture; a clearly
   labelled short averaging window is an option, not a fixed owner choice.
