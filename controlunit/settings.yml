@@ -69,7 +69,9 @@ Temperature Columns:
 # ADC Additional Columns below. Each gauge has its own pair, set from its own
 # selector on the Control dock and the web Control tab. The first gauge keeps
 # the columns the file has always had, IGmode and IGscale, so an old file
-# and a new one read the same.
+# and a new one read the same. An "Ionization Gauge" channel may also carry
+# a Place, the word for where it sits (e.g. "upstream", "downstream"), shown
+# beside its short name on the Control dock and the web Gauges card.
 
 ADC Channels:
   Ip:
@@ -90,6 +92,7 @@ ADC Channels:
     Conversion Function: "Ionization Gauge"
     Mode Column: "IGmode"
     Scale Column: "IGscale"
+    Place: "downstream"
   Pu2:
     Channel: 16
     Gain: 10
@@ -97,6 +100,7 @@ ADC Channels:
     Conversion Function: "Ionization Gauge"
     Mode Column: "IGmode_Pu2"
     Scale Column: "IGscale_Pu2"
+    Place: "upstream"
   Bu:
     Channel: 20
     Gain: 1

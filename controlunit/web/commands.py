@@ -113,6 +113,11 @@ GAUGE_RANGE_HIGH = -3
 #: how every browser spoke before there were two.
 GAUGES = tuple(_settings.ion_gauge_names(_settings.select_settings()))
 
+#: Where each gauge sits, name -> place, in the same order as GAUGES. Read
+#: from the same settings, so the web Gauges card and the Control dock say
+#: the same word for the same channel.
+GAUGE_PLACES = dict(_settings.ion_gauge_places(_settings.select_settings()))
+
 #: A name is a label a person chose, not an identity: it is kept short and
 #: reduced to characters that cannot disturb the log, the page or the file.
 ACTOR_MAX = 24

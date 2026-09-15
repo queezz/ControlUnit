@@ -105,6 +105,20 @@ def ion_gauge_names(config):
     ]
 
 
+def ion_gauge_places(config):
+    """The ionization gauges' places, name -> place, in settings order.
+
+    Works on the raw settings as well as the initialised configuration, like
+    `ion_gauge_names`. A gauge with no Place in the settings is placed under
+    its own bare name, so a caller always has a word to show.
+    """
+    return {
+        name: channel.get("Place") or name
+        for name, channel in config["ADC Channels"].items()
+        if channel["Conversion Function"] == "Ionization Gauge"
+    }
+
+
 def check_logfile(config):
     folder = config["Data Folder"]
     logname = config["Log File"]

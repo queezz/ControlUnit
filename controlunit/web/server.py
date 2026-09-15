@@ -396,6 +396,7 @@ def create_app(
             gases=GASES,
             zero_channels=ZERO_CHANNELS,
             gauges=command_desk.GAUGES,
+            gauge_places=command_desk.GAUGE_PLACES,
             gauge_modes=command_desk.GAUGE_MODES,
             gauge_range=range(
                 command_desk.GAUGE_RANGE_LOW, command_desk.GAUGE_RANGE_HIGH + 1

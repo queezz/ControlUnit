@@ -361,14 +361,14 @@
                        gauge. The folded line says each gauge's setting in
                        its name's order. #}
                     <details class="fgroup gauge-settings fold" id="sec-gauge" data-fold="gauge" open>
-                        <summary class="fold-head"><h2 class="fold-name">Gauges</h2>
+                        <summary class="fold-head"><h2 class="fold-name">Ion gauges</h2>
                             {% for gauge in gauges %}
                             <span class="mono gauge-now" data-gauge="{{ gauge }}">{{ gauge }} <span data-role="gauge-mode-now">—</span> <span data-role="gauge-range-now">—</span></span>
                             {% endfor %}
                         </summary>
                         {% for gauge in gauges %}
                         <div class="gauge-line" data-gauge="{{ gauge }}">
-                            <h3 class="gauge-name">{{ gauge }}</h3>
+                            <h3 class="gauge-name">{{ gauge_places[gauge] | capitalize }} · {{ gauge }}</h3>
                             <div class="frow">
                                 <span class="row-name">Mode</span>
                                 <span class="row-actions">

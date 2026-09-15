@@ -25,6 +25,9 @@ class AdcChannelProps:
         # exponent its controller was set to; None for every other kind.
         self.mode_column = kws.get("Mode Column", None)
         self.scale_column = kws.get("Scale Column", None)
+        # Where an ionization gauge sits, e.g. "upstream"; None when the
+        # settings give it none.
+        self.place = kws.get("Place", None)
         self.set_conversion_function()
         self.gain = None
 

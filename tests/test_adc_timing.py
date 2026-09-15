@@ -150,6 +150,21 @@ def test_each_ion_gauge_records_and_converts_with_its_own_settings(worker):
     assert worker.config['Ion Gauges'] == ['Pd', 'Pu2']
 
 
+def test_ion_gauge_places_names_where_each_gauge_sits():
+    """Pd and Pu2 each carry the place their settings give them, in the same
+    order as ion_gauge_names; a gauge with no Place would fall back to its
+    own bare name."""
+    import readsettings
+    config = readsettings.select_settings()
+    assert readsettings.ion_gauge_places(config) == {
+        'Pd': 'downstream',
+        'Pu2': 'upstream',
+    }
+    assert list(readsettings.ion_gauge_places(config)) == readsettings.ion_gauge_names(
+        config
+    )
+
+
 def test_a_gauge_column_nobody_records_is_refused_at_start(worker, qt_app, home):
     import copy
     import readsettings

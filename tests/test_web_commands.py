@@ -102,6 +102,10 @@ def test_the_gauges_are_the_settings_ionization_gauges():
     )
 
 
+def test_the_gauge_places_are_the_settings_own_words():
+    assert commands.GAUGE_PLACES == {"Pd": "downstream", "Pu2": "upstream"}
+
+
 @pytest.mark.parametrize(
     "body",
     [

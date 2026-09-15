@@ -101,8 +101,8 @@ def test_the_two_kinds_of_gauge_get_a_panel_each(live):
 def test_control_offers_each_ion_gauge_its_own_mode_and_range(control):
     """Two gauges, two blocks under their own names, each with a full set of
     modes and decades, and a folded line that names both."""
-    for gauge in ("Pd", "Pu2"):
-        assert '<h3 class="gauge-name">{}</h3>'.format(gauge) in control
+    for gauge, heading in (("Pd", "Downstream · Pd"), ("Pu2", "Upstream · Pu2")):
+        assert '<h3 class="gauge-name">{}</h3>'.format(heading) in control
         assert 'class="mono gauge-now" data-gauge="{}"'.format(gauge) in control
         for mode in ("Torr", "Pa"):
             assert 'data-role="gauge-mode" data-gauge="{}"'.format(gauge) in control
@@ -111,6 +111,16 @@ def test_control_offers_each_ion_gauge_its_own_mode_and_range(control):
             assert 'data-gauge="{}"\n                                            data-range="{}"'.format(gauge, decade) in control
     assert control.count('data-role="gauge-range"') == 12
     assert control.count('data-role="gauge-mode"') == 4
+
+
+def test_the_gauges_card_names_each_gauges_place(control):
+    """The card is 'Ion gauges', not 'Gauges', and each block is headed by
+    its place and its short name (owner direction 2026-09-15, "Ion Gauges:
+    upstream/downstream is better"), with the short name kept beside it
+    because the readout cards elsewhere on the page say Pu2 and Pd."""
+    assert '<h2 class="fold-name">Ion gauges</h2>' in control
+    assert '<h3 class="gauge-name">Upstream · Pu2</h3>' in control
+    assert '<h3 class="gauge-name">Downstream · Pd</h3>' in control
 
 
 def test_the_scales_card_offers_an_axis_for_each_panel(live):
@@ -150,7 +160,8 @@ def test_a_readout_card_is_a_name_a_number_a_unit_and_one_tag(live):
         assert 'data-role="value"' in card
         assert 'data-role="unit"' in card
         assert 'data-role="readout-note"' in card
-    assert live.count('data-role="readout-note"') == 6
+    # Six channels and the cathode supply's two, which are the same card.
+    assert live.count('data-role="readout-note"') == 8
     # The tag is written by the page from what the rig reports, so the
     # markup ships it empty and no card holds a line open for it.
     assert '<span class="readout-note" data-role="readout-note"></span>' in live
@@ -176,6 +187,34 @@ def test_the_readout_cards_carry_their_own_pen(live):
     """The card's colour comes from the pen list the charts draw with."""
     for colour in ("#8d3de3", "#c9004d", "#6ac600", "#ffb405", "#00a3af"):
         assert "--pen: {}".format(colour) in live
+
+
+def test_the_cathode_supply_is_two_more_cards_of_the_one_strip(client, live):
+    """queezz, 2026-09-15, on the separate Kikusui panel: "Why separate? It's
+    a control panel … it is the Cathode voltage current. That it happens to be
+    kikusui and read differently is irrelevant for operation." So the supply's
+    measured voltage and current are the seventh and eighth cards of the
+    readouts strip, in one pen of their own, and the panel is gone from the
+    page and from the stylesheet."""
+    strip = live[live.index('<div class="readouts">'):]
+    strip = strip[: strip.index("</details>")]
+    for key, name, unit in (("voltage_v", "Cathode V", "V"),
+                            ("current_a", "Cathode I", "A")):
+        card = strip[strip.index('data-cathode-readout="{}"'.format(key)):]
+        card = card[: card.index("</div>")]
+        assert '<span class="readout-name">{}</span>'.format(name) in card
+        assert '<span class="readout-unit">{}</span>'.format(unit) in card
+        assert 'data-role="value"' in card and 'data-role="readout-note"' in card
+    # One pen for the two of them, the violet the Cathode group already wears
+    # on the left rail, and not one of the six the rig's own graph draws with.
+    assert strip.count("--pen: #b48ae9") == 2
+    for pen in ("#8d3de3", "#c9004d", "#3b82f6", "#6ac600", "#ffb405", "#00a3af"):
+        assert pen != "#b48ae9"
+    css = client.get("/static/css/controlunit.css").get_data(as_text=True)
+    for gone in ("kikusui-panel", "kikusui-readouts", "data-kikusui-readout",
+                 "kikusui-status", "kikusui-fold"):
+        assert gone not in live, gone
+        assert gone not in css, gone
 
 
 def test_the_window_does_not_explain_full_on_the_page(live):
@@ -210,7 +249,46 @@ def test_the_big_readouts_are_one_class_over_the_same_dom(client, live):
     assert "live--big" in script
     assert ".live--big" in css
     assert live.count('class="readout"') == 8
-    assert live.count('data-kikusui-readout=') == 2
+    assert live.count("data-cathode-readout=") == 2
+
+
+def test_the_number_is_the_loudest_thing_on_every_readout_card(client):
+    """queezz, 2026-09-15, on the Live tab: "Big is somewhat smaller than
+    small. The cards and all. It's very inconsistent… Big means BIG NUMBERS
+    first. And recognizable." And on the panel whose sizing he did like: "I
+    like the size and style of the Kikusui… feels better and bigger and more
+    readable than the 'big' in the main numbers panel."
+
+    So: two rows, the name, its tag and the unit on the first and the number
+    alone on the second; the number 1.5rem in small — the Kikusui panel's own
+    size — and about twice that in big; and nothing but the number changes
+    between the two modes."""
+    css = client.get("/static/css/controlunit.css").get_data(as_text=True)
+    rules = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+
+    def block(selector):
+        start = rules.index(selector + " {")
+        return rules[start:rules.index("}", start)]
+
+    value = block(".readout-value")
+    assert "grid-row: 2" in value and "text-align: right" in value
+    assert "min(1.5rem, 15cqi)" in value        # 1.5rem, capped by the card
+    assert "min(3.2rem, 15.5cqi)" in block(".live--big .readout-value")
+    # The card is its own container in both modes, which is what lets one
+    # number be sized from the card rather than from the window.
+    assert "container-type: inline-size" in block(".readout")
+    # Nothing else grows with big: the name, the tag and the unit are written
+    # once, for both modes, so "big" cannot mean a bigger label again.
+    for restyled in (".live--big .readout-name", ".live--big .readout-note",
+                     ".live--big .readout-unit"):
+        assert restyled not in rules
+    # And each of them is well under 0.55 of the number beside it.
+    assert "font-size: 0.8rem" in block(".readout-name")
+    assert "font-size: 0.75rem" in block(".readout-unit")
+    assert "font-size: 0.64rem" in block(".readout-note")
+    # Eight cards laid by the room each needs, not by a column count.
+    assert "repeat(auto-fit, minmax(min(9.5rem, 46%), 1fr))" in block(".readouts")
+    assert "repeat(auto-fit, minmax(13rem, 1fr))" in block(".live--big .readouts")
 
 
 def test_small_readouts_reserve_no_room_they_are_not_using(client):
@@ -236,8 +314,17 @@ def test_small_readouts_reserve_no_room_they_are_not_using(client):
     # The tag rides in the name row and cannot leave it, whatever it says.
     note = block(".readout-note")
     assert "grid-row: 1" in note and "white-space: nowrap" in note
-    # Operate keeps the same compact card; nothing here re-inflates it.
-    assert ".control-workspace:not(.live--big) .readout { padding: 6px 5px;" in rules
+    # Operate carries the same card as Live, not a squeezed copy of it
+    # (owner, 2026-09-15: "The cards and all. It's very inconsistent"). The
+    # only thing that tab still says about a readout is the gap between them.
+    assert ".control-workspace .readouts { gap: 8px; }" in rules
+    for squeezed in (
+        ".control-workspace:not(.live--big) .readout {",
+        ".control-workspace:not(.live--big) .readout-name",
+        ".control-workspace .readout-value {",
+        ".control-workspace.live--big .readout-value",
+    ):
+        assert squeezed not in rules
 
 
 def test_the_fast_poll_is_not_remembered_and_the_big_readouts_are(client):
@@ -1078,7 +1165,7 @@ def test_every_card_on_the_live_page_folds_and_folds_the_same_way(control):
     discover."""
     cards = (
         "gas", "plasma",                                       # the left rail
-        "readouts", "kikusui", "chart-plasma", "chart-ig", "chart-bar",   # the column
+        "readouts", "chart-plasma", "chart-ig", "chart-bar",   # the column
         "access", "display", "settings", "run-details",        # the right rail
         "gauge",
     )
@@ -1119,10 +1206,14 @@ def test_a_folded_card_is_one_line_that_still_carries_its_numbers(control):
     card, never by a second reading of the rig."""
     for role in ("fold-gas", "fold-plasma"):
         assert control.count('data-role="{}"'.format(role)) == 1
-    # The strip's six values, one per pen, in the order the cards stand in.
+    # The strip's six values, one per pen, in the order the cards stand in,
+    # and the cathode supply's two after them under their shortest names.
     for channel in ("Ip", "Pu", "Pd", "Bu", "Bd"):
         assert control.count('data-fold-readout="{}"'.format(channel)) == 1
-    assert control.count('data-role="fold-value"') == 6
+    for key in ("voltage_v", "current_a"):
+        assert control.count('data-fold-cathode="{}"'.format(key)) == 1
+    assert "<b>Uc</b>" in control and "<b>Ic</b>" in control
+    assert control.count('data-role="fold-value"') == 8
     # A chart's folded line is the head it already had: its title and its
     # span. The legend, the axis switches and the canvas are body and go with
     # the fold (queezz, 2026-09-14: "The plasma current toggle is still
