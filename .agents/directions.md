@@ -347,6 +347,38 @@ holds what is still undecided or unbuilt.
   - PIHTI Log and the Diagram are told by letter, because their tables
     and plots will want the labels too.
 
+- A device can be declared off, so the record knows a number is nonsense
+  (queezz, 2026-09-15, after turning every PSU off with the rig still
+  logging: "the rig still searches for it. We need a toggle. Thing off.
+  Also for IGs. So we don't collect nonsense signal. Or at least know when
+  it is from the log file, without looking at pihti-vacuum"). Design:
+  - One "off" toggle per instrument that can be off while the rig logs —
+    the cathode supply (Kikusui) and each ion gauge — on the rig's dock
+    and on the web Cathode card and Ion gauges card, the house's sliding
+    pill, gated like every setter.
+  - Declared off, the Kikusui recorder stops polling and writes one
+    `status=off` row (no LAN-lost warnings, no retries every 5 s); an ion
+    gauge declared off keeps its raw volts in the file but its converted
+    column is written as NaN, its readout reads "off", and its curve is
+    not drawn. Every change is one event line in the log with the time.
+  - The ADC file learns it: one more appended metadata column per
+    instrument, `<name>_off` (0/1) — appended after the existing columns,
+    never inserted — so a reader of the file alone knows which stretches
+    to discard. PIHTI Log and the Diagram are told by letter with the
+    other column news.
+  - The toggles rest on "on" at Start; a rig started with an instrument
+    already off should say so within the first minute (a warning when a
+    gauge reads at its floor for a minute, later).
+- Monitor mode wastes the top of the screen (queezz, 2026-09-15, on a
+  1920×1080 monitor: the mode switch, the two pills, Display and Leave
+  full screen, then the Window and Median rows take about 220 px before
+  the first readout). Design: one slim strip — the pills at the left, the
+  Window and Median choices as compact segmented pills in the middle,
+  small/big, Display and Leave full screen at the right, the mode switch
+  folded into the same line — so the readouts start about 60 px from the
+  top and the charts get the rest. Same family as the status-line
+  Sampling and QMS sync controls in the 4.19 design above; build them
+  together.
 - Should the OUTPUT lamp on the Cathode card also press — switch the
   Kikusui supply's output on and off from a browser — or only show?
   — the owner's call. He asked for "the output on/off button ... in
