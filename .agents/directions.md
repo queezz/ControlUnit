@@ -305,6 +305,10 @@ holds what is still undecided or unbuilt.
     it carries the cathode supply's own measurements on its own clock.
     The `# Columns` and `# Signals` lines stay exactly as they are so
     every old reader still works; a test reads a written header back.
+    The descriptions in settings.yml are corrected on the way: `Pu` is
+    "Pfeiffer PKR251 full-range gauge, upstream; its Penning stage does
+    not ignite, so it reads as a Pirani" (queezz, 2026-09-15), not the
+    misspelt "Pfeffer Single Gauge".
   - PIHTI Log and the Diagram are told by letter, because their tables
     and plots will want the labels too.
 
