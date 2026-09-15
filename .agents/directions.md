@@ -275,6 +275,33 @@ holds what is still undecided or unbuilt.
   will copy) with a saved credential, and the credential lives in a
   machine-local file named in the NAS item, never in git.
 
+- The two ion gauges are shown as IGu and IGd, and the file explains
+  itself (queezz, 2026-09-15: "now yes, we have two of Pu. One is Pirani,
+  another is IG. So we can say IGu IGd. And.. I don't want to change the
+  saved files header because of this... But we can always make a good
+  header comment explaining which one is which, what units, and all that,
+  the provenance"). Build, after the 4.19.0 readouts slice:
+  - A display name per channel in settings.yml (`Label`), read once:
+    `Pu2` shows as `IGu`, `Pd` as `IGd`, every other channel as its own
+    name. Everywhere a person reads a channel name — the readout cards and
+    the folded row, the legend pills and chart titles ("Upstream · Pu +
+    IGu + Bu"), the Ion gauges card ("Upstream · IGu"), the rig's dock
+    rows and value browser — shows the label. Everywhere a machine reads
+    one — the CSV columns (`Pu2`, `Pu2_c`, `IGmode_Pu2`, `IGscale_Pu2`,
+    `Pd`, ...), `/api/state` and `/api/series` keys, `/api/gauge` bodies,
+    the browser's remembered choices — keeps the channel name. Nothing
+    recorded changes and no column is renamed.
+  - The ADC file's comment header grows a provenance block, one line per
+    signal column: channel name, label, what it is (the settings'
+    Description), ADC channel and gain, conversion function and unit, and
+    for an ion gauge the two columns that carry its mode and exponent —
+    plus one line saying the Kikusui sidecar's file name pattern and that
+    it carries the cathode supply's own measurements on its own clock.
+    The `# Columns` and `# Signals` lines stay exactly as they are so
+    every old reader still works; a test reads a written header back.
+  - PIHTI Log and the Diagram are told by letter, because their tables
+    and plots will want the labels too.
+
 - Should the OUTPUT lamp on the Cathode card also press — switch the
   Kikusui supply's output on and off from a browser — or only show?
   — the owner's call. He asked for "the output on/off button ... in
