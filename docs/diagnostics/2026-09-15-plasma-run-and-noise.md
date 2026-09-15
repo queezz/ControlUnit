@@ -265,6 +265,18 @@ range -8 that converts to 1.04e-8 to 1.24e-8 Torr for the whole evening. It
 looks like a clean base-pressure reading and it is not a measurement of a
 chamber that was at 3.8e-3 Torr.
 
+**Correction, the same night.** queezz, shown these readings as off-state
+numbers: "Imagining things. IGs are on." Both ion gauge controllers were on
+all evening. So the two paragraphs above over-read the file: `Pd`'s steady
+1e-8 Torr is a live downstream reading — downstream of the pumping stage a
+gauge holding 10⁻⁸ Torr while the upstream side sits at 10⁻³ is the
+apparatus working, not a dead channel — and the `Pu2` raw-voltage drop at
+18:49:55 is real but is not a controller switched off; what the controller
+was doing then (emission, range, degas) is not in these files. The point of
+the section stands the other way round: the file alone cannot tell an
+instrument that is off from one that is on, in either direction, so the
+flag has to come from the operator or the controller.
+
 **Baratrons.** Both controllers stayed on. `Bu` tracked the gas correctly.
 `Bd` sat at -8.7e-4 Torr throughout, a negative pressure, that is, a standing
 zero offset of about -0.8 mTorr on a 0.1 Torr head, and it did not respond to

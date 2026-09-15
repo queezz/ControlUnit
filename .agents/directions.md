@@ -601,12 +601,16 @@ holds what is still undecided or unbuilt.
     18:54:14 in two samples), gas moving 0.7 % across the staircase —
     evidence for his item (a) on holding power. Inside the settled
     discharge Ip and Ic are uncorrelated (r = 0.006).
-  - Off states are not self-evident in the analogue channels: Pu2 off
-    reads 3e-10 Torr, Pd 1e-8 Torr all evening (off or unresponsive, the
-    file cannot tell), Bd −0.87 mTorr; the Kikusui kept `output_on=1` for
-    98 s after the drive went to 0 mV, then `unavailable` from 19:11:58.
-    So the instrument-off flag must be operator-set or read from the
-    controller — the toggles item above stands as designed.
+  - Off states are not self-evident in the analogue channels. Correction
+    from queezz the same night: the ion gauge controllers were on all
+    evening ("Imagining things. IGs are on"), so Pd's steady 1e-8 Torr is
+    a live downstream reading and the 3e-10 Torr stretch on Pu2 is not an
+    off state but whatever its controller put out then; the analysis read
+    both as off and was wrong. What did switch off was the Kikusui, and
+    the file shows it only late: `output_on=1` for 98 s after the drive
+    went to 0 mV, then `unavailable` from 19:11:58. So the instrument-off
+    flag must be operator-set or read from the controller — the toggles
+    item above stands as designed, and the file alone still cannot tell.
   - Bu went electrically noisy 19:20:50–19:23:50 (sd 1.4e-4 Torr,
     negative excursions) with nothing logged; one 0.35 s gap in the main
     run; zero tracebacks.
