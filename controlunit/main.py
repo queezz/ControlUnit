@@ -865,7 +865,8 @@ class MainApp(QtCore.QObject, UIWindow):
         values = []
         for label in labels:
             v = self.currentvalues[label] - self.zero_adjustment.get(label, 0)
-            values.append([self.graph.pens[label]["color"], label, v])
+            values.append([self.graph.pens[label]["color"], label, v,
+                           label in Graph.SCREEN_PROMINENT])
 
         self.control_dock.update_current_values(values)
 

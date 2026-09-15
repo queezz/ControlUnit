@@ -136,3 +136,21 @@ def test_a_switch_squeezed_to_its_minimum_still_holds_its_words(qt_app):
             assert switch.rect().contains(switch.label_rect(checked)), (
                 f"{cls.__name__} clips {label!r} at its minimum width"
             )
+
+
+def test_the_values_with_no_other_display_are_written_large(qt_app):
+    """Ip and the two Baratrons have no display but this screen, so they are
+    large; the gauges, which have controllers in the rack, are small."""
+    from controlunit.ui.docks.control import ControlDock
+    from controlunit.ui.widgets.graph import Graph
+
+    dock = ControlDock()
+    values = [["#000", name, 1.0, name in Graph.SCREEN_PROMINENT]
+              for name in Graph.SCREEN_READOUTS]
+    dock.update_current_values(values)
+    html = dock.valueBw.toHtml()
+    for name in ("Ip", "Bu", "Bd"):
+        assert name in html
+    assert Graph.SCREEN_READOUTS[:3] == ("Ip", "Bu", "Bd")
+    # The size difference is what the reader sees: large before small.
+    assert html.count("font-size:x-large") + html.count("font-size:xx-large") >= 3

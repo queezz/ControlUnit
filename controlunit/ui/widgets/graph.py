@@ -32,7 +32,14 @@ class Graph(pg.GraphicsLayoutWidget):
     #: the controlunit, I can see the IG block and read the value. But WebUI
     #: gets it all."). Pu2 is read off its own controller at the rig, and
     #: still drawn on the plot and recorded in the file.
-    SCREEN_READOUTS = ("Pu", "Pd", "Ip", "Bu", "Bd")
+    SCREEN_READOUTS = ("Ip", "Bu", "Bd", "Pu", "Pd")
+    #: Of those, the ones with no display anywhere but this screen: the Hall
+    #: sensor's current and the two Baratrons. They lead the row and are
+    #: written large; the two gauges, which have controllers of their own in
+    #: the rack, follow small (owner direction 2026-09-15: "make the in-the-
+    #: rack displayed values smaller, and show hall sensor current and two
+    #: baratrons more prominent. They have no displays but the ControlUnit").
+    SCREEN_PROMINENT = ("Ip", "Bu", "Bd")
 
     def __init__(self):
         super().__init__()

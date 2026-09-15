@@ -191,24 +191,34 @@ class ControlDock(Dock):
         self.widget.addWidget(self.currentsetBtn, 3, 3, 1, 2)
 
     # MARK: Update Values
-    def update_current_values(self, values: list[tuple[str, float]]):
+    #: HTML font sizes (1–7) for a value with no display but this screen and
+    #: for one whose controller in the rack shows it too.
+    PROMINENT_SIZE = 6
+    QUIET_SIZE = 3
+
+    def update_current_values(self, values):
         """Update current values displayed in the browser with passed values.
 
         Args:
-            values: List of tuples containing pen color (str) and value (float).
-                    Example: [("red", 1.23), ("green", 2.34), ("blue", 3.45)]
+            values: List of [pen colour, label, value, prominent]; a missing
+                    fourth item means prominent, so an older caller reads
+                    as before.
         """
-        font_size = 5
         padding = "1px"  # Set your desired padding here
         cell_width = "10px"  # Set your desired cell width here
 
-        # Generate table cells with padding and fixed width
-        table_cells = [
-            f'<td style="padding:{padding};width:{cell_width};">'
-            f'<font size="{font_size}" color="{pen}">{label} = '
-            f'{val:{".2f" if label == "Ip" else ".2e"}}</font></td>'
-            for pen, label, val in values
-        ]
+        # Generate table cells with padding and fixed width; the values with
+        # no other display are written large and the rest small.
+        table_cells = []
+        for entry in values:
+            pen, label, val = entry[0], entry[1], entry[2]
+            prominent = entry[3] if len(entry) > 3 else True
+            size = self.PROMINENT_SIZE if prominent else self.QUIET_SIZE
+            table_cells.append(
+                f'<td style="padding:{padding};width:{cell_width};">'
+                f'<font size="{size}" color="{pen}">{label} = '
+                f'{val:{".2f" if label == "Ip" else ".2e"}}</font></td>'
+            )
 
         # Split cells into rows of 3 columns each
         table_rows = [

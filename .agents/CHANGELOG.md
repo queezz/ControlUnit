@@ -1,3 +1,7 @@
+## 4.19.2 — 2026-09-15
+
+- On the rig's own screen the Hall sensor current and the two Baratrons lead the value browser and are written large; the two gauges, which have controllers of their own in the rack, follow small (queezz: "They have no displays but the ControlUnit").
+
 ## 4.19.1 — 2026-09-15
 
 - The rig's own value browser spells out the five signals it has always fitted, three to a row, and not Pu2: with six the text wrapped and scrolled off the small screen (queezz: "we don't have to put ALL the signals in that tiny display on GUI. When I face the controlunit, I can see the IG block and read the value. But WebUI gets it all"). Pu2 is still plotted and recorded.
