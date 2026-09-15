@@ -252,13 +252,13 @@ holds what is still undecided or unbuilt.
      Ready to post to `code/2024-interactive-diagram` on his word; not
      posted yet.
   d) Backup of the rig's data to the NAS, the share now named: "We would
-     backup to \10.249.254.52\Public\Kuzmin\<pihti-data> (or similar).
+     backup to \\10.249.254.52\Public\Kuzmin\<pihti-data> (or similar).
      But I need to ask for credentials, I always forget." This answers the
      first of the NAS item's questions below (the address and share); the
      others stand (push from the Pi or pull from the office PC, how often,
      marking a finished run). Credentials are never in git: a machine-local
      file on whichever side does the copying.
-- Ask the NAS's keeper for credentials for `\10.249.254.52\Public\Kuzmin`
+- Ask the NAS's keeper for credentials for `\\10.249.254.52\Public\Kuzmin`
   — owner work pending. Nothing about the backup can be built or tried
   until the copying machine can open that share.
   Done when: the share opens from the Pi (or the office PC, whichever
