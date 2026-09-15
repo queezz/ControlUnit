@@ -298,8 +298,10 @@ holds what is still undecided or unbuilt.
      docs/hardware/kikusui-lan.md), the ask that its plotter draw both
      files on one time axis with per-curve switches and log/lin as this
      Live tab does, and that its export carry every column of both files.
-     Ready to post to `code/2024-interactive-diagram` on his word; not
-     posted yet.
+     Posted 2026-09-15 evening as `20260915-ec9708ab-ef1123` to
+     `code/2024-interactive-diagram`, on his "does the diagram know about
+     the new data"; it also carries the consult-not-overwrite shape and
+     the coming `<name>_off` marks. A reply is welcome, nothing blocks.
   d) Backup of the rig's data to the NAS, the share now named: "We would
      backup to \\10.249.254.52\Public\Kuzmin\<pihti-data> (or similar).
      But I need to ask for credentials, I always forget." This answers the
