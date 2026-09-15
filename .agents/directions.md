@@ -361,10 +361,15 @@ holds what is still undecided or unbuilt.
     and on the web Cathode card and Ion gauges card, the house's sliding
     pill, gated like every setter. These switches alone decide what the
     file marks (queezz, 2026-09-15: "ControlUnit NEEDS a switch. Why
-    depend on a separate server?"). He also toggles the vacuum state in
-    the PIHTI Diagram, so a later convenience may mirror the two — never
-    a source, never a dependency; a Diagram that is down changes nothing
-    here. "PSUs off" in his words means the plasma power supplies.
+    depend on a separate server?"). The flow between the two runs the
+    other way, on his word the same night: "we can rather ping control
+    from diagram to check upon values, pressures and on/off. We still
+    operate it as is. And tell what the control actually sees." So
+    `/api/state` carries each instrument's off mark beside its value, and
+    the PIHTI Diagram reads ControlUnit — values, pressures, on/off — and
+    shows what the rig sees; a letter to the Diagram once the switches
+    exist. Nothing here ever reads the Diagram. "PSUs off" in his words
+    means the plasma power supplies.
   - Declared off, the Kikusui recorder stops polling and writes one
     `status=off` row (no LAN-lost warnings, no retries every 5 s); an ion
     gauge declared off keeps its raw volts in the file but its converted
