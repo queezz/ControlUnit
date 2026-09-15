@@ -437,9 +437,14 @@ class MainApp(QtCore.QObject, UIWindow):
 
     def _start_kikusui_logging(self):
         """Optional telemetry; a missing/broken LAN must not stop manual acquisition."""
-        if self._kikusui_logger is not None:
-            self.log_message("Kikusui recording unavailable: previous logger is still stopping")
-            return
+        previous = self._kikusui_logger
+        if previous is not None:
+            if previous.thread.is_alive():
+                self.log_message("Kikusui recording unavailable: previous logger is still stopping")
+                return
+            # A stop that outlived its wait has since finished on its own; the
+            # stale reference must not block every later run of this session.
+            self._kikusui_logger = None
         try:
             config = load_kikusui_config()
             if config is None:

@@ -1,3 +1,7 @@
+## 4.17.1 — 2026-09-15
+
+- A Kikusui recorder whose stop outlived its 1.5 s wait left its reference behind, so every later Start of that GUI session refused with "previous logger is still stopping" although the thread had ended moments later. Start now checks whether that thread is actually alive and clears the stale reference when it is not. Recording, LAN loss and shutdown order are unchanged.
+
 ## 4.17.0 — 2026-09-14
 
 - Give measured Kikusui filament voltage and current full WebUI readout cards in all three modes, with small/big sizing, an independently remembered fold and recording/output status. Remove the unwired analog Cv placeholder from the manual cathode measured-voltage display.

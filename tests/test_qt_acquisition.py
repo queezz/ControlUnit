@@ -206,6 +206,52 @@ def test_dummy_kikusui_records_with_the_run_and_stops_after_hardware(qt_app, hom
         widget.abort_all_threads()
 
 
+def test_a_slow_kikusui_stop_does_not_block_the_next_run(qt_app, home, monkeypatch):
+    """A stop that outlives its wait keeps the reference; once that thread has
+    actually ended, the next Start records again instead of refusing forever."""
+    from controlunit.devices.kikusui import ReadOnlyClient
+    from controlunit.main import MainApp
+
+    config = home / ".controlunit"
+    config.mkdir()
+    (config / "kikusui.yml").write_text("dummy: true\ninterval_s: 0.1\n")
+    monkeypatch.setattr(ReadOnlyClient, "__init__", lambda *args: pytest.fail("real PSU access"))
+    widget = MainApp(qt_app)
+    try:
+        widget.start_acquisition()
+        first = widget._kikusui_logger
+        assert first is not None
+
+        def slow_stop():
+            first.stopping.set()
+            first.client.close()
+            return False  # The wait ran out before the thread ended.
+
+        monkeypatch.setattr(first, "stop", slow_stop)
+        widget.stop_acquisition()
+        assert widget._kikusui_logger is first
+
+        # While the old thread is genuinely alive a new recorder is refused.
+        # Its own patch context: undoing the test's monkeypatch would also
+        # undo the redirected home and read the owner's own configuration.
+        with pytest.MonkeyPatch.context() as alive:
+            alive.setattr(first.thread, "is_alive", lambda: True)
+            widget.start_acquisition()
+            assert widget._kikusui_logger is first
+            widget.stop_acquisition()
+        first.thread.join(2)
+        assert not first.thread.is_alive()
+
+        widget.start_acquisition()
+        second = widget._kikusui_logger
+        assert second is not None and second is not first
+        assert second.thread.is_alive()
+        widget.stop_acquisition()
+        assert widget._kikusui_logger is None
+    finally:
+        widget.abort_all_threads()
+
+
 def test_dummy_hardware_refuses_a_real_kikusui_config(qt_app, home, monkeypatch):
     from controlunit.devices.kikusui import ReadOnlyClient
     from controlunit.main import MainApp
