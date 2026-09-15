@@ -1,3 +1,9 @@
+## 4.20.0 — 2026-09-15
+
+- The cathode supply's current is a curve on the Plasma current chart, `Ic`, in the cathode's orange on its own right-hand axis in amperes, with its own legend pill, on in the All and Plasma presets (queezz: "add cathode current to the current plot. So it'll be obvious when plasma is on... Is it the Hall sensor drifting or the plasma died"). Its points ride the sidecar's own timestamps in a second ring beside the ADC samples; a stale snapshot never repeats a point, and sample counts stay the ADC's.
+- The Plasma current chart's legend carries a scale choice — auto, 0–1 A, 0–3 A — remembered per browser, so a steady discharge reads as a line and not as its noise (queezz: "plasma current when constant shows the noise instead of 0-1 or 0-3 A. Need some axis control").
+- The cathode's colour is one constant, read by the server, the main thread and the stylesheet alike.
+
 ## 4.19.5 — 2026-09-15
 
 - On the rig's screen Pu2 takes its place in the value browser's small row beside Pu and Pd, and the cathode supply's measured volts and amperes join that row as Uc and Ic in the cathode's orange (dashes while the telemetry is not fresh, a SIM mark on dummy data); the two Kikusui lines leave the Cathode dock, so the Scales dock beneath is no longer clipped. The two gauge rows are one row.

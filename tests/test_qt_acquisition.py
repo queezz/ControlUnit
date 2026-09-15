@@ -311,3 +311,47 @@ def test_kikusui_display_clears_numbers_on_loss(qt_app, home):
         assert "Uc·SIM = 0.000" in widget.control_dock.valueBw.toPlainText()
     finally:
         widget.abort_all_threads()
+
+def test_the_cathode_curve_is_recorded_only_from_a_fresh_sidecar_row(qt_app, home):
+    """The `Ic` curve the Live page draws is fed here, on the main thread,
+    from the recorder's own snapshot (owner ask 2026-09-15, "we need to add
+    cathode current to the current plot").
+
+    Three rules, all because this is a LAN reading and not an ADC sample:
+    only `ok` and `dummy` carry measurements, so nothing else is recorded; a
+    point is stamped with the sidecar row's own time rather than this
+    moment; and a snapshot republished unchanged — which the 500 ms display
+    timer does whenever the 2 Hz recorder has not written a new row — never
+    lays the same point down twice.
+    """
+    import datetime
+
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        first = datetime.datetime(2026, 9, 15, 21, 40, 3, tzinfo=datetime.timezone.utc)
+        second = first + datetime.timedelta(seconds=0.5)
+        fresh = {"status": "ok", "voltage_v": 2.4, "current_a": 12.0,
+                 "output_on": 1, "date": first.isoformat()}
+        widget._publish_kikusui(dict(fresh))
+        widget._publish_kikusui(dict(fresh))          # the same row, looked at again
+        widget._publish_kikusui({"status": "unavailable", "date": second.isoformat()})
+        widget._publish_kikusui({"status": "stale"})
+        widget._publish_kikusui(dict(fresh, current_a=12.5, date=second.isoformat()))
+        # A fresh row with no timestamp at all is not guessed a time for.
+        widget._publish_kikusui({"status": "ok", "voltage_v": 2.4, "current_a": 99.0,
+                                 "output_on": 1})
+
+        body = widget.web_status.series(window_seconds=0)
+        assert body["channels"]["Ic"] == [
+            [first.timestamp(), 12.0], [second.timestamp(), 12.5]
+        ]
+        assert body["channels"]["Uc"] == [
+            [first.timestamp(), 2.4], [second.timestamp(), 2.4]
+        ]
+        # And none of it is an ADC sample.
+        assert body["count"] == 0
+        assert widget.web_status.read()["samples"] == 0
+    finally:
+        widget.abort_all_threads()

@@ -29,6 +29,13 @@
   --accent: #e0a63a;
   --accent-wash: rgba(224, 166, 58, 0.14);
 
+  /* The cathode supply's own colour, the one hue no ADC pen wears. The
+     markup carries the same value from `CATHODE_PEN` in
+     `controlunit/web/status.py`, which is also what the Qt window's value
+     browser and the `Ic` curve's right-hand axis are drawn in; a test holds
+     this declaration and that constant equal. */
+  --cathode-pen: #ff6b35;
+
   --live: #5cbf8f;
   --live-wash: rgba(92, 191, 143, 0.13);
   --warn: #e0b04a;
@@ -1259,8 +1266,8 @@ dl.facts dd.wide { margin-top: -2px; }
 /* The cathode's own colour, one for its control card, its readout cards and
    its curves (queezz, 2026-09-15: "cathode display digits, cathode curves,
    and cathode control card should share the color"): the orange no ADC pen
-   wears, the same #ff6b35 the readout strip sets. */
-.control-workspace #sec-plasma { border-left: 3px solid #ff6b35; padding-left: 8px; }
+   wears, the same one the readout strip and the `Ic` curve set. */
+.control-workspace #sec-plasma { border-left: 3px solid var(--cathode-pen); padding-left: 8px; }
 .control-workspace #sec-gauge { border-left: 3px solid var(--accent); padding-left: 8px; }
 .control-workspace [data-role="gauge-range"] { padding: 3px; font-size: 0.78rem; }
 .gauge-settings[open] > summary .mono { display: none; }

@@ -19,6 +19,8 @@ request succeeded.
 """
 
 import collections
+import datetime
+import math
 import sys
 import threading
 import time
@@ -53,6 +55,95 @@ MAX_POINTS = 3000
 #: The channels whose baseline the screen, the plots and the web subtract.
 #: The CSV on disk is never adjusted; a zero is a way of reading, not data.
 ZERO_CHANNELS = ("Ip", "Bu", "Bd")
+
+#: Series this rig does not sample itself. The cathode supply is read over
+#: the LAN by a sidecar recorder on its own clock, at about 2 Hz, and its
+#: rows are stamped by that recorder — so these live beside the ADC ring in
+#: their own time base rather than being squeezed into the ADC's one time
+#: list. `Ic` is the filament current the Plasma current panel draws beside
+#: `Ip` (owner ask 2026-09-15: "so it'll be obvious when plasma is on… is it
+#: the Hall sensor drifting or the plasma died"); `Uc` is recorded beside it
+#: and drawn nowhere yet.
+#:
+#: They are never counted as ADC samples: the run's sample count, its
+#: cadence and the freshness clock are all written by `record_samples` and
+#: nothing here touches them.
+SIDECAR_SERIES = ("Ic", "Uc")
+
+#: The cathode supply's own colour, written once for every surface that
+#: wears it: the two readout cards and their folded entries, the Cathode
+#: control card's edge, the `Ic` curve and its own right-hand axis, and the
+#: Qt window's value browser (queezz, 2026-09-15: "cathode display digits,
+#: cathode curves, and cathode control card should share the color").
+#:
+#: It lives here because this is the one module the Qt main thread and the
+#: Flask thread both import and which imports neither PyQt nor Flask. The
+#: stylesheet carries the same value once, as `--cathode-pen`; a test holds
+#: the two equal.
+CATHODE_PEN = "#ff6b35"
+
+
+def sidecar_epoch(text):
+    """Epoch seconds from a sidecar row's own ISO timestamp, or `None`.
+
+    The Kikusui recorder stamps every row with its local receipt time and a
+    UTC offset (`datetime.now().astimezone().isoformat()`), so the stamp a
+    point is plotted at is the moment the supply answered rather than the
+    moment the GUI happened to look at the snapshot 500 ms later.
+    """
+    if isinstance(text, (int, float)):
+        return float(text) if math.isfinite(float(text)) else None
+    try:
+        moment = datetime.datetime.fromisoformat(str(text))
+    except (TypeError, ValueError):
+        return None
+    if moment.tzinfo is None:
+        moment = moment.astimezone()
+    return moment.timestamp()
+
+
+def _cut(times, values, newest, window_seconds, since):
+    """One time base's tail: by `since` if given, else by a window.
+
+    The walk is backwards from the newest entry and stops at the first one
+    outside the question, so twenty seconds costs twenty seconds' worth of
+    rows however long the ring has grown. `newest` is the reference the
+    window is measured back from — shared between the time bases, so one
+    window means one span of wall clock on all of them.
+    """
+    if not times:
+        return [], []
+    if since is not None:
+        mark = float(since)
+        kept = 0
+        for stamp in reversed(times):
+            if stamp <= mark:
+                break
+            kept += 1
+    elif window_seconds and window_seconds > 0:
+        cutoff = float(newest) - float(window_seconds)
+        kept = 0
+        for stamp in reversed(times):
+            if stamp < cutoff:
+                break
+            kept += 1
+    else:
+        return list(times), list(values)
+    if not kept:
+        return [], []
+    return list(times[len(times) - kept:]), list(values[len(values) - kept:])
+
+
+def _thin(count, max_points):
+    """Which indices of a `count`-long run to answer with: every `skip`-th
+    one plus the last, the same arithmetic the Qt graph uses."""
+    skip = 1
+    if max_points and count > max_points:
+        skip = -(-count // int(max_points))
+    picked = list(range(0, count, skip))
+    if picked and picked[-1] != count - 1:
+        picked.append(count - 1)
+    return picked
 
 DATA_LIVE = "live"
 DATA_STALE = "stale"
@@ -97,6 +188,19 @@ class RigStatus:
         # the times alone, backwards from the newest.
         self._times = collections.deque(maxlen=MAX_SAMPLES)
         self._rows = collections.deque(maxlen=MAX_SAMPLES)
+
+        # A second, smaller ring for the series the rig does not sample
+        # itself. Each carries its own times, because the sidecar recorder
+        # keeps its own clock and its own cadence: one time list for every
+        # channel was only ever true while every channel came from one ADC
+        # step. `series()` answers these by name like any other.
+        self._side = {
+            name: (
+                collections.deque(maxlen=MAX_SAMPLES),
+                collections.deque(maxlen=MAX_SAMPLES),
+            )
+            for name in SIDECAR_SERIES
+        }
 
         self._setpoints = {
             "mfc1_v": 0.0,
@@ -178,6 +282,9 @@ class RigStatus:
             self._samples = 0
             self._times.clear()
             self._rows.clear()
+            for times, column in self._side.values():
+                times.clear()
+                column.clear()
             self._latest = {}
             self._last_sample_at = None
 
@@ -207,6 +314,50 @@ class RigStatus:
             self._last_sample_at = self._clock()
             self._trim()
 
+    def record_sidecar(self, stamp, values):
+        """Append one reading of a series the rig does not sample itself.
+
+        `stamp` is that reading's *own* epoch seconds — the sidecar row's
+        timestamp, not the moment the main thread looked at it — and
+        `values` maps a name in `SIDECAR_SERIES` to its number.
+
+        A stamp that is not newer than the last one held for that series is
+        dropped, so a snapshot republished unchanged (the GUI reads the
+        recorder's snapshot every 500 ms and the recorder writes a row every
+        500 ms on its own clock) never lays down the same point twice.
+
+        Returns whether anything was written, so a caller can say so.
+        Nothing here touches the sample count, the latest values or the
+        freshness clock: those are the ADC's facts and a LAN reading is not
+        an ADC sample.
+        """
+        try:
+            moment = float(stamp)
+        except (TypeError, ValueError):
+            return False
+        if not math.isfinite(moment):
+            return False
+        wrote = False
+        with self._lock:
+            for name, value in (values or {}).items():
+                if name not in self._side:
+                    continue
+                times, column = self._side[name]
+                if times and moment <= times[-1]:
+                    continue
+                try:
+                    number = float(value)
+                except (TypeError, ValueError):
+                    continue
+                if not math.isfinite(number):
+                    continue
+                times.append(moment)
+                column.append(number)
+                wrote = True
+            if wrote:
+                self._trim_sidecar()
+        return wrote
+
     def _trim(self):
         """Drop what is older than the window the ring promises to keep."""
         if not self._times:
@@ -215,6 +366,18 @@ class RigStatus:
         while self._times and self._times[0] < oldest_kept:
             self._times.popleft()
             self._rows.popleft()
+
+    def _trim_sidecar(self):
+        """The same promise for the sidecar series, each against its own
+        newest: a supply that stops answering keeps the history it has
+        rather than having it cut back by an ADC that is still running."""
+        for times, column in self._side.values():
+            if not times:
+                continue
+            oldest_kept = times[-1] - self._keep_seconds
+            while times and times[0] < oldest_kept:
+                times.popleft()
+                column.popleft()
 
     def record_setpoints(self, **setpoints):
         """Record the setpoints the rig currently holds, by name."""
@@ -340,59 +503,66 @@ class RigStatus:
         an hour costs the Pi the few rows that arrived since it last asked
         rather than the hour it already has. Nothing newer is an empty
         answer, not an error. `since` wins over `window_seconds`.
+
+        A sidecar series (`SIDECAR_SERIES`) is answered by name exactly like
+        an ADC channel, cut by the same walk and thinned by the same
+        arithmetic — but against its own times, because the recorder that
+        writes it keeps its own clock. `count` stays the ADC sample count:
+        a LAN reading is not a sample, and the span line that says how many
+        samples a window holds must not be inflated by one.
         """
         with self._lock:
-            if not self._times:
+            side_names = [name for name in SIDECAR_SERIES if self._side[name][0]]
+            if not self._times and not side_names:
                 return {"from": None, "to": None, "count": 0, "channels": {}}
-            if since is not None:
-                mark = float(since)
-                times = []
-                rows = []
-                walk = zip(reversed(self._times), reversed(self._rows))
-                for stamp, row in walk:
-                    if stamp <= mark:
-                        break
-                    times.append(stamp)
-                    rows.append(row)
-                times.reverse()
-                rows.reverse()
-                if not times:
-                    return {
-                        "from": None,
-                        "to": None,
-                        "count": 0,
-                        "channels": {},
-                    }
-            elif window_seconds and window_seconds > 0:
-                cutoff = self._times[-1] - float(window_seconds)
-                times = []
-                rows = []
-                for stamp, row in zip(reversed(self._times), reversed(self._rows)):
-                    if stamp < cutoff:
-                        break
-                    times.append(stamp)
-                    rows.append(row)
-                times.reverse()
-                rows.reverse()
+            # One reference for every window cut, so a 20 s window means the
+            # same twenty seconds on both time bases.
+            newest = self._times[-1] if self._times else None
+            for name in side_names:
+                last = self._side[name][0][-1]
+                if newest is None or last > newest:
+                    newest = last
+            times, rows = _cut(
+                list(self._times), list(self._rows), newest, window_seconds, since
+            )
+            side = {}
+            for name in side_names:
+                side_times, side_values = self._side[name]
+                side[name] = _cut(
+                    list(side_times), list(side_values), newest, window_seconds, since
+                )
+            # Nothing above is written again once it is in the ring, so the
+            # rest of this can be done without holding the lock.
+            if names:
+                wanted = list(names)
             else:
-                times = list(self._times)
-                rows = list(self._rows)
-            # A row is never written again once it is in the ring, so the rest
-            # of this can be done without holding the lock.
-            wanted = list(names) if names else list(self._names or rows[-1].keys())
+                wanted = list(self._names)
+                if not wanted and rows:
+                    wanted = list(rows[-1].keys())
+                wanted += [name for name in side_names if name not in wanted]
         count = len(times)
-        skip = 1
-        if max_points and count > max_points:
-            skip = -(-count // int(max_points))
-        picked = list(range(0, count, skip))
-        if picked and picked[-1] != count - 1:
-            picked.append(count - 1)
+        picked = _thin(count, max_points)
         channels = {}
         for name in wanted:
+            if name in side:
+                side_times, side_values = side[name]
+                chosen = _thin(len(side_times), max_points)
+                channels[name] = [[side_times[i], side_values[i]] for i in chosen]
+                continue
             channels[name] = [
                 [times[i], rows[i].get(name)] for i in picked if name in rows[i]
             ]
-        return {"from": times[0], "to": times[-1], "count": count, "channels": channels}
+        first, last = None, None
+        for stamps in [times] + [pair[0] for pair in side.values()]:
+            if not stamps:
+                continue
+            if first is None or stamps[0] < first:
+                first = stamps[0]
+            if last is None or stamps[-1] > last:
+                last = stamps[-1]
+        if first is None:
+            return {"from": None, "to": None, "count": 0, "channels": {}}
+        return {"from": first, "to": last, "count": count, "channels": channels}
 
     def log_since(self, seq=0):
         """Every kept log line after sequence number `seq`, oldest first."""

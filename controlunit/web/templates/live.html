@@ -7,7 +7,7 @@
 {% block content %}
 {% set fence_closed = state.fence.needed and not state.fence.passed %}
 <div class="page control-workspace" id="control" data-live data-actor="{{ actor }}"
-     data-default-window="{{ default_window }}" data-pens='{{ pens | tojson }}'>
+     data-default-window="{{ default_window }}" data-pens='{{ curve_pens | tojson }}'>
     {# The one mode switch on the page. It is moved between the places a mode
        actually leaves on the screen (live.js, `modeSwitchHost`) and never
        copied, so there is exactly one of these in the document and pressing

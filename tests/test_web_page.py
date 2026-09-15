@@ -140,6 +140,54 @@ def test_the_scales_card_offers_an_axis_for_each_panel(live):
         assert 'data-scale-{}="lin"'.format(axis) in chart
 
 
+def test_the_plasma_panel_draws_the_cathode_current_on_its_own_axis(live):
+    """queezz, 2026-09-15: "We need to add cathode current to the current
+    plot. So it'll be obvious when plasma is on... Is it the Hall sensor
+    drifting or the plasma died."
+
+    `Ic` is a curve of the plasma panel like Ip, with its own legend pill in
+    the cathode's own colour — and on the panel's own right-hand axis,
+    because a filament current of tens of amperes against tenths of an
+    ampere of plasma current on one scale is Ip flat on the floor."""
+    from controlunit.web.status import CATHODE_PEN
+
+    chart = live[live.index('aria-label="Plasma current, A"'):]
+    chart = chart[: chart.index("</details>")]
+    assert 'data-channels="Ip,Ic"' in chart
+    assert 'data-right-axis="Ic"' in chart
+    assert 'data-channel="Ic"' in chart
+    pill = chart[chart.index('data-channel="Ic"'):]
+    pill = pill[: pill.index("</button>")]
+    assert "--pen: {}".format(CATHODE_PEN) in pill
+    # The other two panels keep one axis, and no Zero button appears for a
+    # channel the rig does not take a baseline of.
+    assert "data-right-axis" not in live[live.index('id="chart-ig"'):]
+    assert 'data-zero="Ic"' not in live
+    # The canvas draws from the pen table the page carries, so the curve and
+    # its legend pill cannot wear two different colours.
+    assert '["Ic", "{}"]'.format(CATHODE_PEN) in live
+
+
+def test_the_plasma_chart_carries_its_own_scale_choice(live):
+    """queezz, 2026-09-15: "plasma current when constant shows the noise
+    instead of 0-1 or 0-3 A. Need some axis control, if possible." It sits in
+    the chart's own legend row beside the curve pills, in the same shape the
+    pressure panels' log/lin pair wears — which is where WEBUI.md's 2026-09-07
+    amendment allows a control over that chart's own axis to live."""
+    chart = live[live.index('aria-label="Plasma current, A"'):]
+    chart = chart[: chart.index("</details>")]
+    for choice, label in (("auto", "auto"), ("0-1", "0–1 A"), ("0-3", "0–3 A")):
+        assert 'data-scale-plasma="{}"'.format(choice) in chart
+        assert ">{}</button>".format(label) in chart
+    # It stands in the legend row, not in a rail card away from the chart.
+    legend = chart[chart.index('class="pen-legend"'):]
+    for choice in ("auto", "0-1", "0-3"):
+        assert 'data-scale-plasma="{}"'.format(choice) in legend
+    compact = " ".join(live.split())
+    assert 'data-scale-plasma="auto" aria-pressed="true"' in compact
+    assert compact.count('data-scale-plasma=') == 3
+
+
 def test_live_offers_the_smoothing_the_current_needs(live):
     """The median remains a single choice affecting curves and readouts."""
     assert 'class="rail-label">Median<' in live
@@ -213,9 +261,18 @@ def test_the_cathode_supply_is_two_more_cards_of_the_one_strip(client, live):
     for taken in ("#8d3de3", "#c9004d", "#3b82f6", "#6ac600", "#ffb405",
                   "#00a3af", "#b48ae9", "#8a4be4"):
         assert taken != "#ff6b35"
-    # It is the cathode cards' colour and nothing else's on the page.
-    assert live.count("#ff6b35") == 4  # two cards and their two fold entries
+    # It is the cathode's colour and nothing else's on the page: the two
+    # cards, their two folded entries, and — since the Kikusui current became
+    # a curve — the `Ic` pill in the plasma chart's legend and the two
+    # entries of the pen table the canvas draws from.
+    assert live.count("#ff6b35") == 7
+    # And it is one constant, not a colour typed in five places.
+    from controlunit.web.status import CATHODE_PEN
+    assert CATHODE_PEN == "#ff6b35"
     css = client.get("/static/css/controlunit.css").get_data(as_text=True)
+    assert "--cathode-pen: {};".format(CATHODE_PEN) in css
+    # The stylesheet names the variable rather than repeating the value.
+    assert css.count(CATHODE_PEN) == 1
     for gone in ("kikusui-panel", "kikusui-readouts", "data-kikusui-readout",
                  "kikusui-status", "kikusui-fold"):
         assert gone not in live, gone

@@ -21,6 +21,7 @@ main thread keeps up to date from methods it already runs:
 | --- | --- |
 | `create_file` | a new run: the data file's name, the ring emptied |
 | `_adc_step` | the samples that step delivered, converted and zero-adjusted as the screen shows them |
+| `_publish_kikusui` | the cathode supply's latest snapshot, and — from a fresh one only, at the sidecar row's own timestamp — the `Ic` and `Uc` points the plasma chart draws |
 | `log_message` | one message-log line, tags stripped |
 | `update_current_values`, the plasma and gauge setters | the setpoints the rig holds |
 | `start_acquisition`, `stop_acquisition`, `abort_all_threads` | whether acquisition runs |
@@ -189,7 +190,7 @@ a credential; the data file appears by name only.
 | `GET /api/neighbours?fresh=1` | the same, with the cached answer thrown away first: every row comes back `checking` and the probe runs behind the reply, so the press never waits for the LAN |
 | `GET /api/roster` | `{"names": [...]}` — the lab's operator names this machine holds a copy of, empty when it holds none |
 | `GET /api/state` | latest values, setpoints, run facts, freshness, what the rig is doing (`operating: {state, outputs}`), the Remote switch, the zeros, who has control, whether this machine asks for the lab's word and whether this browser has typed it (`fence`), when this machine's copy of the roster last refreshed (`roster`, or `null` for never), and the last command; polled once a second, or four times a second under Poll: fast |
-| `GET /api/series?window=300&points=600` | thinned `[t, v]` pairs per channel over the last `window` seconds, `0` for all held |
+| `GET /api/series?window=300&points=600` | thinned `[t, v]` pairs per channel over the last `window` seconds, `0` for all held; `Ic` and `Uc` are answered here by name like any ADC channel |
 | `GET /api/series?since=1757200000&points=3000` | the same, but only samples strictly newer than that stamp; `since` wins over `window` |
 
 A window is cut by walking the ring backwards from the newest sample and
@@ -207,6 +208,38 @@ afternoon costs the Pi the handful of rows that arrived since it last asked,
 rather than the afternoon it already holds. Nothing newer is an empty answer,
 not an error. The reply carries both `window` and `since` back, so a reader
 of the response can tell which question was asked.
+
+**Two time bases, one answer.** Not every series in the ring comes from an
+ADC step. The cathode supply is read by the sidecar recorder over the LAN, on
+its own clock at about 2 Hz, and each of its rows carries its own timestamp —
+so `RigStatus` keeps those series (`SIDECAR_SERIES`: `Ic`, the measured
+filament current, and `Uc`, its voltage, recorded and drawn nowhere yet) in
+their own time base beside the ADC rows rather than squeezing them into the
+one time list every ADC channel shares. `series()` answers them by name like
+any other channel, cut by the same `since` walk or the same window — measured
+back from one shared reference, so a window means one span of wall clock on
+both bases — and thinned by the same arithmetic. The reply's `from` and `to`
+span everything it carries, so a browser's `since` advances with whichever
+source spoke last.
+
+**`count` stays the ADC's own.** A reading taken over a LAN is not a sample of
+this rig, so the reply's `count`, the run's `samples`, the freshness clock and
+the latest values are all written by `record_samples` and by nothing else: two
+hertz of cathode readings can neither inflate the number that says how fast
+the rig is sampling nor hide a reader that has stopped delivering. The Live
+tab keeps the same separation — its span line says "N samples" for the ADC
+curves and names cathode readings apart when they are the only thing drawn.
+
+The main thread writes those points in `_publish_kikusui` → `_record_cathode_curve`
+(`main.py`), on the same 500 ms display timer that already refreshes the
+supply's readouts. Two rules hold there: only a **fresh** snapshot is recorded
+— `ok` or `dummy`, the two states that carry measurements at all, so nothing
+stale, unavailable or refused is ever laid down as a point — and the point is
+stamped with the sidecar row's **own** ISO date parsed to epoch seconds
+(`sidecar_epoch`), never with the moment the GUI happened to look. The ring
+then drops any stamp that is not newer than the last one held for that series,
+so a snapshot republished unchanged between two recorder rows never repeats a
+point. A new run empties these series with the rest of the ring.
 | `GET /api/log?since=N` | log lines after sequence number `N` |
 | `POST /api/identify` | `{"name": "..."}` — remember, in this browser, the name to write beside a command |
 | `POST /api/fence` | `{"word": "..."}` — the lab's word; `200 {"fenced": true}` and a cookie when it matches, `200 {"fenced": false}` where this machine has no word, `403` when it does not match |
@@ -240,6 +273,9 @@ measured, and a readout with a baseline held says `zeroed` beside its name.
 - **Live** — the five signals the rig's own graph draws, in its own pen
   colours, as readouts and three canvas strip charts: plasma current, the
   ion gauges (log axis by default) and the Baratrons (linear by default).
+  The plasma panel draws two curves: `Ip` on its left axis and `Ic`, the
+  cathode supply's measured filament current, on its own right-hand axis —
+  see *The plasma panel's two axes* below.
   Two pressure panels rather than one, because one axis could not serve both
   kinds of gauge: the ion gauges cross decades, the Baratrons sit in a narrow
   band around their own offset, and drawn together neither was readable
@@ -267,6 +303,45 @@ measured, and a readout with a baseline held says `zeroed` beside its name.
     (2026-09-07: "all the little toggles on the Live view, hard to find the
     one I need"). A switch beside its own curve needs no hunting, and the
     choice is still remembered per browser.
+
+    **The plasma panel's two axes.** `Ic` joined `Ip` there on the owner's
+    ask (2026-09-15: *"We need to add cathode current to the current plot.
+    So it'll be obvious when plasma is on… Is it the Hall sensor drifting or
+    the plasma died."*). It is a curve like any other — its own legend pill,
+    its own switch, remembered per browser — in the cathode's own colour,
+    `CATHODE_PEN` in `controlunit/web/status.py`, which is the one place that
+    colour is written for the readout cards, the Cathode control card's edge,
+    this curve, its axis and the Qt window's value browser; the stylesheet
+    carries it once as `--cathode-pen` and a test holds the two equal.
+
+    It is drawn against the panel's **own right-hand axis**, named in
+    `RIGHT_AXIS` in `server.py` and carried to the canvas as
+    `data-right-axis`. Filament current runs to tens of amperes and plasma
+    current to tenths of one: on a single axis Ip would be a flat line on the
+    floor, which is the very reading the second curve exists to make legible.
+    The right axis carries its own ticks, its own rule and its own labels, all
+    in the cathode colour so it is obvious which number belongs to which
+    line, and it draws no grid of its own — the grid is the left axis's. It
+    reserves its column of labels only while a curve is actually on it. A
+    curve on that axis is never collapsed as `flat`: collapsing exists so one
+    motionless line cannot flatten the others sharing an axis, and a curve
+    with an axis to itself shares none — a filament holding steady is exactly
+    what the reader is looking for.
+
+    **The plasma panel's left axis has a scale choice**, in its legend row
+    beside the curve pills, in the same shape the pressure panels' log/lin
+    pair wears — which is what `WEBUI.md`'s 2026-09-07 amendment allows a
+    chart's legend to carry besides its curve switches. `auto | 0–1 A | 0–3 A`
+    (`PLASMA_SCALES` in `server.py`), from the owner's second ask the same
+    evening: *"The plots on WebUI… Hard to read. I.e. plasma current when
+    constant shows the noise instead of 0–1 or 0–3 A. Need some axis control,
+    if possible."* Autoscaled, a steady 0.79 A discharge fills the panel with
+    ±0.02 A of noise. The two fixed choices pin the left axis to exactly that
+    range with zero at the bottom; a negative unzeroed Ip simply sits below
+    the floor and is clipped to the plot area, which is honest. `Ic`'s right
+    axis autoscales on its own through all three, and nothing recorded
+    changes. The choice is remembered per browser in the same
+    `controlunit.live` store as the other view choices.
 
     **A curve that says nothing is left off its panel, and says why.** A
     switched-off curve reads `off`; one with nothing in the window reads
@@ -350,10 +425,12 @@ measured, and a readout with a baseline held says `zeroed` beside its name.
     switches described above and nothing more: it changes what this browser
     draws, never one byte of what the rig records, and it is remembered the
     same way the switches are. **Vacuum** shows both ion gauges and both
-    Baratrons and turns the current off; **Plasma** shows the current and the
-    two Baratrons, which are what read the gas pressure a discharge actually
-    sits at, and turns the ion gauges off — a vacuum instrument, off scale or
-    switched off by then. Which preset is pressed is *derived* from the
+    Baratrons and turns both currents off; **Plasma** shows the plasma
+    current, the cathode's filament current and the two Baratrons, which are
+    what read the gas pressure a discharge actually sits at, and turns the ion
+    gauges off — a vacuum instrument, off scale or switched off by then.
+    **All** carries every curve, `Ic` included. `Ic` is in the two presets a
+    discharge is watched from and out of Vacuum, where the cathode is cold. Which preset is pressed is *derived* from the
     switches rather than stored beside them, so turning one curve off by hand
     simply leaves no preset claimed. A panel whose every curve is off keeps
     its heading and its legend and gives up only its drawing area, so the

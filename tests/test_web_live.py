@@ -292,6 +292,124 @@ def test_an_unknown_setpoint_name_is_ignored():
     assert "nonsense" not in status.read()["setpoints"]
 
 
+# -- the sidecar series -------------------------------------------------------
+#
+# The cathode supply is not an ADC channel: a separate recorder reads it over
+# the LAN on its own clock at about 2 Hz and stamps every row itself, while
+# the GUI looks at that recorder's snapshot on a 500 ms timer. So the ring
+# keeps these series in their own time base beside the ADC rows, and nothing
+# about them may be mistaken for a sample of the rig's own.
+
+
+def test_a_sidecar_series_keeps_its_own_times_beside_the_adc_rows():
+    status = rig()
+    status.record_samples([1.0, 2.0], {name: [1.0, 2.0] for name in NAMES})
+    # Four readings on the recorder's own clock, none of them an ADC step.
+    for offset, amps in ((0.4, 11.0), (0.9, 11.5), (1.4, 12.0), (1.9, 12.5)):
+        assert status.record_sidecar(1.0 + offset, {"Ic": amps, "Uc": 2.4})
+    body = status.series(window_seconds=0)
+    assert body["channels"]["Ic"] == [
+        [1.4, 11.0], [1.9, 11.5], [2.4, 12.0], [2.9, 12.5]
+    ]
+    assert body["channels"]["Ip"] == [[1.0, 1.0], [2.0, 2.0]]
+    assert body["channels"]["Uc"] == [[t, 2.4] for t in (1.4, 1.9, 2.4, 2.9)]
+    # The span covers both bases; the sample count is the ADC's alone.
+    assert (body["from"], body["to"]) == (1.0, 2.9)
+    assert body["count"] == 2
+
+
+def test_sidecar_points_are_never_counted_as_adc_samples():
+    """`samples`, the freshness clock and the latest values are the ADC's
+    facts. A reading over a LAN is not one of them, whatever its cadence."""
+    clock = Clock()
+    status = rig(clock=clock)
+    status.set_acquiring(True)
+    status.record_samples([1.0], {name: [1.0] for name in NAMES})
+    before = status.read()
+    clock.now += 60.0
+    for i in range(20):
+        status.record_sidecar(2.0 + i * 0.5, {"Ic": 12.0 + i})
+    after = status.read()
+    assert after["samples"] == before["samples"] == 1
+    assert after["values"] == before["values"]
+    # Sixty seconds with no sample is a stall, and twenty cathode readings
+    # in the middle of it do not hide one.
+    assert after["age"] == pytest.approx(60.0)
+    assert data_state(after) == "stale"
+    assert status.series(window_seconds=0)["count"] == 1
+
+
+def test_a_stale_snapshot_never_repeats_a_sidecar_point():
+    """The GUI republishes the recorder's snapshot every 500 ms whether or
+    not a new row was written, so a stamp that is not newer is dropped."""
+    status = rig()
+    assert status.record_sidecar(10.0, {"Ic": 12.0})
+    assert not status.record_sidecar(10.0, {"Ic": 12.0})
+    assert not status.record_sidecar(9.5, {"Ic": 99.0})
+    assert status.record_sidecar(10.5, {"Ic": 12.5})
+    assert status.series(window_seconds=0)["channels"]["Ic"] == [
+        [10.0, 12.0], [10.5, 12.5]
+    ]
+    # Nothing that is not a number lands either.
+    assert not status.record_sidecar(11.0, {"Ic": None})
+    assert not status.record_sidecar(11.0, {"Ic": float("nan")})
+    assert not status.record_sidecar(float("nan"), {"Ic": 1.0})
+    assert not status.record_sidecar(11.0, {"Ip": 1.0})  # not a sidecar series
+    assert len(status.series(window_seconds=0)["channels"]["Ic"]) == 2
+
+
+def test_since_walks_the_sidecar_series_the_same_way_it_walks_the_ring():
+    status = rig()
+    status.record_samples([1.0, 2.0, 3.0], {name: [1.0, 2.0, 3.0] for name in NAMES})
+    for stamp in (1.5, 2.5, 3.5):
+        status.record_sidecar(stamp, {"Ic": stamp * 10})
+    body = status.series(since=2.0)
+    assert body["channels"]["Ip"] == [[3.0, 3.0]]
+    assert body["channels"]["Ic"] == [[2.5, 25.0], [3.5, 35.0]]
+    assert body["to"] == 3.5
+    # Nothing newer is an empty answer, not an error.
+    empty = status.series(since=body["to"])
+    assert empty["channels"] == {} and empty["count"] == 0
+    # A window is cut from one reference, so it means one span of wall clock
+    # on both time bases.
+    window = status.series(window_seconds=1.2)
+    assert window["channels"]["Ip"] == [[3.0, 3.0]]
+    assert window["channels"]["Ic"] == [[2.5, 25.0], [3.5, 35.0]]
+
+
+def test_a_new_run_empties_the_sidecar_series_with_the_ring():
+    status = rig()
+    status.record_samples([1.0], {name: [1.0] for name in NAMES})
+    status.record_sidecar(1.0, {"Ic": 12.0})
+    status.start_run("cu_20260915_120000.csv")
+    assert status.series(window_seconds=0) == {
+        "from": None, "to": None, "count": 0, "channels": {}
+    }
+    # And the ring answers a sidecar series even with no ADC sample at all.
+    status.record_sidecar(5.0, {"Ic": 13.0})
+    body = status.series(window_seconds=0)
+    assert body["channels"]["Ic"] == [[5.0, 13.0]]
+    assert body["count"] == 0
+
+
+def test_a_sidecar_row_is_plotted_at_its_own_timestamp():
+    """The recorder stamps its rows with local receipt time and an offset;
+    the point belongs at the moment the supply answered, not at the moment
+    the GUI happened to look at the snapshot."""
+    from controlunit.web.status import sidecar_epoch
+
+    import datetime
+
+    moment = datetime.datetime(2026, 9, 15, 21, 40, 3, 500000,
+                               tzinfo=datetime.timezone.utc)
+    assert sidecar_epoch("2026-09-15T21:40:03.500000+00:00") == moment.timestamp()
+    # An offset that is not UTC is still that instant.
+    assert sidecar_epoch("2026-09-16T06:40:03.500000+09:00") == moment.timestamp()
+    assert sidecar_epoch(None) is None
+    assert sidecar_epoch("") is None
+    assert sidecar_epoch("not a date") is None
+
+
 # -- the routes ---------------------------------------------------------------
 
 
@@ -374,6 +492,45 @@ def test_series_carries_the_whole_ring_at_full_resolution(client):
     body = client.get("/api/series?window=0&points=3000").get_json()
     assert body["count"] == 300
     assert len(body["channels"]["Ip"]) == 300
+
+
+def test_series_serves_the_cathode_current_like_any_other_curve(tmp_path):
+    """`Ic` is answered by name, thinned by the same arithmetic and cut by
+    the same `since` walk — against its own times, because the recorder that
+    writes it keeps its own clock."""
+    clock = Clock()
+    status = rig(clock=clock)
+    status.start_run("cu_20260915_120000.csv")
+    status.set_acquiring(True)
+    feed(status, clock.now - 30.0, 300)
+    for i in range(60):
+        status.record_sidecar(clock.now - 30.0 + i * 0.5, {"Ic": 12.0 + i * 0.01,
+                                                           "Uc": 2.4})
+    client = create_app(
+        status=status, board=NeighbourBoard(home=tmp_path / "nowhere")
+    ).test_client()
+
+    body = client.get("/api/series?window=0&points=3000").get_json()
+    assert len(body["channels"]["Ic"]) == 60
+    assert len(body["channels"]["Ip"]) == 300
+    # `count` stays the ADC sample count: 2 Hz of LAN readings must not
+    # inflate the number that says how fast the rig is sampling.
+    assert body["count"] == 300
+
+    body = client.get("/api/series?window=5").get_json()
+    assert all(point[0] >= clock.now - 5.2 for point in body["channels"]["Ic"])
+    assert body["channels"]["Ic"]
+
+    mark = body["to"]
+    status.record_sidecar(mark + 1.0, {"Ic": 13.0})
+    later = client.get("/api/series?since={}".format(mark)).get_json()
+    assert later["channels"]["Ic"] == [[mark + 1.0, 13.0]]
+    assert later["channels"]["Ip"] == []
+    assert later["count"] == 0
+
+    # The same answer thins like any other when it is asked to.
+    thinned = client.get("/api/series?window=0&points=10").get_json()
+    assert len(thinned["channels"]["Ic"]) <= 11
 
 
 def test_log_route_reads_from_a_sequence_number(client):
@@ -724,12 +881,16 @@ def test_escape_leaves_the_drawer_first_and_then_the_mode():
 def test_the_two_presets_are_the_curves_the_work_needs():
     """A preset is a named set of the per-curve switches and nothing else.
     Vacuum is pumping and leak hunting; Plasma is a discharge running, where
-    the Baratrons read the pressure and the ion gauges are off scale."""
+    the Baratrons read the pressure and the ion gauges are off scale.
+
+    `Ic`, the cathode supply's own measured filament current, joins the two
+    presets a discharge is watched from and stays out of Vacuum, where the
+    cathode is cold (owner ask 2026-09-15)."""
     page = _client().get("/").get_data(as_text=True)
     for name, channels in (
-        ("all", "Ip,Pu,Pu2,Pd,Bu,Bd"),
+        ("all", "Ip,Ic,Pu,Pu2,Pd,Bu,Bd"),
         ("vacuum", "Pu,Pu2,Pd,Bu,Bd"),
-        ("plasma", "Ip,Bu,Bd"),
+        ("plasma", "Ip,Ic,Bu,Bd"),
     ):
         button = page[page.index('data-preset="{}"'.format(name)):]
         button = button[:button.index("</button>")]

@@ -489,3 +489,185 @@ test('the sign is written in every state, so a number never jumps', () => {
                    {name: 'Bd', unit: 'Torr', value: 0.004}]});
     assert.equal(Bu.value.innerHTML, '-0.308');
 });
+
+
+/* -- the cathode current on the plasma panel ------------------------------ *
+ *
+ * queezz, 2026-09-15: "We need to add cathode current to the current plot.
+ * So it'll be obvious when plasma is on... Is it the Hall sensor drifting or
+ * the plasma died." And, the same evening, about the panel itself: "plasma
+ * current when constant shows the noise instead of 0-1 or 0-3 A. Need some
+ * axis control, if possible."
+ *
+ * The panel as the page builds it: two curves, one of them on the panel's
+ * own right-hand axis, and the three-way scale choice in the legend row.
+ */
+function plasmaPanel(saved) {
+    const pills = Object.fromEntries(['Ip', 'Ic'].map(name => [name, {
+        dataset: {channel: name}, attrs: {}, listeners: {},
+        setAttribute(key, value) { this.attrs[key] = value; },
+        addEventListener(event, fn) { this.listeners[event] = fn; },
+        querySelector() { return {textContent: ''}; }
+    }]));
+    const legend = {
+        querySelector(selector) { return pills[selector.match(/"(.*?)"/)[1]] || null; },
+        querySelectorAll() { return Object.values(pills); }
+    };
+    const scales = ['auto', '0-1', '0-3'].map(value => ({
+        dataset: {scalePlasma: value}, attrs: {}, listeners: {},
+        setAttribute(key, v) { this.attrs[key] = v; },
+        addEventListener(event, fn) { this.listeners[event] = fn; }
+    }));
+    const canvas = {
+        id: 'chart-plasma',
+        dataset: {channels: 'Ip,Ic', height: '220', rightAxis: 'Ic'},
+        style: {}, clientWidth: 600,
+        parentNode: {classList: {toggle() {}}, querySelector() { return legend; }},
+        getContext() { return new Proxy({}, {get: () => () => {}}); }
+    };
+    const span = {textContent: ''};
+    const root = {
+        classList: {toggle() {}}, dataset: {},
+        querySelector(selector) {
+            return selector.indexOf('span-plasma') !== -1 ? span : null;
+        },
+        querySelectorAll(selector) {
+            if (selector === '[data-channel]') return Object.values(pills);
+            if (selector === '[data-scale-plasma]') return scales;
+            return [];
+        }
+    };
+    let kept = saved;
+    const context = vm.createContext({
+        document: {
+            querySelector(selector) { return selector === '[data-live]' ? root : null; },
+            getElementById(id) { return id === 'chart-plasma' ? canvas : null; },
+            createComment() { return {}; },
+            addEventListener() {},
+            body: {dataset: {}}, documentElement: {}
+        },
+        URL, URLSearchParams,
+        window: {devicePixelRatio: 1, location: {href: 'http://localhost/', search: ''},
+            history: {pushState() {}}, addEventListener() {},
+            setInterval() { return 0; }, clearInterval() {},
+            setTimeout() { return 0; }, clearTimeout() {}},
+        fetch() { throw new Error('a redraw must not reach the rig'); },
+        getComputedStyle() { return {getPropertyValue() { return ''; }}; },
+        localStorage: {
+            setItem(key, value) { kept = value; },
+            getItem() { return kept === undefined ? null : kept; }
+        }
+    });
+    const source = fs.readFileSync(
+        path.join(__dirname, '../controlunit/web/static/js/live.js'), 'utf8');
+    const end = source.indexOf('    if (document.readyState === "loading")');
+    vm.runInContext(source.slice(0, end) +
+        'globalThis.panel = {append, draw, drawAll, setupRails, view, recall, '
+        + 'remember, reflectView};\n}());', context);
+    const api = context.panel;
+    api.recall();
+    /* A steady discharge: 0.79 A with two hundredths of noise on it, and a
+       filament held at about 42 A - the two magnitudes that cannot share one
+       axis. The cathode readings arrive on their own clock, between the
+       samples rather than with them. */
+    api.append({to: 8, channels: {
+        Ip: [[1, 0.78], [3, 0.80], [5, 0.79], [7, 0.80]],
+        Ic: [[1.4, 41.8], [2.4, 42.1], [3.4, 41.9], [4.4, 42.0],
+             [5.4, 42.2], [6.4, 41.7], [7.4, 42.0], [8.0, 41.9]]}});
+    api.setupRails();
+    api.reflectView();
+    api.drawAll();
+    return {api, canvas, pills, scales, span, saved: () => kept};
+}
+
+test('the cathode current is a curve of the plasma panel, on its own axis', () => {
+    const {api, canvas, pills} = plasmaPanel();
+    const drawn = api.draw(canvas, false, null);
+    const [ip, ic] = drawn.series;
+    assert.equal(ip.name, 'Ip');
+    assert.equal(ic.name, 'Ic');
+    assert.equal(ip.right, false);
+    assert.equal(ic.right, true);
+    assert.equal(ic.state, 'drawn');
+    // The left axis is Ip's and nothing else's: tens of amperes of filament
+    // current would otherwise leave the plasma current flat on the floor.
+    assert.ok(drawn.hi < 1, 'the filament current reached the left axis');
+    assert.ok(drawn.lo > 0.7 && drawn.lo < 0.78);
+    // And the right axis is the filament's own.
+    assert.ok(drawn.rlo < 41.8 && drawn.rhi > 42.2);
+    // Both pills are switches like any other curve's.
+    assert.equal(pills.Ic.attrs['aria-pressed'], 'true');
+    pills.Ic.listeners.click();
+    const without = api.draw(canvas, false, null);
+    assert.equal(without.series[1].state, 'off');
+    assert.equal(pills.Ic.dataset.curveState, 'off');
+});
+
+test('a steady filament current is never collapsed as flat', () => {
+    // Collapsing exists so one motionless line cannot flatten the others
+    // sharing an axis. A curve with an axis to itself shares none - and a
+    // filament holding steady is exactly what the reader is looking for.
+    const {api, canvas} = plasmaPanel();
+    api.append({to: 20, channels: {
+        Ip: [[10, 0.2], [12, 0.6], [14, 0.9], [16, 0.4], [18, 0.7], [20, 0.5]],
+        Ic: [[10.4, 42], [12.4, 42], [14.4, 42], [16.4, 42], [18.4, 42], [20.4, 42]]}});
+    const drawn = api.draw(canvas, false, null);
+    assert.equal(drawn.series[1].state, 'drawn');
+    assert.ok(drawn.rhi > drawn.rlo, 'a motionless curve still needs a scale');
+});
+
+test('cathode readings are never counted as ADC samples', () => {
+    // They arrive over a LAN on the recorder's own clock at its own cadence,
+    // so the span line's "samples" must not swell with them.
+    const {api, canvas, span} = plasmaPanel();
+    const drawn = api.draw(canvas, false, null);
+    assert.equal(drawn.count, 4, 'four Ip samples');
+    assert.equal(drawn.extra, 8, 'eight cathode readings, counted apart');
+    assert.match(span.textContent, /4 samples/);
+    assert.ok(!/8 samples/.test(span.textContent));
+});
+
+test('the plasma axis choice pins the left axis and leaves the right alone', () => {
+    const {api, canvas, scales} = plasmaPanel();
+    assert.equal(api.view.plasmaScale, 'auto');
+    const auto = api.draw(canvas, false, null);
+
+    scales[1].listeners.click();   // 0-1 A
+    assert.equal(api.view.plasmaScale, '0-1');
+    assert.equal(scales[1].attrs['aria-pressed'], 'true');
+    assert.equal(scales[0].attrs['aria-pressed'], 'false');
+    const narrow = api.draw(canvas, false, [0, 1]);
+    assert.equal(narrow.lo, 0);
+    assert.equal(narrow.hi, 1);
+
+    scales[2].listeners.click();   // 0-3 A
+    const wide = api.draw(canvas, false, [0, 3]);
+    assert.equal(wide.lo, 0);
+    assert.equal(wide.hi, 3);
+
+    // The cathode's own axis autoscales through all three.
+    for (const drawn of [auto, narrow, wide]) {
+        assert.ok(drawn.rlo < 41.8 && drawn.rhi > 42.2);
+    }
+    // And nothing recorded moved: the choice is the browser's alone.
+    assert.deepEqual(Object.keys(api.view.channels).sort(),
+        ['Bd', 'Bu', 'Ic', 'Ip', 'Pd', 'Pu', 'Pu2']);
+});
+
+test('the plasma axis choice is remembered in this browser and restored', () => {
+    const {api, saved} = plasmaPanel();
+    api.view.plasmaScale = '0-3';
+    api.remember();
+    const store = saved();
+    assert.match(store, /"plasmaScale":"0-3"/);
+
+    // A reload: a fresh page reading the same store.
+    const reloaded = plasmaPanel(store);
+    assert.equal(reloaded.api.view.plasmaScale, '0-3');
+    assert.equal(reloaded.scales[2].attrs['aria-pressed'], 'true');
+    assert.equal(reloaded.scales[0].attrs['aria-pressed'], 'false');
+
+    // Anything the store does not offer falls back to the autoscale.
+    const nonsense = plasmaPanel(JSON.stringify({plasmaScale: '0-9'}));
+    assert.equal(nonsense.api.view.plasmaScale, 'auto');
+});

@@ -32,6 +32,7 @@ from controlunit.web import fence as fence_line
 from controlunit.web import neighbours as neighbourhood
 from controlunit.web import roster as people_list
 from controlunit.web.status import (
+    CATHODE_PEN,
     MAX_POINTS,
     RigStatus,
     SERVICE,
@@ -100,6 +101,11 @@ PENS = (
     ("Bd", "#00a3af"),
 )
 
+#: The colour every drawable curve is drawn in, the six ADC pens plus the
+#: cathode supply's two. The page carries this rather than `PENS`, which is
+#: the readout strip's own list and has six cards in it.
+CURVE_PENS = PENS + (("Ic", CATHODE_PEN), ("Uc", CATHODE_PEN))
+
 #: The three strip charts, each with the channels it draws and how tall it
 #: stands. One list rather than three blocks of markup, so a panel's
 #: channels are named once and its own legend cannot drift from what its
@@ -109,10 +115,36 @@ PENS = (
 #: kinds of gauge — the ion gauges cross decades and want a log axis, the
 #: Baratrons sit in a narrow band and want a linear one.
 PANELS = (
-    ("chart-plasma", "Plasma current, A", ("Ip",), 220, "span-plasma"),
+    ("chart-plasma", "Plasma current, A", ("Ip", "Ic"), 220, "span-plasma"),
     ("chart-ig", "Ion gauges, Torr", ("Pu", "Pu2", "Pd"), 200, "span-ig"),
     ("chart-bar", "Baratrons, Torr", ("Bu", "Bd"), 200, "span-bar"),
 )
+
+#: The curves a panel draws against its own right-hand axis instead of the
+#: panel's left one. The cathode's filament current runs to tens of amperes
+#: while the plasma current sits at tenths of one, so on a single axis Ip is
+#: a flat line at the floor — the very reading the second curve was added to
+#: make legible (owner ask 2026-09-15: "so it'll be obvious when plasma is
+#: on… is it the Hall sensor drifting or the plasma died").
+RIGHT_AXIS = {"chart-plasma": ("Ic",)}
+
+#: The Plasma current panel's own left-axis choice, in its legend row beside
+#: the curve pills, in the same shape the pressure panels' log/lin pair
+#: wears (owner ask 2026-09-15: "plasma current when constant shows the
+#: noise instead of 0–1 or 0–3 A. Need some axis control, if possible").
+#: `auto` is the autoscale this page has always had; the two fixed choices
+#: pin the axis to exactly that range, floor at zero, so a steady 0.79 A
+#: discharge reads as a steady 0.79 A discharge rather than as ±0.02 A of
+#: noise filling the panel. A negative unzeroed reading simply sits below
+#: the floor and is clipped, which is honest. Nothing recorded changes, and
+#: the choice is remembered per browser like every other view choice.
+#: `Ic`'s right-hand axis is not touched by it and autoscales on its own.
+PLASMA_SCALES = (
+    ("auto", "auto"),
+    ("0-1", "0–1 A"),
+    ("0-3", "0–3 A"),
+)
+DEFAULT_PLASMA_SCALE = "auto"
 
 #: What the Live tab shows, as a whole shape rather than a curve at a time
 #: (queezz, 2026-09-07: "Mode. Monitor: plots only, even hide the rails.
@@ -162,10 +194,12 @@ def clean_mode(asked):
 #: is a discharge running: the current, and the Baratrons that read the gas
 #: pressure a discharge actually sits at — the ion gauges are a vacuum
 #: instrument and are off scale or switched off by then.
+#: `Ic` joins the two presets a discharge is watched from and stays out of
+#: Vacuum, which is pumping and leak hunting with the cathode cold.
 PRESETS = (
-    ("all", "All", ("Ip", "Pu", "Pu2", "Pd", "Bu", "Bd")),
+    ("all", "All", ("Ip", "Ic", "Pu", "Pu2", "Pd", "Bu", "Bd")),
     ("vacuum", "Vacuum", ("Pu", "Pu2", "Pd", "Bu", "Bd")),
-    ("plasma", "Plasma", ("Ip", "Bu", "Bd")),
+    ("plasma", "Plasma", ("Ip", "Ic", "Bu", "Bd")),
 )
 
 
@@ -388,8 +422,13 @@ def create_app(
             windows=WINDOWS,
             default_window=DEFAULT_WINDOW,
             pens=PENS,
+            curve_pens=CURVE_PENS,
             panels=PANELS,
-            pen_colour=dict(PENS),
+            pen_colour=dict(CURVE_PENS),
+            cathode_pen=CATHODE_PEN,
+            right_axis=RIGHT_AXIS,
+            plasma_scales=PLASMA_SCALES,
+            default_plasma_scale=DEFAULT_PLASMA_SCALE,
             presets=PRESETS,
             state=page_state(),
             sections=SECTIONS,

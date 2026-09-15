@@ -10,8 +10,12 @@
            Pd's green and Bd's teal, two pens the eye already has to tell
            apart; at 16° the neighbours are Bu's yellow amber and Pu's deep
            pink crimson, and orange is neither of those to look at. Nothing
-           else on this page wears it. #}
-        {% set cathode_pen = '#ff6b35' %}
+           else on this page wears it.
+
+           It is `CATHODE_PEN` in `controlunit/web/status.py` and reaches
+           this template from the route: one value for the two cards here,
+           the `Ic` curve and its right-hand axis, the Cathode control card's
+           edge and the Qt window's own value browser. #}
 
         {# The strip folds like every other card, and folded it is its own
            five numbers on one line, each in its channel's pen — the same
@@ -168,8 +172,29 @@
                             aria-pressed="{{ 'true' if axis == 'bar' else 'false' }}">lin</button>
                 </span>
                 {% endif %}
+                {# The plasma panel's own left axis, in the same place and the
+                   same shape as the pressure panels' log/lin pair — a control
+                   that changes this chart's own axis, which is the one thing
+                   fleet's WEBUI.md lets a legend row carry besides its curve
+                   switches (amendment 2026-09-07).
+
+                   queezz, 2026-09-15: "plasma current when constant shows the
+                   noise instead of 0–1 or 0–3 A. Need some axis control, if
+                   possible." `auto` is the autoscale that does that; the two
+                   fixed ranges pin the axis so a steady discharge reads as
+                   steady. It touches nothing recorded, and `Ic`'s right-hand
+                   axis keeps autoscaling on its own. #}
+                {% if id == 'chart-plasma' %}
+                <span class="chart-scale" role="group" aria-label="Plasma current axis">
+                    {% for value, label in plasma_scales %}
+                    <button type="button" class="choice" data-scale-plasma="{{ value }}"
+                            aria-pressed="{{ 'true' if value == default_plasma_scale else 'false' }}">{{ label }}</button>
+                    {% endfor %}
+                </span>
+                {% endif %}
             </div>
             <canvas id="{{ id }}" height="{{ height }}" data-height="{{ height }}"
-                    data-channels="{{ channels | join(',') }}"></canvas>
+                    data-channels="{{ channels | join(',') }}"
+                    {% if right_axis.get(id) %}data-right-axis="{{ right_axis[id] | join(',') }}"{% endif %}></canvas>
         </details>
         {% endfor %}

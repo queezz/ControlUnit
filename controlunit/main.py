@@ -21,7 +21,13 @@ from controlunit.ui.widgets.graph import Graph
 # Plain standard library: a few locked values the optional web view reads,
 # and the queue it puts commands on. Nothing here imports Flask, so a machine
 # without it starts as it always did.
-from controlunit.web.status import RigStatus, stale_after, dummy_hardware_loaded
+from controlunit.web.status import (
+    CATHODE_PEN,
+    RigStatus,
+    sidecar_epoch,
+    stale_after,
+    dummy_hardware_loaded,
+)
 from controlunit.web import commands as web_commands
 
 #: How often the main thread looks at when the last sample arrived.
@@ -440,14 +446,36 @@ class MainApp(QtCore.QObject, UIWindow):
         if self._kikusui_logger is not None:
             self._publish_kikusui(self._kikusui_logger.snapshot())
 
-    #: The cathode supply's own colour on this screen, the same the web
-    #: readouts and the Cathode card wear.
-    CATHODE_PEN = "#ff6b35"
-
     def _publish_kikusui(self, snapshot):
         self._kikusui_snapshot = snapshot
         self.web_status.record_kikusui(snapshot)
+        self._record_cathode_curve(snapshot)
         self._render_value_browser()
+
+    def _record_cathode_curve(self, snapshot):
+        """Put the supply's measured current and voltage in the web ring, so
+        the Plasma current panel can draw `Ic` beside `Ip` and a reader can
+        tell a dead discharge from a drifting Hall sensor (owner ask
+        2026-09-15: "we need to add cathode current to the current plot").
+
+        Two rules, both because this is a LAN reading and not an ADC sample.
+        Only a fresh snapshot is recorded — `ok` or `dummy`, the two states
+        that carry measurements at all — so nothing stale or refused is ever
+        laid down as a point. And the point is stamped with the sidecar
+        row's *own* time, not this moment: the recorder samples on its own
+        clock at about 2 Hz while this runs on a 500 ms display timer, so a
+        snapshot republished unchanged must not repeat a point, and the ring
+        drops one whose stamp is not newer than the last.
+        """
+        if (snapshot or {}).get("status") not in ("ok", "dummy"):
+            return
+        stamp = sidecar_epoch(snapshot.get("date"))
+        if stamp is None:
+            return
+        self.web_status.record_sidecar(
+            stamp,
+            {"Ic": snapshot.get("current_a"), "Uc": snapshot.get("voltage_v")},
+        )
 
     def _cathode_readouts(self):
         """The supply's volts and amperes for the value browser: numbers
@@ -459,8 +487,8 @@ class MainApp(QtCore.QObject, UIWindow):
         volts = snapshot.get("voltage_v") if fresh else None
         amps = snapshot.get("current_a") if fresh else None
         return [
-            [self.CATHODE_PEN, "Uc" + mark, volts, False, ".3f"],
-            [self.CATHODE_PEN, "Ic" + mark, amps, False, ".3f"],
+            [CATHODE_PEN, "Uc" + mark, volts, False, ".3f"],
+            [CATHODE_PEN, "Ic" + mark, amps, False, ".3f"],
         ]
 
     def _render_value_browser(self):

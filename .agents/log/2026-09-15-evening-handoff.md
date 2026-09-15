@@ -67,4 +67,26 @@ that a 3-sample boxcar and a 1 s mean remove; the plasma followed
 filament power up the staircase; the discharge supply's own 1 A is not
 logged anywhere; off states cannot be told from the analogue channels.
 
+## Later the same night
+
+Shipped 4.20.0: the cathode current Ic on the plasma chart on its own
+right axis in the cathode's orange, and the chart's scale choice (auto,
+0–1 A, 0–3 A). Inspected live on a scratch instance with a patched feed:
+both pills, the orange right axis, 0–1 A pinning the left axis to a flat
+line at 0.8 A. Builder's Perimeter Walk in its report: rails 76 px at
+every depth at both heights; 390 and 320 without overflow, the legend
+wrapping cleanly at 320. Gates: 598 pytest, 34 node, strict docs.
+
+Rules and decisions of the night, all in AGENTS.md or directions: a
+session stops, starts or sets anything on the rig only on his direct
+word in the chat; the Kikusui link gets exactly one write, OUTP 0, as an
+always-allowed safety press (the next build, after this one); the
+instrument-off switches are ControlUnit's own and the Diagram reads
+ControlUnit, consulting never overwriting; heuristics suggest, never
+decide; Bd is meaningful above 1e-5 Torr; the instrument ranges are to
+be confirmed from manuals and data; a Telegram reporter and cameras are
+designed and wait on his bot and his hardware. The letter to the Diagram
+is posted (20260915-ec9708ab-ef1123). The rig is still acquiring vacuum
+at 0.1 Hz on 4.19.5; 4.20.0 waits on an idle rig to be pulled.
+
 agent: claude fable 5.1

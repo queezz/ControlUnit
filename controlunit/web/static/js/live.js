@@ -57,10 +57,21 @@
 
     var view = {
         window: Number(root.dataset.defaultWindow || 300),
-        channels: {Ip: true, Pu: true, Pu2: true, Pd: true, Bu: true, Bd: true},
+        /* `Ic` is the cathode supply's own measured filament current, read
+           over the LAN by the sidecar recorder and drawn on the plasma panel
+           beside Ip so a reader can tell a dead discharge from a drifting
+           Hall sensor (queezz, 2026-09-15). It is a curve like any other
+           here: its own pill, its own switch, remembered the same way. */
+        channels: {Ip: true, Ic: true, Pu: true, Pu2: true, Pd: true, Bu: true, Bd: true},
         pinned: {},
         igLog: true,
         barLog: false,
+        /* The plasma panel's own left axis: `auto`, or one of the two fixed
+           ranges. A steady 0.79 A discharge autoscales to ±0.02 A of noise
+           filling the panel, which is what the owner was reading it through
+           (2026-09-15: "plasma current when constant shows the noise instead
+           of 0–1 or 0–3 A"). Ic's right axis is never touched by it. */
+        plasmaScale: "auto",
         pressureGroup: "gauge",
         upstreamLog: true,
         downstreamLog: true,
@@ -68,6 +79,11 @@
         monitorBig: true,
         big: false
     };
+
+    /* What each fixed choice pins the left axis to, in amperes, and `null`
+       for the autoscale. Zero is the floor of both: a negative unzeroed Ip
+       sits below it and is clipped, which says what it is. */
+    var PLASMA_SCALES = {auto: null, "0-1": [0, 1], "0-3": [0, 3]};
 
     /* The fast poll lives outside `view` on purpose: `view` is what is
        written to the browser's store, and fast is the one choice a reload
@@ -100,6 +116,8 @@
             if (typeof kept.upstreamLog === "boolean") view.upstreamLog = kept.upstreamLog;
             if (typeof kept.downstreamLog === "boolean") view.downstreamLog = kept.downstreamLog;
             if (typeof kept.barLog === "boolean") view.barLog = kept.barLog;
+            if (Object.prototype.hasOwnProperty.call(PLASMA_SCALES, kept.plasmaScale))
+                view.plasmaScale = kept.plasmaScale;
             if (SMOOTHING.indexOf(Number(kept.smooth)) > 0) view.smooth = Number(kept.smooth);
             if (typeof kept.monitorBig === "boolean") view.monitorBig = kept.monitorBig;
             if (typeof kept.big === "boolean") view.big = kept.big;
@@ -711,17 +729,24 @@
 
     /* Draw one panel: the canvas's own channels, in their pens, `logScale`
        for the y axis. Each panel scales to the channels it draws and to
-       nothing else, which is the whole reason there are three of them. */
-    function draw(canvas, logScale) {
+       nothing else, which is the whole reason there are three of them.
+
+       `fixed` is `[lo, hi]` when this panel's left axis has been pinned to a
+       range rather than autoscaled, and `null` otherwise.
+
+       A panel may name some of its curves as belonging to its own right-hand
+       axis (`data-right-axis`), which is its own scale in its own units. The
+       plasma panel does: the filament current runs to tens of amperes while
+       the plasma current sits at tenths of one, and on one axis Ip is a flat
+       line on the floor — the very reading the second curve was added to
+       make legible. */
+    function draw(canvas, logScale, fixed) {
         var box = prepare(canvas);
         // No context, no panel. The page keeps working; the chart is blank
         // rather than the whole poll falling over on a thrown error.
         if (!box) return;
         var ctx = box.ctx;
         var st = styles();
-        var pad = {left: 64, right: 14, top: 10, bottom: 26};
-        var plotW = box.width - pad.left - pad.right;
-        var plotH = box.height - pad.top - pad.bottom;
 
         ctx.clearRect(0, 0, box.width, box.height);
 
@@ -739,20 +764,29 @@
            window, or flat is left out of the range as well as off the
            panel: the whole point of leaving it out is that the axis then
            belongs to the curves that are actually moving. */
+        var rightNames = String((canvas && canvas.dataset.rightAxis) || "")
+            .split(",").filter(function (name) { return name; });
+
         var series = [];
-        var count = 0;
+        var count = 0;      // ADC samples; a LAN reading is not one of them
+        var extra = 0;      // points drawn against the right-hand axis
         channelsOf(canvas).forEach(function (name) {
             if (!name) return;
+            var right = rightNames.indexOf(name) >= 0;
             var chosen = view.channels[name] !== false;
             var points = chosen ? slice(name, from, to) : [];
-            if (points.length > count) count = points.length;
+            if (right) { if (points.length > extra) extra = points.length; }
+            else if (points.length > count) count = points.length;
             var kept = [];
             var nonpositive = 0, gap = true;
             var lo = Infinity, hi = -Infinity;
+            // A right-hand axis is this panel's own linear scale; the panel's
+            // log choice belongs to the axis it was made for.
+            var useLog = logScale && !right;
             points.forEach(function (p) {
                 var v = p[1];
                 if (v === null || v === undefined || !isFinite(v)) { gap = true; return; }
-                if (logScale) {
+                if (useLog) {
                     if (!(v > 0)) { nonpositive += 1; gap = true; return; }
                     v = Math.log10(v);
                 }
@@ -761,7 +795,8 @@
                 if (v < lo) lo = v;
                 if (v > hi) hi = v;
             });
-            series.push({name: name, chosen: chosen, points: kept, lo: lo, hi: hi, nonpositive: nonpositive});
+            series.push({name: name, chosen: chosen, right: right, points: kept,
+                lo: lo, hi: hi, nonpositive: nonpositive});
         });
 
         /* Flat is decided against a curve's own size, not against a number
@@ -773,19 +808,33 @@
            Collapsing only ever happens while another curve on the same
            panel is still moving, so a panel never empties itself, and a
            reader can restore a flat curve explicitly with its own pill. */
+        /* A curve on its own right-hand axis is never collapsed: collapsing
+           exists so one motionless line cannot flatten the others sharing an
+           axis, and a curve with an axis to itself shares none. A filament
+           current holding steady is exactly what the reader is looking for. */
         var moving = series.filter(function (s) {
-            return s.chosen && s.points.length && !isFlat(s, logScale);
+            return s.chosen && s.points.length && !s.right && !isFlat(s, logScale);
         });
         series.forEach(function (s) {
             s.state = !s.chosen ? "off"
                 : !s.points.length ? (s.nonpositive ? "nonpositive" : "absent")
-                : (moving.length && !view.pinned[s.name] && isFlat(s, logScale)) ? "flat"
+                : (!s.right && moving.length && !view.pinned[s.name] && isFlat(s, logScale)) ? "flat"
                 : "drawn";
         });
 
         var lines = series.filter(function (s) { return s.state === "drawn"; });
+        var leftLines = lines.filter(function (s) { return !s.right; });
+        var rightLines = lines.filter(function (s) { return s.right; });
+
+        /* Room for a second column of tick labels only while there is
+           actually a curve on that axis. A panel whose right-hand curve is
+           switched off is the panel it always was. */
+        var pad = {left: 64, right: rightLines.length ? 54 : 14, top: 10, bottom: 26};
+        var plotW = box.width - pad.left - pad.right;
+        var plotH = box.height - pad.top - pad.bottom;
+
         var lo = Infinity, hi = -Infinity;
-        lines.forEach(function (s) {
+        leftLines.forEach(function (s) {
             if (s.lo < lo) lo = s.lo;
             if (s.hi > hi) hi = s.hi;
         });
@@ -794,15 +843,32 @@
             ctx.fillStyle = st.axis;
             ctx.textAlign = "center";
             ctx.fillText("No positive values for log scale — use lin", box.width / 2, box.height / 2);
-            return {from: from, to: to, count: count, series: series};
+            return {from: from, to: to, count: count, extra: extra, series: series};
         }
-        if (!isFinite(lo)) { lo = logScale ? -8 : 0; hi = logScale ? 0 : 1; }
-        if (hi - lo < 1e-12) { lo -= logScale ? 0.5 : (Math.abs(lo) * 0.05 || 0.5); hi += logScale ? 0.5 : (Math.abs(hi) * 0.05 || 0.5); }
-        if (logScale) { lo = Math.floor(lo); hi = Math.ceil(hi); if (hi === lo) hi = lo + 1; }
-        else { var margin = (hi - lo) * 0.08; lo -= margin; hi += margin; }
+        if (fixed) { lo = fixed[0]; hi = fixed[1]; }
+        else {
+            if (!isFinite(lo)) { lo = logScale ? -8 : 0; hi = logScale ? 0 : 1; }
+            if (hi - lo < 1e-12) { lo -= logScale ? 0.5 : (Math.abs(lo) * 0.05 || 0.5); hi += logScale ? 0.5 : (Math.abs(hi) * 0.05 || 0.5); }
+            if (logScale) { lo = Math.floor(lo); hi = Math.ceil(hi); if (hi === lo) hi = lo + 1; }
+            else { var margin = (hi - lo) * 0.08; lo -= margin; hi += margin; }
+        }
+
+        /* The right-hand axis scales to its own curves and to nothing else,
+           whatever the left one has been pinned to. */
+        var rlo = Infinity, rhi = -Infinity;
+        rightLines.forEach(function (s) {
+            if (s.lo < rlo) rlo = s.lo;
+            if (s.hi > rhi) rhi = s.hi;
+        });
+        if (!isFinite(rlo)) { rlo = 0; rhi = 1; }
+        if (rhi - rlo < 1e-12) {
+            rlo -= Math.abs(rlo) * 0.05 || 0.5;
+            rhi += Math.abs(rhi) * 0.05 || 0.5;
+        } else { var rmargin = (rhi - rlo) * 0.08; rlo -= rmargin; rhi += rmargin; }
 
         function x(t) { return pad.left + (t - from) / (to - from) * plotW; }
         function y(v) { return pad.top + (hi - v) / (hi - lo) * plotH; }
+        function yRight(v) { return pad.top + (rhi - v) / (rhi - rlo) * plotH; }
 
         // Grid and axes.
         ctx.font = "11px " + st.mono;
@@ -836,26 +902,64 @@
         ctx.lineTo(pad.left + plotW, pad.top + plotH + 0.5);
         ctx.stroke();
 
-        // The lines, and an emphasised end point on each.
+        /* The right-hand axis wears its curve's own pen — its ticks, its
+           labels and its rule — because two scales on one panel are only
+           readable while it is obvious which number belongs to which line.
+           It draws no grid: the grid is the left axis's, and a second set of
+           horizontal rules would say two different things at once. */
+        if (rightLines.length) {
+            var rightPen = pens[rightLines[0].name] || st.text;
+            var rTicks = niceTicks(rlo, rhi, 5);
+            var rStep = rTicks.length > 1 ? rTicks[1] - rTicks[0] : 0;
+            ctx.strokeStyle = rightPen;
+            ctx.fillStyle = rightPen;
+            ctx.textAlign = "left";
+            ctx.textBaseline = "middle";
+            ctx.beginPath();
+            ctx.moveTo(pad.left + plotW + 0.5, pad.top);
+            ctx.lineTo(pad.left + plotW + 0.5, pad.top + plotH + 0.5);
+            ctx.stroke();
+            rTicks.forEach(function (v) {
+                var yy = Math.round(yRight(v)) + 0.5;
+                if (yy < pad.top || yy > pad.top + plotH + 0.5) return;
+                ctx.beginPath();
+                ctx.moveTo(pad.left + plotW, yy);
+                ctx.lineTo(pad.left + plotW + 4, yy);
+                ctx.stroke();
+                ctx.fillText(fmtTick(v, rStep), pad.left + plotW + 7, yy);
+            });
+        }
+
+        /* The lines, and an emphasised end point on each, clipped to the
+           plot area: a fixed axis is a claim about what the panel shows, and
+           a value outside it belongs outside the frame rather than drawn
+           over the ticks. */
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(pad.left, pad.top, plotW, plotH);
+        ctx.clip();
         lines.forEach(function (line) {
             if (!line.points.length) return;
+            var scale = line.right ? yRight : y;
             ctx.strokeStyle = pens[line.name] || "#ffffff";
             ctx.fillStyle = ctx.strokeStyle;
             ctx.lineWidth = 1.5;
             ctx.lineJoin = "round";
             ctx.beginPath();
             line.points.forEach(function (p, i) {
-                var xx = x(p[0]), yy = y(p[1]);
+                var xx = x(p[0]), yy = scale(p[1]);
                 if (i === 0 || p[2]) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy);
             });
             ctx.stroke();
             var last = line.points[line.points.length - 1];
             ctx.beginPath();
-            ctx.arc(x(last[0]), y(last[1]), 3, 0, Math.PI * 2);
+            ctx.arc(x(last[0]), scale(last[1]), 3, 0, Math.PI * 2);
             ctx.fill();
         });
+        ctx.restore();
 
-        return {from: from, to: to, count: count, series: series};
+        return {from: from, to: to, count: count, extra: extra,
+                series: series, lo: lo, hi: hi, rlo: rlo, rhi: rhi};
     }
 
     /* A curve whose whole excursion over the drawn window is smaller than
@@ -946,9 +1050,9 @@
             });
             if (active) monitorPlotHeight = Math.max(140, Math.floor((window.innerHeight - parseFloat(getComputedStyle(document.querySelector(".container")).paddingTop) - 20 - occupied) / active));
         }
-        [[plasma, "span-plasma", false],
-         [gauges, "span-ig", view.pressureGroup === "vessel" ? view.upstreamLog : view.igLog],
-         [baratrons, "span-bar", view.pressureGroup === "vessel" ? view.downstreamLog : view.barLog]].forEach(function (panel) {
+        [[plasma, "span-plasma", false, PLASMA_SCALES[view.plasmaScale] || null],
+         [gauges, "span-ig", view.pressureGroup === "vessel" ? view.upstreamLog : view.igLog, null],
+         [baratrons, "span-bar", view.pressureGroup === "vessel" ? view.downstreamLog : view.barLog, null]].forEach(function (panel) {
             var canvas = panel[0];
             if (!canvas) return;
             var section = canvas.parentNode;
@@ -959,7 +1063,7 @@
                 span(panel[1], null);
                 return;
             }
-            var drawn = draw(canvas, panel[2]);
+            var drawn = draw(canvas, panel[2], panel[3]);
             span(panel[1], drawn);
             paintLegend(canvas, drawn);
         });
@@ -975,8 +1079,18 @@
         var tail = fast ? " · fast" : "";
         if (view.smooth) tail = " · median " + view.smooth + tail;
         if (!drawn) return "Click a pill to show a curve";
-        if (!drawn.count) return "no samples yet" + tail;
         var seconds = Math.max(0, Math.round(drawn.to - drawn.from));
+        /* `samples` means ADC samples and only those. The cathode supply is
+           read over the LAN on its own clock at its own cadence, so its
+           points are counted and named separately rather than swelling a
+           number a reader uses to judge the rig's own sampling. */
+        if (!drawn.count) {
+            if (drawn.extra) {
+                return "last " + fmtSeconds(seconds) + " · " + drawn.extra
+                    + " cathode readings" + tail;
+            }
+            return "no samples yet" + tail;
+        }
         return "last " + fmtSeconds(seconds) + " · " + drawn.count + " samples" + tail;
     }
 
@@ -1292,6 +1406,17 @@
                 drawAll();
             });
         });
+        /* The plasma panel's own left axis, pressed in its legend row. It
+           redraws and nothing else: no request, no change to what is
+           recorded, and the choice remembered with the rest of the view. */
+        root.querySelectorAll("[data-scale-plasma]").forEach(function (button) {
+            button.addEventListener("click", function () {
+                view.plasmaScale = button.dataset.scalePlasma;
+                press("[data-scale-plasma]", "scalePlasma", view.plasmaScale);
+                remember();
+                drawAll();
+            });
+        });
         root.querySelectorAll("[data-smooth]").forEach(function (button) {
             button.addEventListener("click", function () {
                 view.smooth = Number(button.dataset.smooth);
@@ -1350,6 +1475,7 @@
         reflectPreset();
         press("[data-scale-ig]", "scaleIg", view.igLog ? "log" : "lin");
         press("[data-scale-bar]", "scaleBar", view.barLog ? "log" : "lin");
+        press("[data-scale-plasma]", "scalePlasma", view.plasmaScale);
         press("[data-smooth]", "smooth", view.smooth);
         applyDisplay();
     }
