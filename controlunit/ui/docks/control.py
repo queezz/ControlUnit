@@ -50,7 +50,9 @@ class ControlDock(Dock):
     def _init_text_browsers(self):
         """Initialize text browsers."""
         self.valueBw = QtWidgets.QTextBrowser()
-        self.valueBw.setMaximumHeight(100)
+        # Two rows now — three large values, two small — and the browser is
+        # tall enough for both without a scrollbar (queezz, 2026-09-15).
+        self.valueBw.setMaximumHeight(118)
         self.valueBw.setMinimumWidth(400)
         self.valueBw.setCurrentFont(QtGui.QFont("Courier New"))
 
@@ -82,14 +84,17 @@ class ControlDock(Dock):
         self.gauges = {}
         self.gauge_labels = {}
         for gauge in ion_gauge_names(config):
+            # Mouse-sized, not touch-sized: the rig has a small mouse and
+            # nobody reads these settings loudly (queezz, 2026-09-15: "I
+            # built that for touch at first, but we never use touch").
             mode = QtWidgets.QComboBox()
             [mode.addItem(i) for i in ["Torr", "Pa"]]
-            mode.setFont(QtGui.QFont("serif", 18))
+            mode.setFont(QtGui.QFont("serif", 12))
             # The short name alone: the place is spelled out on the web card,
             # where there is room, and not here (queezz, 2026-09-15, seeing
             # "downstream" under "Pd" on the dock: "Waste of space, that!").
             label = QtWidgets.QLabel(gauge)
-            label.setFont(QtGui.QFont("serif", 18))
+            label.setFont(QtGui.QFont("serif", 12))
             # Bounded to what its 2-of-12 columns give it at the rig's own
             # dock width, so the label never stretches the columns the top
             # row's switches share (test_switch_labels.py holds that row).
@@ -107,12 +112,12 @@ class ControlDock(Dock):
         box = QtWidgets.QSpinBox()
         box.setMinimum(-8)
         box.setMaximum(-3)
-        box.setMinimumSize(QtCore.QSize(60, 60))
+        box.setMinimumSize(QtCore.QSize(60, 34))
         box.setSingleStep(1)
         box.setStyleSheet(
-            "QSpinBox::up-button   { width: 40px; }\n"
-            "QSpinBox::down-button { width: 40px;}\n"
-            "QSpinBox {font: 26pt;}"
+            "QSpinBox::up-button   { width: 22px; }\n"
+            "QSpinBox::down-button { width: 22px;}\n"
+            "QSpinBox {font: 13pt;}"
         )
         return box
 

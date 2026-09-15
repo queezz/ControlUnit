@@ -1,3 +1,7 @@
+## 4.19.4 — 2026-09-15
+
+- The rig's gauge rows are mouse-sized: 12 pt names and Torr/Pa boxes, 13 pt exponent spinners 34 px tall ("I built that for touch at first, but we never use touch"). The value browser is tall enough for its large row and its small row without a scrollbar.
+
 ## 4.19.3 — 2026-09-15
 
 - The rig's three leading values go back to the size three have always fitted across the browser; six wrapped them and hid the gauges' row ("punished GUI"). The gauges stay small beneath.
