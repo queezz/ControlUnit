@@ -137,6 +137,81 @@ holds what is still undecided or unbuilt.
   and access. These and the earlier fused-layout/Bu work in the brief below
   are implemented. Remaining requests in that brief still need review.
 
+- The 4.18.0 review (queezz, 2026-09-15, first run on the restarted rig,
+  with six screenshots; "Don't just jump on to it. Log it, analyze the UI
+  and design improved version, then build it"). His words, then the
+  design this session drew from them, which is what gets built next.
+
+  What he saw:
+  - "Big is somewhat smaller than small. The cards and all. It's very
+    inconsistent." "in big it got a bit better, but that text overshadowing
+    numbers? Big means BIG NUMBERS first. And recognizable."
+  - "I restarted acquisition, and I had to press 1e-6 for pu2 for it to
+    take affect, but it was already selected. So it's a UI lie." (A real
+    defect: Start pushed only the first gauge's settings into the new
+    worker. Fixed in 4.18.1, pull pending an idle rig.)
+  - "the IGs controls bundled with 'settings' is bad. Moreover, the
+    sampling time and the 'QMS sync' which is my LED + signal out I use
+    for marking experiments sometimes, take too much. I guess we can make
+    it tiny, recognizable, and put it somewhere near the 'measuring' and
+    'live' at the top. Visible, not intrusive, easy to find and change."
+  - On Window: "It's copied from qt GUI, and it's somewhat ok to use, but
+    I can't help but feel a bit uneasy about this in WebUI. Feels wrong."
+  - On a chart with every curve off (the stub with "Click a pill to show
+    a curve"): "we now have two states for 'collapsed'. And I think it's
+    useful to hide a curve in a plot, but collapsed plot should be, well,
+    collapsed. So the pill of a curve selects/deselects a line to be
+    plotted or not, and a card collapse is its own. We already have that."
+  - "Kikusui readouts. Why separate? It's a control panel, maybe we don't
+    separate that. Well, it is special, but it is the Cathode voltage
+    current. That it happens to be kikusui and read differently is
+    irrelevant for operation. Operation means we can see as much as I
+    connect via hardware to our GUI/WebUI control panel."
+  - "I like the size and style of the Kikusui, though. feels better and
+    bigger and more readable then, well, my first complaint, the 'big' in
+    the main numbers panel."
+
+  The design (this session, 2026-09-15; built as 4.19.0 unless he cuts at
+  it first):
+  - One readout card for every measured value, in the Kikusui card's
+    shape: name small at the left, unit small at the right, the number
+    large, right-aligned, in the channel's pen; a state tag (below 0,
+    zeroed, stale, not recording) small beside the name, never beside the
+    number. "small" is that card at the Kikusui's present size; "big" is
+    the same card with the number about twice as tall and nothing else
+    grown. Neither state has text louder than its number.
+  - The Kikusui voltage and current join the strip as two more cards,
+    Cathode V and Cathode I, in the cathode's own colour, with the same
+    freshness rule they have now (stale, unavailable or stopped shows a
+    dash and the tag says why). The separate Kikusui panel goes; the
+    folded row carries eight values.
+  - Sampling and QMS sync leave the rail. They stand on the status line
+    beside the measuring and live pills as two small controls: Sampling as
+    one compact segmented pill of its four times, QMS sync as one pill
+    with a sliding thumb (the house's two-state control). Gated exactly as
+    before (Remote, the lab's word, the operator lock; sampling needs a
+    run). The Settings fold dissolves; Gauges becomes its own rail card.
+    The anchors #sec-sync, #sec-acquisition, #sec-gauge keep landing.
+  - The Window card leaves the rail too: one compact choice, "last 5 m",
+    on the Pressure plots toolbar line beside By gauge / By vessel, the
+    same eight spans, remembered as now. Whether the WebUI should instead
+    zoom by dragging on a chart is his call, below.
+  - A chart whose curves are all off keeps its canvas and axes, empty,
+    with its pills; the hint sentence goes. Folding is the one way a
+    chart collapses.
+  - Nothing here changes what is recorded.
+
+- Should the time window stay a set of fixed spans (now a compact choice
+  on the charts' toolbar) or become direct: drag across a chart to zoom,
+  double-press to go back to live? — the owner's call. He said the fixed
+  spans, copied from the Qt window, "feel wrong" in a browser without
+  saying what would feel right.
+  Stakes: only how the eye chooses a span; nothing recorded changes.
+  Recommendation: keep the fixed spans on the toolbar for now and try
+  drag-to-zoom on one chart in a later release, because a phone thumb
+  drags badly and the spans still have to exist for it.
+  Safe default: the compact fixed spans stand.
+
 - The 4.6.0 review (queezz, 2026-09-08, first look at the restarted rig;
   "log this and design, don't dev" — he is taking the design to GPT too,
   so this item is the brief and the record, not a build order). What he
