@@ -146,6 +146,27 @@ holds what is still undecided or unbuilt.
   `/api/state` under `kikusui` (4.17.0),
   with independent freshness; never present legacy Ci/Cv as PSU measurements.
 
+- A Telegram reporter for the rig (queezz, 2026-09-15: "Can we add a
+  telegram bit with a status report?"). Shape: a small separate process
+  on the Pi, `scripts/controlunit_telegram.py`, registered with the Pi's
+  lab helm and started beside the rig's program, that reads `/api/health`,
+  `/api/state` and `/api/log` exactly as a browser does and talks to the
+  Telegram Bot API over HTTPS. It never sets anything on the rig and
+  never touches a worker, so it cannot disturb a run. It pushes events —
+  run started/stopped with the file name, reader lost/back, Kikusui
+  lost/back, outputs live/off, rig unreachable/back — and answers
+  `/status` with the health line plus one compact readout line (the
+  folded readouts row's numbers: Ip, the pressures, Uc, Ic) and `/log`
+  with the last lines; an optional nightly line at a set time. Bot token
+  and chat id in `~/.controlunit/telegram.yml` on the Pi, never git; only
+  the chat id it is given ever hears it. Tests against a fake Bot API.
+- Create the Telegram bot and name the chat — owner work pending. With
+  BotFather make the bot and take its token; open a chat with it (or add
+  it to the lab group) and give the chat id; put both in
+  `~/.controlunit/telegram.yml` on the Pi as `token:` and `chat_id:`.
+  Done when: that file exists on the Pi and the reporter's first
+  `/status` answer arrives in the chat.
+
 - A command line for the rig, over the web API it already has (queezz,
   2026-09-09: "Do you have cli to drive the ControlUnit? I think not. I
   think that'd be useful for tests and diagnosis"). Nothing exists today:
