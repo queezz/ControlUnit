@@ -93,4 +93,40 @@ switch's two words inside it at a 480 px dock. Before/after renders with
 the real font engine were compared (`.OCAL` reproduced, then whole).
 Gate after the fix: pytest 581 passed.
 
+## The evening: 4.18.1, 4.18.2 and the readouts rebuilt (4.19.0)
+
+Owner's first run on 4.18.0 (screenshots): the Kikusui sidecar recorded
+1.078 V / 5.050 A with output on beside a 599 mV manual drive — first
+evidence of the recorder on the rig. His review of the UI is in
+directions ("The 4.18.0 review", his words, and the design drawn from
+them). Shipped tonight, each by a subagent with this session inspecting:
+
+- 4.18.1: Start pushed only the first gauge's settings into a new worker,
+  so Pu2 ran at 1e-3 while the page showed 1e-6 ("a UI lie"); every
+  gauge's pair is pushed now, with a test. Pull to the Pi pending an idle
+  rig (it was acquiring all evening).
+- 4.18.2: the Ion gauges card names each gauge by place beside its short
+  name; the dock keeps the short name alone.
+- 4.19.0: the readouts as panel meters from his sketch, the cathode V/I
+  cards in the strip, the Kikusui panel gone, "below zero" dropped.
+  Inspected live on a scratch instance (48937, scratch roots, owner's
+  port untouched) with a patched state feed: small cards 53 px with 24 px
+  digits, three per row at 1280 (strip 176 px); big cards 83 px with
+  45.6 px digits, two per row at 1280 (strip 356 px); at an 800 px window
+  big is one card per row at 65 px digits. Both rails at 76 px at every
+  scroll depth at 1280×1000 and ×700; the folded row with eight values
+  fits 320/390/1280 without wrapping (256/275, 317/345, 513/572 px). The
+  builder's own Perimeter Walk is in its report; the ten steps were
+  re-run here on the strip and the tabs.
+
+Recorded for later this week, not built: the rail/status-line/window/
+chart-empty-state/OUTPUT-lamp slice, the IG_u/IG_d typeset labels with
+the self-explaining file header, the cathode current on the plasma
+chart, the PID rebuild packet, the noise study, the NAS backup. The PID
+builder was started and stopped before it changed a file ("give me
+something finished now, PID later this week").
+
+Gates for 4.19.0: pytest, node behaviour tests, strict MkDocs, diff
+--check, all clean; see the commit.
+
 agent: claude fable 5.1

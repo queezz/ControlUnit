@@ -105,6 +105,15 @@ function instrument(cardRoom) {
     return {api, buttons, canvas, cards, folded, units};
 }
 
+/* The number as the card renders it: mantissa, then `×10-` small, then the
+   decade at the mantissa's own size (owner sketch, 2026-09-15: "×10- small,
+   the n in ×10-n is BIG"), a minus on a negative and a blank of the same
+   width (a figure space) on a positive, so a value crossing zero moves no
+   digit sideways and no pressure wears a plus (owner, 2026-09-15: "+ reads
+   there as a warning"). */
+const MINUS_FOUR_MILLI = '-4.00<span class="readout-times">×10-</span><span class="readout-exp">3</span>';
+const PLUS_FOUR_MILLI = ' 4.00<span class="readout-times">×10-</span><span class="readout-exp">3</span>';
+
 /* -- the phone, and the one way out of a mode ---------------------------- *
  *
  * queezz, 2026-09-14, on his phone at the rig: "Observe trapped me. No
@@ -389,10 +398,10 @@ test('a readout is a number: the value slot never carries a word', () => {
     api.paintState(reading({Bu: -0.004, Bd: 0.004}));
     // The signed number and its unit, not "Below zero" where the number goes
     // (queezz, 2026-09-10: "text jumps to numbers and back, terrible").
-    assert.equal(Bu.value.innerHTML, '-4.00×10<sup>-3</sup>');
+    assert.equal(Bu.value.innerHTML, MINUS_FOUR_MILLI);
     assert.equal(Bu.unit.textContent, 'Torr');
     api.paintState(reading({Bu: 0.004, Bd: 0.004}));
-    assert.equal(Bu.value.innerHTML, '4.00×10<sup>-3</sup>');
+    assert.equal(Bu.value.innerHTML, PLUS_FOUR_MILLI);
     assert.equal(Bu.unit.textContent, 'Torr');
 });
 
@@ -405,7 +414,7 @@ test('folded, the readouts strip carries the same five numbers', () => {
     // writes it from the same value the card gets.
     const {api, cards, folded, units} = instrument();
     api.paintState(reading({Bu: -0.004, Bd: 0.004}));
-    assert.equal(cards.Bu.parts.value.innerHTML, '-4.00×10<sup>-3</sup>');
+    assert.equal(cards.Bu.parts.value.innerHTML, MINUS_FOUR_MILLI);
     assert.equal(folded.Bu.textContent, '-4.0e-3');
     assert.equal(folded.Bd.textContent, '4.0e-3');
     // Said once for the strip, never four times along it.
@@ -427,30 +436,33 @@ test('folded, the readouts strip carries the same five numbers', () => {
     // median of what this browser holds, not the raw value just published.
     api.view.smooth = 5;
     api.paintState(reading({Bu: 9, Bd: 0.004}));
-    assert.equal(cards.Bu.parts.value.innerHTML, '-4.00×10<sup>-3</sup>');
+    assert.equal(cards.Bu.parts.value.innerHTML, MINUS_FOUR_MILLI);
     assert.equal(folded.Bu.textContent, '-4.0e-3');
 });
 
 
-test('the state tag says zeroed, below zero, both, or nothing at all', () => {
+test('the state tag says zeroed, or nothing at all', () => {
+    // queezz, 2026-09-15: "We have a sign for it… I know the - from +, don't
+    // I?" So `below zero` is gone from the card and the sign in the digits
+    // is what says it — one copy of the fact, not two. `zeroed` stays,
+    // because nothing else on the card says a baseline is held.
     const {api, cards} = instrument();
     const note = cards.Bu.parts.note;
 
     api.paintState(reading({Bu: 0.004, Bd: 0.004}));
     assert.equal(note.textContent, '');
-    assert.equal(note.below, false);
 
     api.paintState(reading({Bu: -0.004, Bd: 0.004}));
-    assert.equal(note.textContent, 'below zero');
-    assert.equal(note.below, true);
+    assert.equal(note.textContent, '');
+    assert.equal(cards.Bu.parts.value.innerHTML, MINUS_FOUR_MILLI);
 
     api.paintState(reading({Bu: 0.004, Bd: 0.004}, {Bu: 0.05, Bd: 0}));
     assert.equal(note.textContent, 'zeroed');
-    assert.equal(note.below, false);
+    assert.equal(cards.Bu.parts.value.innerHTML, PLUS_FOUR_MILLI);
 
+    // Zeroed and negative is still one word, and the sign carries the rest.
     api.paintState(reading({Bu: -0.004, Bd: 0.004}, {Bu: 0.05, Bd: 0}));
-    assert.equal(note.textContent, 'zeroed · below zero');
-    assert.equal(note.below, true);
+    assert.equal(note.textContent, 'zeroed');
 
     // A baseline of zero is no baseline held, and says nothing.
     api.paintState(reading({Bu: 0.004, Bd: 0.004}, {Bu: 0, Bd: 0}));
@@ -458,57 +470,22 @@ test('the state tag says zeroed, below zero, both, or nothing at all', () => {
 });
 
 
-test('a tag too wide for its card shortens rather than clips', () => {
-    // Five cards across the Operate column leave the tag 55px at 1280 and
-    // 39px at 1200. Neither holds both words; the narrow one does not hold
-    // "below zero" either. The number is unaffected at every width.
-    const inACardOf = (room, expected) => {
-        const rig = instrument(room);
-        const Bu = rig.cards.Bu.parts;
-        rig.api.paintState(reading({Bu: -0.004, Bd: 0.004}, {Bu: 0.05, Bd: 0}));
-        assert.equal(Bu.note.textContent, expected);
-        assert.equal(Bu.value.innerHTML, '-4.00×10<sup>-3</sup>');
-        // A tag that fits is never traded away for a shorter one.
-        rig.api.paintState(reading({Bu: 0.004, Bd: 0.004}, {Bu: 0.05, Bd: 0}));
-        assert.equal(Bu.note.textContent, 'zeroed');
-    };
-    inACardOf(200, 'zeroed · below zero');
-    inACardOf(55, 'below zero');
-    inACardOf(40, 'below 0');
-});
-
-
-test('one strip says the state one way, set by its narrowest card', () => {
-    // A row reading "below zero" on one card and "below 0" on the next is
-    // sloppiness, not two different facts.
-    const {api, cards} = instrument({Bu: 40, Bd: 200});
-    api.paintState(reading({Bu: -0.004, Bd: -0.004}));
-    assert.equal(cards.Bu.parts.note.textContent, 'below 0');
-    assert.equal(cards.Bd.parts.note.textContent, 'below 0');
-    // Room enough on both, and both say it the long way.
-    const roomy = instrument({Bu: 200, Bd: 200});
-    roomy.api.paintState(reading({Bu: -0.004, Bd: -0.004}));
-    assert.equal(roomy.cards.Bu.parts.note.textContent, 'below zero');
-    assert.equal(roomy.cards.Bd.parts.note.textContent, 'below zero');
-});
-
-
-test('the wording follows the window, never the numbers of the moment', () => {
-    // A tag whose length depended on how many cards happened to be zeroed
-    // would reword itself while a Baratron wandered across zero, which is
-    // the flicker this whole change exists to end.
-    const {api, cards} = instrument({Bu: 55, Bd: 55});
-    const said = [];
-    for (const state of [
-        reading({Bu: -0.004, Bd: 0.004}),
-        reading({Bu: -0.004, Bd: -0.004}, {Bu: 0.05, Bd: 0.01}),
-        reading({Bu: -0.004, Bd: 0.004}, {Bd: 0.01}),
-        reading({Bu: -0.004, Bd: 0.004})
-    ]) {
-        api.paintState(state);
-        said.push(cards.Bu.parts.note.textContent);
-    }
-    // Bu is below zero throughout and says so the same way throughout,
-    // whatever the card beside it is doing.
-    assert.deepEqual(said, ['below zero', 'below zero', 'below zero', 'below zero']);
+test('the sign is written in every state, so a number never jumps', () => {
+    // The one thing that now says a reading is negative is the digit column
+    // itself, so it must be there whichever side of zero the value is on.
+    const {api, cards} = instrument();
+    const Bu = cards.Bu.parts;
+    api.paintState(reading({Bu: -0.004, Bd: 0.004}));
+    assert.match(Bu.value.innerHTML, /^-4\.00/);
+    api.paintState(reading({Bu: 0.004, Bd: 0.004}));
+    assert.match(Bu.value.innerHTML, /^ 4\.00/);
+    // A plain reading — a current in amperes — is signed the same way.
+    api.paintState({run: {started_at: 100, file: 'cu.csv'}, zeros: {},
+        channels: [{name: 'Bu', unit: 'A', value: 0.308},
+                   {name: 'Bd', unit: 'Torr', value: 0.004}]});
+    assert.equal(Bu.value.innerHTML, ' 0.308');
+    api.paintState({run: {started_at: 100, file: 'cu.csv'}, zeros: {},
+        channels: [{name: 'Bu', unit: 'A', value: -0.308},
+                   {name: 'Bd', unit: 'Torr', value: 0.004}]});
+    assert.equal(Bu.value.innerHTML, '-0.308');
 });

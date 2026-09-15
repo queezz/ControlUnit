@@ -203,13 +203,18 @@ def test_the_cathode_supply_is_two_more_cards_of_the_one_strip(client, live):
         card = strip[strip.index('data-cathode-readout="{}"'.format(key)):]
         card = card[: card.index("</div>")]
         assert '<span class="readout-name">{}</span>'.format(name) in card
-        assert '<span class="readout-unit">{}</span>'.format(unit) in card
+        assert '<span class="readout-unit mono">{}</span>'.format(unit) in card
         assert 'data-role="value"' in card and 'data-role="readout-note"' in card
-    # One pen for the two of them, the violet the Cathode group already wears
-    # on the left rail, and not one of the six the rig's own graph draws with.
-    assert strip.count("--pen: #b48ae9") == 2
-    for pen in ("#8d3de3", "#c9004d", "#3b82f6", "#6ac600", "#ffb405", "#00a3af"):
-        assert pen != "#b48ae9"
+    # One pen for the two of them, and a hue of its own: the first try wore
+    # the left rail's violet and the owner threw it out at sight
+    # (2026-09-15: "The cathode current colour is the same as plasma current.
+    # Bad decision"). It is not one of the six, and it is not the rail's.
+    assert strip.count("--pen: #ff6b35") == 2
+    for taken in ("#8d3de3", "#c9004d", "#3b82f6", "#6ac600", "#ffb405",
+                  "#00a3af", "#b48ae9", "#8a4be4"):
+        assert taken != "#ff6b35"
+    # It is the cathode cards' colour and nothing else's on the page.
+    assert live.count("#ff6b35") == 4  # two cards and their two fold entries
     css = client.get("/static/css/controlunit.css").get_data(as_text=True)
     for gone in ("kikusui-panel", "kikusui-readouts", "data-kikusui-readout",
                  "kikusui-status", "kikusui-fold"):
@@ -270,31 +275,39 @@ def test_the_number_is_the_loudest_thing_on_every_readout_card(client):
         start = rules.index(selector + " {")
         return rules[start:rules.index("}", start)]
 
+    # The card is a panel meter: the digits are the only thing in its flow,
+    # and the small texts are pinned to its corners so they take no width
+    # from them — the name and its tag at the top left, the unit at the
+    # bottom right, under the exponent.
+    card = block(".readout")
+    assert "position: relative" in card
+    assert "container-type: inline-size" in card
+    cap = block(".readout-cap")
+    assert "position: absolute" in cap and "top: 0.12rem" in cap and "left: 0.55rem" in cap
+    unit = block(".readout-unit")
+    assert "position: absolute" in unit and "right: 0.55rem" in unit and "bottom: 0.12rem" in unit
     value = block(".readout-value")
-    assert "grid-row: 2" in value and "text-align: right" in value
-    assert "min(1.5rem, 15cqi)" in value        # 1.5rem, capped by the card
-    assert "min(3.2rem, 15.5cqi)" in block(".live--big .readout-value")
-    # The card is its own container in both modes, which is what lets one
-    # number be sized from the card rather than from the window.
-    assert "container-type: inline-size" in block(".readout")
-    # Nothing else grows with big: the name, the tag and the unit are written
-    # once, for both modes, so "big" cannot mean a bigger label again.
-    for restyled in (".live--big .readout-name", ".live--big .readout-note",
-                     ".live--big .readout-unit"):
+    # Centred, tall and unafraid of the corners (queezz, 2026-09-15: "the
+    # number feels shy and hides in a corner of its own card").
+    assert "text-align: center" in value and "white-space: nowrap" in value
+    assert "min(1.5rem, 16cqi)" in value        # 1.5rem, capped by the card
+    assert "clamp(2.4rem, 17cqi, 5rem)" in block(".live--big .readout-value")
+    # The corners keep one size in both states, so "big" cannot come to mean
+    # a bigger label again; the digits are the whole difference.
+    for restyled in (".live--big .readout-name", ".live--big .readout-unit",
+                     ".live--big .readout-note", ".live--big .readout-cap"):
         assert restyled not in rules
-    # And each of them is well under 0.55 of the number beside it.
-    assert "font-size: 0.8rem" in block(".readout-name")
-    assert "font-size: 0.75rem" in block(".readout-unit")
-    assert "font-size: 0.64rem" in block(".readout-note")
+    assert "font-size: 0.64rem" in block(".readout-name")
+    assert "font-size: 0.6rem" in block(".readout-note")
     # Eight cards laid by the room each needs, not by a column count.
-    assert "repeat(auto-fit, minmax(min(9.5rem, 46%), 1fr))" in block(".readouts")
-    assert "repeat(auto-fit, minmax(13rem, 1fr))" in block(".live--big .readouts")
+    assert "repeat(auto-fit, minmax(9rem, 1fr))" in block(".readouts")
+    assert "repeat(auto-fit, minmax(15rem, 1fr))" in block(".live--big .readouts")
 
 
 def test_small_readouts_reserve_no_room_they_are_not_using(client):
     """queezz, 2026-09-10: "Small now have large boxes small font. Which
-    defeats the purpose." A small card is two rows of content and the
-    padding around them, in Operate as everywhere else."""
+    defeats the purpose." A small card is its digits and the padding that
+    keeps its corners clear of them, in Operate as everywhere else."""
     css = client.get("/static/css/controlunit.css").get_data(as_text=True)
     # The rules, not the comments beside them: this file explains its own
     # arithmetic, and an explanation naming a property is not that property.
@@ -311,9 +324,10 @@ def test_small_readouts_reserve_no_room_they_are_not_using(client):
     assert "readout-zero" not in rules
     assert "readout-residual" not in rules
     assert "measurement-note" not in rules
-    # The tag rides in the name row and cannot leave it, whatever it says.
+    # The tag rides in the card's own corner beside the name and cannot
+    # leave that line, whatever it says.
     note = block(".readout-note")
-    assert "grid-row: 1" in note and "white-space: nowrap" in note
+    assert "white-space: nowrap" in note and "text-overflow: ellipsis" in note
     # Operate carries the same card as Live, not a squeezed copy of it
     # (owner, 2026-09-15: "The cards and all. It's very inconsistent"). The
     # only thing that tab still says about a readout is the gap between them.
@@ -606,14 +620,17 @@ def test_the_live_page_fills_once_and_then_asks_only_for_the_new(client):
 def test_the_readouts_are_written_as_a_real_power_of_ten(client):
     script = client.get("/static/js/live.js").get_data(as_text=True)
     css = client.get("/static/css/controlunit.css").get_data(as_text=True)
-    assert '"×10<sup>"' in script
-    # The canvas has no markup to lift an exponent with, so its axis
+    # Three pieces on one baseline: the mantissa, `×10-` small, and the
+    # decade at the mantissa's own size (owner sketch, 2026-09-15: "×10-
+    # small, the n in ×10-n is BIG") — not a lifted superscript, because the
+    # two numbers a reader compares are the mantissa and the decade.
+    assert "\"readout-times\">×10' + minus" in script
+    assert "\"readout-exp\">' + decade" in script
+    # The canvas has no markup to size an exponent with, so its axis
     # labels carry the superscript glyphs themselves.
     assert '"10" + superText(' in script
-    # The lift cannot make the line box taller, so a value crossing into
-    # exponent form never changes the card's height.
-    assert ".readout-value sup" in css
-    assert "line-height: 0" in css
+    assert ".readout-times {" in css and "font-size: 0.5em" in css
+    assert ".readout-exp { font-size: 1em; }" in css
 
 
 def test_an_unconfigured_neighbour_says_nothing_about_starting(lab):
@@ -1237,7 +1254,11 @@ def test_the_folded_readouts_row_is_the_numbers_and_nothing_else(client):
     at the end, sized from the window so it never wraps or is cut."""
     css = client.get("/static/css/controlunit.css").get_data(as_text=True)
     assert ".readouts-fold:not([open]) .readout-toolbar { display: none; }" in css
-    assert ".fold-readouts { font-size: clamp(" in css
+    # Sized from the strip's own width and not from the window's: at 850px of
+    # window the column behind a 320px rail is 455px, and a vw ramp cut the
+    # row there while reading the window as roomy.
+    assert ".readouts-fold { container-type: inline-size; }" in css
+    assert "font-size: min(0.68rem, 1.7cqi);" in css
     line = css[css.index(".fold-line {"):]
     line = line[: line.index("}")]
     assert "white-space: nowrap" in line

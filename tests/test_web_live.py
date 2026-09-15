@@ -510,26 +510,37 @@ def test_a_negative_reading_stays_a_number_in_its_own_slot():
     source = _live_js()
     paint = source[source.index("function paintState"):source.index("function text(fact")]
     assert '.textContent = "Below zero"' not in paint
-    assert 'querySelector(\'[data-role="residual"]\')' not in paint
+    assert "querySelector('[data-role=\"residual\"]')" not in paint
     assert "readout--below-zero" not in source
-    # One tag, in the row the name and unit already occupy, saying which of
-    # the two states this number is in.
+    # One tag, in the card's own corner, and one state left for it to say.
     assert 'data-role="readout-note"' in paint
-    assert "tagForms(held, below)" in paint
+    assert '? "zeroed" : ""' in paint
 
 
-def test_the_state_tag_is_measured_rather_than_clipped():
-    """The narrowest card holds one word, not two, and at 1200px not even
-    the long form of that one. Which form a card carries is read from the
-    tag's own box, so a wider card keeps more of it and none is ever cut."""
+def test_the_sign_says_below_zero_and_no_word_repeats_it():
+    """queezz, 2026-09-15: "We have a sign for it... I know the - from +,
+    don't I?" and "No sign means +, no? Especially with pressures, + reads
+    there as a warning." A negative carries its minus, a positive a blank of
+    the same width, so a value crossing zero moves no digit sideways and no
+    plus is ever written; the word that used to say the same thing beside
+    the name is gone from the page and from the stylesheet."""
     source = _live_js()
-    tags = source[source.index("function tagForms"):source.index("function paintState")]
-    for form in ('"zeroed · below zero"', '"below zero"', '"below 0"'):
-        assert form in tags
-    assert "narrowest.el.scrollWidth <= narrowest.el.clientWidth + 1" in tags
-    # One wording for the whole strip, decided by the narrowest card in it
-    # and by nothing about today's numbers.
-    assert "paintTags(tags)" in source
+    assert 'var sign = value > 0 ? " " : "";' in source
+    assert 'value > 0 ? "+"' not in source
+    # The cathode cards are written as plain text and signed the same way.
+    assert '(k[key] > 0 ? " " : "") + k[key].toFixed(3)' in source
+    # The words are gone from the code; the comment that records why the
+    # owner struck them out is not code.
+    import re
+
+    code = re.sub(r"/\*.*?\*/", "", source, flags=re.S)
+    for gone in ("below zero", "below 0", "tagForms", "paintTags",
+                 "readout-note--below"):
+        assert gone not in code, gone
+    css = _client().get("/static/css/controlunit.css").get_data(as_text=True)
+    assert "readout-note--below" not in css
+    page = _client().get("/").get_data(as_text=True)
+    assert "below zero" not in page
 
 
 def test_the_baratron_chart_carries_no_paragraph_of_its_own():

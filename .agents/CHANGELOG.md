@@ -1,3 +1,10 @@
+## 4.19.0 — 2026-09-15
+
+- Every readout on the Live and Control tabs is a panel meter, drawn from queezz's own sketch: the name and its state tag small in the top-left corner, the unit small in the bottom-right, and the digits alone across the middle — sign always shown, mantissa large, a small "×10-" and the exponent digit at full height ("Like 5.00E-3, but nicer"). Small and big are the same card at two sizes; big sizes its digits from the card's width, so big is always bigger than small, at every width.
+- The cathode supply's measured voltage and current are two more cards of the same strip, Cathode V and Cathode I, in an orange no other pen wears ("Why separate? ... it is the Cathode voltage current"); their tag says how the supply is answering (output on/off, SIM, stale, not recording...). The separate Kikusui panel is gone; the folded row carries Uc and Ic beside the six.
+- The "below zero" tag is gone: the sign says it (queezz: "I know the - from +, don't I?"). "zeroed" stays.
+- No plus sign on a positive number: a negative carries its minus and a positive a blank of the same width, so digits never shift and no pressure reads like a warning (queezz: "No sign means +, no?"). The digits stand centred and tall in the card, the corner texts in the margins. The Cathode control card, the two cathode readouts and any cathode curve share one orange.
+
 ## 4.18.2 — 2026-09-15
 
 - The web Control tab's gauge card is "Ion gauges", its blocks headed "Upstream · Pu2" and "Downstream · Pd" (queezz: "Pu2 is ok for a short name, but in the gauges card... upstream/downstream is better"); each gauge's place is a `Place` key on its channel in settings.yml. The rig's dock rows keep the short name alone ("Waste of space, that!").

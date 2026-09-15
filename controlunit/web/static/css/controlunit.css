@@ -414,38 +414,52 @@ dl.facts dd.wide { margin-top: -2px; }
 
 /* -- readouts and charts (Live) ---------------------------------------- */
 
+/* Eight cards — the six the rig's ADC reads and the two the cathode supply
+   measures — laid by the room each needs rather than by a column count, so
+   one rule serves every window and no breakpoint has to be kept in step with
+   how many channels the rig has.
+
+   9rem is the floor, and it is what the corner placement buys: with the name,
+   the tag and the unit pinned to the card's corners, the only thing that has
+   to fit across a card is the digits, and the widest reading this page draws
+   is 5.4 em of them. Three stand across the Live column between its two rails
+   at 1280, two across a 390px phone, one at 320. */
 .readouts {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
   gap: 10px;
   margin-bottom: 16px;
 }
 
-.kikusui-panel { margin-bottom: 16px; }
-.kikusui-readouts { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 0; }
-.control-workspace .kikusui-readouts .readout-value { font-size: 1.5rem; }
+/* A panel meter (owner sketch, 2026-09-15: "Big digits, small ×10- and name
+   and units on the borders… Panel readers deserve some freedom of text and
+   indicators placement"). The card is washed with its own pen so the eye
+   finds the channel before it reads the name; `--pen` is set on the element
+   from the same pen list the charts draw with, so a card and its curve cannot
+   drift apart. The wash is 14% and the border 45% of a colour that is already
+   muted: a hint, not a highlight. The plain declarations come first, so a
+   browser without color-mix keeps the panel and the hairline.
 
-/* One value per box, washed with its own pen so the eye finds the channel
-   before it reads the name, and the box is sized so a value that grows a
-   digit never pushes the charts beneath it. `--pen` is set on the element
-   from the same pen list the charts draw with, so a card and its curve
-   cannot drift apart. The wash is 14% and the border 45% of a colour that
-   is already muted: a hint, not a highlight. The plain declarations come
-   first, so a browser without color-mix keeps the panel and the hairline.
+   The digits are the only thing in the flow. Everything else is pinned to a
+   corner and takes no width from them — which is what the two attempts before
+   this one could not do: on one line the name, the tag and the unit ate the
+   room the number needed, and the number came out smaller than the card it
+   stood in. The card's own padding is what keeps the corners clear: the top
+   inset is the caption's line and the bottom inset is the unit's, so the
+   digits sit in the band between them and nothing ever overlaps.
 
-   Small is compact, and compact is the whole point of it (owner, 2026-09-10:
-   "Small now have large boxes small font. Which defeats the purpose"). Two
-   rows of content and nothing else: the name, its tag and the unit share the
-   first; the number owns the second. No reserved blank row and no min-height
-   past what those two rows need, so the strip is about half the height it
-   was, and every card is the same height at every poll because nothing in it
-   can appear on a line of its own. */
+   The card is its own container in both states, so the digits are sized from
+   the card they stand in and never from the window — one set of elements,
+   one placement, and only the sizes change between small and big. */
 .readout {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: baseline;
-  gap: 0 5px;
-  padding: 6px 10px;
+  container-type: inline-size;
+  position: relative;
+  /* Just enough above and below for the corner texts to sit in the
+     margins; the digits' own line box shares that turf, so they stand
+     centred and tall rather than shy in a corner (queezz, 2026-09-15:
+     "can't we center that vertically? And use fuller height? Keep the
+     Torr and Pu2 in the margins"). */
+  padding: 0.62rem 0.55rem 0.5rem;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--panel);
@@ -453,130 +467,128 @@ dl.facts dd.wide { margin-top: -2px; }
   border-color: color-mix(in srgb, var(--pen, var(--line)) 45%, transparent);
 }
 
-/* Large enough to read as the card's own label rather than a caption, and
-   in the pen, which is what the owner asked for: "name font made visible". */
+/* Top-left corner: the name in the pen, the state tag beside it. Both are
+   there in both states and at the same size in both (queezz, 2026-09-15:
+   "keep the a) signal name b) signal unit and for some c) signal comment").
+   The caption is bounded by the card's own width and the tag is the part that
+   gives, so a long wording is shortened by live.js rather than cut here. */
+.readout-cap {
+  position: absolute;
+  top: 0.12rem;
+  left: 0.55rem;
+  right: 0.55rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.34em;
+  min-width: 0;
+  line-height: 1.15;
+}
+
 .readout-name {
-  grid-column: 1;
-  grid-row: 1;
-  font-size: 0.95rem;
-  line-height: 1.3;
+  flex: 0 0 auto;
+  font-size: 0.64rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   color: var(--pen, var(--fg));
 }
 
-/* The unit rides beside the name, so the number below owns the card's whole
-   width. Five cards across a 1280 px window leave 97 px inside one. The
-   widest number this page renders is -5.00×10⁻³: eight monospace characters
-   at 0.6 em each, plus a two-character exponent at 0.65 em, is 5.58 em —
-   against the eight characters, 4.8 em, that -5.00e-3 took. So the value
-   steps from 1.2rem to 1.05rem (93.7 px of 97.2) to pay for the superscript
-   without reaching past its own card. Beside the unit it would have only
-   66 px, break mid-number onto a second line, and make the whole readout row
-   taller the moment a value crossed into exponent form — the one thing this
-   row must never do. */
-.readout-unit { grid-column: 3; grid-row: 1; justify-self: end; color: var(--muted); font-size: 0.8rem; }
-.readout-value { grid-column: 1 / -1; grid-row: 2; font-size: 1.05rem; line-height: 1.25; font-weight: 500; white-space: nowrap; }
+/* What state this number is in, in a word, beside the name: `zeroed` while
+   the rig holds a baseline for the channel, and for the cathode cards how the
+   supply is answering. `below zero` used to ride here and was struck out
+   (owner, 2026-09-15: "We have a sign for it… I know the - from +, don't I?")
+   — every number on this strip carries its sign, so the word was the second
+   copy of a fact the digits already state.
 
-/* The exponent is lifted with a line box of its own height zero, so a value
-   crossing between 0.031 and 1.22×10⁻⁵ cannot make the line — or the card —
-   one pixel taller. */
-.readout-value sup {
-  font-size: 0.65em;
-  line-height: 0;
-  vertical-align: 0.42em;
-}
-
-/* What state this number is in, in a word, in the row the name and the unit
-   already occupy: `zeroed` while the rig holds a baseline for the channel,
-   `below zero` while the value is negative, both when both. It replaces the
-   old "as measured" line, which said nothing — every signal on this page is
-   as measured (owner, 2026-09-10) — and the reserved two lines that line
-   held open under every card.
-
-   It sits in the row's one flexible track, so an empty tag costs nothing and
-   a full one cannot widen the card or push the unit off it. `nowrap` and the
-   hidden overflow are the height guarantee: whatever the tag says, it stays
-   on the line it shares. The narrowest card this page makes leaves the track
-   about 50px, which holds one of the two words; live.js measures that and
-   keeps `below zero`, the one that changes how the number is read. */
+   It takes the caption's one flexible track, so an empty tag costs nothing
+   and a full one can neither widen the card nor reach the digits. `nowrap`
+   and the hidden overflow are the height guarantee. */
 .readout-note {
-  grid-column: 2;
-  grid-row: 1;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 0.64rem;
+  font-size: 0.6rem;
   color: var(--dim);
 }
 
-/* Warm, the page's own accent, and only while the value is negative: the
-   number beside it is already signed, so this is a tint on a state, not a
-   second copy of it. */
-.readout-note--below { color: var(--accent); }
-
-/* Just above the rail breakpoint the two rails take their fixed 17rem each
-   out of a narrow window and the five cards are at their tightest: 81 px
-   inside one at 1200. At 5.58 em the number needs 0.88rem there (78.6 px)
-   where the old notation fitted at 1rem. The number steps down a size
-   through that band rather than reaching past its own card. */
-@media (min-width: 1200px) and (max-width: 1320px) {
-  .readout-value { font-size: 0.88rem; }
+/* Bottom-right corner, under the exponent, exactly where the sketch puts it.
+   Absolute, so a four-letter unit costs the digits nothing. */
+.readout-unit {
+  position: absolute;
+  right: 0.55rem;
+  bottom: 0.12rem;
+  font-size: 0.6rem;
+  line-height: 1.15;
+  color: var(--muted);
 }
+
+/* The digits: the loudest thing on the card and the only thing in its flow,
+   right-aligned so eight cards read as one column of numbers. The sign is
+   always written, so a value crossing zero does not shift the digits by a
+   character.
+
+   Sized from the card. Measured in this page's own mono at the digits' size,
+   the widest reading this page draws is `+5.00×10⁻3`: five mantissa
+   characters at 0.6 em, `×10-` at half that, and the exponent digit at full
+   height again — 4.8 em, or 5.4 em if an exponent ever runs to two digits.
+   A card at the grid's floor (9rem, 144px, 125px inside its padding) holds
+   5.4 em up to 23px, and 16cqi is 20px there; every card wider than about
+   160px gets the full 1.5rem, which is every card in the strip at 390px of
+   window and up. */
+.readout-value {
+  display: block;
+  text-align: center;
+  white-space: nowrap;
+  font-size: 1.5rem;            /* what a browser without cq units gets */
+  font-size: min(1.5rem, 16cqi);
+  line-height: 1.05;
+  font-weight: 500;
+}
+
+/* `×10-` is the small part and the exponent is not (owner, 2026-09-15: "×10⁻
+   small, the n in ×10⁻ⁿ is BIG"). The digit stays on the baseline at the
+   mantissa's own size rather than being lifted into a superscript, so the two
+   numbers a reader compares — the mantissa and the decade — are equally
+   loud. Neither piece can make the line box taller than the mantissa already
+   makes it, so a value crossing into exponent form never changes the card's
+   height. */
+.readout-times {
+  font-size: 0.5em;
+  padding-left: 0.2em;
+  color: var(--muted);
+}
+
+.readout-exp { font-size: 1em; }
 
 /* -- big readouts (Display: big) --------------------------------------- */
 
-/* The same five readouts, read from a metre away while a gauge is zeroed at
+/* The same eight meters, read from a metre away while a gauge is zeroed at
    the rig. One class on the page turns it on: no element appears, moves to
-   another parent, or leaves, so the rails and the charts stay where they
-   are and only the readout row's own height changes. */
+   another parent, or leaves, so the rails and the charts stay where they are
+   and only the readout row's own height changes. The corners keep their
+   placement and their size; the digits are the whole difference. */
 .live--big .readouts {
-  /* Cards wide enough for the number first, then as many across as fit: at
-     a full-width column that is three and two, and between the two rails it
-     is two, two and one. Nothing has to shrink to stay on its line. */
   grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
   gap: 12px;
   margin-bottom: 20px;
 }
 
-/* One row, not two (queezz, 2026-09-14, looking at big on the dummy
-   instance: "Looks like the 'big' wastes a lot of real estate just to say
-   'Pd' or 'Ip'"). The name — and its tag under it, in small — stand at the
-   left, straddling the number's own middle; the number stands beside them;
-   the unit sits at the card's right edge. The card is then the number's line
-   plus its padding, about half what two rows cost. */
-.live--big .readout {
-  /* The value is sized from the card it stands in, so the widest a pressure
-     ever reads — -5.00×10⁻³ — stays on one line at every width this page is
-     read at, phone included. Four tracks, one row: the name, its tag in the
-     one flexible track so a long wording can never widen the card, the
-     number, and the unit at the edge. */
-  container-type: inline-size;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 0 8px;
-  padding: 8px 14px;
-}
+.live--big .readout { padding: 0.72rem 0.6rem 0.58rem; }
 
-.live--big .readout-name { grid-column: 1; grid-row: 1; font-size: 1.05rem; }
-.live--big .readout-note { grid-column: 2; grid-row: 1; font-size: 0.8rem; }
-.live--big .readout-unit { grid-column: 4; grid-row: 1; justify-self: end; font-size: 1.05rem; }
-
-/* 9.2cqi, measured against the narrowest card this grid makes. At 15rem
-   (240px) the padding takes 28px, the name about 26px, the unit "Torr" 33px
-   and the two gaps 16px, leaving the number 137px; -5.00×10⁻³ is 5.58 em, so
-   the number may be 24.5px and 9.2cqi is 22.1px. The rem fallback is the
-   same arithmetic for a browser without container units. */
+/* The digits span the card and are sized by it: 5.4 em is the widest they
+   ever draw, so a card may spend its inside width divided by 5.4 on them.
+   That is 18.5cqi; 17 is taken, a little under, so the longest reading lands
+   short of the padding at every width rather than exactly on it. The 2.4rem
+   floor is what sets the grid's own 15rem floor rather than the 12rem first
+   asked for: at 12rem a 2.4rem reading reaches 7px past the card, measured,
+   so the cards are made wide enough for the floor instead of the floor being
+   cut to fit the cards. Two stand across the Live column at 1280. */
 .live--big .readout-value {
-  grid-column: 3;
-  grid-row: 1;
-  justify-self: end;
-  align-self: center;
-  font-size: 1.3rem;            /* what a browser without cq units gets */
-  font-size: min(2.8rem, 9.2cqi);
+  font-size: 2.4rem;            /* what a browser without cq units gets */
+  font-size: clamp(2.4rem, 17cqi, 5rem);
+  line-height: 1;
   font-weight: 600;
-  line-height: 1.2;
 }
 
 .chart {
@@ -1244,12 +1256,16 @@ dl.facts dd.wide { margin-top: -2px; }
 .control-workspace .fgroup { padding-top: 8px; margin-top: 8px; }
 .control-workspace .fgroup h2 { margin-bottom: 6px; }
 .control-workspace #sec-gas { border-left: 3px solid #269aac; padding-left: 8px; }
-.control-workspace #sec-plasma { border-left: 3px solid #8a4be4; padding-left: 8px; }
+/* The cathode's own colour, one for its control card, its readout cards and
+   its curves (queezz, 2026-09-15: "cathode display digits, cathode curves,
+   and cathode control card should share the color"): the orange no ADC pen
+   wears, the same #ff6b35 the readout strip sets. */
+.control-workspace #sec-plasma { border-left: 3px solid #ff6b35; padding-left: 8px; }
 .control-workspace #sec-gauge { border-left: 3px solid var(--accent); padding-left: 8px; }
 .control-workspace [data-role="gauge-range"] { padding: 3px; font-size: 0.78rem; }
 .gauge-settings[open] > summary .mono { display: none; }
 .control-workspace #sec-gas h2 { color: #60b7c4; }
-.control-workspace #sec-plasma h2 { color: #b48ae9; }
+.control-workspace #sec-plasma h2 { color: #ff9b73; }
 /* Who is acting, on the group's own folded line — the same shape every other
    card's numbers wear, so the access head is one row like all the rest. */
 .actor-summary { color: var(--fg); font-weight: 400; }
@@ -1272,24 +1288,15 @@ dl.facts dd.wide { margin-top: -2px; }
 .control-workspace summary { cursor: pointer; font-weight: 600; color: var(--muted); padding: 8px 4px; }
 .control-workspace details .rail-card { margin-bottom: 8px; }
 .control-workspace .chart { margin-bottom: 10px; }
+/* One readout card, the same one, on both tabs (owner, 2026-09-15: "The cards
+   and all. It's very inconsistent"). Operate used to squeeze its own: 5px of
+   side padding, a 0.9rem name and a value taken from the window rather than
+   from the card, which is how a "big" number came out smaller than a small
+   one two tabs away. Operate now differs in one thing only — the gap between
+   cards, because its reading column is the narrower of the two. The cards
+   themselves size from their own width, so the narrow column costs the number
+   nothing it does not have to cost. */
 .control-workspace .readouts { gap: 8px; }
-/* The Operate column is the narrowest place five cards stand, and the tag's
-   own track is what pays for every pixel spent around it. Measured with the
-   cards at their two ends: a card is 96px wide at 1200, where the two rails
-   take their fixed 16rem each out of the window, and 112px at 1280. At 5px
-   of side padding, a 4px gap and a 0.7rem unit the track is 40px and 56px —
-   enough for "below zero" (50px at 0.64rem) at 1280 and for its short form
-   at 1200, where the roomier spacing the rest of the page uses left 36px and
-   clipped the word. `paintState` picks which form each card carries. */
-.control-workspace.live--big .readout { padding: 8px 12px; }
-.control-workspace:not(.live--big) .readout { padding: 6px 5px; gap: 0 4px; }
-.control-workspace:not(.live--big) .readout-name { font-size: 0.9rem; }
-.control-workspace:not(.live--big) .readout-unit { font-size: 0.7rem; }
-.control-workspace .readout-value { font-size: clamp(0.85rem, 1.2vw, 1.4rem); }
-/* Sized from the card, not from the window: on one row the number shares its
-   card with the name and the unit, and the card's width is what decides how
-   much is left for it. */
-.control-workspace.live--big .readout-value { font-size: min(2.5rem, 9.2cqi); }
 @media (max-width: 1199px) and (min-width: 761px) {
   .page.control-workspace { display: grid; grid-template-columns: 20rem minmax(0, 1fr); }
   .control-workspace > .rail-left { position: sticky; top: calc(var(--bar) + var(--content-gap)); height: calc(100vh - var(--bar) - var(--content-gap) - 20px); overflow-y: auto; }
@@ -1298,7 +1305,6 @@ dl.facts dd.wide { margin-top: -2px; }
 @media (max-width: 760px) {
   .page.control-workspace { display: flex; flex-direction: column; }
   .control-workspace > .rail { width: 100%; }
-  .control-workspace .readout-value { font-size: 1.1rem; }
 }
 
 /* -- below the rail breakpoint ----------------------------------------- */
@@ -1341,7 +1347,10 @@ dl.facts dd.wide { margin-top: -2px; }
   .container { padding: 0 12px; }
   .tabbar .tab { padding: 10px 8px; font-size: 0.9rem; }
   .service { padding: 14px; }
-  .readouts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* No breakpoint tells the strip how many cards stand across a phone: the
+     track's own floor does, two in small and one in big, at 320px as at
+     390px. A fixed two-column rule here would have made big's number the
+     same size as small's. */
   .choice-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .log-line { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .row-name { flex: 0 0 100%; }
@@ -1481,7 +1490,7 @@ body[data-mode="monitor"] .drawer-backdrop:not([hidden]) { display: block; }
 .control-workspace #sec-acquisition .row-actions { display: grid; grid-template-columns: repeat(4, 1fr); width: 100%; }
 .control-workspace #sec-acquisition button { padding: 8px 6px; }
 .control-workspace #sec-gas { background: rgba(38, 154, 172, 0.10); border-color: rgba(38, 154, 172, 0.35); }
-.control-workspace #sec-plasma { background: rgba(138, 75, 228, 0.10); border-color: rgba(138, 75, 228, 0.35); }
+.control-workspace #sec-plasma { background: rgba(255, 107, 53, 0.10); border-color: rgba(255, 107, 53, 0.35); }
 .control-workspace #sec-gauge { background: rgba(219, 168, 62, 0.09); border-color: rgba(219, 168, 62, 0.32); }
 
 /* One instrument surface; modes change visibility, never rig state. */
@@ -1786,11 +1795,6 @@ body[data-mode="monitor"] .monitor-settings { display: flex; flex-wrap: wrap; ga
    the same x whether the card is open or shut. */
 .fold[open] > .fold-head > .fold-line { visibility: hidden; }
 
-/* Kikusui uses the same summary slot for status when open, V/I when folded. */
-.kikusui-panel.fold[open] > .fold-head > .fold-line { visibility: visible; }
-.kikusui-panel[open] [data-role="kikusui-fold"],
-.kikusui-panel:not([open]) [data-role="kikusui-status"] { display: none; }
-
 /* A control that rides on a heading line — the cathode's PID/Manual switch,
    a chart's Zero buttons, the readouts' small/big — keeps its own cursor, so
    the line reads as a fold everywhere except where it is a control. */
@@ -1801,11 +1805,15 @@ body[data-mode="monitor"] .monitor-settings { display: flex; flex-wrap: wrap; ga
 .fold-head .readout-toolbar { flex: 0 0 auto; }
 .fold-head .readout-toolbar .choice { padding: 2px 8px; line-height: 1.4; }
 
-/* The strip's five values on one line, each in its own pen, in the order the
-   cards below stand in, with the unit they share said once at the end. */
+/* The strip's eight values on one line, each in its own pen, in the order the
+   cards below stand in, with the unit the pressures share said once after the
+   last of them — and the cathode's two, which carry their own units, after
+   that. The separator is drawn by whichever of the two kinds of cell comes
+   before, so the shared unit sitting mid-line does not lose the dot. */
 .fold-readout { color: var(--pen, var(--muted)); }
 .fold-readout .mono { color: var(--fg); font-size: 1em; }
-.fold-readout + .fold-readout::before { content: ' · '; color: var(--dim); }
+.fold-readout + .fold-readout::before,
+.fold-units + .fold-readout::before { content: ' · '; color: var(--dim); }
 .fold-units { color: var(--muted); }
 .fold-units:not(:empty)::before { content: ' '; }
 .readouts-fold:not([open]) { margin-bottom: 12px; }
@@ -1813,14 +1821,32 @@ body[data-mode="monitor"] .monitor-settings { display: flex; flex-wrap: wrap; ga
    numbers. It leaves the row rather than standing empty in it, and the row's
    own height does not depend on it either way. */
 .readouts-fold:not([open]) .readout-toolbar { display: none; }
-/* Six values, their names and the trailing unit have to stand on one row of
-   whatever window this is, without wrapping and without being cut — so the
-   size is taken from the window rather than picked on one screen. Measured
-   against the longest line this page renders (`Ip -2.39 A · Pu 3.2e-5 ·
-   Pu2 3.2e-5 · Pd 4.1e-3 · Bu 5.1e-2 · Bd 5.1e-3 Torr`, about 430px at
-   0.72rem since the upstream ion gauge joined): the row leaves it 345px at
-   390, 273px at 320 and 688px at 1280, and this ramp fits all three. */
-.fold-readouts { font-size: clamp(0.44rem, 2.2vw, 0.78rem); }
+/* Eight values, their names and the trailing unit have to stand on one row of
+   whatever window this is, without wrapping and without being cut — and the
+   row is now two entries longer than the six it was sized for (`Ip -2.39 A ·
+   Pu 3.2e-5 · Pu2 3.2e-5 · Pd 4.1e-3 · Bu -5.0e-3 · Bd 5.1e-3 Torr · Uc
+   -40.00 V · Ic -30.00 A`, the supply at the top of its range: about 51 times
+   its own type size, drawn).
+
+   Sized from the strip rather than from the window, which the ramp this
+   replaces could not do: a `vw` ramp reads 850px of window and gives the row
+   10.9px of type, while the column it actually stands in at that width is
+   455px wide behind a 320px rail — 553px of text in 434px of room, cut. One
+   `cqi` is one hundredth of the strip's own width, so the row is measured
+   against the room it has. 1.7cqi leaves about 4% of that room spare at every
+   width: 5.0px and 265 of 275 at a 320px phone, 6.2px and 331 of 345 at 390,
+   8.0px and 411 of 434 at 850, 10.1px and 531 of 572 in the two-rail column
+   at 1280, and the 0.68rem cap from about 640px of column up.
+
+   That the phone end of that is small type is the price of the two new
+   entries, and it is named here rather than left to be discovered. The next
+   cut, if the owner wants the row larger again, is content and not size — the
+   pens' own colours already identify the channels the names repeat. */
+.readouts-fold { container-type: inline-size; }
+.fold-readouts {
+  font-size: 0.6rem;            /* what a browser without cq units gets */
+  font-size: min(0.68rem, 1.7cqi);
+}
 
 /* Each ionization gauge's two rows stand under its own name inside the one
    Gauges group: a plain heading, never a second frame. */

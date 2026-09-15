@@ -1,3 +1,18 @@
+        {# The cathode supply's own pen. Its first try was the left rail's own
+           violet and the owner threw it out at sight (2026-09-15: "The cathode
+           current colour is the same as plasma current. Bad decision") — a
+           violet beside Ip's #8d3de3 says the two numbers are the same signal.
+
+           So the colour is chosen by distance from the six the graph draws
+           with: Ip 272°, Pu2 217°, Bd 186°, Pd 88°, Bu 42°, Pu 337°. A warm
+           orange-red at 16° is not the nearest in degrees — a jade at 137° is
+           farther — but degrees are not the test. Jade would stand between
+           Pd's green and Bd's teal, two pens the eye already has to tell
+           apart; at 16° the neighbours are Bu's yellow amber and Pu's deep
+           pink crimson, and orange is neither of those to look at. Nothing
+           else on this page wears it. #}
+        {% set cathode_pen = '#ff6b35' %}
+
         {# The strip folds like every other card, and folded it is its own
            five numbers on one line, each in its channel's pen — the same
            values the cards below carry, written by the same poll.
@@ -18,6 +33,15 @@
                     <span class="fold-readout" data-fold-readout="{{ name }}" style="--pen: {{ colour }}"><b>{{ name }}</b> <span class="mono" data-role="fold-value">—</span></span>
                     {% endfor %}
                     <span class="fold-units" data-role="fold-units"></span>
+                    {# The cathode supply's two numbers ride the same line, in
+                       the shortest names the rig's own paper uses for them, Uc
+                       and Ic: the row has to stand on a 320px phone and every
+                       character on it is paid for. They carry their own units
+                       beside them, because the unit at the line's end is the
+                       one the pressures share. #}
+                    {% for key, short in [('voltage_v', 'Uc'), ('current_a', 'Ic')] %}
+                    <span class="fold-readout" data-fold-cathode="{{ key }}" style="--pen: {{ cathode_pen }}"><b>{{ short }}</b> <span class="mono" data-role="fold-value">—</span></span>
+                    {% endfor %}
                 </span>
                 <span class="readout-toolbar" data-fold-keep role="group" aria-label="Readout size">
                     <button type="button" class="choice" data-display="normal" aria-pressed="true">small</button>
@@ -37,33 +61,50 @@
                no room beyond the row it already shares. Which channels can be
                zeroed is the rig's own answer, read from the zeros it carries,
                so nothing is listed here twice. #}
+            {# A panel meter, which is what the owner drew when words about
+               rows and columns had failed twice (2026-09-15, a photograph of
+               a pen sketch: "Big digits, small ×10- and name and units on the
+               borders. Don't we have freedom placing those? They always look
+               like they are on a line or on a next line. Panel readers
+               deserve some freedom of text and indicators placement.").
+
+               So the digits are the only thing in the card's flow, and the
+               small texts are pinned to its corners and take no room from
+               them: the name and its tag at the top left, the unit at the
+               bottom right, under the exponent. #}
             <div class="readout" data-readout="{{ name }}" style="--pen: {{ colour }}">
-                <span class="readout-name">{{ name }}</span>
-                <span class="readout-note" data-role="readout-note"></span>
-                <span class="readout-unit" data-role="unit"></span>
+                <span class="readout-cap">
+                    <span class="readout-name">{{ name }}</span>
+                    <span class="readout-note" data-role="readout-note"></span>
+                </span>
                 <span class="readout-value mono" data-role="value">—</span>
+                <span class="readout-unit mono" data-role="unit"></span>
+            </div>
+            {% endfor %}
+
+            {# The cathode supply's measured voltage and current are two more
+               cards of this strip and not a panel of their own (queezz,
+               2026-09-15: "Why separate? It's a control panel … it is the
+               Cathode voltage current. That it happens to be kikusui and read
+               differently is irrelevant for operation.").
+
+               They are the same card in every respect: a name in its pen, one
+               tag beside it, the unit at the right, the number alone beneath.
+               The tag is the only thing that differs in kind — for these two
+               it says how the supply is answering, because a number read over
+               a LAN can be stale in a way an ADC channel cannot, and that is
+               what `paintKikusui` writes there. #}
+            {% for key, name, unit in [('voltage_v', 'Cathode V', 'V'), ('current_a', 'Cathode I', 'A')] %}
+            <div class="readout" data-cathode-readout="{{ key }}" style="--pen: {{ cathode_pen }}">
+                <span class="readout-cap">
+                    <span class="readout-name">{{ name }}</span>
+                    <span class="readout-note" data-role="readout-note"></span>
+                </span>
+                <span class="readout-value mono" data-role="value">—</span>
+                <span class="readout-unit mono">{{ unit }}</span>
             </div>
             {% endfor %}
         </div>
-        </details>
-
-        <details class="kikusui-panel fold" data-fold="kikusui" open>
-            <summary class="fold-head">
-                <h2 class="fold-name">Kikusui</h2>
-                <span class="fold-line">
-                    <span class="mono" data-role="kikusui-fold">— V · — A</span>
-                    <span data-role="kikusui-status">Not recording</span>
-                </span>
-            </summary>
-            <div class="readouts kikusui-readouts">
-                {% for key, name, unit in [('voltage_v', 'Voltage', 'V'), ('current_a', 'Current', 'A')] %}
-                <div class="readout" data-kikusui-readout="{{ key }}">
-                    <span class="readout-name">{{ name }}</span>
-                    <span class="readout-unit">{{ unit }}</span>
-                    <span class="readout-value mono" data-role="value">—</span>
-                </div>
-                {% endfor %}
-            </div>
         </details>
 
         {# One list of panels on the server, drawn here in one loop, so a

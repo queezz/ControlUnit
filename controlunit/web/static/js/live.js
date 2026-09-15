@@ -259,19 +259,33 @@
         return value.toFixed(magnitude >= 100 ? 0 : magnitude >= 10 ? 1 : 3);
     }
 
-    /* A readout, as markup: `1.22×10⁻⁵` with a real superscript rather than
-       `1.22e-5`, which the owner called ugly and is. The <sup> is styled with
-       a zero line-height, so lifting the exponent cannot make the line box
-       taller and a value crossing between the plain and the exponent form
-       never changes the card's height. Zero reads `0`, never `0.00×10⁰`.
-       Plain values — a current in amperes — stay plain. */
+    /* A readout, as markup, in three pieces on one baseline: the mantissa,
+       then `×10-` small, then the decade at the mantissa's own size (owner,
+       2026-09-15, on his sketch of the card: "×10⁻ small, the n in ×10⁻ⁿ is
+       BIG"). Not `1.22e-5`, which he called ugly and is, and not a lifted
+       superscript either — the two numbers a reader compares are the mantissa
+       and the decade, so they are written equally loud and the multiplier
+       between them is the quiet part.
+
+       A negative carries its minus; a positive carries a blank of the same
+       width in its place (a figure space, U+2007), so a value crossing zero
+       moves no digit sideways and no pressure ever wears a plus sign, which
+       reads as a warning (queezz, 2026-09-15: "No sign means +, no?").
+       Zero reads `0`. Plain values — a current in amperes, a cathode volt —
+       stay plain. */
     function valueHtml(value, unit) {
         if (value === null || value === undefined || !isFinite(value)) return "—";
         if (value === 0) return "0";
-        if (!wantsExponent(value, unit)) return plain(value);
+        var sign = value > 0 ? " " : "";
+        if (!wantsExponent(value, unit)) return sign + plain(value);
         var e = exponential(value, 2);
-        return e.mantissa + "×10<sup>" + e.exponent + "</sup>";
+        var decade = String(e.exponent), minus = "";
+        if (decade.charAt(0) === "-") { minus = "-"; decade = decade.slice(1); }
+        return sign + e.mantissa
+            + '<span class="readout-times">×10' + minus + "</span>"
+            + '<span class="readout-exp">' + decade + "</span>";
     }
+
 
     /* The same number for the strip's own folded line, where five of them
        and their names have to stand on one row of a 390px phone without
@@ -352,53 +366,12 @@
 
     // -- state ---------------------------------------------------------------
 
-    /* How a card says the state its number is in, at each of the three
-       widths a tag is written for: roomy, tight, and the tightest. Five
-       cards across the Operate column leave the tag between 39px and 56px
-       depending on the window and on how wide the channel's own unit is, and
-       the words do not all fit in the narrow end of that. */
-    function tagForms(held, below) {
-        if (held && below) return ["zeroed · below zero", "below zero", "below 0"];
-        if (below) return ["below zero", "below zero", "below 0"];
-        if (held) return ["zeroed", "zeroed", "zeroed"];
-        return ["", "", ""];
-    }
-
-    /* The strip settles on one wording, and the narrowest card in it decides
-       which: a row that says "below zero" on one card and "below 0" on the
-       next reads as sloppiness, not as two different facts.
-
-       Which one is chosen is a question about the window, never about
-       today's numbers: the longest form this page can ever need is measured
-       against the narrowest tag's own box, so a value crossing zero on one
-       card cannot reword another, and a card keeps its wording from poll to
-       poll. A clipped word is never a form — "below z…" is worse than the
-       short sentence — and no form makes a card taller, because a tag's box
-       does not grow with its text. That a baseline is held is said again in
-       the rail's Data card, so nothing is lost where that is the part that
-       has to go. */
-    function paintTags(tags) {
-        if (!tags.length) return;
-        var narrowest = tags[0];
-        tags.forEach(function (tag) {
-            if (tag.el.clientWidth < narrowest.el.clientWidth) narrowest = tag;
-        });
-        var widest = tagForms(true, true);
-        var step = widest.length - 1;
-        for (var i = 0; i < step; i++) {
-            narrowest.el.textContent = widest[i];
-            if (narrowest.el.scrollWidth <= narrowest.el.clientWidth + 1) { step = i; break; }
-        }
-        tags.forEach(function (tag) { tag.el.textContent = tag.forms[step]; });
-    }
-
     function paintState(state) {
         var key = runKey(state);
         if (run === null) run = key;
         else if (key !== run) { run = key; forget(); fillFromRing(); }
 
         var zeros = state.zeros || {};
-        var tags = [];
         var shared = sharedUnit(state.channels);
         state.channels.forEach(function (channel) {
             var box = root.querySelector('.readout[data-readout="' + channel.name + '"]');
@@ -432,21 +405,17 @@
                 folded.textContent = foldValue(value, channel.unit) + own;
             }
 
-            /* One tag beside the name says what state the number is in: a
-               baseline is held for this channel, the value is negative, or
-               both. Empty otherwise, and empty it occupies no room, so the
-               card is the same height at every poll. */
+            /* One tag in the card's top corner says what state the number
+               is in, and there is exactly one such state left to say: a
+               baseline is held for this channel. `below zero` used to ride
+               here too and the owner struck it out (2026-09-15: "We have a
+               sign for it… I know the - from +, don't I?") — every number on
+               this strip is written with its sign, so a word saying the sign
+               again was the second copy this page's own rule forbids. Empty
+               otherwise, and empty it occupies no room. */
             var note = box.querySelector('[data-role="readout-note"]');
-            if (note) {
-                var below = value !== null && value !== undefined && isFinite(value) && value < 0;
-                var held = Number(zeros[channel.name] || 0) !== 0;
-                note.classList.toggle("readout-note--below", below);
-                tags.push({el: note, forms: tagForms(held, below)});
-            }
+            if (note) note.textContent = Number(zeros[channel.name] || 0) !== 0 ? "zeroed" : "";
         });
-        // Which of those forms every card carries is settled once, for the
-        // whole strip, after all five have been written.
-        paintTags(tags);
         var units = root.querySelector('[data-role="fold-units"]');
         if (units) units.textContent = shared;
 
@@ -503,10 +472,27 @@
         if (el) el.textContent = value;
     }
 
+    /* The cathode supply's own two numbers, painted into two cards of the
+       readouts strip rather than a panel of its own (queezz, 2026-09-15: "it
+       is the Cathode voltage current. That it happens to be kikusui and read
+       differently is irrelevant for operation").
+
+       What differs from an ADC channel is not the card but the tag on it: a
+       number read over a LAN can be stale, missing or refused in ways a
+       channel the rig samples itself cannot, and those are four different
+       facts, never conflated and never rendered as a number. The word is
+       short because it shares the name's row with the name and the unit; the
+       long form of each is on the Log and in the docs, said once.
+
+       The number is "—" the moment it is not fresh, and the expiry below is
+       why: without it a hung fetch or a lost Pi would leave the last good
+       reading standing on the card looking current. */
+    var CATHODE_TAGS = {idle: "not recording", disabled: "not configured",
+        connecting: "connecting", unavailable: "LAN lost", stale: "stale",
+        stopped: "stopped", error: "see Log", unreachable: "unreachable"};
+    var CATHODE_UNITS = {voltage_v: "V", current_a: "A"};
     var kikusuiExpiry = null;
     function paintKikusui(telemetry) {
-        var panel = root.querySelector('.kikusui-panel');
-        if (!panel) return;
         window.clearTimeout(kikusuiExpiry);
         var k = telemetry || {status: "disabled"};
         var fresh = (k.status === "ok" || k.status === "dummy")
@@ -517,20 +503,30 @@
             && (k.output_on === 0 || k.output_on === 1);
         var status = k.status;
         if (!fresh && (status === "ok" || status === "dummy")) status = "stale";
-        var labels = {idle: "Not recording", disabled: "Not configured",
-            connecting: "Connecting…", unavailable: "LAN unavailable · retrying",
-            stale: "Telemetry stale", stopped: "Recording stopped",
-            error: "Recorder unavailable · see Log", unreachable: "ControlUnit unreachable"};
-        panel.querySelector('[data-role="kikusui-status"]').textContent = fresh
-            ? (status === "dummy" ? "SIMULATED" : "Recording") + " · output " + (k.output_on === 1 ? "on" : "off")
-            : (labels[status] || "Telemetry unavailable");
+        var tag = fresh
+            ? (status === "dummy" ? "SIM · " : "") + "output " + (k.output_on === 1 ? "on" : "off")
+            : (CATHODE_TAGS[status] || "unavailable");
         ["voltage_v", "current_a"].forEach(function (key) {
-            panel.querySelector('[data-kikusui-readout="' + key + '"] [data-role="value"]').textContent =
-                fresh ? k[key].toFixed(3) : "—";
+            var card = root.querySelector('.readout[data-cathode-readout="' + key + '"]');
+            if (card) {
+                /* Signed always, like every other number on the strip, so a
+                   cathode reading crossing zero moves no digit sideways. */
+                card.querySelector('[data-role="value"]').textContent =
+                    fresh ? (k[key] > 0 ? " " : "") + k[key].toFixed(3) : "—";
+                var note = card.querySelector('[data-role="readout-note"]');
+                if (note) note.textContent = tag;
+            }
+            /* The same two numbers on the strip's own folded line, written by
+               this paint like the cards are, and shown by CSS only while the
+               strip is shut — two significant decimals there, because that
+               row has a 320px phone to fit on. */
+            var folded = root.querySelector(
+                '[data-fold-cathode="' + key + '"] [data-role="fold-value"]');
+            if (folded) {
+                folded.textContent = fresh
+                    ? k[key].toFixed(2) + " " + CATHODE_UNITS[key] : "—";
+            }
         });
-        panel.querySelector('[data-role="kikusui-fold"]').textContent = fresh
-            ? (status === "dummy" ? "SIM " : "") + k.voltage_v.toFixed(2) + " V · " + k.current_a.toFixed(2) + " A"
-            : "— V · — A";
         if (fresh) {
             // Expire even when a fetch hangs or the browser loses the Pi.
             kikusuiExpiry = window.setTimeout(function () {
