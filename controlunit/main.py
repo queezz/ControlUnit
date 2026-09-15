@@ -859,9 +859,9 @@ class MainApp(QtCore.QObject, UIWindow):
         )
         # self.control_dock.gaugeT.update_value(self.currentvalues["T"])
 
-        # Three to a row in the value browser: the ion gauges, then the
-        # current and the Baratrons.
-        labels = [*Graph.ION_CURVES, "Ip", *Graph.BARATRON_CURVES]
+        # Three to a row in the value browser: the five the small screen
+        # fits, and no more (Graph.SCREEN_READOUTS says why).
+        labels = list(Graph.SCREEN_READOUTS)
         values = []
         for label in labels:
             v = self.currentvalues[label] - self.zero_adjustment.get(label, 0)

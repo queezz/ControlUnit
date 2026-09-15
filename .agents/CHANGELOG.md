@@ -1,3 +1,7 @@
+## 4.19.1 — 2026-09-15
+
+- The rig's own value browser spells out the five signals it has always fitted, three to a row, and not Pu2: with six the text wrapped and scrolled off the small screen (queezz: "we don't have to put ALL the signals in that tiny display on GUI. When I face the controlunit, I can see the IG block and read the value. But WebUI gets it all"). Pu2 is still plotted and recorded.
+
 ## 4.19.0 — 2026-09-15
 
 - Every readout on the Live and Control tabs is a panel meter, drawn from queezz's own sketch: the name and its state tag small in the top-left corner, the unit small in the bottom-right, and the digits alone across the middle — sign always shown, mantissa large, a small "×10-" and the exponent digit at full height ("Like 5.00E-3, but nicer"). Small and big are the same card at two sizes; big sizes its digits from the card's width, so big is always bigger than small, at every width.

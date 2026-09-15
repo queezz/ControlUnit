@@ -25,6 +25,15 @@ class Graph(pg.GraphicsLayoutWidget):
     BARATRON_CURVES = ("Bu", "Bd")
     PRESSURE_CURVES = ION_CURVES + BARATRON_CURVES
 
+    #: What the rig's own small screen spells out in its value browser: the
+    #: five it has always fitted, three to a row. Not every signal (owner
+    #: decision 2026-09-15, seeing six wrap and scroll: "Maybe we don't
+    #: have to put ALL the signals in that tiny display on GUI. When I face
+    #: the controlunit, I can see the IG block and read the value. But WebUI
+    #: gets it all."). Pu2 is read off its own controller at the rig, and
+    #: still drawn on the plot and recorded in the file.
+    SCREEN_READOUTS = ("Pu", "Pd", "Ip", "Bu", "Bd")
+
     def __init__(self):
         super().__init__()
         self.labelStyle = {"color": "#FFF", "font-size": "14pt"}
