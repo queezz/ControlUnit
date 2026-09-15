@@ -440,9 +440,39 @@ class MainApp(QtCore.QObject, UIWindow):
         if self._kikusui_logger is not None:
             self._publish_kikusui(self._kikusui_logger.snapshot())
 
+    #: The cathode supply's own colour on this screen, the same the web
+    #: readouts and the Cathode card wear.
+    CATHODE_PEN = "#ff6b35"
+
     def _publish_kikusui(self, snapshot):
-        self.plasma_control_dock.show_kikusui(snapshot)
+        self._kikusui_snapshot = snapshot
         self.web_status.record_kikusui(snapshot)
+        self._render_value_browser()
+
+    def _cathode_readouts(self):
+        """The supply's volts and amperes for the value browser: numbers
+        while the telemetry is fresh, dashes otherwise, and a SIM mark on
+        dummy data so a simulated reading is never taken for a measured one."""
+        snapshot = getattr(self, "_kikusui_snapshot", None) or {"status": "idle"}
+        fresh = snapshot.get("status") in ("ok", "dummy")
+        mark = "·SIM" if snapshot.get("status") == "dummy" else ""
+        volts = snapshot.get("voltage_v") if fresh else None
+        amps = snapshot.get("current_a") if fresh else None
+        return [
+            [self.CATHODE_PEN, "Uc" + mark, volts, False, ".3f"],
+            [self.CATHODE_PEN, "Ic" + mark, amps, False, ".3f"],
+        ]
+
+    def _render_value_browser(self):
+        """The Control dock's numbers: the ADC signals the screen keeps,
+        the three with no other display large, then the cathode supply."""
+        values = []
+        for label in Graph.SCREEN_READOUTS:
+            v = self.currentvalues[label] - self.zero_adjustment.get(label, 0)
+            values.append([self.graph.pens[label]["color"], label, v,
+                           label in Graph.SCREEN_PROMINENT])
+        values.extend(self._cathode_readouts())
+        self.control_dock.update_current_values(values)
 
     def _start_kikusui_logging(self):
         """Optional telemetry; a missing/broken LAN must not stop manual acquisition."""
@@ -859,16 +889,7 @@ class MainApp(QtCore.QObject, UIWindow):
         )
         # self.control_dock.gaugeT.update_value(self.currentvalues["T"])
 
-        # Three to a row in the value browser: the five the small screen
-        # fits, and no more (Graph.SCREEN_READOUTS says why).
-        labels = list(Graph.SCREEN_READOUTS)
-        values = []
-        for label in labels:
-            v = self.currentvalues[label] - self.zero_adjustment.get(label, 0)
-            values.append([self.graph.pens[label]["color"], label, v,
-                           label in Graph.SCREEN_PROMINENT])
-
-        self.control_dock.update_current_values(values)
+        self._render_value_browser()
 
     @QtCore.pyqtSlot(dict)
     def _adjust_zeros(self, zero_adjustment):

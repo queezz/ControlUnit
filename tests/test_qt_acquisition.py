@@ -185,8 +185,8 @@ def test_dummy_kikusui_records_with_the_run_and_stops_after_hardware(qt_app, hom
         assert ",1500," in logger.path.read_text()
         assert ",dummy," in logger.path.read_text()
         widget._refresh_kikusui_display()
-        assert "0.000 V" in widget.plasma_control_dock.kikusui_readout.text()
-        assert "SIMULATED" in widget.plasma_control_dock.kikusui_status.text()
+        shown = widget.control_dock.valueBw.toPlainText()
+        assert "Uc·SIM = 0.000" in shown and "Ic·SIM = 0.000" in shown
         assert widget.web_status.read()["kikusui"]["status"] == "dummy"
         original_stop = logger.stop
 
@@ -199,9 +199,9 @@ def test_dummy_kikusui_records_with_the_run_and_stops_after_hardware(qt_app, hom
         widget.stop_acquisition()
         assert widget._kikusui_logger is None
         assert not logger.thread.is_alive()
-        assert widget.plasma_control_dock.kikusui_status.text() == "Not recording"
+        assert "Uc = —" in widget.control_dock.valueBw.toPlainText()
         assert widget.web_status.read()["kikusui"]["status"] == "idle"
-        assert "0.000" not in widget.plasma_control_dock.kikusui_readout.text()
+        assert "Uc·SIM" not in widget.control_dock.valueBw.toPlainText()
     finally:
         widget.abort_all_threads()
 
@@ -293,13 +293,21 @@ def test_dummy_hardware_refuses_a_real_kikusui_config(qt_app, home, monkeypatch)
         widget.abort_all_threads()
 
 
-def test_kikusui_display_clears_numbers_on_loss(qt_app):
-    from controlunit.ui.docks.plasma_current import PlasmaCurrentDock
+def test_kikusui_display_clears_numbers_on_loss(qt_app, home):
+    """The supply's numbers stand in the value browser while the telemetry
+    is fresh and read as dashes the moment it is not; simulated data is
+    marked so it is never taken for a measurement."""
+    from controlunit.main import MainApp
 
-    dock = PlasmaCurrentDock()
-    dock.show_kikusui({"status": "ok", "voltage_v": 2.4, "current_a": 12, "output_on": 1})
-    assert "12.000 A" in dock.kikusui_readout.text()
-    assert dock.kikusui_status.text() == "Recording · output on"
-    dock.show_kikusui({"status": "unavailable"})
-    assert "12.000" not in dock.kikusui_readout.text()
-    assert "retrying" in dock.kikusui_status.text()
+    widget = MainApp(qt_app)
+    try:
+        widget._publish_kikusui({"status": "ok", "voltage_v": 2.4, "current_a": 12, "output_on": 1})
+        shown = widget.control_dock.valueBw.toPlainText()
+        assert "Uc = 2.400" in shown and "Ic = 12.000" in shown
+        widget._publish_kikusui({"status": "unavailable"})
+        shown = widget.control_dock.valueBw.toPlainText()
+        assert "12.000" not in shown and "Uc = —" in shown and "Ic = —" in shown
+        widget._publish_kikusui({"status": "dummy", "voltage_v": 0.0, "current_a": 0.0, "output_on": 0})
+        assert "Uc·SIM = 0.000" in widget.control_dock.valueBw.toPlainText()
+    finally:
+        widget.abort_all_threads()

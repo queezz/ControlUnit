@@ -30,9 +30,9 @@ class Graph(pg.GraphicsLayoutWidget):
     #: decision 2026-09-15, seeing six wrap and scroll: "Maybe we don't
     #: have to put ALL the signals in that tiny display on GUI. When I face
     #: the controlunit, I can see the IG block and read the value. But WebUI
-    #: gets it all."). Pu2 is read off its own controller at the rig, and
-    #: still drawn on the plot and recorded in the file.
-    SCREEN_READOUTS = ("Ip", "Bu", "Bd", "Pu", "Pd")
+    #: gets it all."). Since the gauges went small, Pu2 has its place in
+    #: the small row too ("it can have its curve, so it can have its value").
+    SCREEN_READOUTS = ("Ip", "Bu", "Bd", "Pu", "Pu2", "Pd")
     #: Of those, the ones with no display anywhere but this screen: the Hall
     #: sensor's current and the two Baratrons. They lead the row and are
     #: written large; the two gauges, which have controllers of their own in

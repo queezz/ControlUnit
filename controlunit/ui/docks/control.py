@@ -147,12 +147,15 @@ class ControlDock(Dock):
         self.widget.addWidget(self.valueBw, 1, 0, 1, 12)
         self.widget.addWidget(self.FullNormSW, 2, 0, 1, 6)
         self.widget.addWidget(self.scaleBtn, 2, 6, 1, 6)
-        # One row per ionization gauge: its name, its Torr/Pa box and its
-        # exponent, so a person at the rig sets each gauge under its own name.
-        for row, (gauge, (mode, range_box)) in enumerate(self.gauges.items(), start=3):
-            self.widget.addWidget(self.gauge_labels[gauge], row, 0, 1, 2)
-            self.widget.addWidget(mode, row, 2, 1, 5)
-            self.widget.addWidget(range_box, row, 7, 1, 5)
+        # Two ionization gauges to a row, each as name, Torr/Pa box and
+        # exponent in six of the twelve columns: mouse-sized, they fit on
+        # one line (queezz, 2026-09-15: "now Pd and Pu2 are smaller, they
+        # should fit on a single line").
+        for i, (gauge, (mode, range_box)) in enumerate(self.gauges.items()):
+            row, base = 3 + i // 2, (i % 2) * 6
+            self.widget.addWidget(self.gauge_labels[gauge], row, base, 1, 1)
+            self.widget.addWidget(mode, row, base + 1, 1, 2)
+            self.widget.addWidget(range_box, row, base + 3, 1, 3)
 
     def __init_analog_gauge(self):
         """Initialize the analog gauge (removed from GUI)."""
@@ -208,9 +211,10 @@ class ControlDock(Dock):
         """Update current values displayed in the browser with passed values.
 
         Args:
-            values: List of [pen colour, label, value, prominent]; a missing
-                    fourth item means prominent, so an older caller reads
-                    as before.
+            values: List of [pen colour, label, value, prominent, fmt]; a
+                    missing fourth item means prominent and a missing fifth
+                    means the old rule (two decimals for Ip, else
+                    exponent form). A value of None reads as a dash.
         """
         padding = "1px"  # Set your desired padding here
         cell_width = "10px"  # Set your desired cell width here
@@ -221,11 +225,12 @@ class ControlDock(Dock):
         for entry in values:
             pen, label, val = entry[0], entry[1], entry[2]
             prominent = entry[3] if len(entry) > 3 else True
+            fmt = entry[4] if len(entry) > 4 else (".2f" if label == "Ip" else ".2e")
             size = self.PROMINENT_SIZE if prominent else self.QUIET_SIZE
+            text = "—" if val is None else f"{val:{fmt}}"
             table_cells.append(
                 f'<td style="padding:{padding};width:{cell_width};">'
-                f'<font size="{size}" color="{pen}">{label} = '
-                f'{val:{".2f" if label == "Ip" else ".2e"}}</font></td>'
+                f'<font size="{size}" color="{pen}">{label} = {text}</font></td>'
             )
 
         # Split cells into rows of 3 columns each

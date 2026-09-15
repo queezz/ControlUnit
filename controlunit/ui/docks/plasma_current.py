@@ -35,10 +35,6 @@ class PlasmaCurrentDock(Dock):
         self._add_vertical_spacer()
 
     def _init_ui(self):
-        self.kikusui_readout = QtWidgets.QLabel("Kikusui: — V   — A")
-        self.kikusui_status = QtWidgets.QLabel("Not recording")
-        self.kikusui_readout.setStyleSheet("font: 14pt")
-        self.kikusui_status.setStyleSheet("font: 11pt")
         self.pid_label = QtWidgets.QLabel("PID")
         self.ampere_spin_box = QtWidgets.QDoubleSpinBox()
         self.set_dac_voltage = QtWidgets.QPushButton("set")
@@ -84,31 +80,11 @@ class PlasmaCurrentDock(Dock):
         self.widget.addWidget(self.cathode_spin_box, 1, 1)
         self.widget.addWidget(self.cathode_set_btn, 1, 2)
         self.widget.addWidget(self.cathode_off_btn, 1, 3)
-        self.widget.addWidget(self.kikusui_readout, 2, 0, 1, 4)
-        self.widget.addWidget(self.kikusui_status, 3, 0, 1, 4)
-
-    def show_kikusui(self, snapshot):
-        status = snapshot["status"]
-        if status in ("ok", "dummy"):
-            self.kikusui_readout.setText(
-                f"Kikusui: {snapshot['voltage_v']:.3f} V   {snapshot['current_a']:.3f} A"
-            )
-            output = "on" if snapshot["output_on"] else "off"
-            label = "SIMULATED" if status == "dummy" else "Recording"
-            text = f"{label} · output {output}"
-        else:
-            self.kikusui_readout.setText("Kikusui: — V   — A")
-            text = {
-                "connecting": "Connecting…", "unavailable": "LAN unavailable · retrying",
-                "stale": "Telemetry stale", "stopped": "Recording stopped",
-                "disabled": "Not configured", "idle": "Not recording",
-                "error": "Recorder unavailable · see Log",
-            }.get(status, status)
-        self.kikusui_status.setText(text)
-        details = [snapshot.get("file", ""), snapshot.get("date", ""), snapshot.get("error", "")]
-        tooltip = "\n".join(str(value) for value in details if value)
-        self.kikusui_readout.setToolTip(tooltip)
-        self.kikusui_status.setToolTip(tooltip)
+        # The supply's measured volts and amperes used to stand here as two
+        # lines; they are read in the Control dock's value browser now, so
+        # this dock ends at its two rows and the Scales dock below it is not
+        # clipped (queezz, 2026-09-15: "remove 'recording...' and maybe
+        # display too. Put the values in the browser").
 
     def _add_vertical_spacer(self):
         """Add vertical spacer"""
@@ -116,7 +92,7 @@ class PlasmaCurrentDock(Dock):
             0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
         )
         self.widget.layout.setVerticalSpacing(3)
-        self.widget.layout.addItem(self.verticalSpacer, 4, 0, 1, 4)
+        self.widget.layout.addItem(self.verticalSpacer, 2, 0, 1, 4)
 
 
 if __name__ == "__main__":

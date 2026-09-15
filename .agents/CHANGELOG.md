@@ -1,3 +1,7 @@
+## 4.19.5 — 2026-09-15
+
+- On the rig's screen Pu2 takes its place in the value browser's small row beside Pu and Pd, and the cathode supply's measured volts and amperes join that row as Uc and Ic in the cathode's orange (dashes while the telemetry is not fresh, a SIM mark on dummy data); the two Kikusui lines leave the Cathode dock, so the Scales dock beneath is no longer clipped. The two gauge rows are one row.
+
 ## 4.19.4 — 2026-09-15
 
 - The rig's gauge rows are mouse-sized: 12 pt names and Torr/Pa boxes, 13 pt exponent spinners 34 px tall ("I built that for touch at first, but we never use touch"). The value browser is tall enough for its large row and its small row without a scrollbar.
