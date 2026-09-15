@@ -281,12 +281,18 @@ holds what is still undecided or unbuilt.
   saved files header because of this... But we can always make a good
   header comment explaining which one is which, what units, and all that,
   the provenance"). Build, after the 4.19.0 readouts slice:
-  - A display name per channel in settings.yml (`Label`), read once:
-    `Pu2` shows as `IGu`, `Pd` as `IGd`, every other channel as its own
-    name. Everywhere a person reads a channel name — the readout cards and
-    the folded row, the legend pills and chart titles ("Upstream · Pu +
-    IGu + Bu"), the Ion gauges card ("Upstream · IGu"), the rig's dock
-    rows and value browser — shows the label. Everywhere a machine reads
+  - A display name per channel in settings.yml (`Label`), read once and
+    set in type (queezz: "Pu2 is a terrible UI. Like we have no
+    typography, no superscripts.."): the label is written plainly with an
+    underscore before the subscript — `I_p`, `P_u` for the Pirani, `IG_u`,
+    `IG_d`, `B_u`, `B_d` — and every screen renders the part after the
+    underscore as a real subscript, the web page with `<sub>` markup and
+    the rig's Qt labels with rich text; the plain form is what the file
+    header and any typed reference use. Everywhere a person reads a
+    channel name — the readout cards and the folded row, the legend pills
+    and chart titles ("Upstream · P_u + IG_u + B_u", typeset), the Ion
+    gauges card ("Upstream · IG_u"), the rig's dock rows and value
+    browser — shows the label. Everywhere a machine reads
     one — the CSV columns (`Pu2`, `Pu2_c`, `IGmode_Pu2`, `IGscale_Pu2`,
     `Pd`, ...), `/api/state` and `/api/series` keys, `/api/gauge` bodies,
     the browser's remembered choices — keeps the channel name. Nothing
