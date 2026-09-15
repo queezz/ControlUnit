@@ -192,8 +192,11 @@ class ControlDock(Dock):
 
     # MARK: Update Values
     #: HTML font sizes (1–7) for a value with no display but this screen and
-    #: for one whose controller in the rack shows it too.
-    PROMINENT_SIZE = 6
+    #: for one whose controller in the rack shows it too. Five is the size
+    #: three values have always fitted across this browser at the rig's own
+    #: dock width; six wrapped them and pushed the gauges' row off the
+    #: bottom (queezz, 2026-09-15: "punished GUI").
+    PROMINENT_SIZE = 5
     QUIET_SIZE = 3
 
     def update_current_values(self, values):

@@ -1,3 +1,7 @@
+## 4.19.3 — 2026-09-15
+
+- The rig's three leading values go back to the size three have always fitted across the browser; six wrapped them and hid the gauges' row ("punished GUI"). The gauges stay small beneath.
+
 ## 4.19.2 — 2026-09-15
 
 - On the rig's own screen the Hall sensor current and the two Baratrons lead the value browser and are written large; the two gauges, which have controllers of their own in the rack, follow small (queezz: "They have no displays but the ControlUnit").
