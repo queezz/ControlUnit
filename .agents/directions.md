@@ -205,6 +205,13 @@ holds what is still undecided or unbuilt.
   - A chart whose curves are all off keeps its canvas and axes, empty,
     with its pills; the hint sentence goes. Folding is the one way a
     chart collapses.
+  - The Cathode card carries the supply's OUTPUT lamp (queezz, 2026-09-15:
+    "Make it good size green circle, as on the physical PSU. So it's 'in
+    sync'. Green when on, grayed a bit when off"): a large circle on the
+    card's heading line, green while the Kikusui telemetry is fresh and
+    says output on, grey while it says off, and dim with no colour while
+    the telemetry is stale, stopped or not configured, with the word
+    beside it. It is a lamp: it reads the supply and presses nothing.
   - Nothing here changes what is recorded.
 
 - Design directions from queezz, 2026-09-15, during the first 4.18.0 run
@@ -264,6 +271,21 @@ holds what is still undecided or unbuilt.
   Done when: the share opens from the Pi (or the office PC, whichever
   will copy) with a saved credential, and the credential lives in a
   machine-local file named in the NAS item, never in git.
+
+- Should the OUTPUT lamp on the Cathode card also press — switch the
+  Kikusui supply's output on and off from a browser — or only show?
+  — the owner's call. He asked for "the output on/off button ... in
+  sync"; the lamp alone is what 4.19.0 builds.
+  Stakes: pressing crosses the 2026-09-14 rule that the Kikusui link is
+  read-only (its client refuses every command but four measurement
+  queries, and the recorder never drives an output); it would be the
+  first browser control that switches the cathode supply itself, behind
+  the same gates as every setter.
+  Recommendation: the lamp now; if it must press, off-only first, as a
+  second Stop-all-outputs kind of press, and on only after that has been
+  used for a while, because switching a filament supply on from a phone
+  is a different press from switching it off.
+  Safe default: it shows and never presses.
 
 - Should the time window stay a set of fixed spans (now a compact choice
   on the charts' toolbar) or become direct: drag across a chart to zoom,
