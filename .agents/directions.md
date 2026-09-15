@@ -356,20 +356,31 @@ holds what is still undecided or unbuilt.
   logging: "the rig still searches for it. We need a toggle. Thing off.
   Also for IGs. So we don't collect nonsense signal. Or at least know when
   it is from the log file, without looking at pihti-vacuum"). Design:
-  - One "off" toggle per instrument that can be off while the rig logs —
-    the cathode supply (Kikusui) and each ion gauge — on the rig's dock
-    and on the web Cathode card and Ion gauges card, the house's sliding
-    pill, gated like every setter.
+  - Amended the same night (queezz: "PIHTI Vacuum has the state of the
+    gauges. If we trust the operator. And we definitely trust me"): the
+    ion gauges get no switch here. Their on/off is already set by the
+    operator in the PIHTI Diagram (`2024-interactive-diagram`, the vacuum
+    state the journal's captures come from), and that is the one place it
+    lives. ControlUnit reads it from the Diagram server-side, the way it
+    already reads the Diagram's health through its neighbours probe (2 s
+    timeout, cached, five states never conflated; the Diagram is asked by
+    letter what endpoint carries the gauge states and their names), and
+    marks the file from what it read; a Diagram that is unreachable
+    leaves the mark at "unknown", never "on". Only the cathode supply
+    (Kikusui) gets a ControlUnit toggle, on the Cathode card and the
+    rig's dock, the house's sliding pill, gated like every setter.
+    "PSUs off" in his words means the plasma power supplies.
   - Declared off, the Kikusui recorder stops polling and writes one
     `status=off` row (no LAN-lost warnings, no retries every 5 s); an ion
     gauge declared off keeps its raw volts in the file but its converted
     column is written as NaN, its readout reads "off", and its curve is
     not drawn. Every change is one event line in the log with the time.
   - The ADC file learns it: one more appended metadata column per
-    instrument, `<name>_off` (0/1) — appended after the existing columns,
-    never inserted — so a reader of the file alone knows which stretches
-    to discard. PIHTI Log and the Diagram are told by letter with the
-    other column news.
+    instrument, `<name>_off` (0/1, and -1 for unknown) — appended after
+    the existing columns, never inserted — so a reader of the file alone
+    knows which stretches to discard. PIHTI Log and the Diagram are told
+    by letter with the other column news; the Diagram's letter also asks
+    for the gauge-state endpoint above.
   - The toggles rest on "on" at Start; a rig started with an instrument
     already off should say so within the first minute (a warning when a
     gauge reads at its floor for a minute, later).
