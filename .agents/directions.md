@@ -642,6 +642,35 @@ holds what is still undecided or unbuilt.
   - Bu went electrically noisy 19:20:50–19:23:50 (sd 1.4e-4 Torr,
     negative excursions) with nothing logged; one 0.35 s gap in the main
     run; zero tracebacks.
+- Confirm each instrument's valid range, minimum and maximum, from its
+  manual and from real data, and keep the numbers in one place (queezz,
+  2026-09-15: "The min max should be confirmed for our units from the
+  manual and actual data. I forget!"). One table, in `settings.yml` beside
+  each channel (`Valid Range: [low, high]` in the channel's own unit) and
+  echoed in docs/hardware/channel-map.md and the file's provenance
+  header, which the readout tags, the curve-steps-aside rule and any
+  "looks off?" heuristic all read from. To confirm, per channel:
+  - Bu: MKS 627, 1 Torr full scale; Bd: MKS 628B, 0.1 Torr full scale —
+    the usable fraction of full scale from the MKS manual (the Baratron
+    pages are in the vault's Hardware folder or the explainers' hardware
+    write-ups), against the data: Bd's own behaviour says above 1e-5
+    Torr, Bu's is to be read off a pump-down.
+  - Pu: Pfeiffer PKR251 full-range gauge reading as a Pirani (the Penning
+    stage does not ignite): the Pirani part's range from the PKR251
+    datasheet (the explainers hold it), against what it read tonight
+    (1.2e-5 Torr at a chamber near 1e-9 — that is its floor, not the
+    pressure).
+  - Pd and Pu2: the ion gauge controllers' model and range from the
+    vault's Hardware notes, and what each reads against the Baratrons
+    when the chamber is in both instruments' range.
+  - Ip: the Hall sensor's model and range (settings say 5 A per volt
+    about 2.52 V), against the 0.8 A plasma of tonight and the noise
+    measured (docs/diagnostics/2026-09-15-plasma-run-and-noise.md).
+  - Uc and Ic: the Kikusui PWR401L's own limits from the manual scans in
+    the vault (`Hardware/Equipment/Kikusui Power Supplies.md`).
+  A session can do the reading; where a manual is a scan, say which page
+  the number came from. Result: the table, and a short note in the vault
+  under Hardware saying where each number came from.
 - A noise floor per channel, so the current with no plasma can step out of
   the way too (queezz, 2026-09-07: the current plot with no plasma is "a
   noisy waste of space"). 4.5.0 collapses a curve whose excursion is smaller
