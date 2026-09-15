@@ -1,4 +1,4 @@
-Settings Version: 1.3
+Settings Version: 1.4
 # Define your local settings in
 # localsettings = os.path.join(os.path.expanduser('~'),'.controlunit', 'settings.yml')
 # ~/.controlunit/settings.yml
@@ -62,9 +62,14 @@ Temperature Columns:
 #     If function is "Baratron", spesify its Full Scale in Torr
 #     tag = Full Scale
 # - "No Conversion" # If no conversion neededt
-# TODO: update worker.update_processed_signals_dataframe()
-# If channels are changed or added, this function must be manually
-# updated now.
+#
+# An "Ionization Gauge" channel also names the two record columns that carry
+# the mode (0 Torr linear, 1 Pa log) and the exponent its controller was set
+# to when each row was taken: Mode Column and Scale Column, both listed under
+# ADC Additional Columns below. Each gauge has its own pair, set from its own
+# selector on the Control dock and the web Control tab. The first gauge keeps
+# the columns the file has always had, IGmode and IGscale, so an old file
+# and a new one read the same.
 
 ADC Channels:
   Ip:
@@ -83,6 +88,15 @@ ADC Channels:
     Gain: 10
     Description: "Ionization Gauge (downstream)"
     Conversion Function: "Ionization Gauge"
+    Mode Column: "IGmode"
+    Scale Column: "IGscale"
+  Pu2:
+    Channel: 16
+    Gain: 10
+    Description: "Ionization Gauge (upstream), wired 2026-09-15"
+    Conversion Function: "Ionization Gauge"
+    Mode Column: "IGmode_Pu2"
+    Scale Column: "IGscale_Pu2"
   Bu:
     Channel: 20
     Gain: 1
@@ -125,6 +139,9 @@ ADC Additional Columns:
   - "PresetV_mfc1"
   - "PresetV_mfc2"
   - "PresetV_cathode"
+  # Appended, never inserted: the columns before them keep their positions.
+  - "IGmode_Pu2"
+  - "IGscale_Pu2"
 
 # ================================================
 #

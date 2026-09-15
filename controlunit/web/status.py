@@ -73,6 +73,7 @@ class RigStatus:
         sampling=None,
         names=(),
         units=None,
+        gauges=(),
         keep_seconds=KEEP_SECONDS,
         clock=time.time,
     ):
@@ -83,6 +84,7 @@ class RigStatus:
         self._sampling = sampling
         self._names = list(names)
         self._units = dict(units or {})
+        self._gauges = list(gauges)
         self._keep_seconds = float(keep_seconds)
 
         self._latest = {}
@@ -107,8 +109,12 @@ class RigStatus:
             # a record that carried only the PID setpoint called that
             # combination "nothing running" (see `live_outputs`).
             "cathode_mv": 0.0,
+            # The first ionization gauge's mode and exponent, under the two
+            # names every reader has known; `gauges` carries the same pair
+            # for every gauge by channel name, the first one included.
             "ig_mode": None,
             "ig_range": None,
+            "gauges": {name: {"mode": None, "range": None} for name in self._gauges},
             "sync": False,
         }
 
@@ -217,6 +223,28 @@ class RigStatus:
                 if key in self._setpoints:
                     self._setpoints[key] = value
 
+    def record_gauge(self, gauge, mode=None, range=None):
+        """Record one ionization gauge's mode and/or exponent, by channel name.
+
+        The first gauge declared is also written under `ig_mode` and
+        `ig_range`, the names the record carried before there were two.
+        """
+        with self._lock:
+            entry = self._setpoints["gauges"].setdefault(
+                gauge, {"mode": None, "range": None}
+            )
+            if mode is not None:
+                entry["mode"] = mode
+            if range is not None:
+                entry["range"] = range
+            # Undeclared gauges: the first one ever recorded is the first.
+            first = self._gauges[0] if self._gauges else next(iter(self._setpoints["gauges"]))
+            if gauge == first:
+                if mode is not None:
+                    self._setpoints["ig_mode"] = mode
+                if range is not None:
+                    self._setpoints["ig_range"] = range
+
     def set_remote(self, on):
         """Record the Remote switch on the rig's own screen."""
         with self._lock:
@@ -251,6 +279,15 @@ class RigStatus:
 
     # -- what the web thread reads -------------------------------------------
 
+    def _copy_setpoints(self):
+        """The setpoints with the per-gauge pairs copied too, so a reader
+        holding a snapshot never shares a dict with the main thread."""
+        setpoints = dict(self._setpoints)
+        setpoints["gauges"] = {
+            name: dict(pair) for name, pair in self._setpoints["gauges"].items()
+        }
+        return setpoints
+
     def read(self):
         """A snapshot the web thread may keep and use without the lock."""
         with self._lock:
@@ -267,7 +304,7 @@ class RigStatus:
                 "names": list(self._names),
                 "units": dict(self._units),
                 "values": dict(self._latest),
-                "setpoints": dict(self._setpoints),
+                "setpoints": self._copy_setpoints(),
                 "remote": self._remote,
                 "zeros": dict(self._zeros),
                 "last_command": dict(self._last_command) if self._last_command else None,

@@ -146,17 +146,15 @@ class UIWindow(object):
         [toggleplot(*items[jj]) for jj in ["Ip", "P"]]
 
     def toggle_plots_baratron(self):
-        if self.scale_dock.togBaratron.isChecked():
-            [self.graph.plot_lines[name].setVisible(True) for name in ["Bu", "Bd"]]
-        else:
-            [self.graph.plot_lines[name].setVisible(False) for name in ["Bu", "Bd"]]
+        shown = self.scale_dock.togBaratron.isChecked()
+        for name in Graph.BARATRON_CURVES:
+            self.graph.plot_lines[name].setVisible(shown)
 
     def toggle_plots_igs(self):
         """Toggle IG and Pfeiffer lines"""
-        if self.scale_dock.togIGs.isChecked():
-            [self.graph.plot_lines[name].setVisible(True) for name in ["Pu", "Pd"]]
-        else:
-            [self.graph.plot_lines[name].setVisible(False) for name in ["Pu", "Pd"]]
+        shown = self.scale_dock.togIGs.isChecked()
+        for name in Graph.ION_CURVES:
+            self.graph.plot_lines[name].setVisible(shown)
 
     def __toggleYLogScale(self):
         """Toggle Y Scale between Log and Lin for Pressure plots"""

@@ -121,21 +121,57 @@ def test_busy_then_ready_reads_one_signed_result_without_changing_wire_format(mo
     assert writes[1] == (0x49, 0, 1)
 
 
-def test_batch_is_typed_detached_and_uses_captured_gauge_metadata(worker):
-    from controlunit.devices.conversions import ionization_gauge
-    worker.adc_channels['Pu'].conversion = ionization_gauge
+def test_each_ion_gauge_records_and_converts_with_its_own_settings(worker):
+    """Pd and Pu2 each carry their own mode and exponent into the row, and
+    each channel is converted with its own pair, never the other's."""
     captured = []
     worker.data_ready.connect(lambda result: captured.append(result[0]))
     worker.hold_voltages({name: 0.5 for name in worker.adc_signals_columns})
-    worker.set_ig_mode(0)
-    worker.set_ig_range(-3)
+    worker.set_ig_mode('Pd', 0)
+    worker.set_ig_range('Pd', -6)
+    worker.set_ig_mode('Pu2', 0)
+    worker.set_ig_range('Pu2', -3)
     worker.put_new_data_in_dataframe()
-    worker.set_ig_range(-7)  # arrives between row capture and conversion
     worker.update_processed_signals_dataframe()
-    expected = worker.adc_channels['Pu'].conversion(0.5, 0, -3)
     worker.send_processed_data_to_main_thread()
     row = captured[0]
-    assert row['Pu_c'].iloc[0] == pytest.approx(expected)
+    assert row['IGmode'].iloc[0] == 0 and row['IGscale'].iloc[0] == -6
+    assert row['IGmode_Pu2'].iloc[0] == 0 and row['IGscale_Pu2'].iloc[0] == -3
+    assert row['Pd_c'].iloc[0] == pytest.approx(0.5e-6)
+    assert row['Pu2_c'].iloc[0] == pytest.approx(0.5e-3)
+    # The columns the file has always had keep their positions; the new
+    # pair is appended after them, so an old reader is not shifted.
+    columns = worker.config['ADC Column Names']
+    assert columns[:8] == [
+        'date', 'time', 'IGmode', 'IGscale', 'QMS_signal',
+        'PresetV_mfc1', 'PresetV_mfc2', 'PresetV_cathode',
+    ]
+    assert columns[8:10] == ['IGmode_Pu2', 'IGscale_Pu2']
+    assert worker.config['Ion Gauges'] == ['Pd', 'Pu2']
+
+
+def test_a_gauge_column_nobody_records_is_refused_at_start(worker, qt_app, home):
+    import copy
+    import readsettings
+    config = readsettings.init_configuration()
+    config['ADC Additional Columns'] = config['ADC Additional Columns'] + ['IGmode_Px']
+    with pytest.raises(ValueError, match='IGmode_Px'):
+        adc_module.ADC('ADC', qt_app, datetime.datetime.now(), config, None)
+
+
+def test_batch_is_typed_detached_and_uses_captured_gauge_metadata(worker):
+    captured = []
+    worker.data_ready.connect(lambda result: captured.append(result[0]))
+    worker.hold_voltages({name: 0.5 for name in worker.adc_signals_columns})
+    worker.set_ig_mode('Pd', 0)
+    worker.set_ig_range('Pd', -3)
+    worker.put_new_data_in_dataframe()
+    worker.set_ig_range('Pd', -7)  # arrives between row capture and conversion
+    worker.update_processed_signals_dataframe()
+    expected = worker.adc_channels['Pd'].conversion(0.5, 0, -3)
+    worker.send_processed_data_to_main_thread()
+    row = captured[0]
+    assert row['Pd_c'].iloc[0] == pytest.approx(expected)
     assert row['IGscale'].iloc[0] == -3
     assert list(row.columns) == worker.config['ADC Column Names']
     assert pd.api.types.is_datetime64_any_dtype(row['date'])
@@ -149,7 +185,7 @@ def test_empty_history_preserves_typed_batches_and_plot_time_values():
     from controlunit.main import MainApp
     dates = pd.date_range('2026-09-10 19:00:00.123456', periods=3, freq='100ms')
     batch = pd.DataFrame({'date': dates, 'Ip_c': [1., 2., 3.]})
-    for name in ('Pu', 'Pd', 'Bu', 'Bd'):
+    for name in ('Pu', 'Pu2', 'Pd', 'Bu', 'Bd'):
         batch[name + '_c'] = batch['Ip_c']
     plotted = {}
     host = SimpleNamespace(
@@ -157,7 +193,7 @@ def test_empty_history_preserves_typed_batches_and_plot_time_values():
         zero_adjustment={'Ip': 0.25},
         graph=SimpleNamespace(plot_lines={name: SimpleNamespace(
             setData=lambda x, y, name=name: plotted.update({name: (x, y)})
-        ) for name in ('Ip', 'Pu', 'Pd', 'Bu', 'Bd')}),
+        ) for name in ('Ip', 'Pu', 'Pu2', 'Pd', 'Bu', 'Bd')}),
     )
     MainApp.append_data(host, 'ADC')
     MainApp.append_data(host, 'ADC')

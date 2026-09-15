@@ -19,7 +19,8 @@ Do not expect hardware build notes here.
 |------|--------|----------------|
 | `Ip` | Plasma current | Hall-effect sensor: `5 * (v - 2.52) A` |
 | `Pu` | Upstream pressure | Pfeiffer single gauge PKR251 (currently operating in Pirani mode — cold-cathode discharge not igniting) |
-| `Pd` | Downstream pressure | Ionization gauge |
+| `Pd` | Downstream pressure | Ionization gauge. Its controller's mode (Torr linear or Pa log) and exponent are recorded per row as `IGmode` and `IGscale`, the columns the file has always had. |
+| `Pu2` | Upstream pressure | Second ionization gauge, wired to channel 16 on 2026-09-15, with its own selector on the Control dock and the web Control tab. Its mode and exponent are recorded per row as `IGmode_Pu2` and `IGscale_Pu2`, appended after the original columns so nothing an old reader counts on moves. |
 | `Bu` | Upstream Baratron | MKS 627, FS = 1 Torr |
 | `Bd` | Downstream Baratron | MKS 628B, FS = 0.1 Torr |
 | `MFC1` | H₂ flow | 20 SCCM range |

@@ -67,6 +67,15 @@ def init_configuration(settings="settings.yml", verbose=False):
 
     config["Adc Channel Properties"] = adc_channels
 
+    config["Ion Gauges"] = ion_gauge_names(config)
+    for name in config["Ion Gauges"]:
+        for column in (adc_channels[name].mode_column, adc_channels[name].scale_column):
+            if column not in config["ADC Additional Columns"]:
+                raise ValueError(
+                    f"ion gauge {name} records into {column!r}, "
+                    "which is not one of the ADC Additional Columns"
+                )
+
     config["ADC Signal Names"] = list(config["ADC Channels"])
     config["ADC Converted Names"] = [i + "_c" for i in config["ADC Signal Names"]]
     config["ADC Column Names"] = (
@@ -79,6 +88,21 @@ def init_configuration(settings="settings.yml", verbose=False):
     config["ADC Channel Numbers"] = [a[i]["Channel"] for i in list(a)]
 
     return config
+
+
+def ion_gauge_names(config):
+    """The ionization gauge channels, in the order the settings list them.
+
+    Works on the raw settings as well as the initialised configuration, so
+    the Control dock and the web view can name the gauges without a worker.
+    The first one is the gauge the record has always carried as IGmode and
+    IGscale.
+    """
+    return [
+        name
+        for name, channel in config["ADC Channels"].items()
+        if channel["Conversion Function"] == "Ionization Gauge"
+    ]
 
 
 def check_logfile(config):

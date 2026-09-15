@@ -218,7 +218,7 @@ of the response can tell which question was asked.
 | `POST /api/mfc/<1\|2>` | `{"mv": 0..5000}` — a gas flow setpoint; `0` is the Zero button |
 | `POST /api/plasma-current` | `{"a": 0..3}` or `{"off": true}` — the plasma-current PID, which moves the cathode DAC for you |
 | `POST /api/cathode` | `{"mv": 0..5000}` or `{"off": true}` — the cathode DAC held at a millivolt value with the PID off; whole millivolts, gated exactly as the PID setpoint is |
-| `POST /api/gauge` | `{"mode": "Torr"\|"Pa"}` and/or `{"range": -8..-3}` |
+| `POST /api/gauge` | `{"gauge": "Pd"\|"Pu2", "mode": "Torr"\|"Pa"}` and/or `{"range": -8..-3}` — one ionization gauge's own mode and exponent; a body naming no gauge means the first, `Pd` |
 | `POST /api/sync` | `{"on": true\|false}` — the QMS sync line |
 | `POST /api/zero` | `{"channel": "Ip"\|"Bu"\|"Bd"}` — take that channel's baseline |
 

@@ -8,12 +8,22 @@ class Graph(pg.GraphicsLayoutWidget):
     pens = {
         "Ip": {"color": "#8d3de3", "width": 1},
         "Pu": {"color": "#c9004d", "width": 1},
+        "Pu2": {"color": "#3b82f6", "width": 1},
         "Pd": {"color": "#6ac600", "width": 1},
         "Bu": {"color": "#ffb405", "width": 1},
         "Bd": {"color": "#00a3af", "width": 1},
         "T": {"color": "#5999ff", "width": 1},
         "trigger": {"color": "#edbc34", "width": 1},
     }
+
+    #: The pressure curves in the order the rig's screen lists them: the ion
+    #: gauges (the Pfeiffer Pu and the two ionization gauges, Pu2 upstream
+    #: since 2026-09-15 and Pd downstream), then the two Baratrons. Every
+    #: list of what is plotted, toggled or read out is built from these, so
+    #: a gauge is added in one place.
+    ION_CURVES = ("Pu", "Pu2", "Pd")
+    BARATRON_CURVES = ("Bu", "Bd")
+    PRESSURE_CURVES = ION_CURVES + BARATRON_CURVES
 
     def __init__(self):
         super().__init__()
@@ -44,7 +54,7 @@ class Graph(pg.GraphicsLayoutWidget):
 
     def _init_pressure_curves(self):
         """Add curves to pressure plot"""
-        self.__init_plotitem_curves(self.pressure_plot, ["Pu", "Pd", "Bu", "Bd"])
+        self.__init_plotitem_curves(self.pressure_plot, list(self.PRESSURE_CURVES))
 
         self.pressure_plot.setLogMode(y=True)
         self.pressure_plot.setYRange(-8, 3, 0)

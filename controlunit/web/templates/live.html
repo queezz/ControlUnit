@@ -355,26 +355,40 @@
                         </div>
                     </section>
 
+                    {# One block per ionization gauge, each under its own
+                       channel name with its own Torr/Pa and exponent rows,
+                       the same two rows the rig's Control dock shows per
+                       gauge. The folded line says each gauge's setting in
+                       its name's order. #}
                     <details class="fgroup gauge-settings fold" id="sec-gauge" data-fold="gauge" open>
-                        <summary class="fold-head"><h2 class="fold-name">Gauges</h2> <span class="mono" data-role="gauge-mode-now">—</span> <span class="mono" data-role="gauge-range-now">—</span></summary>
-                        <div class="frow">
-                            <span class="row-name">Mode</span>
-                            <span class="row-actions">
-                                {% for mode in gauge_modes %}
-                                <button type="button" class="choice" data-role="gauge-mode"
-                                        data-mode="{{ mode }}" aria-pressed="false">{{ mode }}</button>
-                                {% endfor %}
-                            </span>
+                        <summary class="fold-head"><h2 class="fold-name">Gauges</h2>
+                            {% for gauge in gauges %}
+                            <span class="mono gauge-now" data-gauge="{{ gauge }}">{{ gauge }} <span data-role="gauge-mode-now">—</span> <span data-role="gauge-range-now">—</span></span>
+                            {% endfor %}
+                        </summary>
+                        {% for gauge in gauges %}
+                        <div class="gauge-line" data-gauge="{{ gauge }}">
+                            <h3 class="gauge-name">{{ gauge }}</h3>
+                            <div class="frow">
+                                <span class="row-name">Mode</span>
+                                <span class="row-actions">
+                                    {% for mode in gauge_modes %}
+                                    <button type="button" class="choice" data-role="gauge-mode" data-gauge="{{ gauge }}"
+                                            data-mode="{{ mode }}" aria-pressed="false">{{ mode }}</button>
+                                    {% endfor %}
+                                </span>
+                            </div>
+                            <div class="frow">
+                                <span class="row-name">Range</span>
+                                <span class="row-actions">
+                                    {% for decade in gauge_range %}
+                                    <button type="button" class="choice" data-role="gauge-range" data-gauge="{{ gauge }}"
+                                            data-range="{{ decade }}" aria-pressed="false">1e{{ decade }}</button>
+                                    {% endfor %}
+                                </span>
+                            </div>
                         </div>
-                        <div class="frow">
-                            <span class="row-name">Range</span>
-                            <span class="row-actions">
-                                {% for decade in gauge_range %}
-                                <button type="button" class="choice" data-role="gauge-range"
-                                        data-range="{{ decade }}" aria-pressed="false">1e{{ decade }}</button>
-                                {% endfor %}
-                            </span>
-                        </div>
+                        {% endfor %}
                     </details>
                 </div>
             </div>

@@ -88,11 +88,13 @@ WINDOWS = (
 )
 DEFAULT_WINDOW = 300
 
-#: The five signals the rig's own graph draws, in its own pen colours, so a
-#: curve has one colour on the rig's screen and on a laptop.
+#: The six signals the rig's own graph draws, in its own pen colours, so a
+#: curve has one colour on the rig's screen and on a laptop (the Qt graph's
+#: `pens`; a test holds the two equal).
 PENS = (
     ("Ip", "#8d3de3"),
     ("Pu", "#c9004d"),
+    ("Pu2", "#3b82f6"),
     ("Pd", "#6ac600"),
     ("Bu", "#ffb405"),
     ("Bd", "#00a3af"),
@@ -108,7 +110,7 @@ PENS = (
 #: Baratrons sit in a narrow band and want a linear one.
 PANELS = (
     ("chart-plasma", "Plasma current, A", ("Ip",), 220, "span-plasma"),
-    ("chart-ig", "Ion gauges, Torr", ("Pu", "Pd"), 200, "span-ig"),
+    ("chart-ig", "Ion gauges, Torr", ("Pu", "Pu2", "Pd"), 200, "span-ig"),
     ("chart-bar", "Baratrons, Torr", ("Bu", "Bd"), 200, "span-bar"),
 )
 
@@ -161,8 +163,8 @@ def clean_mode(asked):
 #: pressure a discharge actually sits at — the ion gauges are a vacuum
 #: instrument and are off scale or switched off by then.
 PRESETS = (
-    ("all", "All", ("Ip", "Pu", "Pd", "Bu", "Bd")),
-    ("vacuum", "Vacuum", ("Pu", "Pd", "Bu", "Bd")),
+    ("all", "All", ("Ip", "Pu", "Pu2", "Pd", "Bu", "Bd")),
+    ("vacuum", "Vacuum", ("Pu", "Pu2", "Pd", "Bu", "Bd")),
     ("plasma", "Plasma", ("Ip", "Bu", "Bd")),
 )
 
@@ -393,6 +395,7 @@ def create_app(
             sections=SECTIONS,
             gases=GASES,
             zero_channels=ZERO_CHANNELS,
+            gauges=command_desk.GAUGES,
             gauge_modes=command_desk.GAUGE_MODES,
             gauge_range=range(
                 command_desk.GAUGE_RANGE_LOW, command_desk.GAUGE_RANGE_HIGH + 1

@@ -57,7 +57,7 @@
 
     var view = {
         window: Number(root.dataset.defaultWindow || 300),
-        channels: {Ip: true, Pu: true, Pd: true, Bu: true, Bd: true},
+        channels: {Ip: true, Pu: true, Pu2: true, Pd: true, Bu: true, Bd: true},
         pinned: {},
         igLog: true,
         barLog: false,
@@ -562,8 +562,8 @@
         if (!gauges || !baratrons) return;
         var vessel = view.pressureGroup === "vessel";
         var upper = gauges.parentNode, lower = baratrons.parentNode;
-        var groups = vessel ? [["Pu", "Bu"], ["Pd", "Bd"]] : [["Pu", "Pd"], ["Bu", "Bd"]];
-        var titles = vessel ? ["Upstream · Pu + Bu", "Downstream · Pd + Bd"] : ["Ion gauges", "Baratrons"];
+        var groups = vessel ? [["Pu", "Pu2", "Bu"], ["Pd", "Bd"]] : [["Pu", "Pu2", "Pd"], ["Bu", "Bd"]];
+        var titles = vessel ? ["Upstream · Pu + Pu2 + Bu", "Downstream · Pd + Bd"] : ["Ion gauges", "Baratrons"];
         [gauges, baratrons].forEach(function (canvas, i) {
             var section = canvas.parentNode;
             var legend = section.querySelector('.pen-legend');

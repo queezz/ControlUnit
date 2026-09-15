@@ -123,4 +123,7 @@ Two parallel append-only paths:
 
 Every ADC row carries commanded presets alongside measured signals:
 `PresetV_mfc1`, `PresetV_mfc2`, `PresetV_cathode`, `IGmode`, `IGscale`,
+`IGmode_Pu2`, `IGscale_Pu2` (one mode and exponent pair per ionization
+gauge, named by the gauge's `Mode Column` and `Scale Column` in
+`settings.yml`),
 `QMS_signal`.

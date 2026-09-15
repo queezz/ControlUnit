@@ -16,6 +16,7 @@ from striphtmltags import strip_tags
 from controlunit.trigger_signal import IndicatorLED
 
 from controlunit.ui.text_shortcuts import RED, BLUE, RESET
+from controlunit.ui.widgets.graph import Graph
 
 # Plain standard library: a few locked values the optional web view reads,
 # and the queue it puts commands on. Nothing here imports Flask, so a machine
@@ -93,6 +94,7 @@ class MainApp(QtCore.QObject, UIWindow):
             channels=len(self.config["ADC Signal Names"]),
             sampling=self.sampling,
             names=self.config["ADC Signal Names"],
+            gauges=self.config["Ion Gauges"],
             units=self._web_units(),
         )
         # Where a browser's instruction waits for this thread. The web thread
@@ -236,8 +238,15 @@ class MainApp(QtCore.QObject, UIWindow):
         self.gasflow_dock.registerBtn2.clicked.connect(lambda: self.set_mfc_goal(2))
 
     def _init_controldock_connections(self):
-        self.control_dock.IGmode.currentIndexChanged.connect(self.update_ig_mode)
-        self.control_dock.IGrange.valueChanged.connect(self.update_ig_range)
+        # One pair of selectors per ionization gauge; each carries its own
+        # channel name to the updater, so the worker hears which gauge moved.
+        for gauge, (mode_box, range_box) in self.control_dock.gauges.items():
+            mode_box.currentIndexChanged.connect(
+                lambda _index, gauge=gauge: self.update_ig_mode(gauge)
+            )
+            range_box.valueChanged.connect(
+                lambda _value, gauge=gauge: self.update_ig_range(gauge)
+            )
         self.control_dock.FullNormSW.clicked.connect(self.fulltonormal)
         self.control_dock.OnOffSW.clicked.connect(self.__onoff)
         self.control_dock.remoteSW.clicked.connect(self._toggle_remote)
@@ -844,7 +853,9 @@ class MainApp(QtCore.QObject, UIWindow):
         )
         # self.control_dock.gaugeT.update_value(self.currentvalues["T"])
 
-        labels = ["Pu", "Pd", "Ip", "Bu", "Bd"]
+        # Three to a row in the value browser: the ion gauges, then the
+        # current and the Baratrons.
+        labels = [*Graph.ION_CURVES, "Ip", *Graph.BARATRON_CURVES]
         values = []
         for label in labels:
             v = self.currentvalues[label] - self.zero_adjustment.get(label, 0)
@@ -886,7 +897,7 @@ class MainApp(QtCore.QObject, UIWindow):
                 - utc_offset * 3600)
         skip = self.calculate_skip_points(time.shape[0])
 
-        what_to_plot = ["Ip", "Pu", "Pd", "Bu", "Bd"]
+        what_to_plot = ["Ip", *Graph.PRESSURE_CURVES]
         for name in what_to_plot:
             values = df[name + "_c"].values.astype(float) - self.zero_adjustment.get(
                 name, 0
@@ -1056,31 +1067,37 @@ class MainApp(QtCore.QObject, UIWindow):
         self.workers["ADC"]["worker"].set_zero_signal.emit(channel, value)
         return True
 
-    @QtCore.pyqtSlot()
-    def update_ig_mode(self):
+    def _gauge_selectors(self, gauge):
+        """One gauge's mode box and range box; the first gauge when unnamed."""
+        if gauge is None:
+            gauge = next(iter(self.control_dock.gauges))
+        return gauge, self.control_dock.gauges[gauge]
+
+    def update_ig_mode(self, gauge=None):
         """
-        Update mode of the IG controller:
+        Update mode of one IG controller:
         Torr and linear
         or
         Pa and log
         """
-        self.web_status.record_setpoints(ig_mode=self.control_dock.IGmode.currentText())
+        gauge, (mode_box, _) = self._gauge_selectors(gauge)
+        self.web_status.record_gauge(gauge, mode=mode_box.currentText())
         if not self.workers:
             return
-        value = self.control_dock.IGmode.currentIndex()
-        self.workers["ADC"]["worker"].set_ig_mode_signal.emit(value)
+        value = mode_box.currentIndex()
+        self.workers["ADC"]["worker"].set_ig_mode_signal.emit(gauge, value)
 
-    @QtCore.pyqtSlot()
-    def update_ig_range(self):
+    def update_ig_range(self, gauge=None):
         """
-        Update range of the IG controller:
+        Update range of one IG controller:
         10^{-3} - 10^{-8} multiplier when in linear mode (Torr)
         """
-        value = self.control_dock.IGrange.value()
-        self.web_status.record_setpoints(ig_range=value)
+        gauge, (_, range_box) = self._gauge_selectors(gauge)
+        value = range_box.value()
+        self.web_status.record_gauge(gauge, range=value)
         if not self.workers:
             return
-        self.workers["ADC"]["worker"].set_ig_range_signal.emit(value)
+        self.workers["ADC"]["worker"].set_ig_range_signal.emit(gauge, value)
 
     @QtCore.pyqtSlot()
     def __set_gain(self):

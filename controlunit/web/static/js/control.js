@@ -415,20 +415,33 @@
 
     function paintGauge(state) {
         var sp = state.setpoints || {};
-        var mode = sp.ig_mode || null;
-        var range = sp.ig_range;
-        set('[data-role="gauge-mode-now"]', mode || "—");
-        set('[data-role="gauge-range-now"]', range === null || range === undefined ? "—" : "1e" + range);
+        var gauges = sp.gauges || {};
+        /* Each gauge's own pair, by the channel name the page carries; a rig
+           older than the per-gauge record still answers for its first gauge
+           under the two old names. */
+        var names = [];
+        root.querySelectorAll('.gauge-now[data-gauge]').forEach(function (el) { names.push(el.dataset.gauge); });
+        names.forEach(function (name, i) {
+            var pair = gauges[name] || (i === 0 ? {mode: sp.ig_mode, range: sp.ig_range} : {});
+            var mode = pair.mode || null;
+            var range = pair.range;
+            var now = root.querySelector('.gauge-now[data-gauge="' + name + '"]');
+            if (now) {
+                now.querySelector('[data-role="gauge-mode-now"]').textContent = mode || "—";
+                now.querySelector('[data-role="gauge-range-now"]').textContent =
+                    range === null || range === undefined ? "—" : "1e" + range;
+            }
+            root.querySelectorAll('[data-role="gauge-mode"][data-gauge="' + name + '"]').forEach(function (button) {
+                button.setAttribute("aria-pressed", button.dataset.mode === mode ? "true" : "false");
+            });
+            root.querySelectorAll('[data-role="gauge-range"][data-gauge="' + name + '"]').forEach(function (button) {
+                button.setAttribute("aria-pressed", String(range) === button.dataset.range ? "true" : "false");
+            });
+        });
         set('[data-role="sync-now"]', sp.sync ? "on" : "off");
         var syncCard = root.querySelector('.sync-card');
         if (syncCard) syncCard.classList.toggle('sync-active', Boolean(sp.sync));
 
-        root.querySelectorAll('[data-role="gauge-mode"]').forEach(function (button) {
-            button.setAttribute("aria-pressed", button.dataset.mode === mode ? "true" : "false");
-        });
-        root.querySelectorAll('[data-role="gauge-range"]').forEach(function (button) {
-            button.setAttribute("aria-pressed", String(range) === button.dataset.range ? "true" : "false");
-        });
         root.querySelectorAll('[data-role="sync"]').forEach(function (button) {
             var on = button.dataset.on === "1";
             button.setAttribute("aria-pressed", Boolean(sp.sync) === on ? "true" : "false");
@@ -709,12 +722,14 @@
 
         root.querySelectorAll('[data-role="gauge-mode"]').forEach(function (button) {
             button.addEventListener("click", function () {
-                send("/api/gauge", {mode: button.dataset.mode}, "the gauge mode");
+                send("/api/gauge", {gauge: button.dataset.gauge, mode: button.dataset.mode},
+                     "the " + button.dataset.gauge + " gauge mode");
             });
         });
         root.querySelectorAll('[data-role="gauge-range"]').forEach(function (button) {
             button.addEventListener("click", function () {
-                send("/api/gauge", {range: Number(button.dataset.range)}, "the gauge range");
+                send("/api/gauge", {gauge: button.dataset.gauge, range: Number(button.dataset.range)},
+                     "the " + button.dataset.gauge + " gauge range");
             });
         });
         root.querySelectorAll('[data-role="sync"]').forEach(function (button) {

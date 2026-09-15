@@ -469,7 +469,7 @@ def test_each_curve_has_exactly_one_switch_and_it_is_in_its_own_chart(client):
     import re
 
     page = client.get("/").get_data(as_text=True)
-    for name in ("Ip", "Pu", "Pd", "Bu", "Bd"):
+    for name in ("Ip", "Pu", "Pu2", "Pd", "Bu", "Bd"):
         assert page.count('data-channel="{}"'.format(name)) == 1
     # And each switch stands inside the panel that draws that curve.
     for block in re.findall(r'<section class="chart".*?</section>', page, re.S):
@@ -716,8 +716,8 @@ def test_the_two_presets_are_the_curves_the_work_needs():
     the Baratrons read the pressure and the ion gauges are off scale."""
     page = _client().get("/").get_data(as_text=True)
     for name, channels in (
-        ("all", "Ip,Pu,Pd,Bu,Bd"),
-        ("vacuum", "Pu,Pd,Bu,Bd"),
+        ("all", "Ip,Pu,Pu2,Pd,Bu,Bd"),
+        ("vacuum", "Pu,Pu2,Pd,Bu,Bd"),
         ("plasma", "Ip,Bu,Bd"),
     ):
         button = page[page.index('data-preset="{}"'.format(name)):]

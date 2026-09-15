@@ -1813,14 +1813,20 @@ body[data-mode="monitor"] .monitor-settings { display: flex; flex-wrap: wrap; ga
    numbers. It leaves the row rather than standing empty in it, and the row's
    own height does not depend on it either way. */
 .readouts-fold:not([open]) .readout-toolbar { display: none; }
-/* Five values, their names and the trailing unit have to stand on one row of
+/* Six values, their names and the trailing unit have to stand on one row of
    whatever window this is, without wrapping and without being cut — so the
    size is taken from the window rather than picked on one screen. Measured
    against the longest line this page renders (`Ip -2.39 A · Pu 3.2e-5 ·
-   Pd 4.1e-3 · Bu 5.1e-2 · Bd 5.1e-3 Torr`, 356px at 0.72rem): the row leaves
-   it 345px at 390, 273px at 320 and 688px at 1280, and this ramp fits all
-   three with room over. */
-.fold-readouts { font-size: clamp(0.5rem, 2.4vw, 0.78rem); }
+   Pu2 3.2e-5 · Pd 4.1e-3 · Bu 5.1e-2 · Bd 5.1e-3 Torr`, about 430px at
+   0.72rem since the upstream ion gauge joined): the row leaves it 345px at
+   390, 273px at 320 and 688px at 1280, and this ramp fits all three. */
+.fold-readouts { font-size: clamp(0.44rem, 2.2vw, 0.78rem); }
+
+/* Each ionization gauge's two rows stand under its own name inside the one
+   Gauges group: a plain heading, never a second frame. */
+.gauge-settings .gauge-name { margin: 6px 0 4px; font-size: 0.85rem; font-weight: 600; }
+.gauge-settings .gauge-line + .gauge-line { border-top: 1px solid var(--line); margin-top: 6px; }
+.gauge-settings .gauge-now + .gauge-now { margin-left: 0.5em; }
 
 .control-workspace .fold > .fold-head { display: flex; padding: 4px 0; color: var(--fg); font-weight: 400; }
 

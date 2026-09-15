@@ -21,6 +21,10 @@ class AdcChannelProps:
         self.description = kws["Description"]
         self.conversion_id = kws["Conversion Function"]
         self.full_scale = kws.get("Full Scale", None)
+        # An ionization gauge's own record columns for the mode and the
+        # exponent its controller was set to; None for every other kind.
+        self.mode_column = kws.get("Mode Column", None)
+        self.scale_column = kws.get("Scale Column", None)
         self.set_conversion_function()
         self.gain = None
 

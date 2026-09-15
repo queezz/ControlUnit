@@ -70,11 +70,21 @@ def control(client):
     return response.get_data(as_text=True)
 
 
-def test_live_is_home_and_shows_the_five_pens(live):
+def test_live_is_home_and_shows_the_six_pens(live):
     assert 'aria-current="page">ControlUnit ' in live
-    for name in ("Ip", "Pu", "Pd", "Bu", "Bd"):
+    for name in ("Ip", "Pu", "Pu2", "Pd", "Bu", "Bd"):
         assert 'data-readout="{}"'.format(name) in live
     assert 'id="chart-plasma"' in live
+
+
+def test_the_web_pens_are_the_rig_screens_own():
+    """One colour per curve on the rig's screen and on a laptop."""
+    from controlunit.ui.widgets.graph import Graph
+    from controlunit.web.server import PENS
+    assert {name: colour for name, colour in PENS} == {
+        name: Graph.pens[name]["color"] for name, _ in PENS
+    }
+    assert [name for name, _ in PENS] == ["Ip", *Graph.PRESSURE_CURVES]
 
 
 def test_the_two_kinds_of_gauge_get_a_panel_each(live):
@@ -83,9 +93,24 @@ def test_the_two_kinds_of_gauge_get_a_panel_each(live):
     assert "Baratrons, Torr" in live
     assert 'id="chart-ig"' in live
     assert 'id="chart-bar"' in live
-    assert 'data-channels="Pu,Pd"' in live
+    assert 'data-channels="Pu,Pu2,Pd"' in live
     assert 'data-channels="Bu,Bd"' in live
     assert "chart-pressure" not in live
+
+
+def test_control_offers_each_ion_gauge_its_own_mode_and_range(control):
+    """Two gauges, two blocks under their own names, each with a full set of
+    modes and decades, and a folded line that names both."""
+    for gauge in ("Pd", "Pu2"):
+        assert '<h3 class="gauge-name">{}</h3>'.format(gauge) in control
+        assert 'class="mono gauge-now" data-gauge="{}"'.format(gauge) in control
+        for mode in ("Torr", "Pa"):
+            assert 'data-role="gauge-mode" data-gauge="{}"'.format(gauge) in control
+            assert 'data-gauge="{}"\n                                            data-mode="{}"'.format(gauge, mode) in control
+        for decade in range(-8, -2):
+            assert 'data-gauge="{}"\n                                            data-range="{}"'.format(gauge, decade) in control
+    assert control.count('data-role="gauge-range"') == 12
+    assert control.count('data-role="gauge-mode"') == 4
 
 
 def test_the_scales_card_offers_an_axis_for_each_panel(live):
@@ -125,7 +150,7 @@ def test_a_readout_card_is_a_name_a_number_a_unit_and_one_tag(live):
         assert 'data-role="value"' in card
         assert 'data-role="unit"' in card
         assert 'data-role="readout-note"' in card
-    assert live.count('data-role="readout-note"') == 5
+    assert live.count('data-role="readout-note"') == 6
     # The tag is written by the page from what the rig reports, so the
     # markup ships it empty and no card holds a line open for it.
     assert '<span class="readout-note" data-role="readout-note"></span>' in live
@@ -184,7 +209,7 @@ def test_the_big_readouts_are_one_class_over_the_same_dom(client, live):
     css = client.get("/static/css/controlunit.css").get_data(as_text=True)
     assert "live--big" in script
     assert ".live--big" in css
-    assert live.count('class="readout"') == 7
+    assert live.count('class="readout"') == 8
     assert live.count('data-kikusui-readout=') == 2
 
 
@@ -1037,8 +1062,9 @@ def test_nothing_moved_into_settings_is_left_behind_as_a_copy(control):
     for anchor in ("sec-sync", "sec-acquisition", "sec-gauge"):
         assert control.count('id="{}"'.format(anchor)) == 1
     assert control.count('data-role="sync-now"') == 1
-    assert control.count('data-role="gauge-mode-now"') == 1
-    assert control.count('data-role="gauge-range-now"') == 1
+    # One folded line per ionization gauge, each saying its own setting.
+    assert control.count('data-role="gauge-mode-now"') == 2
+    assert control.count('data-role="gauge-range-now"') == 2
     assert control.count('data-role="settings-group"') == 1
     assert control.count('<h2 class="fold-name">Settings</h2>') == 1
 
@@ -1069,7 +1095,7 @@ def test_every_card_on_the_live_page_folds_and_folds_the_same_way(control):
     assert heads == len(cards) + 2
     assert control.count('class="gas-disclosure fold"') == 2
     # Every card names itself on its own row — except the readouts strip,
-    # whose row is its five numbers and nothing else.
+    # whose row is its six numbers and nothing else.
     assert control.count('class="fold-name"') == len(cards) - 1
     assert '<summary class="fold-head" aria-label="Readouts">' in control
 
@@ -1093,10 +1119,10 @@ def test_a_folded_card_is_one_line_that_still_carries_its_numbers(control):
     card, never by a second reading of the rig."""
     for role in ("fold-gas", "fold-plasma"):
         assert control.count('data-role="{}"'.format(role)) == 1
-    # The strip's five values, one per pen, in the order the cards stand in.
+    # The strip's six values, one per pen, in the order the cards stand in.
     for channel in ("Ip", "Pu", "Pd", "Bu", "Bd"):
         assert control.count('data-fold-readout="{}"'.format(channel)) == 1
-    assert control.count('data-role="fold-value"') == 5
+    assert control.count('data-role="fold-value"') == 6
     # A chart's folded line is the head it already had: its title and its
     # span. The legend, the axis switches and the canvas are body and go with
     # the fold (queezz, 2026-09-14: "The plasma current toggle is still
@@ -1116,7 +1142,7 @@ def test_the_folded_readouts_row_is_the_numbers_and_nothing_else(client):
     """queezz, 2026-09-14, looking at the folded row on his phone: "Don't show
     big/small toggle when folded. Don't spell readouts. SHOW THEM small in a
     line with colors." The size switch belongs to the open strip; folded, the
-    whole row is five values in their pens with the unit they share said once
+    whole row is six values in their pens with the unit they share said once
     at the end, sized from the window so it never wraps or is cut."""
     css = client.get("/static/css/controlunit.css").get_data(as_text=True)
     assert ".readouts-fold:not([open]) .readout-toolbar { display: none; }" in css

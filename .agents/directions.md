@@ -22,18 +22,16 @@ holds what is still undecided or unbuilt.
 
 ## Work only queezz can do
 
-- Restart the rig onto 4.17.1 from its desktop shortcut — owner work
+- Restart the rig onto 4.18.0 from its desktop shortcut — owner work
   pending. On 2026-09-15, on your word "fix then deploy", master was pushed
-  and the Pi's checkout at `~/work/aktest` pulled to `faf3c27` (4.17.1)
-  while the program was not running. The Pi has no `~/.controlunit/kikusui.yml`
-  yet (this session's write of it was refused by the permission layer), so
-  before the first recorded discharge write it there by hand, five lines,
-  with the supply's lab address from the vault's troubleshooting note of
-  2026-09-14: `host: 10.249.254.10`, `port: 5025`, `interval_s: 0.5`,
-  `timeout_s: 1.0`, `retry_s: 5.0`. Without it the rig logs "Kikusui
-  telemetry disabled" and acquires as before; with it the first Start
-  records `kikusui_*.csv` beside the ADC file and shows the supply's V
-  and I on the Cathode dock and the WebUI. Everything from
+  and the Pi's checkout at `~/work/aktest` pulled while the program was
+  not running; 4.18.0 (the upstream gauge `Pu2` on channel 16, with its
+  own exponent selector) followed the same way. `~/.controlunit/kikusui.yml`
+  on the Pi now names the supply at its lab address (copied over scp on
+  your word, and the supply answered one read-only identity query with
+  output off), so the first Start after the restart records
+  `kikusui_*.csv` beside the ADC file and shows the supply's V and I on
+  the Cathode dock and the WebUI. Everything from
   4.6.0 up is new to the rig, which last ran 4.14.1. From 4.6.0: the Live
   charts stop growing on a Retina
   Mac; an idle rig reads `ok` instead of `degraded` on all three service
@@ -48,7 +46,7 @@ holds what is still undecided or unbuilt.
   window, and a Vacuum and a Plasma preset over the curve switches; and the
   Control tab's presses stand in one faceplate with their numbers beside
   them.
-  Done when: `http://pihti:4187/api/health` reports 4.17.1 and, with
+  Done when: `http://pihti:4187/api/health` reports 4.18.0 and, with
   acquisition off and every output at zero, `status` reads `ok` with the
   detail "idle, not recording".
 - Add the Mac-reachable address to the Pi's neighbours file — owner work
@@ -83,11 +81,10 @@ holds what is still undecided or unbuilt.
   or setting filament-condition alarm thresholds. 4.15.0 records a separate
   timestamped Kikusui CSV, including manual command, with explicit LAN-loss
   rows and recovery. Setup is in docs/hardware/kikusui-lan.md. Deployed
-  2026-09-15: the Pi's checkout is at 4.17.1 (which also fixes a stale
+  2026-09-15: the Pi's checkout is at 4.18.0 (4.17.1 fixed a stale
   recorder reference that blocked every later Start after one slow stop);
-  its `kikusui.yml` is still to be written by hand (the owner-work item
-  above says how), and real-run validation waits on the owner's restart
-  and first manual discharge. The cable/address are
+  its `kikusui.yml` names the supply; real-run validation waits on the
+  owner's restart and first manual discharge. The cable/address are
   established in the lab record and read-only SCPI was verified with
   output off.
   4.17.0 publishes fresh Kikusui V/I in Qt, full WebUI cards and a separate
@@ -307,13 +304,14 @@ holds what is still undecided or unbuilt.
   should be marked so a half-written file is never taken. The web view
   would then say on the Lab or Control tab when the last sync ran and
   whether it succeeded, one line, never a second state vocabulary.
-- The upstream ion gauge: per-channel ionization-gauge mode and range in the
-  ADC worker instead of one shared pair, its exponent set from the web
-  Control tab's Gauge group, a mode and scale column for it in the CSV, and
-  a letter to `code/pihti-log` because the file's columns change. Needs from
-  queezz: the ADC channel and gain it is wired to, a short name, whether
-  its controller reads like the downstream one (linear 0–10 V times ten to
-  the exponent), and whether the Pfeiffer gauge Pu stays beside it.
+- The upstream ion gauge shipped in 4.18.0 as `Pu2` on channel 16 (queezz,
+  2026-09-15). Three of its four questions were answered by taking the
+  downstream gauge's answers, and stay open only until the first file
+  records them: is `Pu2` the name you want, is its controller the same
+  0–10 V linear-times-exponent kind with a Pa log mode, and does the
+  Pfeiffer `Pu` stay beside it — the owner's call. Each is one line in
+  `settings.yml` and the docs today; after the first run, a rename is a
+  new column name a reader has to know about.
 - Rig code issues found 2026-09-04, ranked in the log entry of that night:
   the ADC gain button is a no-op; the whole run is held in memory and
   copied every step; a 9-hour offset hard-coded in the plot axis; the

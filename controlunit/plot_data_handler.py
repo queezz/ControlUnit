@@ -5,6 +5,8 @@ TODO: move plotting logic from main.py here
 
 from datetime import timedelta
 import pandas as pd
+
+from controlunit.ui.widgets.graph import Graph
 from PyQt5 import QtCore
 
 
@@ -45,7 +47,7 @@ class PlotDataHandler(QtCore.QObject):
         )
         skip = self.calculate_skip_points(time.shape[0])
 
-        what_to_plot = ["Ip", "Pu", "Pd", "Bu", "Bd"]
+        what_to_plot = ["Ip", *Graph.PRESSURE_CURVES]
         for name in what_to_plot:
             if name == "Ip":
                 values = (

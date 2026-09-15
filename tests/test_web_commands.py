@@ -79,16 +79,41 @@ def test_a_bad_cathode_drive_is_refused(body):
 
 
 def test_the_gauge_takes_a_mode_a_range_or_both():
-    assert commands.validate_gauge({"mode": "Pa"}) == {"mode": "Pa"}
-    assert commands.validate_gauge({"range": -5}) == {"range": -5}
+    # A body naming no gauge means the first one, as every browser did
+    # before the upstream gauge existed.
+    assert commands.validate_gauge({"mode": "Pa"}) == {"gauge": "Pd", "mode": "Pa"}
+    assert commands.validate_gauge({"range": -5}) == {"gauge": "Pd", "range": -5}
     assert commands.validate_gauge({"mode": "Torr", "range": -8}) == {
+        "gauge": "Pd",
         "mode": "Torr",
         "range": -8,
     }
+    assert commands.validate_gauge({"gauge": "Pu2", "range": -4}) == {
+        "gauge": "Pu2",
+        "range": -4,
+    }
+
+
+def test_the_gauges_are_the_settings_ionization_gauges():
+    import readsettings
+    assert commands.GAUGES == ("Pd", "Pu2")
+    assert list(commands.GAUGES) == readsettings.ion_gauge_names(
+        readsettings.select_settings()
+    )
 
 
 @pytest.mark.parametrize(
-    "body", [{}, {"mode": "bar"}, {"range": -2}, {"range": -9}, {"range": -4.5}]
+    "body",
+    [
+        {},
+        {"mode": "bar"},
+        {"range": -2},
+        {"range": -9},
+        {"range": -4.5},
+        {"gauge": "Pu2"},
+        {"gauge": "Pu", "range": -5},
+        {"gauge": "", "mode": "Pa"},
+    ],
 )
 def test_a_bad_gauge_body_is_refused(body):
     with pytest.raises(commands.Invalid):
@@ -452,6 +477,12 @@ class ControlDock(object):
     def __init__(self):
         self.IGmode = ComboBox(["Torr", "Pa"])
         self.IGrange = SpinBox(-3)
+        # The real dock keys a (mode, range) pair by gauge name, the first
+        # pair being the two widgets above.
+        self.gauges = {
+            "Pd": (self.IGmode, self.IGrange),
+            "Pu2": (ComboBox(["Torr", "Pa"]), SpinBox(-3)),
+        }
         self.qmsSigSw = Switch()
         self.OnOffSW = Switch()
 
@@ -474,7 +505,7 @@ class FakeApp(object):
         self.plasma_control_dock = PlasmaDock()
         self.control_dock = ControlDock()
         self.settings_dock = SettingsDock()
-        self.web_status = RigStatus(names=NAMES)
+        self.web_status = RigStatus(names=NAMES, gauges=("Pd", "Pu2"))
         self.web_status.set_acquiring(running)
         self.control_dock.OnOffSW.setChecked(running)
         self.web_commands = commands.CommandQueue()
@@ -526,11 +557,15 @@ class FakeApp(object):
     def turn_off_cathode_drive(self):
         self.calls.append(("turn_off_cathode_drive",))
 
-    def update_ig_mode(self):
-        self.calls.append(("update_ig_mode", self.control_dock.IGmode.currentText()))
+    def update_ig_mode(self, gauge=None):
+        gauge = gauge or "Pd"
+        mode_box, _ = self.control_dock.gauges[gauge]
+        self.calls.append(("update_ig_mode", gauge, mode_box.currentText()))
 
-    def update_ig_range(self):
-        self.calls.append(("update_ig_range", self.control_dock.IGrange.value()))
+    def update_ig_range(self, gauge=None):
+        gauge = gauge or "Pd"
+        _, range_box = self.control_dock.gauges[gauge]
+        self.calls.append(("update_ig_range", gauge, range_box.value()))
 
     def _toggle_led_status(self):
         self.calls.append(("_toggle_led_status", self.control_dock.qmsSigSw.isChecked()))
@@ -584,7 +619,21 @@ def test_a_gauge_command_sets_the_widgets_and_the_worker():
     commands.drain(app)
     assert app.control_dock.IGmode.currentText() == "Pa"
     assert app.control_dock.IGrange.value() == -6
-    assert app.calls == [("update_ig_mode", "Pa"), ("update_ig_range", -6)]
+    assert app.calls == [("update_ig_mode", "Pd", "Pa"), ("update_ig_range", "Pd", -6)]
+
+
+def test_a_named_gauge_command_reaches_that_gauge_and_no_other():
+    app = FakeApp()
+    app.web_commands.submit("gauge", {"gauge": "Pu2", "range": -4}, actor="queezz")
+    commands.drain(app)
+    mode_box, range_box = app.control_dock.gauges["Pu2"]
+    assert range_box.value() == -4
+    assert mode_box.currentText() == "Torr"
+    # The downstream gauge's own widgets did not move.
+    assert app.control_dock.IGrange.value() == -3
+    assert app.calls == [("update_ig_range", "Pu2", -4)]
+    assert commands.summarise("gauge", {"gauge": "Pu2", "range": -4}) == "Pu2 range -4"
+    assert commands.summarise("gauge", {"gauge": "Pd", "mode": "Pa"}) == "Pd in Pa"
 
 
 def test_a_sync_command_checks_the_switch_then_toggles_the_led():
@@ -1539,12 +1588,19 @@ def test_gauge_settings_prepare_idle_rig_and_publish_before_start():
     from controlunit.main import MainApp
     app = FakeApp(running=False)
     # Exercise the real updater paths, with no workers available to touch.
-    app.update_ig_mode = lambda: MainApp.update_ig_mode(app)
-    app.update_ig_range = lambda: MainApp.update_ig_range(app)
+    app._gauge_selectors = lambda gauge: MainApp._gauge_selectors(app, gauge)
+    app.update_ig_mode = lambda gauge=None: MainApp.update_ig_mode(app, gauge)
+    app.update_ig_range = lambda gauge=None: MainApp.update_ig_range(app, gauge)
     app.web_commands.submit("gauge", {"mode": "Pa", "range": -7}, actor="queezz")
+    app.web_commands.submit("gauge", {"gauge": "Pu2", "range": -5}, actor="queezz")
     commands.drain(app)
     assert app.control_dock.IGrange.value() == -7
     assert app.control_dock.IGmode.currentText() == "Pa"
-    assert app.web_status.read()["setpoints"]["ig_range"] == -7
-    assert app.web_status.read()["setpoints"]["ig_mode"] == "Pa"
+    setpoints = app.web_status.read()["setpoints"]
+    # The first gauge under the names the record has always used, and every
+    # gauge under its own name.
+    assert setpoints["ig_range"] == -7
+    assert setpoints["ig_mode"] == "Pa"
+    assert setpoints["gauges"]["Pd"] == {"mode": "Pa", "range": -7}
+    assert setpoints["gauges"]["Pu2"] == {"mode": None, "range": -5}
     assert not app.workers

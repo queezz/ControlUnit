@@ -3,7 +3,7 @@ from PyQt5 import QtGui, QtCore, QtWidgets
 from pyqtgraph.dockarea import Dock
 from ..buttons.toggles import MySwitch, OnOffSwitch, QmsSwitch, RemoteSwitch
 from ..widgets.analoggauge import AnalogGaugeWidget
-from readsettings import select_settings
+from readsettings import select_settings, ion_gauge_names
 
 config = select_settings(verbose=False)
 MAXTEMP = config["Max Voltage"]
@@ -75,24 +75,39 @@ class ControlDock(Dock):
         self.sampling_windows = {i: j for i, j in zip(items, sizes)}
         self.scaleBtn.setCurrentIndex(2)
 
-        # IG mode
-        self.IGmode = QtWidgets.QComboBox()
-        items = ["Torr", "Pa"]
-        [self.IGmode.addItem(i) for i in items]
-        self.IGmode.setFont(QtGui.QFont("serif", 18))
+        # One Torr/Pa box and one exponent box per ionization gauge, keyed
+        # by the gauge's channel name and in the order the settings list
+        # them. The first pair keeps the names IGmode and IGrange the rest
+        # of the program has always used for the downstream gauge.
+        self.gauges = {}
+        self.gauge_labels = {}
+        for gauge in ion_gauge_names(config):
+            mode = QtWidgets.QComboBox()
+            [mode.addItem(i) for i in ["Torr", "Pa"]]
+            mode.setFont(QtGui.QFont("serif", 18))
+            label = QtWidgets.QLabel(gauge)
+            label.setFont(QtGui.QFont("serif", 18))
+            self.gauges[gauge] = (mode, self._make_range_box())
+            self.gauge_labels[gauge] = label
+        self.IGmode, self.IGrange = next(iter(self.gauges.values()))
 
     def _init_spinboxes(self):
         """Initialize spinboxes."""
-        self.IGrange = QtWidgets.QSpinBox()
-        self.IGrange.setMinimum(-8)
-        self.IGrange.setMaximum(-3)
-        self.IGrange.setMinimumSize(QtCore.QSize(60, 60))
-        self.IGrange.setSingleStep(1)
-        self.IGrange.setStyleSheet(
+
+    @staticmethod
+    def _make_range_box():
+        """The exponent of one ionization gauge, 1e-8 to 1e-3."""
+        box = QtWidgets.QSpinBox()
+        box.setMinimum(-8)
+        box.setMaximum(-3)
+        box.setMinimumSize(QtCore.QSize(60, 60))
+        box.setSingleStep(1)
+        box.setStyleSheet(
             "QSpinBox::up-button   { width: 40px; }\n"
             "QSpinBox::down-button { width: 40px;}\n"
             "QSpinBox {font: 26pt;}"
         )
+        return box
 
     def _init_switches(self):
         """Initialize switches."""
@@ -118,10 +133,14 @@ class ControlDock(Dock):
         self.widget.addWidget(self.qmsSigSw, 0, 6, 1, 3)
         self.widget.addWidget(self.quitBtn, 0, 9, 1, 3)
         self.widget.addWidget(self.valueBw, 1, 0, 1, 12)
-        self.widget.addWidget(self.FullNormSW, 2, 0, 1, 4)
-        self.widget.addWidget(self.scaleBtn, 2, 4, 1, 2)
-        self.widget.addWidget(self.IGmode, 2, 6, 1, 4)
-        self.widget.addWidget(self.IGrange, 2, 10, 1, 2)
+        self.widget.addWidget(self.FullNormSW, 2, 0, 1, 6)
+        self.widget.addWidget(self.scaleBtn, 2, 6, 1, 6)
+        # One row per ionization gauge: its name, its Torr/Pa box and its
+        # exponent, so a person at the rig sets each gauge under its own name.
+        for row, (gauge, (mode, range_box)) in enumerate(self.gauges.items(), start=3):
+            self.widget.addWidget(self.gauge_labels[gauge], row, 0, 1, 2)
+            self.widget.addWidget(mode, row, 2, 1, 5)
+            self.widget.addWidget(range_box, row, 7, 1, 5)
 
     def __init_analog_gauge(self):
         """Initialize the analog gauge (removed from GUI)."""

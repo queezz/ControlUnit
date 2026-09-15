@@ -1,3 +1,9 @@
+## 4.18.0 — 2026-09-15
+
+- A second ionization gauge, `Pu2`, upstream on ADC channel 16 (queezz, 2026-09-15: "I've connected upstream IG to channel 16"), with its own Torr/Pa mode and exponent selector beside the downstream gauge's on the rig's Control dock and in the web Control tab's Gauges group, and its own curve on the ion-gauge chart, in the readouts strip and in the All and Vacuum presets.
+- Each ionization gauge now records its own mode and exponent in the data file: `Pd` in `IGmode` and `IGscale` exactly as before, `Pu2` in two new columns `IGmode_Pu2` and `IGscale_Pu2` appended after the original ones. `settings.yml` names each gauge's columns (`Mode Column`, `Scale Column`) and is at Settings Version 1.4; the worker builds rows from the column list instead of fixed positions.
+- `/api/gauge` takes a `gauge` name; a body without one still means `Pd`. `/api/state` carries every gauge's pair under `setpoints.gauges`, with `ig_mode` and `ig_range` still the first gauge's.
+
 ## 4.17.1 — 2026-09-15
 
 - A Kikusui recorder whose stop outlived its 1.5 s wait left its reference behind, so every later Start of that GUI session refused with "previous logger is still stopping" although the thread had ended moments later. Start now checks whether that thread is actually alive and clears the stale reference when it is not. Recording, LAN loss and shutdown order are unchanged.

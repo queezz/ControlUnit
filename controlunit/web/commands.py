@@ -26,6 +26,8 @@ import re
 import threading
 import time
 
+from controlunit import readsettings as _settings
+
 #: Every kind of command a browser may send, in operating order.
 KINDS = (
     "stop_all",
@@ -99,10 +101,17 @@ PLASMA_MAX_A = 3.0
 #: whatever the plasma does.
 CATHODE_MAX_MV = 5000
 
-#: The ionization gauge's two modes and its decade range.
+#: An ionization gauge's two modes and its decade range.
 GAUGE_MODES = ("Torr", "Pa")
 GAUGE_RANGE_LOW = -8
 GAUGE_RANGE_HIGH = -3
+
+#: The ionization gauges by channel name, in the order the settings list
+#: them, each with its own mode and exponent. Read from the same settings
+#: the rig runs, so a gauge added there is offered here without a second
+#: list; the first is the one a body that names no gauge means, which is
+#: how every browser spoke before there were two.
+GAUGES = tuple(_settings.ion_gauge_names(_settings.select_settings()))
 
 #: A name is a label a person chose, not an identity: it is kept short and
 #: reduced to characters that cannot disturb the log, the page or the file.
@@ -428,9 +437,15 @@ def validate_cathode(body):
 
 
 def validate_gauge(body):
-    """`{"mode": "Torr"|"Pa"}` and/or `{"range": -8..-3}`; at least one."""
+    """`{"gauge": name, "mode": "Torr"|"Pa"}` and/or `{"range": -8..-3}`;
+    at least one of mode and range, and the first gauge when none is named."""
     body = _body(body)
-    value = {}
+    gauge = body.get("gauge")
+    if gauge is None:
+        gauge = GAUGES[0]
+    if gauge not in GAUGES:
+        raise Invalid("the gauges are " + " and ".join(GAUGES))
+    value = {"gauge": gauge}
     if body.get("mode") is not None:
         mode = str(body["mode"])
         if mode not in GAUGE_MODES:
@@ -445,7 +460,7 @@ def validate_gauge(body):
                 GAUGE_RANGE_LOW, GAUGE_RANGE_HIGH
             ),
         )
-    if not value:
+    if len(value) == 1:
         raise Invalid("say a gauge mode, a range, or both")
     return value
 
@@ -625,11 +640,12 @@ def summarise(kind, value):
             return "cathode drive off"
         return "cathode drive {} mV".format(int(value.get("mv", 0)))
     if kind == "gauge":
+        gauge = value.get("gauge", "gauge")
         parts = []
         if value.get("mode"):
-            parts.append("gauge in {}".format(value["mode"]))
+            parts.append("{} in {}".format(gauge, value["mode"]))
         if value.get("range") is not None:
-            parts.append("gauge range {}".format(value["range"]))
+            parts.append("{} range {}".format(gauge, value["range"]))
         return ", ".join(parts)
     if kind == "sync":
         return "QMS sync {}".format("on" if value.get("on") else "off")
@@ -732,14 +748,17 @@ def _apply_cathode(app, value):
 
 
 def _apply_gauge(app, value):
+    # A validated body always names its gauge; a bare one means the first.
+    gauge = value.get("gauge") or GAUGES[0]
+    mode_box, range_box = app.control_dock.gauges[gauge]
     if value.get("mode"):
-        app.control_dock.IGmode.setCurrentIndex(GAUGE_MODES.index(value["mode"]))
+        mode_box.setCurrentIndex(GAUGE_MODES.index(value["mode"]))
         # Setting a combo box to the value it already holds emits nothing, so
         # the updater is called outright; it is the same idempotent emit.
-        app.update_ig_mode()
+        app.update_ig_mode(gauge)
     if value.get("range") is not None:
-        app.control_dock.IGrange.setValue(int(value["range"]))
-        app.update_ig_range()
+        range_box.setValue(int(value["range"]))
+        app.update_ig_range(gauge)
     return APPLIED, ""
 
 

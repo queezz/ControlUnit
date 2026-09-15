@@ -61,13 +61,13 @@ def mean_of_readings(readings):
 
 # MARK: ADC
 class ADC(DeviceThread):
-    __IGmode = 0  # Torr
-    __IGrange = -3
     send_control_voltage = QtCore.pyqtSignal(float)
     send_zero_adjustment = QtCore.pyqtSignal(dict)
     set_plasma_current = QtCore.pyqtSignal(float)
-    set_ig_mode_signal = QtCore.pyqtSignal(int)
-    set_ig_range_signal = QtCore.pyqtSignal(int)
+    # The gauge's channel name, then the setting: each ionization gauge has
+    # its own mode and exponent, set from its own selector.
+    set_ig_mode_signal = QtCore.pyqtSignal(str, int)
+    set_ig_range_signal = QtCore.pyqtSignal(str, int)
     set_trigger_signal_signal = QtCore.pyqtSignal(int)
     set_adc_gain_signal = QtCore.pyqtSignal(int)
     set_zero_ip_signal = QtCore.pyqtSignal()
@@ -94,15 +94,40 @@ class ADC(DeviceThread):
         date: datetime.datetime
         time: float, seconds from start of recording
         adc_voltage_columns: ADC raw signals
-        IGmode: int, log o linear mode for Ionization Gauge measurements
-        IGscale: range (scale) of Ionization Gauge in linear mode
+        <gauge's Mode Column>: int, 0 Torr linear or 1 Pa log, per gauge
+        <gauge's Scale Column>: int, the exponent in linear mode, per gauge
         QMS_signal: int, "trigger" on or off. When on emits a signal from GPIO
         """
         self.prep_adc_board()
         self.adc_signals_columns = self.config["ADC Signal Names"]
-        self.adc_values_columns = (
-            self.config["ADC Additional Columns"] + self.config["ADC Signal Names"]
-        )
+        self._additional_columns = list(self.config["ADC Additional Columns"])
+        self.adc_values_columns = self._additional_columns + self.adc_signals_columns
+        # Where the signal voltages start in a raw row: after every
+        # additional column, however many the settings list.
+        self._signal_offset = len(self._additional_columns)
+
+        # One mode and one exponent per ionization gauge, keyed by the
+        # gauge's channel name, each resting at Torr and 1e-3 until its
+        # selector says otherwise; and where in a raw row each pair is
+        # recorded, so conversion reads the settings captured with the row.
+        self._gauge_settings = {
+            name: {"mode": 0, "scale": -3} for name in self.config["Ion Gauges"]
+        }
+        self._gauge_columns = {}
+        for name in self._gauge_settings:
+            ch = self.config["Adc Channel Properties"][name]
+            self._gauge_columns[name] = (
+                self._additional_columns.index(ch.mode_column),
+                self._additional_columns.index(ch.scale_column),
+            )
+        known = {"date", "time", "QMS_signal", "PresetV_mfc1", "PresetV_mfc2",
+                 "PresetV_cathode"}
+        for mode_index, scale_index in self._gauge_columns.values():
+            known.add(self._additional_columns[mode_index])
+            known.add(self._additional_columns[scale_index])
+        unknown = [c for c in self._additional_columns if c not in known]
+        if unknown:
+            raise ValueError(f"ADC Additional Columns nobody records: {unknown}")
 
         self._raw_rows = []
         self._converted_rows = []
@@ -169,23 +194,23 @@ class ADC(DeviceThread):
             j.gain = self.gain_definitions[j.gainIndex]
 
     # MARK: Setters
-    @QtCore.pyqtSlot(int)
-    def set_ig_mode(self, IGmode: int):
+    @QtCore.pyqtSlot(str, int)
+    def set_ig_mode(self, gauge: str, IGmode: int):
         """
-        Sets Ionization Gauge mode from GUI
+        Sets one Ionization Gauge's mode from GUI
         0: Torr
         1: Pa
         """
-        self.__IGmode = IGmode
+        self._gauge_settings[gauge]["mode"] = IGmode
         return
 
-    @QtCore.pyqtSlot(int)
-    def set_ig_range(self, IGrange: int):
+    @QtCore.pyqtSlot(str, int)
+    def set_ig_range(self, gauge: str, IGrange: int):
         """
-        Sets Ionization Gauge range (scale) from GUI
+        Sets one Ionization Gauge's range (scale) from GUI
         range: -8 ~ -3
         """
-        self.__IGrange = IGrange
+        self._gauge_settings[gauge]["scale"] = IGrange
         return
 
     @QtCore.pyqtSlot(int)
@@ -250,13 +275,26 @@ class ADC(DeviceThread):
             self._converted_rows, columns=self.config["ADC Converted Names"]
         )
 
+    def _additional_values(self, now):
+        """The row's metadata, in the order the settings list the columns."""
+        values = {
+            "date": now,
+            "time": (now - self.__startTime).total_seconds(),
+            "QMS_signal": self.__qmsSignal,
+            "PresetV_mfc1": self._mfc_presets[1],
+            "PresetV_mfc2": self._mfc_presets[2],
+            "PresetV_cathode": self.control_voltage,
+        }
+        for name, (mode_index, scale_index) in self._gauge_columns.items():
+            values[self._additional_columns[mode_index]] = self._gauge_settings[name]["mode"]
+            values[self._additional_columns[scale_index]] = self._gauge_settings[name]["scale"]
+        return [values[column] for column in self._additional_columns]
+
     def put_new_data_in_dataframe(self):
         """Capture one raw row and its metadata, without allocating a table."""
         now = datetime.datetime.now()
         self._raw_rows.append([
-            now, (now - self.__startTime).total_seconds(),
-            self.__IGmode, self.__IGrange, self.__qmsSignal,
-            self._mfc_presets[1], self._mfc_presets[2], self.control_voltage,
+            *self._additional_values(now),
             *[self.adc_voltages[name] for name in self.adc_signals_columns],
         ])
 
@@ -265,12 +303,13 @@ class ADC(DeviceThread):
         raw = self._raw_rows[-1]
         converted = []
         debug = self.config.get("Debug.Raw ADC", False)
-        for name, value in zip(self.adc_signals_columns, raw[8:]):
+        for name, value in zip(self.adc_signals_columns, raw[self._signal_offset:]):
             conversion = self.adc_channels[name].conversion
             if debug:
                 converted.append(value)
             elif conversion.__name__ == "ionization_gauge":
-                converted.append(conversion(value, raw[2], raw[3]))
+                mode_index, scale_index = self._gauge_columns[name]
+                converted.append(conversion(value, raw[mode_index], raw[scale_index]))
             else:
                 converted.append(conversion(value))
         self._converted_rows.append(converted)
