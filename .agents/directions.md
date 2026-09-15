@@ -413,6 +413,41 @@ holds what is still undecided or unbuilt.
   top and the charts get the rest. Same family as the status-line
   Sampling and QMS sync controls in the 4.19 design above; build them
   together.
+- May a session stop and start the rig's program, and under what
+  conditions? — the owner's call. Today the rule is that the restart is
+  his, always (AGENTS.md); he asked on 2026-09-15 whether agents could
+  "stop the app and start anew in the rig ... shift towards a process",
+  and wants "an option to just kill the app so nothing is talking to my
+  hardware".
+  Stakes: killing the process does not zero the DACs — the cathode DAC
+  holds its last voltage after the program dies (2026-08-19, the plasma
+  ran on after the reader died), so a kill leaves the hardware driven
+  with nobody watching. Only a stop that turns the outputs off first is
+  a safe stop; a physical off is the only guarantee.
+  Recommendation: build the two pieces below first, then allow a session
+  to stop (never merely kill) and to start when the rig is idle and no
+  output is live, as the pull rule already reads, and keep the first
+  start of a day and any start with a person at the rig his.
+  Safe default: the rule stands; sessions pull and never restart.
+- A stop the process cannot skip, and the program as a process (design
+  for the question above; no UI law involved beyond the existing Stop):
+  - On SIGTERM (and SIGINT) the program runs the same path Stop does —
+    outputs to zero, recorders closed, workers joined, hardware first —
+    before it exits; a test sends the signal to a dummy-hardware instance
+    and reads the DAC setters' last commands. `POST /api/stop-all` already
+    exists for the outputs; a `POST /api/quit` behind the same gates asks
+    the program to stop that way, so a session's "stop" is a request the
+    program honours, never a kill.
+  - `scripts/run_controlunit.sh` becomes a systemd user unit on the Pi
+    under the desktop session (DISPLAY set; PyQt needs the display it
+    already has, nothing more), registered with the Pi's own lab helm, so
+    start/stop/restart/status are commands with a log over SSH; the
+    desktop shortcut stays and calls the same unit. A dead program can
+    then be restarted by a watchdog with the same graceful path.
+  - Splitting acquisition from the Qt window into a headless service the
+    window and the web view both attach to is the larger step; not
+    needed for this and not proposed now.
+
 - Should the OUTPUT lamp on the Cathode card also press — switch the
   Kikusui supply's output on and off from a browser — or only show?
   — the owner's call. He asked for "the output on/off button ... in
