@@ -1,3 +1,8 @@
+## 4.18.2 — 2026-09-15
+
+- The web Control tab's gauge card is "Ion gauges", its blocks headed "Upstream · Pu2" and "Downstream · Pd" (queezz: "Pu2 is ok for a short name, but in the gauges card... upstream/downstream is better"); each gauge's place is a `Place` key on its channel in settings.yml. The rig's dock rows keep the short name alone ("Waste of space, that!").
+- Every painted switch on the rig's Control dock draws itself at the size its column gives it, so LOCAL no longer arrives as ".OCAL"; a press counts only inside the painted switch.
+
 ## 4.18.1 — 2026-09-15
 
 - A freshly started run took only the first gauge's mode and exponent from the selectors; the upstream gauge Pu2 ran at the worker's resting 1e-3 while the page showed 1e-6, a thousand times high until its range was pressed again (queezz: "it was already selected. So it's a UI lie"). Start now pushes every gauge's pair. A test starts a run with both selectors moved and reads the worker's settings back.
