@@ -252,6 +252,30 @@ def test_a_slow_kikusui_stop_does_not_block_the_next_run(qt_app, home, monkeypat
         widget.abort_all_threads()
 
 
+def test_every_gauge_selector_reaches_a_freshly_started_worker(qt_app, home):
+    """What the selectors show before Start is what the new worker runs
+    with, for every gauge, not only the first one."""
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        pd_mode, pd_range = widget.control_dock.gauges["Pd"]
+        pu2_mode, pu2_range = widget.control_dock.gauges["Pu2"]
+        pd_range.setValue(-8)
+        pu2_range.setValue(-6)
+        pu2_mode.setCurrentIndex(1)  # Pa
+        widget.start_acquisition()
+        worker = widget.workers["ADC"]["worker"]
+        assert worker._gauge_settings["Pd"] == {"mode": 0, "scale": -8}
+        assert worker._gauge_settings["Pu2"] == {"mode": 1, "scale": -6}
+        gauges = widget.web_status.read()["setpoints"]["gauges"]
+        assert gauges["Pd"] == {"mode": "Torr", "range": -8}
+        assert gauges["Pu2"] == {"mode": "Pa", "range": -6}
+        widget.stop_acquisition()
+    finally:
+        widget.abort_all_threads()
+
+
 def test_dummy_hardware_refuses_a_real_kikusui_config(qt_app, home, monkeypatch):
     from controlunit.devices.kikusui import ReadOnlyClient
     from controlunit.main import MainApp

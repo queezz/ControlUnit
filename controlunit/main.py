@@ -493,8 +493,14 @@ class MainApp(QtCore.QObject, UIWindow):
         for device_name, worthre in self.workers.items():
             self.start_thread(worthre)
 
-        self.update_ig_range()
-        self.update_ig_mode()
+        # A fresh worker rests at Torr and 1e-3 for every gauge; what the
+        # selectors show is what it must run with, so every gauge's pair is
+        # pushed, not only the first (4.18.0 pushed Pd's alone, and Pu2 read
+        # a thousand times high until its range was pressed again: queezz,
+        # 2026-09-15, "it was already selected. So it's a UI lie").
+        for gauge in self.control_dock.gauges:
+            self.update_ig_range(gauge)
+            self.update_ig_mode(gauge)
 
     def start_thread(self, worthre):
         """

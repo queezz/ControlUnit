@@ -1,3 +1,7 @@
+## 4.18.1 — 2026-09-15
+
+- A freshly started run took only the first gauge's mode and exponent from the selectors; the upstream gauge Pu2 ran at the worker's resting 1e-3 while the page showed 1e-6, a thousand times high until its range was pressed again (queezz: "it was already selected. So it's a UI lie"). Start now pushes every gauge's pair. A test starts a run with both selectors moved and reads the worker's settings back.
+
 ## 4.18.0 — 2026-09-15
 
 - A second ionization gauge, `Pu2`, upstream on ADC channel 16 (queezz, 2026-09-15: "I've connected upstream IG to channel 16"), with its own Torr/Pa mode and exponent selector beside the downstream gauge's on the rig's Control dock and in the web Control tab's Gauges group, and its own curve on the ion-gauge chart, in the readouts strip and in the All and Vacuum presets.
