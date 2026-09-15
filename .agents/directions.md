@@ -413,22 +413,11 @@ holds what is still undecided or unbuilt.
   top and the charts get the rest. Same family as the status-line
   Sampling and QMS sync controls in the 4.19 design above; build them
   together.
-- May a session stop and start the rig's program, and under what
-  conditions? — the owner's call. Today the rule is that the restart is
-  his, always (AGENTS.md); he asked on 2026-09-15 whether agents could
-  "stop the app and start anew in the rig ... shift towards a process",
-  and wants "an option to just kill the app so nothing is talking to my
-  hardware".
-  Stakes: killing the process does not zero the DACs — the cathode DAC
-  holds its last voltage after the program dies (2026-08-19, the plasma
-  ran on after the reader died), so a kill leaves the hardware driven
-  with nobody watching. Only a stop that turns the outputs off first is
-  a safe stop; a physical off is the only guarantee.
-  Recommendation: build the two pieces below first, then allow a session
-  to stop (never merely kill) and to start when the rig is idle and no
-  output is live, as the pull rule already reads, and keep the first
-  start of a day and any start with a person at the rig his.
-  Safe default: the rule stands; sessions pull and never restart.
+- Sessions may stop and start the rig's program only when queezz asks
+  directly in the chat, never on their own (owner decision 2026-09-15,
+  live; now in AGENTS.md). Asked, a session refuses while an output is
+  live, and until the graceful stop below exists it stops the program
+  only when the outputs are already at zero.
 - A stop the process cannot skip, and the program as a process (design
   for the question above; no UI law involved beyond the existing Stop):
   - On SIGTERM (and SIGINT) the program runs the same path Stop does —

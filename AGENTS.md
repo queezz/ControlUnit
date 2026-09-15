@@ -75,6 +75,16 @@ from the repository root:
 This is for looking at the view, never for driving the rig: the rig is
 started only from its own desktop shortcut.
 
+**Stopping and starting the rig's program from a session (owner decision
+2026-09-15, live).** A session may stop or start the rig's program only
+when queezz asks for it directly in the chat, and never on its own: "I
+run experiments. Or students. Session interfering can ruin a run. But
+me in dev asking you, why not?" Asked, a session still refuses while an
+output is live, and until the graceful stop exists (the SIGTERM path
+that zeroes the outputs first; see directions) it stops the program only
+when the outputs are already at zero, because a killed process leaves
+the DACs holding whatever they held.
+
 ### Before pulling a new version onto the Pi
 
 A pull and a restart take the rig away from whoever is using it, and "not
