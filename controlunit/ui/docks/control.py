@@ -3,7 +3,7 @@ from PyQt5 import QtGui, QtCore, QtWidgets
 from pyqtgraph.dockarea import Dock
 from ..buttons.toggles import MySwitch, OnOffSwitch, QmsSwitch, RemoteSwitch
 from ..widgets.analoggauge import AnalogGaugeWidget
-from readsettings import select_settings, ion_gauge_names, ion_gauge_places
+from readsettings import select_settings, ion_gauge_names
 
 config = select_settings(verbose=False)
 MAXTEMP = config["Max Voltage"]
@@ -81,27 +81,18 @@ class ControlDock(Dock):
         # of the program has always used for the downstream gauge.
         self.gauges = {}
         self.gauge_labels = {}
-        places = ion_gauge_places(config)
         for gauge in ion_gauge_names(config):
             mode = QtWidgets.QComboBox()
             [mode.addItem(i) for i in ["Torr", "Pa"]]
             mode.setFont(QtGui.QFont("serif", 18))
-            # Two lines in the two columns this label has beside the 60 px
-            # tall spin box: the short name bold, the place beneath it small
-            # (owner direction 2026-09-15, "Pu2 is ok for a short name, but
-            # ... upstream/downstream is better"), the short name kept
-            # because the web readout cards say Pu2 and Pd.
-            label = QtWidgets.QLabel(
-                '<b>{}</b><br><span style="font-size:10pt">{}</span>'.format(
-                    gauge, places[gauge]
-                )
-            )
+            # The short name alone: the place is spelled out on the web card,
+            # where there is room, and not here (queezz, 2026-09-15, seeing
+            # "downstream" under "Pd" on the dock: "Waste of space, that!").
+            label = QtWidgets.QLabel(gauge)
             label.setFont(QtGui.QFont("serif", 18))
-            label.setWordWrap(True)
-            # Bounded to what its 2-of-12 columns actually give it at the
-            # rig's own dock width, so the place word wraps rather than
-            # stretching those columns wider for every row that shares them
-            # (test_switch_labels.py holds the top row to its own width).
+            # Bounded to what its 2-of-12 columns give it at the rig's own
+            # dock width, so the label never stretches the columns the top
+            # row's switches share (test_switch_labels.py holds that row).
             label.setMaximumWidth(76)
             self.gauges[gauge] = (mode, self._make_range_box())
             self.gauge_labels[gauge] = label
