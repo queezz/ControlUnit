@@ -83,8 +83,12 @@ holds what is still undecided or unbuilt.
   rows and recovery. Setup is in docs/hardware/kikusui-lan.md. Deployed
   2026-09-15: the Pi's checkout is at 4.18.0 (4.17.1 fixed a stale
   recorder reference that blocked every later Start after one slow stop);
-  its `kikusui.yml` names the supply; real-run validation waits on the
-  owner's restart and first manual discharge. The cable/address are
+  its `kikusui.yml` names the supply. First manual discharge recorded
+  2026-09-15 (`cu_20260915_184419.csv` and its sidecar): the owner's
+  assessment, "full manual gas and cathode ... Very good plasma, 15 min.
+  Constant current" — 18:54 to 19:10, 0.77–0.79 A on the Hall sensor,
+  the supply flat at about 16.5 A and 7.7 V, drive and gas untouched.
+  That is the baseline the PID rebuild starts from. The cable/address are
   established in the lab record and read-only SCPI was verified with
   output off.
   4.17.0 publishes fresh Kikusui V/I in Qt, full WebUI cards and a separate
