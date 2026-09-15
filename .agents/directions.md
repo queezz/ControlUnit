@@ -190,7 +190,13 @@ holds what is still undecided or unbuilt.
     one compact segmented pill of its four times, QMS sync as one pill
     with a sliding thumb (the house's two-state control). Gated exactly as
     before (Remote, the lab's word, the operator lock; sampling needs a
-    run). The Settings fold dissolves; Gauges becomes its own rail card.
+    run). The Settings fold dissolves; Gauges becomes its own rail card
+    titled "Ion gauges", its blocks headed "Upstream · Pu2" and
+    "Downstream · Pd" (owner decision 2026-09-15: "Pu2 is ok for a short
+    name, but in the gauges card... Ion Gauges: upstream/downstream is
+    better"; the short name stays beside so it matches the readout cards),
+    each gauge's place named once in settings.yml and read from there by
+    the web card and the rig's own dock rows.
     The anchors #sec-sync, #sec-acquisition, #sec-gauge keep landing.
   - The Window card leaves the rail too: one compact choice, "last 5 m",
     on the Pressure plots toolbar line beside By gauge / By vessel, the
