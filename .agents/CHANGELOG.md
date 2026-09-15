@@ -2,6 +2,7 @@
 
 - A second ionization gauge, `Pu2`, upstream on ADC channel 16 (queezz, 2026-09-15: "I've connected upstream IG to channel 16"), with its own Torr/Pa mode and exponent selector beside the downstream gauge's on the rig's Control dock and in the web Control tab's Gauges group, and its own curve on the ion-gauge chart, in the readouts strip and in the All and Vacuum presets.
 - Each ionization gauge now records its own mode and exponent in the data file: `Pd` in `IGmode` and `IGscale` exactly as before, `Pu2` in two new columns `IGmode_Pu2` and `IGscale_Pu2` appended after the original ones. `settings.yml` names each gauge's columns (`Mode Column`, `Scale Column`) and is at Settings Version 1.4; the worker builds rows from the column list instead of fixed positions.
+- The Remote switch on the rig's Control dock painted itself at the size it wished for, not the size its column gave it, so at the dock's usual width LOCAL reached the screen as ".OCAL" (queezz, 2026-09-15: "fix the remote/local button"). Every switch now draws its track, its sliding part and its word from the widget's real size, shrinking or narrowing the word before ever clipping it, and answers only to presses inside itself; five tests hold each switch's words inside it at the dock's width.
 - `/api/gauge` takes a `gauge` name; a body without one still means `Pd`. `/api/state` carries every gauge's pair under `setpoints.gauges`, with `ig_mode` and `ig_range` still the first gauge's.
 
 ## 4.17.1 — 2026-09-15

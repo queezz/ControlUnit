@@ -77,4 +77,20 @@ DOM read through the in-app browser.
 
 `lab stop` confirmed: process gone, 48937 free. No console errors.
 
+## The Remote switch (same release, second commit)
+
+Owner, mid-session, with a screenshot of the new dock: "can you fix the
+remote/local button in GUI?" — LOCAL rendered as ".OCAL". Delegated to a
+subagent (Opus) with a bounded packet; inspected here. Cause: MySwitch
+painted a 148 px track whatever width the layout gave (111 px in the
+dock's top row), and Qt clips at the widget's edge; the 4.0.1 fix only
+shrank the font to the sliding part, which itself hung off the widget.
+Fix in `controlunit/ui/buttons/toggles.py`: track, sliding part and word
+are measured from the widget's real rect, the word shrinks to a 6 pt
+floor and is narrowed rather than clipped below it, and `hitButton` is
+the painted track. `tests/test_switch_labels.py` holds every top-row
+switch's two words inside it at a 480 px dock. Before/after renders with
+the real font engine were compared (`.OCAL` reproduced, then whole).
+Gate after the fix: pytest 581 passed.
+
 agent: claude fable 5.1
