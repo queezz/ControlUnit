@@ -160,6 +160,25 @@ holds what is still undecided or unbuilt.
   with the last lines; an optional nightly line at a set time. Bot token
   and chat id in `~/.controlunit/telegram.yml` on the Pi, never git; only
   the chat id it is given ever hears it. Tests against a fake Bot API.
+- Cameras on the rig (queezz, 2026-09-15: "I'll add a usb cam or two for
+  looking at the rack and at the plasma window. So we can add those to
+  Webui and telegram. Picture of the rig with data..."). When the
+  cameras are on the Pi (his hardware; no task here until they are):
+  - The rig's program grabs a still from each named camera on request,
+    never a stream through the acquisition process: `GET
+    /api/camera/<name>.jpg`, a fresh JPEG at most every few seconds,
+    cached between, cameras named in a machine-local
+    `~/.controlunit/cameras.yml` (device path, name, e.g. `rack`,
+    `window`); absent file, no cameras, nothing else changes. The grab
+    runs off the main thread and a camera that fails answers 503 with a
+    word, never a stale picture as a fresh one.
+  - The Live tab gets a Cameras card (folds like every card) showing the
+    stills with their time, refreshed on the state poll's cadence; in
+    Monitor they may sit beside the charts.
+  - The Telegram reporter answers `/photo` (and `/photo window`) with the
+    still and the compact readout line stamped on it — the rig's picture
+    with its numbers — and attaches one to the run-started and
+    plasma-lost events.
 - Create the Telegram bot and name the chat — owner work pending. With
   BotFather make the bot and take its token; open a chat with it (or add
   it to the lab group) and give the chat id; put both in
