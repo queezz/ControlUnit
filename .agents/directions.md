@@ -173,13 +173,16 @@ holds what is still undecided or unbuilt.
 
   The design (this session, 2026-09-15; built as 4.19.0 unless he cuts at
   it first):
-  - One readout card for every measured value, in the Kikusui card's
-    shape: name small at the left, unit small at the right, the number
-    large, right-aligned, in the channel's pen; a state tag (below 0,
-    zeroed, stale, not recording) small beside the name, never beside the
-    number. "small" is that card at the Kikusui's present size; "big" is
-    the same card with the number about twice as tall and nothing else
-    grown. Neither state has text louder than its number.
+  - One readout card for every measured value, drawn as a panel meter
+    (his sketch, 2026-09-15): the name small in the top-left corner with
+    a state tag after it, the unit small in the bottom-right corner, both
+    placed on the card's border and out of the flow, and the digits alone
+    across the middle — sign always shown, mantissa large, a small "×10⁻"
+    and then the exponent digit at the mantissa's full height ("Like
+    5.00E-3, but nicer"). "big" sizes the digits from the card's width;
+    "small" is the same card scaled down to about three rem. The "below
+    zero" tag is dropped (owner decision 2026-09-15: "We have a sign for
+    it"); "zeroed" and the cathode cards' freshness tags stay.
   - The Kikusui voltage and current join the strip as two more cards,
     Cathode V and Cathode I, in the cathode's own colour, with the same
     freshness rule they have now (stale, unavailable or stopped shows a
