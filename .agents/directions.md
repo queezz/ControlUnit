@@ -491,9 +491,13 @@ holds what is still undecided or unbuilt.
   turn that one off no matter the dac voltage"). This crosses the
   2026-09-14 read-only rule for the Kikusui link, which existed so the
   recorder could never drive the supply; he was told and holds course.
-  The crossing is exactly one write and stays so: `OUTP 0`, off only,
-  never on, never a setpoint; the client's allowlist grows by that one
-  command and a test holds it there. Build:
+  Widened the same night ("Off and on. Why not? Then we have full
+  cathode control when powered"): the crossing is exactly two writes,
+  `OUTP 0` and `OUTP 1`, never a setpoint; the client's allowlist grows
+  by those two and a test holds it there. Off is a safety press, always
+  allowed; on is a setter, behind the Remote switch, the lab's word and
+  the operator lock, and refused while the supply is not answering, so a
+  blind on is never sent. Build:
   - `KikusuiLogger` takes an "output off" request on its own thread,
     sends `OUTP 0` between polls on the socket it already owns, reads
     `OUTP?` back and logs "Kikusui output OFF (confirmed)" or the failure;
@@ -506,9 +510,10 @@ holds what is still undecided or unbuilt.
     button: green when the telemetry says on, grey when off, dim when
     unknown; pressing it turns the output off and nothing else. On the
     rig's Cathode dock a plain "output off" button beside Off.
-  - `POST /api/cathode-output` `{"on": false}` only; `true` is refused
-    with its reason. AGENTS.md's "Kikusui measurement first" paragraph
-    gets the dated amendment.
+  - `POST /api/cathode-output` `{"on": false|true}`; the web lamp is a
+    toggle (off never disabled, on gated) and the rig's dock has both
+    buttons. AGENTS.md's "Kikusui measurement first" paragraph gets the
+    dated amendment.
   Ready to build after the cathode-curve slice (same files).
 
 - Should the time window stay a set of fixed spans (now a compact choice
