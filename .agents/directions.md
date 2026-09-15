@@ -448,20 +448,30 @@ holds what is still undecided or unbuilt.
     window and the web view both attach to is the larger step; not
     needed for this and not proposed now.
 
-- Should the OUTPUT lamp on the Cathode card also press — switch the
-  Kikusui supply's output on and off from a browser — or only show?
-  — the owner's call. He asked for "the output on/off button ... in
-  sync"; the lamp alone is what 4.19.0 builds.
-  Stakes: pressing crosses the 2026-09-14 rule that the Kikusui link is
-  read-only (its client refuses every command but four measurement
-  queries, and the recorder never drives an output); it would be the
-  first browser control that switches the cathode supply itself, behind
-  the same gates as every setter.
-  Recommendation: the lamp now; if it must press, off-only first, as a
-  second Stop-all-outputs kind of press, and on only after that has been
-  used for a while, because switching a filament supply on from a phone
-  is a different press from switching it off.
-  Safe default: it shows and never presses.
+- The Kikusui output-off press (owner decision 2026-09-15, live: "Kikusui
+  has LAN now, I want the one-off signal button in our control. Then we
+  turn that one off no matter the dac voltage"). This crosses the
+  2026-09-14 read-only rule for the Kikusui link, which existed so the
+  recorder could never drive the supply; he was told and holds course.
+  The crossing is exactly one write and stays so: `OUTP 0`, off only,
+  never on, never a setpoint; the client's allowlist grows by that one
+  command and a test holds it there. Build:
+  - `KikusuiLogger` takes an "output off" request on its own thread,
+    sends `OUTP 0` between polls on the socket it already owns, reads
+    `OUTP?` back and logs "Kikusui output OFF (confirmed)" or the failure;
+    with no recorder running (no acquisition) a one-shot connection does
+    the same. LAN lost: the press fails loudly and says so; the DAC
+    drive is turned off regardless, as today.
+  - The press is a safety press, so it is always allowed, like Stop all
+    outputs — no Remote switch, no name, no lab's word — and Stop all
+    outputs sends it too. On the web Cathode card the OUTPUT lamp is the
+    button: green when the telemetry says on, grey when off, dim when
+    unknown; pressing it turns the output off and nothing else. On the
+    rig's Cathode dock a plain "output off" button beside Off.
+  - `POST /api/cathode-output` `{"on": false}` only; `true` is refused
+    with its reason. AGENTS.md's "Kikusui measurement first" paragraph
+    gets the dated amendment.
+  Ready to build after the cathode-curve slice (same files).
 
 - Should the time window stay a set of fixed spans (now a compact choice
   on the charts' toolbar) or become direct: drag across a chart to zoom,
