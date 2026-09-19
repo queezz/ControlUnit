@@ -167,35 +167,83 @@ redesigned whenever it changes; the file keeps the raw readings.
 
 ## What the hardware can change
 
-The two patterns are the sensor's supply, if the hypothesis holds, and no
-filter on the signal wire removes a supply that moves slowly. In the order
-that tells most:
+The two patterns are the Pi's load reaching the sensor, through its
+supply or its ground, if the hypothesis holds, and no filter on the signal
+wire removes that. Amended the same day with the boards' own files and
+queezz's corrections: the ADC board has pads for the RC and the surge
+diodes, the breakout has a ground, and the sensor should take its ground
+from the ADC side, star-like.
 
-1. **Record the sensor's supply.** One wire from the sensor's 5 V to a
-   spare input. The board's inputs take 0–10 V, so it goes straight in; a
-   channel on the same multiplexer bank as `Ip` (1–6 or 9–15) is best.
-   If that channel shows the two patterns at twice the size, the hypothesis
-   is confirmed, and the reading can be made ratiometric in software:
-   current from `v_out / v_supply`, which cancels the supply's movement and
-   the negative zero with it.
-2. **Power the sensor from its own supply.** Powering it from the Mean Well
+Where things are, from the two boards' own files. The ADC board is the
+Y2 Corporation AIO-32/0RA-IRC (schematic in the explainers,
+`docs/assets/y-corp-adc-schematic.pdf`); the panel between it and the rig
+is the lab's own breakout, `panel-bncs` in `queezz/controlunig-pcb`.
+
+- Every ADC input passes a 39 kΩ / 10 kΩ divider on the ADC board (the
+  4.9 in the code's volts) and is read against the board's analogue ground
+  `AG`, which joins the Pi's ground through one ferrite (L2). `AG` reaches
+  the breakout on ribbon pins 33–34: the breakout's ground is `AG`.
+- At each divider's midpoint the ADC board has an unfitted capacitor pad
+  to `AG` and an unfitted dual clamp diode to `AG` and 3.3 V. Channel 0,
+  `Ip`: R1 (39 kΩ), R33 (10 kΩ), **C1**, **D1**. Channel 1: R3, R35,
+  **C3**, **D3**. Do not fit the pads after the multiplexers (C41, C42):
+  those are shared by sixteen channels each and would carry one channel's
+  voltage into the next.
+- On the breakout, the lower terminal block carries channels 0–7, the
+  upper 8–15, and the BNCs the even channels 16–30 (channel 18 free) with
+  pads for a ferrite, a capacitor and a surge diode, none of them fitted
+  (queezz: "Those pads are pads, not populated"). In the board file the
+  ferrite pad sits in series between the BNC's centre pin and the channel,
+  so a BNC that reads must have that pad bridged; a ferrite bead replaces
+  the bridge. The odd channels 17–31 are not brought out.
+
+1. **Record the sensor's supply.** One wire from the sensor's own 5 V pin
+   to **channel 1**, the lower terminal block's "1", beside `Ip`'s "0"
+   (owner's choice of channel 2026-09-19). The input takes 0–10 V, so it
+   goes straight in. If that channel shows the two patterns, the Pi's load
+   reaches the sensor, and the reading can be made ratiometric in
+   software: current from `v_out / v_supply`, which cancels the supply's
+   movement and the negative zero with it.
+2. **Ground the sensor on the ADC side.** The sensor's ground now comes
+   from the Pi. Take it from the breakout's ground instead, which is `AG`,
+   the node every channel is measured against, so that none of the Pi's
+   own return current flows between the sensor's ground and the ADC's.
+   That is the second route by which the Pi's load can reach `Ip`, besides
+   the supply sagging, and the ratio in step 1 cancels only half of a
+   ground shift. The ADC board already joins `AG` to the Pi at one point
+   (L2); nothing on the sensor's side should make a second joint.
+3. **Power the sensor from its own supply.** Powering it from the Mean Well
    directly, on its own pair of wires, removes the drop in the Pi's cable
    and fuse that moves with the Pi's load; the Mean Well's own output still
    moves somewhat with everything else it feeds, and carries switching
    ripple. A small linear regulator of its own (a 7805 or a low-noise LDO,
    fed from a 12 or 24 V rail if the rack has one) is quieter still. Its
-   minus must join the ADC board's analogue ground at one point.
-3. **An RC at the ADC input.** About 1 kΩ in series and 10 µF to the
-   board's analogue ground at the input terminal: a 16 Hz corner, 10 ms of
-   delay, nothing at 10 Hz sampling. It stops noise between 5 Hz and a few
-   hundred hertz from folding down into the samples, which is what most of
-   the remaining broadband 8 mA probably is. Keep the series resistor small
-   against the board's input impedance; recalibrate after fitting it.
-4. **Ferrites and decoupling.** A clip-on ferrite on the sensor cable, and
+   minus joins at the breakout's ground and nowhere else.
+4. **The RC is on the ADC board already, less the capacitor.** The 39 kΩ
+   series resistor and the 10 kΩ to ground look like 7.96 kΩ to a capacitor
+   at the midpoint, so C1 alone makes the RC: **2.2 µF** gives a 9 Hz
+   corner and 17.5 ms, a step settled to 0.3 % within one 100 ms sample
+   (1 µF: 20 Hz, 8 ms). Ceramic, X7R, 6.3 V or more; the midpoint never
+   sees more than about 2 V. It stops noise between 5 Hz and a few hundred
+   hertz from folding down into the samples, which is what most of the
+   remaining broadband 8 mA probably is, and adds no error, since there is
+   no extra resistor. Fit the **same value on C3**, so the supply channel
+   is filtered exactly like `Ip` and the ratio stays exact.
+5. **Clamp diodes, if fitted, silicon.** D1's pads take a SOT-23 series
+   pair. A BAV99 (silicon) fits; a BAT54S (Schottky) fits too but leaks
+   more, and a leak through the 8 kΩ midpoint is an offset, of millivolts
+   at the input once warm. For the sensor inside the rack the clamp is
+   optional; the gauges' long BNC cables are where it matters.
+6. **Ferrites and decoupling.** Ferrite beads on the breakout's FB1–FB8
+   pads when they arrive, a clip-on ferrite on the sensor cable, and
    100 nF with 10 µF across the sensor's supply pins at the sensor. These
    treat radio-frequency pickup from the discharge, arcs and switching
    supplies, not the two slow patterns.
-5. **Calibrate with a known current.** With the discharge off, a bench
+
+In that order, with ten quiet minutes at 10 Hz after step 1 so the cause
+is seen before it is removed; then:
+
+7. **Calibrate with a known current.** With the discharge off, a bench
    supply in constant-current mode (or any supply, a power resistor and a
    multimeter in series as the reference) through the sensor, at 0, ±0.5,
    ±1 and ±2 A, 30 s each at 10 Hz, with the zero taken again at the end.

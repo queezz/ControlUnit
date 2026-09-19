@@ -78,19 +78,27 @@ holds what is still undecided or unbuilt.
   And the power, I can power the Hall directly. Now it's from RasPi, but
   RasPi sits on a big Mean Well PSU, 10A"). The steps and part values are
   in docs/diagnostics/2026-09-19-hall-sensor-noise.md, "What the hardware
-  can change": (1) a wire from the sensor's 5 V to a spare input on the
-  same multiplexer bank as `Ip` (channel 1–6 or 9–15; the board takes
-  0–10 V straight), which the software item below needs the number of;
-  (2) the sensor on its own supply, its minus joined to the ADC board's
-  analogue ground at one point; (3) 1 kΩ in series and 10 µF to analogue
-  ground at the `Ip` input terminal; (4) a ferrite on the sensor cable and
-  100 nF with 10 µF across the sensor's supply pins; (5) a calibration run
-  with a known current, 0, ±0.5, ±1 and ±2 A, 30 s each at 10 Hz, the
-  discharge off. Also needed, a fact rather than labour: which sensor is
-  fitted (ACS712-05B, -20A, -30A or WCS1800), since the conversion's
-  5 A/V matches none of them. Before any of it, a multimeter on the
-  sensor's supply pins is expected to read about 4.91 V; that one number
-  tests the explanation of the negative zero.
+  can change" (amended the same day from the ADC board's schematic, the
+  breakout's board file, and his corrections: the breakout has a ground,
+  the ADC board has pads for the RC and surge diodes, and the ferrites on
+  the breakout were never fitted): (1) a wire from the sensor's own 5 V
+  pin to **channel 1**, the lower terminal block's "1" beside `Ip`'s "0"
+  (the channel the software item below records), then ten quiet minutes at
+  10 Hz; (2) the sensor's ground from the breakout's ground, which is the
+  ADC board's analogue ground, instead of the Pi's ("better to use the ADC
+  side ground. Star like and all"); (3) the sensor on its own supply, its
+  minus joined at that same ground and nowhere else; (4) 2.2 µF ceramic on
+  the ADC board's C1 (channel 0) and the same on C3 (channel 1) — the
+  board's own 39 kΩ / 10 kΩ divider makes the RC, a 9 Hz corner — and
+  never on C41/C42, which sixteen channels share; (5) if clamp diodes go
+  on D1/D3, a silicon BAV99 rather than a Schottky; (6) ferrite beads on
+  the breakout's FB pads, and 100 nF with 10 µF at the sensor's supply
+  pins; (7) a calibration run with a known current, 0, ±0.5, ±1 and ±2 A,
+  30 s each at 10 Hz, the discharge off. Also needed, a fact rather than
+  labour: which sensor is fitted (ACS712-05B, -20A, -30A or WCS1800),
+  since the conversion's 5 A/V matches none of them. Before any of it, a
+  multimeter on the sensor's supply pins is expected to read about
+  4.91 V; that one number tests the explanation of the negative zero.
   Done when: a file recorded after the change holds ten quiet minutes at
   10 Hz with the supply channel in it, and a calibration run with the
   currents noted by time.
@@ -107,7 +115,8 @@ holds what is still undecided or unbuilt.
   - When a supply channel for the sensor is configured, the conversion is
     ratiometric: the current from `v_out / v_supply`, so the supply's
     movement and the negative zero cancel. Without one, it stays as now.
-    Needs the channel number from the owner-work item above.
+    The supply is on channel 1, recorded as `Vhall` directly under `Ip`
+    in `settings.yml`, so the two are read a millisecond apart.
   - The zero button and "Zero now" average 7.5 s instead of
     `BASELINE_SECONDS = 2.0`: a 2 s zero lands at a random point of the
     7.5 s pattern and is off by 11 mA (31 mA at worst), a 7.5 s zero by
