@@ -73,8 +73,56 @@ holds what is still undecided or unbuilt.
   for a day the office PC is unreachable.
   Done when: the Control tab's Acting-as field is a list of names rather
   than a text box, and its heading says "· PIHTI Log" with a time.
+- Rework the Hall sensor's wiring at the rig — owner work pending (queezz,
+  2026-09-19: "I don't have RC and ferrite in that ADC channel, can add it.
+  And the power, I can power the Hall directly. Now it's from RasPi, but
+  RasPi sits on a big Mean Well PSU, 10A"). The steps and part values are
+  in docs/diagnostics/2026-09-19-hall-sensor-noise.md, "What the hardware
+  can change": (1) a wire from the sensor's 5 V to a spare input on the
+  same multiplexer bank as `Ip` (channel 1–6 or 9–15; the board takes
+  0–10 V straight), which the software item below needs the number of;
+  (2) the sensor on its own supply, its minus joined to the ADC board's
+  analogue ground at one point; (3) 1 kΩ in series and 10 µF to analogue
+  ground at the `Ip` input terminal; (4) a ferrite on the sensor cable and
+  100 nF with 10 µF across the sensor's supply pins; (5) a calibration run
+  with a known current, 0, ±0.5, ±1 and ±2 A, 30 s each at 10 Hz, the
+  discharge off. Also needed, a fact rather than labour: which sensor is
+  fitted (ACS712-05B, -20A, -30A or WCS1800), since the conversion's
+  5 A/V matches none of them. Before any of it, a multimeter on the
+  sensor's supply pins is expected to read about 4.91 V; that one number
+  tests the explanation of the negative zero.
+  Done when: a file recorded after the change holds ten quiet minutes at
+  10 Hz with the supply channel in it, and a calibration run with the
+  currents noted by time.
 
 ## Ready to build
+
+- The Hall sensor's zero, scale and filter, from the 2026-09-19 analysis
+  (queezz, 2026-09-19: "Yep, need all of that", answering the filter
+  recommendation). Four parts, each shippable alone:
+  - The zero and the amperes per volt become settings of the `Ip` channel
+    in `settings.yml` instead of the constants 2.52 and 5 in
+    `hall_current_sensor`, keeping those values until a calibration
+    replaces them.
+  - When a supply channel for the sensor is configured, the conversion is
+    ratiometric: the current from `v_out / v_supply`, so the supply's
+    movement and the negative zero cancel. Without one, it stays as now.
+    Needs the channel number from the owner-work item above.
+  - The zero button and "Zero now" average 7.5 s instead of
+    `BASELINE_SECONDS = 2.0`: a 2 s zero lands at a random point of the
+    7.5 s pattern and is off by 11 mA (31 mA at worst), a 7.5 s zero by
+    1.8 mA.
+  - A causal filter on `Ip` for the live value and the PID: a 3-sample
+    mean and second-order notches at 1/7.5 s and its second and third
+    harmonics, Q = 100, designed for the actual sampling period (23 to
+    9 mA at 0.1 s delay); a 1 s mean on top for the display (about 4 mA).
+    The file keeps the raw readings, and the filter is named where the
+    value is shown. After the hardware rework, the ten quiet minutes decide
+    whether the notches are still needed; the 3-sample mean stays either
+    way.
+  The 2026-09-18 run should be put through the same analysis once its
+  files are in `data/rig/2026-09-18/`; they had not arrived on the home
+  machine on 2026-09-19.
 
 - Kikusui follow-up after the first read-only recorder (owner decision
   2026-09-14): collect ordinary manual discharges and bakes before fixing PID
@@ -711,7 +759,10 @@ holds what is still undecided or unbuilt.
     rest; Bu and Pu want 11; Bd cannot usefully be filtered (a 109 s
     wander and a −0.8 mTorr standing offset). Whether fs/3 is the read
     schedule needs a run at another sampling rate. This is the filter
-    build the noise-study item asked for.
+    build the noise-study item asked for. Superseded on 2026-09-19 by the
+    Hall item under Ready to build: the fs/3 line follows the sample count
+    (the batch of three), the 0.133 Hz line is 7.500 s of clock time, and
+    three notches do at 0.1 s what the 21-sample mean did at 1 s.
   - The "1 A by the PSU" is not in any file: the Kikusui read 16.5 A
     (filament heating current); the discharge supply's own readout is a
     separate instrument ControlUnit does not log. Ip followed filament
