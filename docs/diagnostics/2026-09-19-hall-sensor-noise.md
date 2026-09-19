@@ -191,11 +191,15 @@ is the lab's own breakout, `panel-bncs` in `queezz/controlunig-pcb`.
   voltage into the next.
 - On the breakout, the lower terminal block carries channels 0–7, the
   upper 8–15, and the BNCs the even channels 16–30 (channel 18 free) with
-  pads for a ferrite, a capacitor and a surge diode, none of them fitted
-  (queezz: "Those pads are pads, not populated"). In the board file the
-  ferrite pad sits in series between the BNC's centre pin and the channel,
-  so a BNC that reads must have that pad bridged; a ferrite bead replaces
-  the bridge. The odd channels 17–31 are not brought out.
+  pads for a ferrite, a capacitor and a surge diode. The ferrite pad sits
+  in series between the BNC's centre pin and the channel; queezz fitted
+  resistors there, the ferrites not being to hand, and capacitors on the
+  capacitor pads ("I have caps and resistors in my breakout panel PCB"),
+  so every BNC channel already has an RC and the terminal channels,
+  `Ip` among them, have none. A ferrite bead in place of a resistor would
+  filter only radio frequencies and drop that RC. The ADC board's own
+  pads are empty ("Those pads are pads, not populated"). The odd channels
+  17–31 are not brought out.
 
 1. **Record the sensor's supply.** One wire from the sensor's own 5 V pin
    to **channel 1**, the lower terminal block's "1", beside `Ip`'s "0"
@@ -234,8 +238,9 @@ is the lab's own breakout, `panel-bncs` in `queezz/controlunig-pcb`.
    more, and a leak through the 8 kΩ midpoint is an offset, of millivolts
    at the input once warm. For the sensor inside the rack the clamp is
    optional; the gauges' long BNC cables are where it matters.
-6. **Ferrites and decoupling.** Ferrite beads on the breakout's FB1–FB8
-   pads when they arrive, a clip-on ferrite on the sensor cable, and
+6. **Ferrites and decoupling.** Keep the resistors in the breakout's
+   FB1–FB8 pads, which make the gauges' RC; a clip-on ferrite on the sensor
+   cable, and
    100 nF with 10 µF across the sensor's supply pins at the sensor. These
    treat radio-frequency pickup from the discharge, arcs and switching
    supplies, not the two slow patterns.

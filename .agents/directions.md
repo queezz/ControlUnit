@@ -80,8 +80,9 @@ holds what is still undecided or unbuilt.
   in docs/diagnostics/2026-09-19-hall-sensor-noise.md, "What the hardware
   can change" (amended the same day from the ADC board's schematic, the
   breakout's board file, and his corrections: the breakout has a ground,
-  the ADC board has pads for the RC and surge diodes, and the ferrites on
-  the breakout were never fitted): (1) a wire from the sensor's own 5 V
+  the ADC board has pads for the RC and surge diodes, all empty, and the
+  breakout's BNC channels carry resistors and capacitors he fitted, so the
+  gauges have an RC and the terminal channels, `Ip` among them, none): (1) a wire from the sensor's own 5 V
   pin to **channel 1**, the lower terminal block's "1" beside `Ip`'s "0"
   (the channel the software item below records), then ten quiet minutes at
   10 Hz; (2) the sensor's ground from the breakout's ground, which is the
@@ -91,9 +92,9 @@ holds what is still undecided or unbuilt.
   the ADC board's C1 (channel 0) and the same on C3 (channel 1) — the
   board's own 39 kΩ / 10 kΩ divider makes the RC, a 9 Hz corner — and
   never on C41/C42, which sixteen channels share; (5) if clamp diodes go
-  on D1/D3, a silicon BAV99 rather than a Schottky; (6) ferrite beads on
-  the breakout's FB pads, and 100 nF with 10 µF at the sensor's supply
-  pins; (7) a calibration run with a known current, 0, ±0.5, ±1 and ±2 A,
+  on D1/D3, a silicon BAV99 rather than a Schottky; (6) a clip-on ferrite
+  on the sensor cable and 100 nF with 10 µF at the sensor's supply pins,
+  keeping the breakout's resistors where they are; (7) a calibration run with a known current, 0, ±0.5, ±1 and ±2 A,
   30 s each at 10 Hz, the discharge off. Also needed, a fact rather than
   labour: which sensor is fitted (ACS712-05B, -20A, -30A or WCS1800),
   since the conversion's 5 A/V matches none of them. Before any of it, a
