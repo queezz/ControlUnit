@@ -63,8 +63,9 @@ lab controlunit-dummy
 
 It starts the same program with its dummy hardware, the web view on
 `http://127.0.0.1:4187/`, and opens the browser. The Qt window opens
-beside it; turn the Remote switch on there before a browser may set
-anything, then Start acquisition from either. Data lands in
+beside it; Remote starts enabled (owner decision 2026-09-30). Select Local
+there to block browser setters; the name and lab-word gates still apply.
+Start acquisition from either. Data lands in
 `~/work/cudata` on that machine. Without `lab`, the same spell by hand,
 from the repository root:
 

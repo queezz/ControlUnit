@@ -127,10 +127,10 @@ class ControlDock(Dock):
         self.FullNormSW = MySwitch()
         self.OnOffSW = OnOffSwitch()
         self.OnOffSW.setFont(QtGui.QFont("serif", 16))
-        # Beside the on/off switch, because it is the same kind of decision:
-        # whether something outside this dock may move the hardware. It rests
-        # off and is forced off whenever acquisition stops.
+        # Remote starts enabled (owner decision 2026-09-30). Local remains
+        # available here; stopping acquisition preserves the chosen state.
         self.remoteSW = RemoteSwitch()
+        self.remoteSW.setChecked(True)
         self.remoteSW.setFont(QtGui.QFont("serif", 16))
 
     def _add_main_widgets(self):

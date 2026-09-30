@@ -89,6 +89,21 @@ def test_the_cathode_dock_carries_the_supply_s_own_output_switch(qt_app):
     assert not hasattr(dock, "output_spin_box")
 
 
+def test_remote_starts_enabled_and_local_still_revokes_it(qt_app, home):
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        assert widget.control_dock.remoteSW.isChecked()
+        assert widget.web_status.read()["remote"] is True
+        assert not widget.workers  # enabling Remote does not start acquisition
+        widget.control_dock.remoteSW.click()
+        assert not widget.control_dock.remoteSW.isChecked()
+        assert widget.web_status.read()["remote"] is False
+    finally:
+        widget.abort_all_threads()
+
+
 def test_the_refusal_is_worded_once_for_the_rig_and_the_browser(qt_app):
     from controlunit.main import MainApp
 

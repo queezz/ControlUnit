@@ -167,10 +167,9 @@ class OnOffSwitch(MySwitch):
 class RemoteSwitch(MySwitch):
     """Whether a browser on the lab network may change a setpoint.
 
-    Off is the resting state and the safe one: with this switch off the web
-    view can only read, exactly as it did before browser control existed. It
-    is a switch on the rig's own screen on purpose — gas flow and cathode
-    current move on it, so a person standing at the rig decides.
+    The Control dock enables Remote at startup (owner decision 2026-09-30).
+    A person at the rig can select Local to block browser setters. Remote
+    does not bypass the operator, lab-word or command-specific gates.
     """
 
     # Wider than the on/off switch because its words are longer: a sliding

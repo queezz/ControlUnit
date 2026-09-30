@@ -1,3 +1,9 @@
+## 4.22.1 — 2026-09-30
+
+- Remote starts enabled, as requested by queezz. Local still blocks browser
+  setters and releases control. Operator, lab-word and command-specific
+  gates remain in place; acquisition does not start automatically.
+
 ## 4.22.0 — 2026-09-30
 
 - Correct plasma current using the Hall sensor's measured supply: channel 1
