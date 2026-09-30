@@ -198,6 +198,15 @@ as `.agents/README.md` says.
 
 ## Kikusui measurement first
 
+**Physical wiring matters (confirmed 2026-09-30).** The top green port on
+the ControlUnit enclosure takes the Kikusui red/black control cable; the
+bottom green port takes the MFC yellow wires. Verify the correct cable is
+actually connected after work on the box. An enabled PSU and a nonzero
+software DAC command do not verify this analog connection. The unplugged
+cable caused the apparent no-output PSU fault on this date; correct wiring
+restored a successful plasma run. See `docs/hardware/cathode-control.md`
+for the owner's photograph and reconnection precautions.
+
 Owner decision 2026-09-14: collect read-only Kikusui LAN voltage/current
 records during manual discharges and bakes before changing PID. The initial
 recorder is a separately timestamped sidecar; it must not control outputs,

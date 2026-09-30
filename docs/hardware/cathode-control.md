@@ -8,6 +8,30 @@ DAC through an isolation stage. The program drives the cathode two ways;
 either is chosen on the rig's **Cathode** dock or on the web Control tab's
 Cathode group, and setting one turns the other off.
 
+## Connect the correct green plugs
+
+On the present ControlUnit enclosure, viewed as in the photo below:
+
+- **Top green port: Kikusui cathode control**, the red/black wire pair.
+- **Bottom green port: MFCs**, the yellow wires in the green plug.
+
+Set cathode and gas drives to zero and switch the PSU output off before
+reconnecting. Check both the cable and its destination after moving or
+servicing the box; the similar green plugs are not interchangeable.
+
+![Correct connections: Kikusui red/black pair above, MFC yellow wires below](../assets/images/controlunit-correct-plugs.jpg)
+
+PIHTI Log, 2026-09-30, 17:35–17:50: the Kikusui control cable had been left
+unplugged after work on the box. The owner then recorded the correct port
+assignment above and a successful plasma run. At 17:50, a 1800 mV cathode
+command accompanied measured PSU output of 6.8621 V / 15.5079 A.
+
+The LAN Output indicator reports the PSU's output-enable state; it does
+not prove that the analog control cable is connected or that power is
+flowing. Likewise, the cathode drive value is a software command, not a
+measurement at J1. Check the physical connection before diagnosing an
+enabled PSU with near-zero measured output as a webserver or supply fault.
+
 ## PID
 
 A plasma current in amperes (0–3 A). The plasma current PID, which runs
