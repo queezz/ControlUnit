@@ -726,6 +726,16 @@ class MainApp(QtCore.QObject, UIWindow):
         """
         Generage ADC header
         """
+        hall_metadata = []
+        for name, channel in self.config["Adc Channel Properties"].items():
+            if channel.conversion_id == "Hall Sensor" and channel.supply_channel:
+                hall_metadata.append(
+                    f"# {name}_c [A] = {channel.amperes_per_volt:g} * "
+                    f"{channel.nominal_supply:g} * ({name}/{channel.supply_channel}"
+                    f" - {channel.zero_ratio:g}); valid supply "
+                    f"{channel.supply_minimum:g}..{channel.supply_maximum:g} V; "
+                    "invalid = NaN; raw voltages retained\n"
+                )
         return [
             "# Title , Control Unit ADC signals\n",
             f"# Date , {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n",
@@ -733,6 +743,7 @@ class MainApp(QtCore.QObject, UIWindow):
             f"# Signals , {', '.join(self.config['ADC Signal Names'])}\n",
             f"# Channels , {', '.join([str(i) for i in self.config['ADC Channel Numbers']])}\n",
             "# For converted signals '_c' is added\n",
+            *hall_metadata,
             "#\n",
             "# [Data]\n",
         ]

@@ -80,7 +80,7 @@ class FlakyBoard:
         self.calls += 1
         if self.calls <= self.failures:
             raise OSError(121, "Remote I/O error")
-        return {name: 0.5 for name in self.channels}
+        return {name: 5.0 if name == "Vhall" else 0.5 for name in self.channels}
 
 
 # MARK: a read that fails
@@ -93,7 +93,9 @@ def test_a_failed_read_is_retried_until_the_board_answers(worker):
     assert worker.collect_data() is True
 
     assert board.calls == 4
-    assert worker.adc_voltages == {name: 0.5 for name in board.channels}
+    assert worker.adc_voltages == {
+        name: 5.0 if name == "Vhall" else 0.5 for name in board.channels
+    }
     # Said once when it failed, once when it came back, and never per retry.
     assert len(worker.messages) == 2
     assert "ADC read failed" in worker.messages[0]
@@ -150,7 +152,9 @@ def test_a_failed_read_inside_a_slow_period_does_not_end_the_run(worker, monkeyp
     worker.read_all_channels = board.read
 
     assert worker.collect_period_average(0.1) is True
-    assert worker.adc_voltages == {name: 0.5 for name in board.channels}
+    assert worker.adc_voltages == {
+        name: 5.0 if name == "Vhall" else 0.5 for name in board.channels
+    }
 
 
 # MARK: a row that cannot be recorded

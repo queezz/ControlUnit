@@ -17,7 +17,8 @@ Do not expect hardware build notes here.
 
 | Name | Signal | Sensor / notes |
 |------|--------|----------------|
-| `Ip` | Plasma current | Hall-effect sensor: `5 * (v - 2.52) A` |
+| `Ip` | Plasma current | Hall-effect sensor on channel 0: `25 * (Ip / Vhall - 0.5) A` from 4.22.0; supply-corrected, with the existing provisional 5 A/V sensitivity at 5 V. |
+| `Vhall` | Hall supply reference | Channel 1, read immediately after `Ip`, 10 V range (the 5 V range clips at 5.0176 V). Raw volts retained for diagnosis; no additional display or curve. |
 | `Pu` | Upstream pressure | Pfeiffer single gauge PKR251 (currently operating in Pirani mode — cold-cathode discharge not igniting) |
 | `Pd` | Downstream pressure | Ionization gauge, with `Place: "downstream"` in the settings for the Control dock and the web Gauges card to show beside its short name. Its controller's mode (Torr linear or Pa log) and exponent are recorded per row as `IGmode` and `IGscale`, the columns the file has always had. |
 | `Pu2` | Upstream pressure | Second ionization gauge, wired to channel 16 on 2026-09-15, with its own selector on the Control dock and the web Control tab, and `Place: "upstream"` in the settings for both to show beside its short name. Its mode and exponent are recorded per row as `IGmode_Pu2` and `IGscale_Pu2`, appended after the original columns so nothing an old reader counts on moves. |
@@ -29,6 +30,35 @@ Do not expect hardware build notes here.
 | `Cv` | Cathode voltage | Same as `Ci` — prepared but not deployed |
 | `T` | Membrane temperature | Now read off-Pi (NI on Windows). Channel definition remains. |
 | `QMS_signal` | Sync trigger state | Boolean — logs whether GPIO sync is active during each row |
+
+## Hall supply correction (4.22.0)
+
+The reference must measure the supply feeding the Hall sensor, against the
+same ADC ground. Queezz connected the PSU voltage on 2026-09-30. The prior
+board inspection identifies the neighbouring terminal as channel 1 beside
+`Ip` on channel 0; verify those voltages on the rig before deployment.
+
+`Ip` names `Supply Channel`, `Nominal Supply`, `Zero Ratio`, and `Amperes
+Per Volt` in settings. The nominal values are 5 V, 0.5 and 5 A/V. This
+cancels proportional supply movement in both the zero and the sensitivity;
+it does not replace a known-current calibration or correct ground offsets.
+The recorded `Ip_c`, existing current readouts, and PID use the same
+correction. Raw `Ip` and `Vhall` remain volts, and the CSV header records
+the formula. Readers must use named CSV columns, as the new signal changes
+column positions. Slow sampling converts the paired means stored in the row.
+
+A missing, non-finite or out-of-range supply (configured limits 4–6 V)
+makes `Ip_c` unavailable (`NaN`); the event is logged once and recovery is
+logged too. No stale reference or fixed-voltage fallback is substituted.
+The PID holds its existing command during that interval. Settings without
+a supply channel retain `5 * (Ip - 2.52)`, with optional `Zero Voltage`
+and `Amperes Per Volt` overrides. Settings version 1.5 activates the new
+canonical map; older local settings need their customizations merged before
+reuse. The rig had no local settings file on 2026-09-30.
+
+The [noise investigation](../diagnostics/2026-09-19-hall-sensor-noise.md)
+explains why the supply was added. Filters and longer baseline windows are
+separate work; reassess noise with the newly wired reference first.
 
 ## DAC outputs
 

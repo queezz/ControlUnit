@@ -108,16 +108,7 @@ holds what is still undecided or unbuilt.
 
 - The Hall sensor's zero, scale and filter, from the 2026-09-19 analysis
   (queezz, 2026-09-19: "Yep, need all of that", answering the filter
-  recommendation). Four parts, each shippable alone:
-  - The zero and the amperes per volt become settings of the `Ip` channel
-    in `settings.yml` instead of the constants 2.52 and 5 in
-    `hall_current_sensor`, keeping those values until a calibration
-    replaces them.
-  - When a supply channel for the sensor is configured, the conversion is
-    ratiometric: the current from `v_out / v_supply`, so the supply's
-    movement and the negative zero cancel. Without one, it stays as now.
-    The supply is on channel 1, recorded as `Vhall` directly under `Ip`
-    in `settings.yml`, so the two are read a millisecond apart.
+  recommendation). Supply correction and configurable calibration shipped in 4.22.0 (2026-09-30); remaining parts:
   - The zero button and "Zero now" average 7.5 s instead of
     `BASELINE_SECONDS = 2.0`: a 2 s zero lands at a random point of the
     7.5 s pattern and is off by 11 mA (31 mA at worst), a 7.5 s zero by

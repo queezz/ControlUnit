@@ -1,4 +1,4 @@
-Settings Version: 1.4
+Settings Version: 1.5
 # Define your local settings in
 # localsettings = os.path.join(os.path.expanduser('~'),'.controlunit', 'settings.yml')
 # ~/.controlunit/settings.yml
@@ -79,6 +79,18 @@ ADC Channels:
     Gain: 5
     Description: "Plasma Current"
     Conversion Function: "Hall Sensor"
+    Supply Channel: "Vhall"
+    Nominal Supply: 5.0
+    Zero Ratio: 0.5
+    Amperes Per Volt: 5.0
+    Supply Minimum: 4.0
+    Supply Maximum: 6.0
+  Vhall:
+    Channel: 1
+    # 5 V range clips at 5.0176 V; leave headroom for the PSU.
+    Gain: 10
+    Description: "Hall sensor supply reference (V), wired 2026-09-30"
+    Conversion Function: "No Conversion"
   Pu:
     Channel: 26
     Gain: 10

@@ -7,6 +7,7 @@ https://www.y2c.co.jp/i2c-r/aio-32-0ra-irc/
 """
 
 import pandas as pd
+import math
 import time, datetime
 from PyQt5 import QtCore
 from simple_pid import PID
@@ -149,6 +150,7 @@ class ADC(DeviceThread):
         self._scan_seconds = 0.0
         self._slowest_channel = ("none", 0.0)
         self._last_sample_clock = None
+        self._hall_reference_invalid = False
 
         self.connect_signals()
 
@@ -301,12 +303,15 @@ class ADC(DeviceThread):
     def update_processed_signals_dataframe(self):
         """Convert exactly the voltages and gauge settings captured in the row."""
         raw = self._raw_rows[-1]
+        voltages = dict(zip(self.adc_signals_columns, raw[self._signal_offset:]))
         converted = []
         debug = self.config.get("Debug.Raw ADC", False)
         for name, value in zip(self.adc_signals_columns, raw[self._signal_offset:]):
             conversion = self.adc_channels[name].conversion
             if debug:
                 converted.append(value)
+            elif self.adc_channels[name].conversion_id == "Hall Sensor":
+                converted.append(self.adc_channels[name].convert_hall(voltages))
             elif conversion.__name__ == "ionization_gauge":
                 mode_index, scale_index = self._gauge_columns[name]
                 converted.append(conversion(value, raw[mode_index], raw[scale_index]))
@@ -412,6 +417,8 @@ class ADC(DeviceThread):
         """
         PID control plasma current
         """
+        if not math.isfinite(self.plasma_current_converted):
+            return  # Hold the command; never feed a missing reference to PID.
         baseline = 1000 #2000 #mV, corresponds to 16A
         output = self.pid(self.plasma_current_converted - self.zero_ip)
         output = output + baseline
@@ -536,9 +543,14 @@ class ADC(DeviceThread):
         """
         self.adc_voltages = voltages
         self.plasma_current = self.adc_voltages["Ip"]
-        self.plasma_current_converted = self.adc_channels["Ip"].conversion(
-            self.plasma_current
-        )
+        self.plasma_current_converted = self.adc_channels["Ip"].convert_hall(voltages)
+        invalid = not math.isfinite(self.plasma_current_converted)
+        if invalid != self._hall_reference_invalid:
+            self.send_message.emit(
+                "Hall supply reference invalid: Ip unavailable; PID output held"
+                if invalid else "Hall supply reference recovered: Ip available"
+            )
+        self._hall_reference_invalid = invalid
 
     def collect_one_reading(self):
         """Wait until the next scan deadline, with processing inside the period."""

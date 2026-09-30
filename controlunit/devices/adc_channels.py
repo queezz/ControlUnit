@@ -21,6 +21,13 @@ class AdcChannelProps:
         self.description = kws["Description"]
         self.conversion_id = kws["Conversion Function"]
         self.full_scale = kws.get("Full Scale", None)
+        self.supply_channel = kws.get("Supply Channel")
+        self.nominal_supply = float(kws.get("Nominal Supply", 5.0))
+        self.zero_ratio = float(kws.get("Zero Ratio", 0.5))
+        self.amperes_per_volt = float(kws.get("Amperes Per Volt", 5.0))
+        self.zero_voltage = float(kws.get("Zero Voltage", 2.52))
+        self.supply_minimum = float(kws.get("Supply Minimum", 4.0))
+        self.supply_maximum = float(kws.get("Supply Maximum", 6.0))
         # An ionization gauge's own record columns for the mode and the
         # exponent its controller was set to; None for every other kind.
         self.mode_column = kws.get("Mode Column", None)
@@ -30,6 +37,21 @@ class AdcChannelProps:
         self.place = kws.get("Place", None)
         self.set_conversion_function()
         self.gain = None
+
+    def convert_hall(self, voltages):
+        """Use this scan's supply; an invalid reference never becomes current."""
+        import math
+
+        voltage = voltages[self.name]
+        if not self.supply_channel:
+            return self.amperes_per_volt * (voltage - self.zero_voltage)
+        supply = voltages.get(self.supply_channel, float("nan"))
+        if not (math.isfinite(voltage) and math.isfinite(supply)
+                and self.supply_minimum <= supply <= self.supply_maximum):
+            return float("nan")
+        return self.amperes_per_volt * self.nominal_supply * (
+            voltage / supply - self.zero_ratio
+        )
 
     def set_conversion_function(self):
         """

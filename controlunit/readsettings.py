@@ -67,6 +67,14 @@ def init_configuration(settings="settings.yml", verbose=False):
 
     config["Adc Channel Properties"] = adc_channels
 
+    for name, channel in adc_channels.items():
+        if channel.supply_channel:
+            if channel.supply_channel not in adc_channels or channel.supply_channel == name:
+                raise ValueError(f"Hall channel {name} needs a separate configured supply channel")
+            if not (0 < channel.supply_minimum < channel.supply_maximum
+                    and channel.supply_minimum <= channel.nominal_supply <= channel.supply_maximum):
+                raise ValueError(f"Hall channel {name} has invalid supply limits")
+
     config["Ion Gauges"] = ion_gauge_names(config)
     for name in config["Ion Gauges"]:
         for column in (adc_channels[name].mode_column, adc_channels[name].scale_column):

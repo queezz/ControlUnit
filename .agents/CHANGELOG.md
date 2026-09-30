@@ -1,3 +1,13 @@
+## 4.22.0 — 2026-09-30
+
+- Correct plasma current using the Hall sensor's measured supply: channel 1
+  (Vhall) is read beside Ip on channel 0, with a 10 V range for PSU
+  headroom. The existing current display, CSV and PID use the paired ratio;
+  no voltage readout is added. Both raw voltages and the conversion formula
+  are recorded. Invalid references make current unavailable and hold PID
+  commands, with loss/recovery logged. The 5 A/V scale remains provisional
+  pending known-current calibration. Settings version is now 1.5.
+
 ## 4.21.0 — 2026-09-15
 
 - The Kikusui's output can be switched off and on from the rig's Cathode dock and from the web Cathode card's lamp, the link's only two writes ever: `OUTP 0` and `OUTP 1`, held to that by a test, sent by the recorder's own thread between polls (or a one-shot connection when nothing is recording), confirmed by reading the state back, logged, and written as a row in the sidecar (owner decision 2026-09-15: "I want the one-off signal button in our control", then "Off and on. Why not? Then we have full cathode control when powered"). Off is a safety press, always allowed, and Stop all outputs sends it too; on is gated like every setter and refused while the supply is not answering. The lamp is green with the output on, grey off, dim while the telemetry is not fresh. AGENTS.md carries the dated amendment to the read-only rule.

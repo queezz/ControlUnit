@@ -121,6 +121,7 @@ class Driver:
             name: 0.1 * step + 0.001 * index
             for index, name in enumerate(self.channels)
         }
+        voltages["Vhall"] = 4.9 + 0.001 * step
         self.worker.hold_voltages(voltages)
         self.readings.append(dict(voltages))
         if self.on_reading is not None:
@@ -188,6 +189,9 @@ def test_the_recorded_row_converts_the_mean_it_recorded(worker, monkeypatch):
         conversion = worker.adc_channels[name].conversion
         if conversion.__name__ == "ionization_gauge":
             continue  # takes the gauge's mode and range as well
+        if worker.adc_channels[name].conversion_id == "Hall Sensor":
+            assert row[name + "_c"] == pytest.approx(25 * (raw[name] / raw["Vhall"] - 0.5))
+            continue
         assert row[name + "_c"] == pytest.approx(conversion(raw[name]))
 
 
