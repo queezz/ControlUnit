@@ -32,3 +32,18 @@ fixtures now provide a valid reference instead of 0.5 V on every channel.
 The pre-existing untracked controlunit.egg-info directory was left alone.
 
 agent: codex
+## Deployment completed
+
+Queezz confirmed that his original instruction included deployment. Pushed
+master on his word, re-read the rig state immediately before stopping:
+all commanded outputs zero, no live outputs. Stopped the known program
+PID 1487 with SIGTERM (this release had no graceful signal handler), then
+fast-forwarded the clean rig checkout from e141e3b to 40dbb3e.
+
+With the application stopped and sole ownership of the ADC, five direct
+reads confirmed channel 0 at 2.4709–2.4718 V, channel 1 at 4.9770–4.9816 V,
+and channel 2 at 0.0006–0.0009 V. This verifies Vhall belongs on channel 1.
+Restarted through /home/pi/Desktop/aktest.sh on display :0. The real-hardware
+web state reports 4.22.0, all output commands zero, stopped/idle, Remote off.
+Acquisition was not resumed through a gate bypass: press Start at the rig.
+The default sampling after restart is 0.1 s; the prior run used 1 s.
