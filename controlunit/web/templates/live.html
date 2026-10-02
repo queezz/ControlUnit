@@ -220,6 +220,35 @@
             <span class="mono muted" data-role="data-age"></span>
         </div>
         <p class="command-status mono" data-role="status" role="status"></p>
+        {# Sampling and the QMS sync line stand on the status line, beside
+           the pills that say what the rig is doing (queezz, 2026-09-15: "the
+           sampling time and the 'QMS sync' which is my LED + signal out I use
+           for marking experiments sometimes, take too much. I guess we can
+           make it tiny, recognizable, and put it somewhere near the
+           'measuring' and 'live' at the top. Visible, not intrusive, easy to
+           find and change"). They are setters like any other: the gate's
+           blanket names `.sets`, and this block carries it. The status
+           sentence stands between the pills and these, so a sentence
+           arriving or leaving moves neither. #}
+        <div class="quick-sets sets" data-role="quick-sets" aria-label="Sampling and QMS sync">
+            <span class="quick-set" id="sec-acquisition">
+                <span class="quick-label">Sampling</span>
+                <span class="quick-choices" role="group" aria-label="Sampling time">
+                    {% for seconds, label in sampling_choices %}
+                    <button type="button" class="choice" data-role="sampling"
+                            data-seconds="{{ seconds }}" aria-pressed="false">{{ label }}</button>
+                    {% endfor %}
+                </span>
+            </span>
+            <span class="quick-set sync-card" id="sec-sync">
+                <span class="quick-label">QMS sync</span>
+                <span class="seg-toggle" role="group" aria-label="Set QMS sync">
+                    <span class="seg-thumb" aria-hidden="true"></span>
+                    <button type="button" class="seg-option" data-role="sync" data-on="0" aria-pressed="true">Off</button>
+                    <button type="button" class="seg-option" data-role="sync" data-on="1" aria-pressed="false">On</button>
+                </span>
+            </span>
+        </div>
         </div>
             <span class="mode-actions" data-role="mode-actions" hidden>
                 <button type="button" data-drawer="live-context" aria-controls="live-context" aria-expanded="false">Display</button>
@@ -300,6 +329,53 @@
             <button type="button" class="stop-all" data-role="stop-all">Stop all outputs</button>
 
         </details>
+        {# The ion gauges have a rail card of their own, directly under
+           who has the rig (queezz, 2026-10-02: "the right rail on the
+           controlunit is very long when I want to access something simple
+           like IG, or sampling. I say we get rid of the settings group as
+           it is. It hides controls from me"). The same element the
+           Settings group held, moved once and not copied: its id, its
+           data-roles and its own fold travel with it, so #sec-gauge still
+           lands and the gate switches off the same buttons. #}
+        <div class="operation-setters gauge-setters" aria-label="Ion gauge settings this browser may set">
+            <div class="sets">
+                    {# One block per ionization gauge, each under its own
+                       channel name with its own Torr/Pa and exponent rows,
+                       the same two rows the rig's Control dock shows per
+                       gauge. The folded line says each gauge's setting in
+                       its name's order. #}
+                    <details class="fgroup gauge-settings fold" id="sec-gauge" data-fold="gauge" open>
+                        <summary class="fold-head"><h2 class="fold-name">Ion gauges</h2>
+                            {% for gauge in gauges %}
+                            <span class="mono gauge-now" data-gauge="{{ gauge }}">{{ gauge }} <span data-role="gauge-mode-now">—</span> <span data-role="gauge-range-now">—</span></span>
+                            {% endfor %}
+                        </summary>
+                        {% for gauge in gauges %}
+                        <div class="gauge-line" data-gauge="{{ gauge }}">
+                            <h3 class="gauge-name">{{ gauge_places[gauge] | capitalize }} · {{ gauge }}</h3>
+                            <div class="frow">
+                                <span class="row-name">Mode</span>
+                                <span class="row-actions">
+                                    {% for mode in gauge_modes %}
+                                    <button type="button" class="choice" data-role="gauge-mode" data-gauge="{{ gauge }}"
+                                            data-mode="{{ mode }}" aria-pressed="false">{{ mode }}</button>
+                                    {% endfor %}
+                                </span>
+                            </div>
+                            <div class="frow">
+                                <span class="row-name">Range</span>
+                                <span class="row-actions">
+                                    {% for decade in gauge_range %}
+                                    <button type="button" class="choice" data-role="gauge-range" data-gauge="{{ gauge }}"
+                                            data-range="{{ decade }}" aria-pressed="false">1e{{ decade }}</button>
+                                    {% endfor %}
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </details>
+            </div>
+        </div>
         <details class="display-settings fold" data-fold="display" open>
             <summary class="fold-head"><h2 class="fold-name">Display</h2></summary>
         <section class="rail-card rail-card--fit" data-monitor-setting>
@@ -352,78 +428,6 @@
         </section>
         </details>
 
-        {# The three settings a shift reaches for rarely, gathered where they
-           can be folded away from the two it reaches for constantly. Same
-           elements as before, moved once and not copied, so control.js finds
-           the same data-roles and the gate switches off the same buttons; the
-           ids travel with them, so #sec-sync, #sec-acquisition and #sec-gauge
-           still land, this fold opening on the way.
-
-           Open by default (queezz, 2026-09-10, looking at 4.12.0: "I don't
-           like IGs hidden by default. But hiding possibility is a right
-           shape, sure."): the group still folds, and a browser that has
-           folded it stays folded on the next reload. #}
-        <details class="settings-group fold" data-role="settings-group" data-fold="settings" open>
-            <summary class="fold-head"><h2 class="fold-name">Settings</h2></summary>
-            <section class="rail-card sync-card" aria-label="QMS sync" id="sec-sync">
-                <div class="sync-heading"><h2>QMS sync</h2><strong class="chip" data-role="sync-now">—</strong></div>
-                <div class="sets row-actions" role="group" aria-label="Set QMS sync">
-                    <button type="button" class="choice" data-role="sync" data-on="1" aria-pressed="false">On</button>
-                    <button type="button" class="choice" data-role="sync" data-on="0" aria-pressed="false">Off</button>
-                </div>
-            </section>
-            <div class="operation-setters" aria-label="Instrument settings this browser may set">
-                <div class="sets">
-                    <section class="fgroup" id="sec-acquisition">
-                        <h2>Sampling</h2>
-                        <div class="frow">
-                            <span class="row-actions">
-                                {% for seconds, label in sampling_choices %}
-                                <button type="button" class="choice" data-role="sampling"
-                                        data-seconds="{{ seconds }}" aria-pressed="false">{{ label }}</button>
-                                {% endfor %}
-                            </span>
-                        </div>
-                    </section>
-
-                    {# One block per ionization gauge, each under its own
-                       channel name with its own Torr/Pa and exponent rows,
-                       the same two rows the rig's Control dock shows per
-                       gauge. The folded line says each gauge's setting in
-                       its name's order. #}
-                    <details class="fgroup gauge-settings fold" id="sec-gauge" data-fold="gauge" open>
-                        <summary class="fold-head"><h2 class="fold-name">Ion gauges</h2>
-                            {% for gauge in gauges %}
-                            <span class="mono gauge-now" data-gauge="{{ gauge }}">{{ gauge }} <span data-role="gauge-mode-now">—</span> <span data-role="gauge-range-now">—</span></span>
-                            {% endfor %}
-                        </summary>
-                        {% for gauge in gauges %}
-                        <div class="gauge-line" data-gauge="{{ gauge }}">
-                            <h3 class="gauge-name">{{ gauge_places[gauge] | capitalize }} · {{ gauge }}</h3>
-                            <div class="frow">
-                                <span class="row-name">Mode</span>
-                                <span class="row-actions">
-                                    {% for mode in gauge_modes %}
-                                    <button type="button" class="choice" data-role="gauge-mode" data-gauge="{{ gauge }}"
-                                            data-mode="{{ mode }}" aria-pressed="false">{{ mode }}</button>
-                                    {% endfor %}
-                                </span>
-                            </div>
-                            <div class="frow">
-                                <span class="row-name">Range</span>
-                                <span class="row-actions">
-                                    {% for decade in gauge_range %}
-                                    <button type="button" class="choice" data-role="gauge-range" data-gauge="{{ gauge }}"
-                                            data-range="{{ decade }}" aria-pressed="false">1e{{ decade }}</button>
-                                    {% endfor %}
-                                </span>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </details>
-                </div>
-            </div>
-        </details>
         <details class="run-details fold" data-fold="run-details" open>
             <summary class="fold-head"><h2 class="fold-name">This run</h2></summary>
         <section class="rail-card rail-card--fit">

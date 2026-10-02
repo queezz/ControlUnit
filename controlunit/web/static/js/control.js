@@ -501,7 +501,6 @@
                 button.setAttribute("aria-pressed", String(range) === button.dataset.range ? "true" : "false");
             });
         });
-        set('[data-role="sync-now"]', sp.sync ? "on" : "off");
         var syncCard = root.querySelector('.sync-card');
         if (syncCard) syncCard.classList.toggle('sync-active', Boolean(sp.sync));
 

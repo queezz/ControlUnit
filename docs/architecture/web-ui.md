@@ -589,7 +589,9 @@ measured, and a readout with a baseline held says `zeroed` beside its name.
   And then the left becomes gas/plasma real control."* The three moved,
   whole, into the right rail — the same elements, not copies, so the wiring
   and the gate still find one of each — and their anchors moved with them,
-  so `#sec-sync`, `#sec-acquisition` and `#sec-gauge` still land.
+  so `#sec-sync`, `#sec-acquisition` and `#sec-gauge` still land. From
+  4.24.0 Sampling and QMS sync stand on the status line and the gauges in a
+  rail card of their own (below); the anchors went with them again.
 
   **The Cathode group offers the two ways the rig can drive its filament**
   (owner direction 2026-09-09, "I want two modes"). *PID* is the plasma-current
@@ -642,28 +644,43 @@ measured, and a readout with a baseline held says `zeroed` beside its name.
   blanket already drops the slide.
 
   The right rail holds four folded groups, in this order: **Operator and
-  access**, **Display**, **Settings** and **This run**. Access starts open
+  access**, **Ion gauges**, **Display** and **This run**. Access starts open
   when the browser needs a name, the lab word, or the rig's Remote switch.
   Name and word remain outside the gated setters. Readout size sits beside
   the readouts. Display retains window, median, fast polling and
   presets; each pressure chart retains its own axis switches and pills.
 
-  **Settings** is the group the three moved setters live in from 4.12.0 —
-  QMS sync with its own state pill, Sampling, and Gauges with mode and
-  range. It shipped folded by default and opens open from 4.13.0 (owner
-  direction 2026-09-10: *"I don't like IGs hidden by default. But hiding
-  possibility is a right shape, sure."*): the fold stays, and folding it is
-  the reader's own act. Whether this reader folded it is remembered in their
-  own browser (`controlunit.settings.open`, wrapped in try/catch). Only a
-  browser that has actually chosen overrides the template's own `open`, so
-  one that stores nothing — a private window, site data blocked — simply
-  starts open every time. A deep link into one of its
-  sections still wins over that memory — `revealSection` opens every
-  `<details>` between the page and the target, so `#sec-gauge` inside the
-  Gauges fold inside the Settings fold inside the rail lands with both open.
-  Observe hides Settings, being the mode that hides what drives the rig;
-  Monitor keeps it, because there the whole right rail is a drawer summoned
-  from its own edge and that drawer is the only way to reach those three.
+  **There is no Settings group** from 4.24.0. It held QMS sync, Sampling
+  and the gauges from 4.12.0, and the owner asked for it gone an hour into
+  a plasma (2026-10-02: *"the right rail on the controlunit is very long
+  when I want to access something simple like IG, or sampling. I say we get
+  rid of the settings group as it is. It hides controls from me"*), as he
+  had drawn on 2026-09-15 (*"make it tiny, recognizable, and put it
+  somewhere near the 'measuring' and 'live' at the top. Visible, not
+  intrusive, easy to find and change"*).
+
+  **Sampling and QMS sync stand on the status line**, `.quick-sets`, at the
+  head of the reading column: Sampling as its four times in one row, QMS
+  sync as the house's two-state switch (`.seg-toggle`, Off at the left),
+  its name lit green while the line is on. They are setters like any other
+  — the block carries `.sets`, so the gate's blanket switches them off, and
+  Sampling still needs a run. The line is two rows below a 1500px window
+  and one above it: pills and the status sentence on the first, the two
+  setters at the right end of the second. Two lines of the sentence fit
+  inside the pills' own height, so a sentence arriving, leaving or wrapping
+  once moves neither the setters nor the readouts below (measured at 1280:
+  every address identical with no sentence, a short one and a two-line one).
+  On a phone the setters take their own rows and the sentence follows them.
+
+  **The ion gauges are a rail card of their own**, directly under Operator
+  and access, open on arrival (owner direction 2026-09-10: *"I don't like
+  IGs hidden by default. But hiding possibility is a right shape, sure."*)
+  and folding like every card, remembered under `controlunit.fold.gauge`.
+  A deep link still wins over that memory: `revealSection` opens every
+  `<details>` between the page and the target. Observe hides the gauges
+  card and the two status-line setters, being the mode that hides what
+  drives the rig; Monitor keeps both, the status line in place and the
+  gauges in the drawer.
   Since 4.8.0 this is the unified Live surface: Operate shows the controls,
   Observe hides hardware controls, and Monitor gives readings the window.
   Modes switch in place without clearing browser history or changing outputs.
@@ -883,7 +900,7 @@ The browser remembers each fold across reloads. Folding sends no command.
 Every card on the Live page folds independently, at every window width, and
 each fold is remembered per browser under `controlunit.fold.<card>`: Gas
 flow, Cathode, the readouts strip, each chart, and the right rail's Operator
-and access, Display, Settings and This run. Start and Stop is the one card
+and access, Ion gauges, Display and This run. Start and Stop is the one card
 that does not fold. Every card ships open; only a browser that has folded one
 overrides that, and a browser that cannot store anything works unchanged.
 

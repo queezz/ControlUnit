@@ -1,3 +1,19 @@
+## 4.24.0 — 2026-10-02
+
+- The Settings group is gone (queezz, 2026-10-02: "the right rail on the
+  controlunit is very long when I want to access something simple like IG,
+  or sampling. I say we get rid of the settings group as it is. It hides
+  controls from me"). Sampling and QMS sync stand on the status line beside
+  the measuring and live pills, small, as he drew them on 2026-09-15:
+  Sampling as its four times in a row, QMS sync as a sliding two-state
+  switch whose name lights green while the line is on. The ion gauges are
+  a rail card of their own, directly under Operator and access.
+- Nothing was copied: the same buttons, gates and anchors moved, so
+  `#sec-acquisition`, `#sec-sync` and `#sec-gauge` still land. Observe
+  hides all three, Monitor keeps them.
+- A status sentence arriving or leaving moves neither the two setters nor
+  the readouts under them.
+
 ## 4.23.2 — 2026-10-02
 
 - Taking over no longer starts from a stale field. The gas, cathode Drive

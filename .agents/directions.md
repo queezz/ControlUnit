@@ -75,7 +75,7 @@ holds what is still undecided or unbuilt.
   which cause it is.
 
 - Say "push", then restart the rig from its desktop shortcut once it is
-  pulled — owner work pending. The rig runs 4.22.1; master holds 4.23.2,
+  pulled — owner work pending. The rig runs 4.22.1; master holds 4.24.0,
   not pushed (pushes are on your word). What the restart brings, all from
   the 2026-10-02 run: a long 0.1 s run no longer hangs the program or
   loses its rows (4.22.3); an un-zeroed Ip reads about 0 A with no plasma
@@ -83,11 +83,12 @@ holds what is still undecided or unbuilt.
   when cold (4.23.0); output on and off are logged as confirmed (4.23.1);
   taking over from another browser no longer steps from a stale field,
   the PID's command is shown, the Cathode cards stop blinking and an hour
-  at 0.1 s stays on the chart (4.23.2). After your "push" a session pulls
+  at 0.1 s stays on the chart (4.23.2); Sampling and QMS sync are on the
+  status line and the Settings group is gone (4.24.0). After your "push" a session pulls
   the Pi when `/api/health` says `idle, not recording`; the rig is on a
   10 s run now, so it will say so and wait. Until the restart, keep fast
   runs short: the hang is still in 4.22.1.
-  Done when: `http://pihti:4187/api/health` reports 4.23.2.
+  Done when: `http://pihti:4187/api/health` reports 4.24.0.
 - Add the Mac-reachable address to the Pi's neighbours file — owner work
   pending. On your Mac the Pi's bare name `pihti` does not resolve, while
   `pihti.local` and the numeric address do, so the diagram's Open link on
@@ -117,24 +118,19 @@ holds what is still undecided or unbuilt.
 
 - From the 2026-10-02 argon run (queezz's journal of that day, and
   docs/diagnostics/2026-10-02-ar-plasma-pid-run.md for every number).
-  Shipped the same evening, 4.22.2 to 4.23.2: the hang, the Hall zero
+  Shipped the same evening, 4.22.2 to 4.24.0: the hang, the Hall zero
   ratio, the PID's takeover and cold start, the manual drive in
   `PresetV_cathode`, the output readback, the takeover field, the PID's
-  command on the card, the blinking Cathode cards, the hour of plot. What
-  is still open from that day:
-  - **The Settings group goes** (owner decision 2026-10-02: "the right
-    rail on the controlunit is very long when I want to access something
-    simple like IG, or sampling. I say we get rid of the settings group
-    as it is. It hides controls from me"). This is the 4.19 design's
-    status-line Sampling and QMS sync and the Ion gauges card, further
-    down this file; build it from there. The panel and grouping PIHTI
-    Log's letter `20260915-7d7f0cb5-fa5d91` carries are his approved
-    reference for it: cathode Ic, Vc and plasma Ip together in that
-    order; upstream Pu, Pu2, Bu together; downstream Pd, Bd together and
-    quieter; green lamps for on, numbers in readout boxes, sampling and
-    the other statistics compact; mantissa and exponent flowed as one
-    run with no gap. Picture: `docs/controlunit-panel-example.svg` in
-    PIHTI Log's repository. Design guidance, not a change to control.
+  command on the card, the blinking Cathode cards, the hour of plot, and
+  the Settings group dissolved (Sampling and QMS sync on the status line,
+  Ion gauges a rail card of its own). The rest of the 4.19 design further
+  down — the Window choice on the charts' toolbar, the slim Monitor strip,
+  the labels with subscripts — is still unbuilt, and PIHTI Log's approved
+  panel (letter `20260915-7d7f0cb5-fa5d91`: cathode Ic, Vc and Ip
+  together; upstream Pu, Pu2, Bu; downstream Pd, Bd, quieter; picture
+  `docs/controlunit-panel-example.svg` in its repository) is the
+  reference for the readouts' grouping when that is taken up. What is
+  still open from that day:
   - **The loop does not know the Kikusui's voltage limit.** The supply
     reached 7.80 V three times on 2026-10-02; while it does, the command
     has no effect and the integral winds (the 17:45 overshoot to 0.70 A).
@@ -352,7 +348,7 @@ holds what is still undecided or unbuilt.
     freshness rule they have now (stale, unavailable or stopped shows a
     dash and the tag says why). The separate Kikusui panel goes; the
     folded row carries eight values.
-  - Sampling and QMS sync leave the rail. They stand on the status line
+  - (Built in 4.24.0, 2026-10-02.) Sampling and QMS sync leave the rail. They stand on the status line
     beside the measuring and live pills as two small controls: Sampling as
     one compact segmented pill of its four times, QMS sync as one pill
     with a sliding thumb (the house's two-state control). Gated exactly as

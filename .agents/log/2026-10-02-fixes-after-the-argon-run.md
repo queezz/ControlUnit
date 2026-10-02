@@ -26,6 +26,7 @@ evening is excluded too until he says otherwise.
 | 4.23.0 | `CathodeLoop` replaces `simple_pid`: engage presets the integral to the held drive, 1000 mV from cold; the reader is told the manual drive, which the file records. |
 | 4.23.1 | The Kikusui output press waits up to 0.6 s for the readback to agree. |
 | 4.23.2 | Web: setter fields follow the rig; the PID's command on the card; a missing Kikusui reading held 10 s then greyed; the browser thins old points instead of dropping them; "behind" on the freshness pill. |
+| 4.24.0 | The Settings group dissolved: Sampling and QMS sync on the status line, Ion gauges a rail card of its own under Operator and access. |
 
 Gates before each commit: pytest (686 passing at the end) and
 `mkdocs build --strict`. The node behaviour tests are not in the pytest
@@ -89,11 +90,44 @@ path is covered by the node test alone.
 `lab stop` after each of the two scratch runs: process tree gone, 48937
 free, 4187 still without a listener.
 
+## Perimeter Walk (4.24.0, the rail rework)
+
+The same scratch recipe, a third run on 48937, stopped and port-checked
+like the first two.
+
+1. Log from Live, Back to Live: the expected pages, the status line there.
+2. and 3. `#sec-acquisition` and `#sec-sync` land 72 px down, sixteen
+   clear of the 56 px bar (they landed at 57 until the bare spans were
+   given their own scroll margin; the card rule subtracts an inset they do
+   not have). `#sec-gauge`, `#sec-who` and `#sec-plasma` land on screen.
+4. Back and Forward as before.
+5. Reload on `/#sec-acquisition`: 0.1 s pressed, the gauges card open.
+6. and 7. Both rails at 76 px at five scroll depths, at 1280×1000 and
+   1280×700. The right rail's content is 1116 px and scrolls inside the
+   rail's own box, as before; the page does not scroll for it.
+8. Pressed 1 s, then QMS sync on and off, then 0.1 s. The four sampling
+   buttons are one width (52.8 px), so the chosen one's bold face moves
+   none. With no sentence, "done: sampling 1 s" and a two-line refusal in
+   the status place, the setters' and the first readout's addresses were
+   identical (109.5 and 179.8 px); only a three-line sentence, longer than
+   any the rig says, moved them. Rail order: Operator and access, Ion
+   gauges, Display, This run. Observe hides the two setters and the gauges
+   card (header 29 px); Monitor keeps the setters and carries the gauges in
+   the drawer. With no run the four sampling buttons and the sync switch
+   are disabled and the switch dims once; the gauges and Start stay live.
+   At 375 px: pills, then Sampling, then QMS sync, then the sentence, no
+   overflow. At 1700 px the whole line is one 29 px row.
+9. Nothing is explained on the page that was not before: two names in the
+   rail's label voice, "Sampling" and "QMS sync", and the controls.
+
+One reading that looked like a defect and was not: the sync switch's thumb
+read as not having moved. The pane does not advance CSS transitions; with
+the transition switched off for the reading, the thumb was at 36.5 px.
+
 ## Left
 
-In `directions.md`: the Settings group (the rail rework he asked for
-again today), the loop's blindness to the Kikusui's voltage limit, one
-owner question on the cold start, and the deployment, which waits on his
-"push" and an idle rig.
+In `directions.md`: the loop's blindness to the Kikusui's voltage limit,
+one owner question on the cold start, the unbuilt rest of the 4.19 design,
+and the deployment, which waits on his "push" and an idle rig.
 
 agent: claude

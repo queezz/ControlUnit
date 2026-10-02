@@ -807,21 +807,23 @@ def test_the_rails_are_the_same_rails_summoned_from_their_own_edge():
     assert 'body[data-mode="monitor"] .rail.drawer-open' in css
 
 
-def test_settings_is_reachable_in_monitor_and_stands_aside_in_observe():
-    """The three setters that moved into the right rail in 4.12.0 travel with
-    it: Monitor summons that rail as a drawer, which is the only way to reach
-    them there, and Observe is the mode that hides what drives the rig."""
-    css = _client().get("/static/css/controlunit.css").get_data(as_text=True)
-    assert 'body[data-mode="observe"] .settings-group { display: none; }' in css
-    assert 'body[data-mode="monitor"] .settings-group' not in css
+def test_the_other_setters_are_reachable_in_monitor_and_stand_aside_in_observe():
+    """Sampling and QMS sync ride on the status line and the ion gauges in
+    the right rail: Monitor keeps the line and summons that rail as a drawer,
+    and Observe is the mode that hides what drives the rig."""
+    css = _client().get("/static/css/controlunit.css").get_data(as_text=True).replace("\r\n", "\n")
+    assert ('body[data-mode="observe"] .gauge-setters,\n'
+            'body[data-mode="observe"] .quick-sets { display: none; }') in css
+    assert 'body[data-mode="monitor"] .quick-sets' not in css
+    assert 'body[data-mode="monitor"] .gauge-setters' not in css
     # And inside that drawer its groups lose their frames the way every other
     # card in there already does: the drawer is the bounded panel.
     assert 'body[data-mode="monitor"] .rail .operation-setters .fgroup {' in css
-    # The drawer the mode's own strip summons is the rail Settings is in.
+    # The drawer the mode's own strip summons is the rail the gauges are in.
     page = _client().get("/?mode=monitor").get_data(as_text=True)
     assert 'data-drawer="live-context"' in page
     rail = page[page.index('id="live-context"'):]
-    assert 'class="settings-group fold"' in rail
+    assert 'class="operation-setters gauge-setters"' in rail
     for role in ("sync", "sampling", "gauge-mode", "gauge-range"):
         assert page.count('data-role="{}"'.format(role)) >= 1
     # And the left rail, which Monitor hides outright, no longer holds them.

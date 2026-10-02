@@ -1473,11 +1473,9 @@ body[data-mode="monitor"] .drawer-backdrop:not([hidden]) { display: block; }
 }
 
 /* Instrument controls stay beside the state or trace they affect. */
-.sync-card { border-left: 3px solid var(--muted); }
-.sync-card.sync-active { border-left-color: #55c795; }
-.sync-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.sync-heading h2 { margin: 0; font-size: 0.95rem; }
-.sync-active [data-role="sync-now"] { color: #55c795; border-color: #55c795; }
+/* The sync line is the LED on the rig's front panel: its name lights the
+   same green while it is on. */
+.sync-card.sync-active .quick-label { color: #55c795; }
 .chart-head { flex-wrap: wrap; }
 .chart-zero { display: flex; gap: 5px; }
 .chart-zero:empty { display: none; }
@@ -1498,9 +1496,7 @@ body[data-mode="monitor"] .drawer-backdrop:not([hidden]) { display: block; }
 .control-workspace .operation-setters { padding: 0; flex: 0 0 auto; }
 .control-workspace .operation-setters > .sets { display: grid; gap: 10px; }
 .control-workspace .operation-setters .fgroup { margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
-.control-workspace #sec-acquisition { background: rgba(90, 135, 180, 0.10); }
-.control-workspace #sec-acquisition .row-actions { display: grid; grid-template-columns: repeat(4, 1fr); width: 100%; }
-.control-workspace #sec-acquisition button { padding: 8px 6px; }
+
 .control-workspace #sec-gas { background: rgba(38, 154, 172, 0.10); border-color: rgba(38, 154, 172, 0.35); }
 .control-workspace #sec-plasma { background: rgba(255, 107, 53, 0.10); border-color: rgba(255, 107, 53, 0.35); }
 .control-workspace #sec-gauge { background: rgba(219, 168, 62, 0.09); border-color: rgba(219, 168, 62, 0.32); }
@@ -1531,12 +1527,12 @@ body[data-mode="observe"] .chart-zero,
 body[data-mode="monitor"] .chart-zero,
 body[data-mode="observe"] .access-card,
 body[data-mode="monitor"] .access-card,
-/* Settings holds three setters — QMS sync, sampling, gauges — that moved
-   here from the left rail in 4.12.0. Observe is the mode that hides what
-   drives the rig, so it hides these too; Monitor keeps them, because there
-   the whole right rail is a drawer summoned from its own edge and this is
-   the only place those three can be reached at all. */
-body[data-mode="observe"] .settings-group { display: none; }
+/* The three setters that are not gas or cathode — sampling and QMS sync on
+   the status line, the ion gauges in their own rail card. Observe is the
+   mode that hides what drives the rig, so it hides these too; Monitor keeps
+   them: the status line is still there, and the gauges ride in the drawer. */
+body[data-mode="observe"] .gauge-setters,
+body[data-mode="observe"] .quick-sets { display: none; }
 body[data-mode="monitor"] .page.control-workspace { display: grid; grid-template-columns: minmax(0, 1fr); }
 @media (max-width: 1199px) {
   body[data-mode="observe"] .control-workspace { grid-template-columns: minmax(0, 1fr); }
@@ -1563,10 +1559,39 @@ body[data-mode="monitor"] .monitor-settings { display: flex; flex-wrap: wrap; ga
 }
 
 /* Status and readout sizing share one compact instrument header. */
+/* Two rows below a wide window, one at and above it. The pills and the
+   status sentence share the first row, the sentence taking the room the
+   pills leave; two lines of it stand inside the pills' own height, so a
+   sentence arriving, leaving or wrapping once moves nothing at all. The two
+   small setters have the second row to themselves, at its right edge. */
 .instrument-header { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 8px; }
-.instrument-header .pills { flex: 1 1 auto; margin: 0; gap: 8px; }
+.instrument-header .pills { flex: 0 1 auto; margin: 0; gap: 8px; }
 .instrument-header .pills .chip { min-width: 0; }
-.instrument-header .command-status { flex: 1 1 auto; }
+.instrument-header .pills [data-role="data-state"] { margin-left: 0; }
+.instrument-header .command-status { flex: 1 1 6rem; min-width: 0; line-height: 1.15; }
+
+/* Sampling and QMS sync, small, at the end of the status line (owner design
+   2026-09-15, asked for again 2026-10-02): a name in the rail's own label
+   voice and the control beside it. They keep the right edge at every width
+   the line fits on; on a phone the line wraps and they start a row. */
+.quick-sets { display: flex; flex: 1 1 100%; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px 14px; }
+@media (min-width: 1500px) {
+  .quick-sets { flex: 0 0 auto; margin-left: auto; }
+}
+/* A jump target with no card around it: the whole sixteen pixels clear of
+   the bar, none of them spent on an inset it does not have. */
+.quick-set { display: inline-flex; align-items: center; gap: 6px; scroll-margin-top: calc(var(--bar) + 16px); }
+.quick-label { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.quick-choices { display: inline-flex; gap: 3px; }
+/* One width for all four, so the chosen one's bolder face moves none. */
+.quick-choices .choice { padding: 2px 4px; min-width: 3.3rem; font-size: 0.8rem; }
+.quick-sets .seg-toggle > button { padding: 2px 9px; font-size: 0.8rem; }
+/* On a phone the setters start their row at the left, and the sentence has
+   a row of its own under them. */
+@media (max-width: 700px) {
+  .quick-sets { justify-content: flex-start; order: 1; }
+  .instrument-header .command-status { order: 2; flex-basis: 100%; }
+}
 .control-workspace .instrument-header .command-status { min-height: 0; margin: 0; font-size: 0.75rem; }
 .instrument-header .command-status:empty { display: none; }
 .instrument-header .pill-note:empty { display: none; }

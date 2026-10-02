@@ -470,8 +470,7 @@ def test_the_run_controls_stand_together_and_their_numbers_beside_them(control):
     """The faceplate is presses in operating order; the numbers they are
     read against stand in the readings column, never between two presses
     (queezz, 2026-09-07: "spread nicely but thin. Not on a glance")."""
-    group = control[control.index('id="sec-acquisition"'):]
-    group = group[:group.index("</section>")]
+    group = control[control.index('id="sec-acquisition"'):control.index('id="sec-sync"')]
     rail = control[:control.index("<main")]
     assert rail.index('data-role="acq-start"') < rail.index('data-role="acq-stop"')
     assert 'data-role="sampling"' in group
@@ -1028,16 +1027,22 @@ def test_control_combines_setters_feedback_and_shared_live_charts(control):
     assert main.count('data-role="zero-now"') == 3
     assert 'class="chart-zero sets"' in main
     # The left rail is the gas and the plasma, the two a shift has its hand
-    # on all day; the three it reaches for rarely stand in the right rail's
-    # folded Settings group (queezz, 2026-09-10: "the left becomes
-    # gas/plasma real control").
+    # on all day (queezz, 2026-09-10: "the left becomes gas/plasma real
+    # control"). The ion gauges have a card in the right rail; sampling and
+    # the QMS sync line stand on the status line at the head of the column
+    # (owner design 2026-09-15, asked for again 2026-10-02).
     for role in ("acq-start", "acq-stop", "mfc-set", "plasma-set"):
         assert 'data-role="{}"'.format(role) in operations
         assert 'data-role="{}"'.format(role) not in main
-    for role in ("sampling", "gauge-mode", "gauge-range", "sync", "stop-all"):
+    for role in ("gauge-mode", "gauge-range", "stop-all"):
         assert 'data-role="{}"'.format(role) in access
         assert 'data-role="{}"'.format(role) not in operations
         assert 'data-role="{}"'.format(role) not in main
+    header = main[main.index('class="instrument-header"'):main.index('class="mode-actions"')]
+    for role in ("sampling", "sync"):
+        assert 'data-role="{}"'.format(role) in header
+        assert 'data-role="{}"'.format(role) not in operations
+        assert 'data-role="{}"'.format(role) not in access
     for role in ("mfc-setpoint", "mfc-measured", "plasma-setpoint"):
         assert 'data-role="{}"'.format(role) in operations
     assert 'data-role="save-actor"' in access
@@ -1190,48 +1195,59 @@ def test_the_segmented_switch_is_a_component_and_not_this_group_s_dressing(clien
     assert "* { transition: none !important; animation: none !important; }" in css
 
 
-def test_settings_gathers_the_three_a_shift_reaches_for_rarely(control):
-    """One group, after Display and before This run — open on arrival, and
-    foldable (queezz, 2026-09-10: "I don't like IGs hidden by default. But
-    hiding possibility is a right shape, sure.")."""
+def test_the_settings_group_is_gone_and_its_three_setters_stand_in_reach(control):
+    """queezz, 2026-10-02, an hour into a plasma: "the right rail on the
+    controlunit is very long when I want to access something simple like IG,
+    or sampling. I say we get rid of the settings group as it is. It hides
+    controls from me." Sampling and QMS sync stand on the status line, where
+    he asked for them on 2026-09-15 ("near the 'measuring' and 'live' at the
+    top. Visible, not intrusive, easy to find and change"); the ion gauges
+    are a rail card of their own, directly under who has the rig."""
+    assert "settings-group" not in control
+    assert '<h2 class="fold-name">Settings</h2>' not in control
+
     right = control[control.index('id="live-context"'):]
     groups = [
         right.index('<h2 class="fold-name">Operator and access</h2>'),
+        right.index('<h2 class="fold-name">Ion gauges</h2>'),
         right.index('<h2 class="fold-name">Display</h2>'),
-        right.index('<h2 class="fold-name">Settings</h2>'),
         right.index('<h2 class="fold-name">This run</h2>'),
     ]
     assert groups == sorted(groups)
+    # The gauges arrive open, and are still gated by the blanket that names
+    # `.sets` (queezz, 2026-09-10: "I don't like IGs hidden by default").
+    gauges = right[right.index('class="operation-setters gauge-setters"'):right.index('class="display-settings')]
+    assert '<div class="sets">' in gauges
+    assert 'id="sec-gauge" data-fold="gauge" open' in gauges
 
-    settings = right[right.index('<details class="settings-group'):]
-    settings = settings[: settings.index('<h2 class="fold-name">This run</h2>')]
-    # The group arrives open; the Gauges fold inside it is open too, so the
-    # mode and the range are read without a second press.
-    assert settings[: settings.index(">")] == (
-        '<details class="settings-group fold" data-role="settings-group"'
-        ' data-fold="settings" open'
-    )
-    for anchor in ("sec-sync", "sec-acquisition", "sec-gauge"):
-        assert 'id="{}"'.format(anchor) in settings
-    # In that order, and each still gated by the blanket that names `.sets`.
-    inside = [settings.index('id="sec-{}"'.format(name))
-              for name in ("sync", "acquisition", "gauge")]
-    assert inside == sorted(inside)
-    assert 'class="sets row-actions"' in settings
-    assert 'class="sets"' in settings
+    main = control[control.index("<main"):control.index("</main>")]
+    header = main[main.index('class="instrument-header"'):main.index('class="mode-actions"')]
+    # Pills, then the status sentence, then the two setters: the sentence
+    # takes the room between, so its coming and going moves neither.
+    order = [header.index('class="pills"'), header.index('data-role="status"'),
+             header.index('class="quick-sets sets"')]
+    assert order == sorted(order)
+    quick = header[header.index('class="quick-sets sets"'):]
+    assert quick.index('id="sec-acquisition"') < quick.index('id="sec-sync"')
+    # QMS sync wears the house's two-state switch; Off is its left half, so
+    # the thumb rests left while the line is off.
+    sync = quick[quick.index('id="sec-sync"'):]
+    assert 'class="seg-toggle" role="group" aria-label="Set QMS sync"' in sync
+    assert sync.index('data-on="0"') < sync.index('data-on="1"')
 
 
-def test_nothing_moved_into_settings_is_left_behind_as_a_copy(control):
+def test_nothing_moved_out_of_settings_is_left_behind_as_a_copy(control):
     """One DOM, moved rather than duplicated (fleet's WEBUI.md), so the
     wiring and the gate cannot drift from a twin."""
     for anchor in ("sec-sync", "sec-acquisition", "sec-gauge"):
         assert control.count('id="{}"'.format(anchor)) == 1
-    assert control.count('data-role="sync-now"') == 1
+    assert control.count('data-role="sampling"') == 4
+    assert control.count('data-role="sync"') == 2
+    # The switch says whether the line is on; a second word for it is gone.
+    assert 'data-role="sync-now"' not in control
     # One folded line per ionization gauge, each saying its own setting.
     assert control.count('data-role="gauge-mode-now"') == 2
     assert control.count('data-role="gauge-range-now"') == 2
-    assert control.count('data-role="settings-group"') == 1
-    assert control.count('<h2 class="fold-name">Settings</h2>') == 1
 
 
 def test_every_card_on_the_live_page_folds_and_folds_the_same_way(control):
@@ -1244,7 +1260,7 @@ def test_every_card_on_the_live_page_folds_and_folds_the_same_way(control):
     cards = (
         "gas", "plasma",                                       # the left rail
         "readouts", "chart-plasma", "chart-ig", "chart-bar",   # the column
-        "access", "display", "settings", "run-details",        # the right rail
+        "access", "display", "run-details",                    # the right rail
         "gauge",
     )
     for card in cards:
