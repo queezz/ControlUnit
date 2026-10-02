@@ -20,22 +20,6 @@ holds what is still undecided or unbuilt.
   Safe default: the lists stand as they are. Either way it is one line in
   `PRESETS` in `controlunit/web/server.py`.
 
-- Should the PID refuse to engage on an unlit plasma, or keep lighting it
-  from a cold start as it did on 2026-10-02? — awaiting the owner. The
-  2026-09-15 design below says refuse ("so the loop never tries to light
-  the plasma"); on 2026-10-02 you lit it with the loop twice, and the one
-  that started at 1000 mV lit cleanly ("But hey, this time no overshoot
-  happened!"). 4.23.0 keeps what worked: engaged with the cathode off,
-  the loop starts at 1000 mV and walks up at 24 mV/s per 0.6 A of error.
-  Stakes: refusing means every start is by hand and then handed over;
-  allowing means one press lights and holds, at the price of the loop
-  pushing a filament that will not light until its integral is stopped
-  by hand.
-  Recommendation: keep the cold start, and add a ceiling it may not walk
-  past without a discharge (a number you name, e.g. 1900 mV).
-  Safe default: the cold start stays as shipped, with no ceiling below
-  the DAC's 5000 mV.
-
 ## Work only queezz can do
 
 - Say which wire the Hall sensor sits on, and run the known-current
@@ -74,21 +58,15 @@ holds what is still undecided or unbuilt.
   step is seen at the plug and on the DAC's supply, and the note says
   which cause it is.
 
-- Say "push", then restart the rig from its desktop shortcut once it is
-  pulled — owner work pending. The rig runs 4.22.1; master holds 4.24.0,
-  not pushed (pushes are on your word). What the restart brings, all from
-  the 2026-10-02 run: a long 0.1 s run no longer hangs the program or
-  loses its rows (4.22.3); an un-zeroed Ip reads about 0 A with no plasma
-  (4.22.2); the PID takes over from the drive you hold, and from 1000 mV
-  when cold (4.23.0); output on and off are logged as confirmed (4.23.1);
-  taking over from another browser no longer steps from a stale field,
-  the PID's command is shown, the Cathode cards stop blinking and an hour
-  at 0.1 s stays on the chart (4.23.2); Sampling and QMS sync are on the
-  status line and the Settings group is gone (4.24.0). After your "push" a session pulls
-  the Pi when `/api/health` says `idle, not recording`; the rig is on a
-  10 s run now, so it will say so and wait. Until the restart, keep fast
-  runs short: the hang is still in 4.22.1.
-  Done when: `http://pihti:4187/api/health` reports 4.24.0.
+- Say "push" for 4.25.0, the PID's cold-start walk and ceiling — owner
+  work pending. The rig runs 4.24.0 since 2026-10-02 22:32 (pushed, pulled
+  and restarted on your word that evening, the vacuum log resumed at 10 s
+  in `cu_20261002_223317.csv`). 4.25.0 is committed here and not pushed:
+  it changes how the loop drives the cathode with no discharge, so it
+  waits for your eye on its five numbers in `settings.yml` (start
+  1000 mV, 25 mV/s, ceiling 1900 mV, lit above 0.1 A, unlit after 2 s).
+  Done when: `http://pihti:4187/api/health` reports 4.25.0, or you have
+  said which numbers to change first.
 - Add the Mac-reachable address to the Pi's neighbours file — owner work
   pending. On your Mac the Pi's bare name `pihti` does not resolve, while
   `pihti.local` and the numeric address do, so the diagram's Open link on
@@ -118,12 +96,14 @@ holds what is still undecided or unbuilt.
 
 - From the 2026-10-02 argon run (queezz's journal of that day, and
   docs/diagnostics/2026-10-02-ar-plasma-pid-run.md for every number).
-  Shipped the same evening, 4.22.2 to 4.24.0: the hang, the Hall zero
+  Shipped the same evening, 4.22.2 to 4.25.0: the hang, the Hall zero
   ratio, the PID's takeover and cold start, the manual drive in
   `PresetV_cathode`, the output readback, the takeover field, the PID's
   command on the card, the blinking Cathode cards, the hour of plot, and
   the Settings group dissolved (Sampling and QMS sync on the status line,
-  Ion gauges a rail card of its own). The rest of the 4.19 design further
+  Ion gauges a rail card of its own), and the PID's walk and ceiling with
+  no discharge (owner decision 2026-10-02: the loop may light a cold
+  plasma, "we should try and improve it"). The rest of the 4.19 design further
   down — the Window choice on the charts' toolbar, the slim Monitor strip,
   the labels with subscripts — is still unbuilt, and PIHTI Log's approved
   panel (letter `20260915-7d7f0cb5-fa5d91`: cathode Ic, Vc and Ip
@@ -131,14 +111,24 @@ holds what is still undecided or unbuilt.
   `docs/controlunit-panel-example.svg` in its repository) is the
   reference for the readouts' grouping when that is taken up. What is
   still open from that day:
-  - **The loop does not know the Kikusui's voltage limit.** The supply
-    reached 7.80 V three times on 2026-10-02; while it does, the command
-    has no effect and the integral winds (the 17:45 overshoot to 0.70 A).
-    The loop should hold its integral while the telemetry shows the
-    voltage pinned and the current not following. It needs a rule for
-    "pinned" from the two numbers the recorder already reads (no new
-    query to the supply), and a decision on what a telemetry loss does
-    to it; the cold start from 1000 mV avoids the case meanwhile.
+  - **The 7.80 V is the Kikusui's own voltage setting, and the loop cannot
+    see it.** Queezz, 2026-10-02: "is it real? ... it looks arbitrary, I'd
+    say it must be 10". It is a setting, not a limit of the supply (a
+    PWR401L is 40 V, 40 A, 400 W): on 2026-10-02 the measured voltage sat
+    at 7.797 V three times for up to 25 s while the current floated, which
+    is the supply regulating voltage instead of current; on 2026-09-30 at
+    17:27 a read-only query answered `VOLT?` 5 V, so it has been changed
+    at the panel since. Nothing in the files says who set 7.8 or why. It
+    is also the only thing that ever capped the filament: with the DAC
+    asking for more current than 7.80 V can push, the supply holds the
+    voltage. From 4.25.0 the loop has its own ceiling while unlit; with a
+    discharge it still has none below the DAC's 5000 mV. Two things would
+    close this: the recorder reading the supply's settings and its
+    CC/CV state beside the measurements (read-only queries, but the link's
+    rule names exactly four, so that is his to allow), and the loop
+    holding its integral while the supply reports CV. Raising the setting
+    to 10 V is his at the panel; at 10 V a hot filament would take about
+    20 A, 200 W against today's 115 W.
   - The recorder writes the file from the main thread still. 4.22.3 makes
     a delivery cheap and writes before it draws, so a slow window no
     longer delays the record; writing from the reader's own thread would
@@ -186,9 +176,10 @@ holds what is still undecided or unbuilt.
   - Bumpless pickup on a lit discharge: shipped in 4.23.0 (the
     integrator preset to the held drive, the clock started at engage, the
     integral stopped at the limits, the 1000 mV offset gone, hand-back
-    leaving the drive where the loop put it). Still open from this bullet,
-    and now a question in the 2026-10-02 block above: whether engage is
-    refused, with its reason in the log and on the page, while
+    leaving the drive where the loop put it). The rest of this bullet is
+    settled the other way (owner decision 2026-10-02): the loop may light
+    a cold plasma, and 4.25.0 gives it a walk and a ceiling for it. The
+    old text, for the record: engage is refused, with its reason in the log and on the page, while
     Ip is below an ignition threshold (a number queezz sets; a safe
     default well above the -0.33 A off-plasma baseline plus its noise),
     so the loop never tries to light the plasma. Hand-back to Manual

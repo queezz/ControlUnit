@@ -148,7 +148,7 @@ def test_engaging_with_the_cathode_off_is_a_cold_start(driven):
     clock.advance(0.1)
     worker.plasma_current_control()
     assert worker.commands[-1] == pytest.approx(adc_module.COLD_START_MV, abs=3.0)
-    assert "a cold start" in worker.messages[-1]
+    assert any("a cold start" in line for line in worker.messages)
 
 
 def test_changing_the_setpoint_of_a_running_loop_does_not_restart_it(driven):
@@ -195,3 +195,113 @@ def test_the_loop_follows_a_sampling_change(driven):
     assert worker.pid.sample_time == pytest.approx(1.0 * worker.STEP)
     worker.set_sampling_time(0.1)
     assert worker.pid.sample_time == pytest.approx(0.1 * worker.STEP)
+
+
+
+# MARK: with no discharge to regulate
+#
+# queezz, 2026-10-02, on whether the loop should light a cold plasma at all:
+# "Since PID could light a cold plasma, that means we should try and improve
+# it." The one clean cold start of that day walked up from 1000 mV at
+# 24 mV/s and lit without overshoot, but only because the setpoint happened
+# to be 0.5 A: the walk's pace was the integral of an error that says
+# nothing while the source is unlit, and nothing stopped it.
+
+
+def cold(worker, clock, setpoint):
+    worker.set_plasma_current.emit(0)
+    hold(worker, 0.0)
+    worker.set_plasma_current.emit(setpoint)
+
+
+def run(worker, clock, seconds, current):
+    for _ in range(int(round(seconds / 0.31))):
+        clock.advance(0.31)
+        hold(worker, current)
+        worker.plasma_current_control()
+    return worker.commands[-1]
+
+
+@pytest.mark.parametrize("setpoint", [0.3, 0.5, 1.5])
+def test_an_unlit_loop_walks_up_at_one_pace_whatever_the_setpoint(driven, setpoint):
+    worker, clock = driven
+    cold(worker, clock, setpoint)
+    after = run(worker, clock, 10.0, 0.0)
+    walked = 0.31 * int(round(10.0 / 0.31))
+    assert after == pytest.approx(adc_module.COLD_START_MV + 25.0 * walked, abs=1.0)
+    assert sum("walking the drive up at 25 mV/s" in line for line in worker.messages) == 1
+
+
+def test_an_unlit_loop_stops_at_the_ceiling_and_says_so_once(driven):
+    worker, clock = driven
+    cold(worker, clock, 0.5)
+    run(worker, clock, 120.0, 0.0)             # far longer than the walk takes
+    assert max(worker.commands) == adc_module.UNLIT_CEILING_MV
+    assert worker.commands[-1] == adc_module.UNLIT_CEILING_MV
+    assert sum("no discharge at the 1900 mV ceiling" in line for line in worker.messages) == 1
+
+
+def test_when_the_plasma_lights_the_loop_carries_on_from_where_the_walk_was(driven):
+    worker, clock = driven
+    cold(worker, clock, 0.5)
+    walked_to = run(worker, clock, 26.0, 0.0)  # 2026-10-02: lit near 1650 mV
+    assert 1600 < walked_to < 1700
+    clock.advance(0.31)
+    hold(worker, 0.20)                         # the discharge appears
+    worker.plasma_current_control()
+    assert worker.commands[-1] == pytest.approx(walked_to, abs=6.0)
+    assert "discharge lit at" in worker.messages[-1]
+    # And from there it regulates: 0.3 A of error is 12 mV a second.
+    before = worker.commands[-1]
+    after = run(worker, clock, 3.1, 0.20)
+    assert after - before == pytest.approx(40 * 0.3 * 3.1, abs=1.0)
+
+
+def test_an_arc_is_not_the_plasma_going_out(driven):
+    """An arc takes the current to zero for 0.2 to 0.3 s; the loop regulates
+    straight through it and nothing is said."""
+    worker, clock = driven
+    worker.set_manual_drive.emit(2000.0)        # lit, and above the ceiling
+    hold(worker, 0.50)
+    worker.set_plasma_current.emit(0.50)
+    run(worker, clock, 3.0, 0.50)
+    said = len(worker.messages)
+    run(worker, clock, 0.62, 0.0)              # two samples of nothing
+    run(worker, clock, 3.0, 0.50)
+    assert len(worker.messages) == said
+    assert min(worker.commands[-25:]) > 1990.0
+
+
+def test_a_plasma_that_goes_out_brings_the_drive_down_to_the_ceiling(driven):
+    worker, clock = driven
+    worker.set_manual_drive.emit(2000.0)
+    hold(worker, 0.50)
+    worker.set_plasma_current.emit(0.50)
+    run(worker, clock, 3.0, 0.50)
+    run(worker, clock, 5.0, 0.0)               # gone for good
+    assert worker.commands[-1] == adc_module.UNLIT_CEILING_MV
+    assert "no discharge at the 1900 mV ceiling" in worker.messages[-1]
+    # It comes back: the loop lights it from the ceiling and regulates again.
+    # (The proportional term answers the current appearing: 30 mV/A of it.)
+    run(worker, clock, 0.31, 0.45)
+    assert "discharge lit at" in worker.messages[-1]
+    assert worker.commands[-1] == pytest.approx(adc_module.UNLIT_CEILING_MV - 30 * 0.45, abs=2.0)
+
+
+def test_engaging_unlit_from_a_drive_above_the_ceiling_starts_at_the_ceiling(driven):
+    worker, clock = driven
+    worker.set_manual_drive.emit(2300.0)        # held by hand, nothing lit
+    hold(worker, 0.0)
+    worker.set_plasma_current.emit(0.50)
+    clock.advance(0.31)
+    worker.plasma_current_control()
+    assert worker.commands[-1] == adc_module.UNLIT_CEILING_MV
+
+
+def test_the_walk_is_set_in_the_settings_file(worker):
+    assert worker.cold_start_mv == 1000.0
+    assert worker.unlit_ramp == 25.0
+    assert worker.unlit_ceiling == 1900.0
+    assert worker.lit_above == pytest.approx(0.1)
+    assert worker.unlit_after == pytest.approx(2.0)
+

@@ -124,10 +124,63 @@ One reading that looked like a defect and was not: the sync switch's thumb
 read as not having moved. The pane does not advance CSS transitions; with
 the transition switched off for the reading, the thumb was at 36.5 px.
 
+## Deployed, 22:30 (4.24.0)
+
+Queezz: "yes, do push ... the rig is running at 0.1 hertz, just logging
+a vacuum, so it's not important. So we can push and actually test."
+
+- `git push origin master`, `9b17ca7..c67fcd6`.
+- The rig read `measuring`, no outputs, cathode and both gas lines at 0,
+  the Kikusui unpowered. From the Pi itself, as the roster's session
+  identity (`Kuzmin Arseniy queezz`, the one the 2026-09-30 deployment
+  used) with the lab's word read from the Pi's own file and never
+  printed: take control from his laptop, stop acquisition, health
+  `idle, not recording`.
+- `kill -TERM` on the program (outputs at zero), process gone,
+  `git -C ~/work/aktest pull --ff-only` to `c67fcd6`.
+- Before starting it: the two new modules run on the Pi's Python 3.9.2,
+  pandas 1.5.3 and numpy 1.24.2 in a throwaway script (bounded history
+  thinning, a bumpless first command of 1789 mV from a held 1790).
+- Started through `~/Desktop/aktest.sh` in a terminal on display `:0`, as
+  the shortcut does. Health: 4.24.0, `idle, not recording`; nothing in
+  the stderr file.
+- Gauges put back as found (Pd Torr 1e-8, Pu2 Torr 1e-5), acquisition
+  started, 75 s left at the default 0.1 s to time the new path on the
+  real hardware, then sampling 10 s: the vacuum log goes on in
+  `cu_20261002_223317.csv`.
+
+Measured on the rig in that minute: a delivery costs 15.8 ms in all
+(file 3.4, history 4.3, redraw 8.1), queue 0.3 ms, no missed slots,
+sample interval 0.1000 s. The un-zeroed plasma current reads +0.002 A
+(sd 6.7 mA) where it read -0.098 A, `Ip/Vhall` 0.49619 against the
+0.4961 now in the settings; the file's header carries the new formula.
+
+Control is left with the session identity from 127.0.0.1; any browser
+takes it back with Take over. Six scratch files this session put in the
+Pi's `/tmp` (two helper scripts, a check script, a cookie jar, the fence
+body, the morning's log excerpt) are removed.
+
+Not exercised on the rig: anything that drives an output. The PID's
+takeover, the cold start and the Kikusui press are tested off-rig only,
+and the supply was unpowered.
+
+## The cold start, improved (4.25.0, local)
+
+His answer to the question the last commit left: "Since PID could light a
+cold plasma, that means we should try and improve it." With no discharge
+the loop now walks from 1000 mV at 25 mV/s to a 1900 mV ceiling and holds
+there; lit, it regulates from the drive it reached; an arc's dropout is
+not unlit; a plasma that goes out brings the drive down to the ceiling.
+Nine new tests, 695 passing. Committed and not pushed: the push he gave
+was for the fixes, and this changes how the cathode is driven.
+
+On the 7.80 V: it is the supply's own voltage setting (CV), not a limit of
+the PWR401L, and it has been changed at the panel since 2026-09-30, when a
+query read 5 V. Recorded in directions with what would let the loop see it.
+
 ## Left
 
-In `directions.md`: the loop's blindness to the Kikusui's voltage limit,
-one owner question on the cold start, the unbuilt rest of the 4.19 design,
-and the deployment, which waits on his "push" and an idle rig.
+In `directions.md`: the push of 4.25.0, the loop's blindness to the
+Kikusui's voltage setting, and the unbuilt rest of the 4.19 design.
 
 agent: claude

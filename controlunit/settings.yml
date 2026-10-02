@@ -1,4 +1,4 @@
-Settings Version: 1.6
+Settings Version: 1.7
 # Define your local settings in
 # localsettings = os.path.join(os.path.expanduser('~'),'.controlunit', 'settings.yml')
 # ~/.controlunit/settings.yml
@@ -14,6 +14,20 @@ Log File: controlunit.log
 Sampling Time: 0.1 # Default sampling rate
 Debug.Raw ADC: false
 Verbose.Plasma Current PID: false
+
+# The plasma-current loop with no discharge to regulate. Engaged on an unlit
+# source it starts at Cold Start, walks the cathode drive up at Unlit Ramp,
+# and never passes Unlit Ceiling until the plasma lights; then it regulates
+# from the drive it has reached. A discharge is lit above Lit Above, and
+# unlit once the current has stayed below it for Unlit After seconds, so an
+# arc's short dropout is not taken for the plasma going out. The same
+# ceiling applies if the plasma goes out under the loop.
+Plasma Current PID:
+  Cold Start mV: 1000
+  Unlit Ramp mV per s: 25
+  Unlit Ceiling mV: 1900
+  Lit Above A: 0.1
+  Unlit After s: 2.0
 
 # ================================================
 #

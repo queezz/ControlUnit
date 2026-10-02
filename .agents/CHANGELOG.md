@@ -1,3 +1,23 @@
+## 4.25.0 — 2026-10-02
+
+- The PID lights a cold plasma on purpose now, not by accident (queezz,
+  2026-10-02: "Since PID could light a cold plasma, that means we should
+  try and improve it"). With no discharge it does not regulate, it walks:
+  from 1000 mV up at 25 mV/s, the pace of the one clean cold start of that
+  day, whatever setpoint was asked for. Before, the pace was the integral
+  of an error that says nothing while the source is unlit, so a higher
+  setpoint walked faster.
+- It never walks past 1900 mV without a discharge. At the ceiling it
+  holds, and the Log says so in red. Before, nothing stopped it short of
+  the supply's own voltage setting.
+- When the plasma lights, the loop takes over from the drive it reached.
+  An arc's 0.2 to 0.3 s dropout is not taken for the plasma going out; a
+  plasma that stays out for two seconds brings the drive down to the
+  ceiling, and the loop lights it again from there.
+- The five numbers are in `settings.yml` under `Plasma Current PID`
+  (settings 1.7). The Log says each time the loop changes between
+  walking, holding at the ceiling and regulating.
+
 ## 4.24.0 — 2026-10-02
 
 - The Settings group is gone (queezz, 2026-10-02: "the right rail on the

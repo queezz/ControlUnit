@@ -108,14 +108,34 @@ ADC worker.
   the integral's pace, 40 mV/s per ampere of error. The main thread tells
   the reader the manual value (`set_manual_drive`), which is also what the
   file records in `PresetV_cathode` while the cathode is held by hand.
-- **A cold start begins at `COLD_START_MV = 1000`.** Engaged with the
-  cathode off, or held below 1000 mV, the loop starts there and walks the
-  filament up. This is the old loop's fixed base (Kawabata-kun's empirical
-  floor), kept as the cold start only.
+- **A cold start begins at 1000 mV.** Engaged with the cathode off, or held
+  below that, the loop starts there. This is the old loop's fixed base
+  (Kawabata-kun's empirical floor), kept as the cold start only.
+- **With no discharge the loop walks; it does not regulate** (4.25.0; owner
+  decision 2026-10-02: "Since PID could light a cold plasma, that means we
+  should try and improve it"). While the current is below 0.1 A the drive
+  goes up at 25 mV/s, whatever the setpoint, and never past 1900 mV; at
+  that ceiling it holds and says so in red. The integral is kept where a
+  regulating step would carry on from the drive reached, so when the
+  plasma lights the loop takes over with only its proportional answer to
+  the current appearing (30 mV per ampere). A PI loop on an unlit source
+  integrates an error that tells it nothing: its pace was the setpoint's,
+  and nothing stopped it short of the supply's own voltage setting.
+- **An arc is not the plasma going out.** The loop counts the discharge
+  unlit only after the current has stayed below 0.1 A for two seconds; the
+  0.2 to 0.3 s dropouts of an arc are regulated straight through. A plasma
+  that does go out under the loop brings the drive down to the ceiling,
+  from which the loop lights it again.
+- The five numbers are the `Plasma Current PID` block of `settings.yml`:
+  `Cold Start mV`, `Unlit Ramp mV per s`, `Unlit Ceiling mV`, `Lit Above A`
+  and `Unlit After s`.
 - Changing the setpoint of a running loop moves the setpoint and nothing
-  else. The Log carries one line per engagement, with the starting drive.
-- The integral stops at the limits. It does not yet know when the Kikusui
-  is at its own voltage limit, where the command has no effect.
+  else. The Log carries a line per engagement with the starting drive, and
+  one each time the loop changes between walking, holding at the ceiling
+  and regulating.
+- The integral stops at the limits. It does not know when the Kikusui is
+  regulating voltage instead of current (its own voltage setting, 7.80 V on
+  2026-10-02), where the command has no effect.
 
 Until 4.23.0 this was a `simple_pid.PID` whose clock ran from the last
 time anything touched it: its first step integrated the error over the

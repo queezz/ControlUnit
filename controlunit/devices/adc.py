@@ -56,6 +56,23 @@ DRIVE_LIMITS_MV = (0.0, 5000.0)
 #: 2026-10-02 at 17:47:58, lit the plasma without overshoot.
 COLD_START_MV = 1000.0
 
+#: While there is no discharge the loop does not regulate, it walks: up at
+#: this many millivolts a second, the pace of that same cold start (24 mV/s),
+#: whatever setpoint was asked for.
+UNLIT_RAMP_MV_PER_S = 25.0
+
+#: And never past this without a discharge. 1800 to 1830 mV is what lights
+#: the source by hand; a filament that has not lit by 1900 mV is not going to
+#: be helped by more, and the only other thing between an unlit loop and the
+#: top of the DAC is the supply's own voltage setting.
+UNLIT_CEILING_MV = 1900.0
+
+#: A discharge is lit above this current, and unlit once it has stayed below
+#: it for `UNLIT_AFTER_S`: an arc takes the current to zero for 0.2 to 0.3 s
+#: and is not the plasma going out.
+LIT_ABOVE_A = 0.1
+UNLIT_AFTER_S = 2.0
+
 
 def mean_of_readings(readings):
     """The per-channel mean of one period's raw voltage readings.
@@ -161,6 +178,14 @@ class ADC(DeviceThread):
         self.set_sampling_time(self.config["Sampling Time"])
         self.pid_verbose = self.config.get("Verbose.Plasma Current PID", False)
         self._pid_clock = time.monotonic
+        tuning = self.config.get("Plasma Current PID") or {}
+        self.cold_start_mv = float(tuning.get("Cold Start mV", COLD_START_MV))
+        self.unlit_ramp = float(tuning.get("Unlit Ramp mV per s", UNLIT_RAMP_MV_PER_S))
+        self.unlit_ceiling = float(tuning.get("Unlit Ceiling mV", UNLIT_CEILING_MV))
+        self.lit_above = float(tuning.get("Lit Above A", LIT_ABOVE_A))
+        self.unlit_after = float(tuning.get("Unlit After s", UNLIT_AFTER_S))
+        self._unlit_since = None
+        self._loop_state = None
         self.prep_pid()
         self._read_failures = 0
         self._failing_since = None
@@ -428,14 +453,21 @@ class ADC(DeviceThread):
     def _engage_pid(self, setpoint):
         """Start the loop from what the cathode is driven with right now."""
         held = float(self.control_voltage or 0.0)
-        start = max(held, COLD_START_MV)
+        start = max(held, self.cold_start_mv)
         measured = None
         if math.isfinite(self.plasma_current_converted):
             measured = self.plasma_current_converted - self.zero_ip
+        lit = measured is not None and measured > self.lit_above
+        if not lit:
+            start = min(start, self.unlit_ceiling)
         loop = self._new_loop(setpoint)
         loop.engage(start, measured)
         self.pid = loop
-        origin = "the drive already held" if held >= COLD_START_MV else "a cold start"
+        # Engaged on no discharge, the loop is unlit from its first step
+        # rather than after the two seconds an arc is forgiven for.
+        self._unlit_since = None if lit else self._pid_clock() - self.unlit_after
+        self._loop_state = None
+        origin = "the drive already held" if held >= self.cold_start_mv else "a cold start"
         reading = "unavailable" if measured is None else f"{measured:.3f} A"
         self.send_message.emit(
             f"Plasma current PID engaged at {start:.0f} mV ({origin}),"
@@ -489,9 +521,16 @@ class ADC(DeviceThread):
         """
         if not math.isfinite(self.plasma_current_converted):
             return  # Hold the command; never feed a missing reference to PID.
-        output = self.pid(self.plasma_current_converted - self.zero_ip)
+        measured = self.plasma_current_converted - self.zero_ip
+        if self._discharge_lit(measured):
+            output = self.pid(measured)
+            state = "lit"
+        else:
+            output = self.pid.ramp(measured, self.unlit_ramp, self.unlit_ceiling)
+            state = "ceiling" if output >= self.unlit_ceiling else "unlit"
         if not self.plasma_current_setpopint:
             return  # turned off while this step ran: the hand holds the DAC
+        self._say_loop_state(state, output)
         self.set_cathode_current(output)
         if self.pid_verbose:
             print(
@@ -499,6 +538,44 @@ class ADC(DeviceThread):
                 output,
                 self.plasma_current_converted - self.zero_ip,
             )
+    def _discharge_lit(self, measured):
+        """Whether there is a discharge for the loop to regulate.
+
+        Lit the moment the current is above the threshold; unlit only once
+        it has stayed below for `unlit_after` seconds, so the 0.2 to 0.3 s
+        an arc takes the current away for is regulated straight through.
+        """
+        if measured > self.lit_above:
+            self._unlit_since = None
+            return True
+        now = self._pid_clock()
+        if self._unlit_since is None:
+            self._unlit_since = now
+        return now - self._unlit_since < self.unlit_after
+
+    def _say_loop_state(self, state, output):
+        """One Log line each time the loop changes what it is doing."""
+        if state == self._loop_state:
+            return
+        previous, self._loop_state = self._loop_state, state
+        if state == "lit":
+            if previous is not None:
+                self.send_message.emit(
+                    f"Plasma current PID: discharge lit at {output:.0f} mV; regulating"
+                )
+        elif state == "unlit":
+            self.send_message.emit(
+                f"Plasma current PID: no discharge; walking the drive up at"
+                f" {self.unlit_ramp:g} mV/s from {output:.0f} mV, ceiling"
+                f" {self.unlit_ceiling:.0f} mV"
+            )
+        else:
+            self.send_message.emit(
+                f"<font color='red'>Plasma current PID: no discharge at the"
+                f" {self.unlit_ceiling:.0f} mV ceiling</font>; holding there."
+                " Check gas and the anode supplies, or turn the PID off"
+            )
+
     # MARK: start
     @QtCore.pyqtSlot()
     def start(self):

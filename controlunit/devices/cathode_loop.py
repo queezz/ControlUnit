@@ -11,6 +11,14 @@ out. On 2026-09-14 the same arithmetic produced 5500 mV.
 `engage` is the takeover written down: the clock starts now, and the
 integral is set so that the first command is the drive the cathode already
 holds. From there the loop moves at the integral's own pace and no faster.
+
+`ramp` is what the loop does while there is no discharge to regulate. A PI
+loop facing an unlit source integrates an error that is not telling it
+anything: how fast it walks the filament up depends on the setpoint asked
+for, and nothing stops the walk. So without a discharge the drive goes up
+at a fixed rate to a ceiling and waits there, and the integral is kept
+where a PI step would carry on from that drive, so the moment the plasma
+lights the loop takes over without a step.
 """
 
 import time
@@ -36,6 +44,7 @@ class CathodeLoop:
         self.sample_time = float(sample_time)
         self._clock = clock
         self._integral = 0.0
+        self._drive = 0.0
         self._last_time = clock()
         self._last_output = None
         self._last_measured = None
@@ -58,9 +67,33 @@ class CathodeLoop:
         drive = _clamp(float(drive), self.limits)
         error = 0.0 if measured is None else self.setpoint - float(measured)
         self._integral = _clamp(drive - self.kp * error, self.limits)
+        self._drive = drive
         self._last_time = self._clock()
         self._last_output = None
         self._last_measured = None if measured is None else float(measured)
+        return drive
+
+    def ramp(self, measured, rate, ceiling):
+        """One step with no discharge: up at `rate` mV/s, never past `ceiling`.
+
+        A drive already above the ceiling comes down to it at once: the
+        ceiling is what an unlit filament may be given, however the loop
+        got here. Between sample times the last command is repeated, as in
+        a regulating step.
+        """
+        now = self._clock()
+        elapsed = now - self._last_time
+        if self._last_output is not None and elapsed < self.sample_time:
+            return self._last_output
+        measured = float(measured)
+        drive = min(self._drive + float(rate) * max(elapsed, 0.0), float(ceiling))
+        drive = _clamp(drive, self.limits)
+        # Where a regulating step would have to stand to give this drive.
+        self._integral = _clamp(drive - self.kp * (self.setpoint - measured), self.limits)
+        self._drive = drive
+        self._last_time = now
+        self._last_output = drive
+        self._last_measured = measured
         return drive
 
     def __call__(self, measured):
@@ -79,6 +112,7 @@ class CathodeLoop:
         if self.kd and elapsed > 0 and self._last_measured is not None:
             derivative = -self.kd * (measured - self._last_measured) / elapsed
         output = _clamp(self.kp * error + self._integral + derivative, self.limits)
+        self._drive = output
         self._last_time = now
         self._last_output = output
         self._last_measured = measured
