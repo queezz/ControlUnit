@@ -1,3 +1,12 @@
+## 4.22.2 — 2026-10-02
+
+- The Hall sensor's resting point is 0.4961 of its supply, as measured on
+  2026-09-30 and 2026-10-02, instead of the ideal 0.5 (owner decision
+  2026-10-02, "Update settings"). An un-zeroed plasma current now reads
+  about 0 A with no discharge where it read -0.098 A, and a PID setpoint is
+  the Hall current. Each file's header carries the formula it was written
+  with; files up to 2026-10-02 are 0.098 A low. Settings version 1.6.
+
 ## 4.22.1 — 2026-09-30
 
 - Remote starts enabled, as requested by queezz. Local still blocks browser

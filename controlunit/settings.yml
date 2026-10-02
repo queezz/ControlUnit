@@ -1,4 +1,4 @@
-Settings Version: 1.5
+Settings Version: 1.6
 # Define your local settings in
 # localsettings = os.path.join(os.path.expanduser('~'),'.controlunit', 'settings.yml')
 # ~/.controlunit/settings.yml
@@ -81,7 +81,10 @@ ADC Channels:
     Conversion Function: "Hall Sensor"
     Supply Channel: "Vhall"
     Nominal Supply: 5.0
-    Zero Ratio: 0.5
+    # Where the sensor rests with no current, as a fraction of its supply.
+    # Measured 2026-10-02 over two quiet stretches of one run (0.49609 and
+    # 0.49603) and on 2026-09-30; the ideal 0.5 read -0.098 A with no plasma.
+    Zero Ratio: 0.4961
     Amperes Per Volt: 5.0
     Supply Minimum: 4.0
     Supply Maximum: 6.0

@@ -11,7 +11,8 @@ from test_adc_average import qt_app, home, worker
 @pytest.mark.parametrize("current", [-1.0, 0.0, 0.8, 2.0])
 def test_current_is_independent_of_supply(worker, supply, current):
     values = dict.fromkeys(worker.adc_signals_columns, 0.1)
-    values.update(Ip=supply * (0.5 + current / 25), Vhall=supply)
+    ratio = worker.adc_channels["Ip"].zero_ratio
+    values.update(Ip=supply * (ratio + current / 25), Vhall=supply)
     worker.hold_voltages(values)
     worker.put_new_data_in_dataframe()
     # A later scan must not change the conversion of the already captured row.
@@ -30,7 +31,8 @@ def test_invalid_reference_is_recorded_and_never_sent_to_pid(worker, supply):
     worker.send_message.connect(messages.append)
     worker.send_control_voltage.connect(commands.append)
     values = dict.fromkeys(worker.adc_signals_columns, 0.1)
-    values.update(Ip=2.5, Vhall=supply)
+    resting = 5.0 * worker.adc_channels["Ip"].zero_ratio
+    values.update(Ip=resting, Vhall=supply)
     worker.hold_voltages(values)
     worker.put_new_data_in_dataframe()
     worker.update_processed_signals_dataframe()

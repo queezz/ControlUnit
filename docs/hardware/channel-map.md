@@ -17,7 +17,7 @@ Do not expect hardware build notes here.
 
 | Name | Signal | Sensor / notes |
 |------|--------|----------------|
-| `Ip` | Plasma current | Hall-effect sensor on channel 0: `25 * (Ip / Vhall - 0.5) A` from 4.22.0; supply-corrected, with the existing provisional 5 A/V sensitivity at 5 V. |
+| `Ip` | Plasma current | Hall-effect sensor on channel 0: `25 * (Ip / Vhall - 0.4961) A`; supply-corrected since 4.22.0, with the existing provisional 5 A/V sensitivity at 5 V. The resting ratio was the ideal 0.5 until 4.22.2 (files up to 2026-10-02 read 0.098 A low); each file's header carries the formula it was written with. |
 | `Vhall` | Hall supply reference | Channel 1, read immediately after `Ip`, 10 V range (the 5 V range clips at 5.0176 V). Raw volts retained for diagnosis; no additional display or curve. |
 | `Pu` | Upstream pressure | Pfeiffer single gauge PKR251 (currently operating in Pirani mode — cold-cathode discharge not igniting) |
 | `Pd` | Downstream pressure | Ionization gauge, with `Place: "downstream"` in the settings for the Control dock and the web Gauges card to show beside its short name. Its controller's mode (Torr linear or Pa log) and exponent are recorded per row as `IGmode` and `IGscale`, the columns the file has always had. |
@@ -39,7 +39,9 @@ board inspection identifies the neighbouring terminal as channel 1 beside
 `Ip` on channel 0; verify those voltages on the rig before deployment.
 
 `Ip` names `Supply Channel`, `Nominal Supply`, `Zero Ratio`, and `Amperes
-Per Volt` in settings. The nominal values are 5 V, 0.5 and 5 A/V. This
+Per Volt` in settings. The values are 5 V, 0.4961 and 5 A/V; the ratio is
+where the sensor was measured to rest with no current on 2026-09-30 and
+2026-10-02, the same within 4 mA across both days. This
 cancels proportional supply movement in both the zero and the sensitivity;
 it does not replace a known-current calibration or correct ground offsets.
 The recorded `Ip_c`, existing current readouts, and PID use the same
