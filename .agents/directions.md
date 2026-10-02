@@ -20,6 +20,22 @@ holds what is still undecided or unbuilt.
   Safe default: the lists stand as they are. Either way it is one line in
   `PRESETS` in `controlunit/web/server.py`.
 
+- Should the PID refuse to engage on an unlit plasma, or keep lighting it
+  from a cold start as it did on 2026-10-02? — awaiting the owner. The
+  2026-09-15 design below says refuse ("so the loop never tries to light
+  the plasma"); on 2026-10-02 you lit it with the loop twice, and the one
+  that started at 1000 mV lit cleanly ("But hey, this time no overshoot
+  happened!"). 4.23.0 keeps what worked: engaged with the cathode off,
+  the loop starts at 1000 mV and walks up at 24 mV/s per 0.6 A of error.
+  Stakes: refusing means every start is by hand and then handed over;
+  allowing means one press lights and holds, at the price of the loop
+  pushing a filament that will not light until its integral is stopped
+  by hand.
+  Recommendation: keep the cold start, and add a ceiling it may not walk
+  past without a discharge (a number you name, e.g. 1900 mV).
+  Safe default: the cold start stays as shipped, with no ceiling below
+  the DAC's 5000 mV.
+
 ## Work only queezz can do
 
 - Say which wire the Hall sensor sits on, and run the known-current
@@ -58,33 +74,20 @@ holds what is still undecided or unbuilt.
   step is seen at the plug and on the DAC's supply, and the note says
   which cause it is.
 
-- Restart the rig onto 4.18.0 from its desktop shortcut — owner work
-  pending. On 2026-09-15, on your word "fix then deploy", master was pushed
-  and the Pi's checkout at `~/work/aktest` pulled while the program was
-  not running; 4.18.0 (the upstream gauge `Pu2` on channel 16, with its
-  own exponent selector) followed the same way. `~/.controlunit/kikusui.yml`
-  on the Pi now names the supply at its lab address (copied over scp on
-  your word, and the supply answered one read-only identity query with
-  output off), so the first Start after the restart records
-  `kikusui_*.csv` beside the ADC file and shows the supply's V and I on
-  the Cathode dock and the WebUI. Everything from
-  4.6.0 up is new to the rig, which last ran 4.14.1. From 4.6.0: the Live
-  charts stop growing on a Retina
-  Mac; an idle rig reads `ok` instead of `degraded` on all three service
-  boards; the rig says whether it is stopped, measuring only, or holding
-  gas or the cathode, on its own Live tab and on all three service boards;
-  the Lab tab breaks where the other two boards break; each chart carries
-  the switches for its own curves and a flat curve steps out of the way of
-  the one that is moving; the Log's counts stop contradicting each other;
-  two colleagues spelled the same way are told apart; the lab's names
-  refresh themselves from the journal instead of waiting for the push
-  script; the Live tab has a Monitor mode that gives the charts the whole
-  window, and a Vacuum and a Plasma preset over the curve switches; and the
-  Control tab's presses stand in one faceplate with their numbers beside
-  them.
-  Done when: `http://pihti:4187/api/health` reports 4.18.0 and, with
-  acquisition off and every output at zero, `status` reads `ok` with the
-  detail "idle, not recording".
+- Say "push", then restart the rig from its desktop shortcut once it is
+  pulled — owner work pending. The rig runs 4.22.1; master holds 4.23.2,
+  not pushed (pushes are on your word). What the restart brings, all from
+  the 2026-10-02 run: a long 0.1 s run no longer hangs the program or
+  loses its rows (4.22.3); an un-zeroed Ip reads about 0 A with no plasma
+  (4.22.2); the PID takes over from the drive you hold, and from 1000 mV
+  when cold (4.23.0); output on and off are logged as confirmed (4.23.1);
+  taking over from another browser no longer steps from a stale field,
+  the PID's command is shown, the Cathode cards stop blinking and an hour
+  at 0.1 s stays on the chart (4.23.2). After your "push" a session pulls
+  the Pi when `/api/health` says `idle, not recording`; the rig is on a
+  10 s run now, so it will say so and wait. Until the restart, keep fast
+  runs short: the hang is still in 4.22.1.
+  Done when: `http://pihti:4187/api/health` reports 4.23.2.
 - Add the Mac-reachable address to the Pi's neighbours file — owner work
   pending. On your Mac the Pi's bare name `pihti` does not resolve, while
   `pihti.local` and the numeric address do, so the diagram's Open link on
@@ -113,58 +116,12 @@ holds what is still undecided or unbuilt.
 ## Ready to build
 
 - From the 2026-10-02 argon run (queezz's journal of that day, and
-  docs/diagnostics/2026-10-02-ar-plasma-pid-run.md for every number):
-  - **A long fast run hangs the program and loses the data — first.** The
-    run started 2026-09-30 17:04 at 0.1 s fell behind real time within
-    about four hours, was 25.4 hours behind when he killed it over VNC
-    ("GUI non-responsive, but also WebUI is non-responsive"), and its
-    file ends 25 hours early. The cause is the old item below, the whole
-    run held in memory and copied at every delivery: append and redraw
-    each grow with the run's length (4 and 21 ms at the start, 627 and
-    659 ms after two days, against 300 ms between deliveries). Build: the
-    file is written by the reader's side or before any redraw, so a slow
-    window can never hold back the record; the in-memory history is a
-    bounded, pre-allocated buffer, thinned for the plot; and the delivery
-    queue is watched, with one loud log line and a visible chip when the
-    main thread is more than a few seconds behind. A test feeds a day of
-    0.1 s samples to dummy hardware and holds the per-delivery cost flat.
-  - **Taking over must not zero the cathode.** At 17:23:44 the laptop
-    took control and its first press sent 0 mV, putting the plasma out:
-    the Control tab fills the millivolt field once at page load
-    (`paintCathode` in `control.js`, `dataset.initialized`), so a page
-    opened before another browser set 1800 mV still holds 0, and the
-    step buttons step from the field. The field follows the rig's
-    applied value whenever this browser is not editing it, a step starts
-    from the applied value, and Take over repaints every setter field
-    from the rig. The same audit for the gas and PID fields.
-  - **The PID's first command is an accident of the clock.** Three
-    engagements, three starts: 1728 mV, 1759 mV and 1000 mV (which put
-    the plasma out), all equal to 1000 + 40 × error × seconds since the
-    last manual set or PID off. This is the bumpless-pickup item below
-    with its test cases now measured. Two additions from this run: the
-    loop should hold its integral while the Kikusui reports its voltage
-    limit (7.80 V, reached three times; the command rose 34 mV with no
-    effect and then overshot), and the PID should refuse or warn when
-    `Ip` has not been zeroed and reads away from zero with the supply's
-    output off ("PID tries to keep readout as given, ignoring the Ip
-    signal zero. I never zeroed the sensor. So... Almost a bug").
-  - **Show the PID's command.** "There is no signal voltage exposed from
-    PID run, so I can use that to start the manual emission." It is in
-    `/api/state` as `setpoints.cathode_mv` and in the file; the Cathode
-    card's Held line shows it beside the setpoint while the PID holds,
-    and switching to Manual offers that value as the field's start.
-  - **Kikusui cards must not blink.** "We should not blink, and we
-    shouldn't change state. But we can gray those Kikusui panels when
-    there is no response for a reasonable time." The recorder answered
-    5,150 polls in the 43 minutes with no interval above a second, so the
-    blinking is the page's own freshness rule, not the LAN: hold the last
-    value and its state, and grey the two cards only after several
-    seconds without a fresh reading.
-  - **An hour of plot at 0.1 s.** "1 hour plot cuts of data. Points
-    limit? We need to do better... Especially if we are running 1-2 hour
-    plasmas." The browser keeps 20,000 samples (`STORE_MAX` in
-    `live.js`), 33 minutes at 0.1 s. Keep the recent part whole and thin
-    the older part instead of dropping it, so two hours stay on screen.
+  docs/diagnostics/2026-10-02-ar-plasma-pid-run.md for every number).
+  Shipped the same evening, 4.22.2 to 4.23.2: the hang, the Hall zero
+  ratio, the PID's takeover and cold start, the manual drive in
+  `PresetV_cathode`, the output readback, the takeover field, the PID's
+  command on the card, the blinking Cathode cards, the hour of plot. What
+  is still open from that day:
   - **The Settings group goes** (owner decision 2026-10-02: "the right
     rail on the controlunit is very long when I want to access something
     simple like IG, or sampling. I say we get rid of the settings group
@@ -178,32 +135,19 @@ holds what is still undecided or unbuilt.
     the other statistics compact; mantissa and exponent flowed as one
     run with no gap. Picture: `docs/controlunit-panel-example.svg` in
     PIHTI Log's repository. Design guidance, not a change to control.
-  - **Output on/off logs the wrong readback.** "Kikusui output ON sent,
-    readback 0" and "OFF sent, readback 1" every time: the query follows
-    the write too soon. Wait for the supply, then read, and say
-    "confirmed" only when the readback agrees.
-  - The manual drive still writes 0 to `PresetV_cathode` (the 2026-09-15
-    item); the PID's command is recorded there correctly.
-
-- The Hall sensor's zero, scale and filter, from the 2026-09-19 analysis
-  (queezz, 2026-09-19: "Yep, need all of that", answering the filter
-  recommendation). Supply correction and configurable calibration shipped in 4.22.0 (2026-09-30); remaining parts:
-  - The zero button and "Zero now" average 7.5 s instead of
-    `BASELINE_SECONDS = 2.0`: a 2 s zero lands at a random point of the
-    7.5 s pattern and is off by 11 mA (31 mA at worst), a 7.5 s zero by
-    1.8 mA.
-  - A causal filter on `Ip` for the live value and the PID: a 3-sample
-    mean and second-order notches at 1/7.5 s and its second and third
-    harmonics, Q = 100, designed for the actual sampling period (23 to
-    9 mA at 0.1 s delay); a 1 s mean on top for the display (about 4 mA).
-    The file keeps the raw readings, and the filter is named where the
-    value is shown. After the hardware rework, the ten quiet minutes decide
-    whether the notches are still needed; the 3-sample mean stays either
-    way.
-  The 2026-09-18 run should be put through the same analysis once its
-  files are in `data/rig/2026-09-18/`; they had not arrived on the home
-  machine on 2026-09-19.
-
+  - **The loop does not know the Kikusui's voltage limit.** The supply
+    reached 7.80 V three times on 2026-10-02; while it does, the command
+    has no effect and the integral winds (the 17:45 overshoot to 0.70 A).
+    The loop should hold its integral while the telemetry shows the
+    voltage pinned and the current not following. It needs a rule for
+    "pinned" from the two numbers the recorder already reads (no new
+    query to the supply), and a decision on what a telemetry loss does
+    to it; the cold start from 1000 mV avoids the case meanwhile.
+  - The recorder writes the file from the main thread still. 4.22.3 makes
+    a delivery cheap and writes before it draws, so a slow window no
+    longer delays the record; writing from the reader's own thread would
+    make that true by construction, and touches the thread ownership
+    docs/architecture/qt-threading.md lays down. Not needed today.
 - Kikusui follow-up after the first read-only recorder (owner decision
   2026-09-14): collect ordinary manual discharges and bakes before fixing PID
   or setting filament-condition alarm thresholds. 4.15.0 records a separate
@@ -226,10 +170,10 @@ holds what is still undecided or unbuilt.
   `/api/state` `kikusui` object. Later: retire
   the unwired analog placeholders with a versioned data contract, and make
   PID engage on an already ignited discharge with a smooth handover from
-  manual filament current. Do not silently redefine the old ADC columns.
-  Fix elapsed-manual-time integral saturation, the post-limit 1000 mV offset,
-  and manual-command CSV metadata before relying on that loop; define a
-  telemetry-dependent PID's loss/hold/off response before implementation.
+  manual filament current (shipped 4.23.0, with the elapsed-manual-time
+  integral, the 1000 mV offset and the manual command in the CSV). Do not
+  silently redefine the old ADC columns; define a telemetry-dependent PID's
+  loss/hold/off response before implementation.
   Filament monitoring should compare measured V/I and VI at matched operating
   conditions, with a healthy baseline and no automatic thinning diagnosis.
   Evidence: docs/diagnostics/2026-09-14-run-and-kikusui.md.
@@ -243,11 +187,12 @@ holds what is still undecided or unbuilt.
   tuning ... if it's not painful, maybe we do it anyways. Cause plasma
   changes, things change"). One packet, a backend build with no UI law
   to route through beyond the two buttons it already has:
-  - Bumpless pickup on a lit discharge: at engage the integrator is
-    preset so the first output equals the cathode drive already held, the
-    loop's clock starts at engage, the integral does not wind while the
-    output sits at a clamp, and the post-limit 1000 mV offset is removed.
-    Engage is refused, with its reason in the log and on the page, while
+  - Bumpless pickup on a lit discharge: shipped in 4.23.0 (the
+    integrator preset to the held drive, the clock started at engage, the
+    integral stopped at the limits, the 1000 mV offset gone, hand-back
+    leaving the drive where the loop put it). Still open from this bullet,
+    and now a question in the 2026-10-02 block above: whether engage is
+    refused, with its reason in the log and on the page, while
     Ip is below an ignition threshold (a number queezz sets; a safe
     default well above the -0.33 A off-plasma baseline plus its noise),
     so the loop never tries to light the plasma. Hand-back to Manual
@@ -831,9 +776,8 @@ holds what is still undecided or unbuilt.
     were 0 in all 24,708 rows of the plasma run: the manual cathode drive
     reaches the record only through the Kikusui sidecar's
     `commanded_cathode_mv`, and the gas was opened outside ControlUnit.
-    The manual drive must write `PresetV_cathode` (the 2026-09-14 note
-    named this; still open), and the file header should say what those
-    columns carry.
+    The manual drive writes `PresetV_cathode` from 4.23.0; the file header
+    should still say what those columns carry.
   - Ip noise is the instrument's, not the plasma's: sd 0.018 A quiet and
     0.021 A at 0.79 A. Two lines on Ip only: 0.1333 Hz (7.5 s, 13–18 mA,
     present before the Kikusui was configured) and 3.3333 Hz = fs/3
@@ -924,10 +868,10 @@ holds what is still undecided or unbuilt.
   `settings.yml` and the docs today; after the first run, a rename is a
   new column name a reader has to know about.
 - Rig code issues found 2026-09-04, ranked in the log entry of that night:
-  the ADC gain button is a no-op; the whole run is held in memory and
-  copied every step; a 9-hour offset hard-coded in the plot axis; the
-  "two workers done" count against three workers; the PID period not
-  following a mid-run sampling change. None is urgent at 0.1 Hz. Two more
+  the ADC gain button is a no-op; a 9-hour offset hard-coded in the plot
+  axis; the "two workers done" count against three workers. (The run held
+  in memory was fixed in 4.22.3 and the PID period following a sampling
+  change in 4.23.0.) None is urgent at 0.1 Hz. Two more
   from 2026-09-07 for the hardware side, not this code: Bu swings wildly
   below its detection floor (queezz's guess, the MeanWell supply) and Ip
   wants an RC filter on its ADC input; the browser's median smoothing is
@@ -1048,4 +992,4 @@ holds what is still undecided or unbuilt.
 - Diagnose and correct the ADC sampling cadence: the September 10 run requested 0.1 s but averaged 0.175640 s, with 46 intervals above 0.3 s and five above 0.4 s. The fast path waits a full period before doing acquisition work; slow successful reads also escape exception logging. Measure stage durations and overruns before attributing burst delays to hardware or GUI load. Evidence: docs/diagnostics/2026-09-10-plasma-reader.md, Timing follow-up.
 
 
-- ADC timing follow-up implemented locally in 4.13.0: deadline scheduling, typed batch buffers, vectorized plotting, elapsed ready polling and stage summaries. Off-device benchmark and fault tests pass; obtain comparable rig timing before declaring 10 Hz resolved. Remaining concerns include unbounded history and queued tail/run identity at shutdown. See docs/diagnostics/2026-09-10-adc-timing-optimization.md.
+- ADC timing follow-up implemented locally in 4.13.0: deadline scheduling, typed batch buffers, vectorized plotting, elapsed ready polling and stage summaries. Off-device benchmark and fault tests pass; obtain comparable rig timing before declaring 10 Hz resolved. Remaining concern: queued tail/run identity at shutdown (the unbounded history was fixed in 4.22.3). See docs/diagnostics/2026-09-10-adc-timing-optimization.md.
