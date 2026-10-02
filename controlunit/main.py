@@ -1279,7 +1279,10 @@ class MainApp(QtCore.QObject, UIWindow):
             return
         value = float(self.plasma_control_dock.cathode_spin_box.value())
         self.plasma_control_dock.ampere_spin_box.setValue(0.0)
-        self.workers["ADC"]["worker"].set_plasma_current.emit(0)
+        # The reader is told the held value and turns its loop off. It used
+        # to be told "PID off", which zeroed the DAC for an instant before
+        # the line below set it, and left the file's PresetV_cathode at 0.
+        self.workers["ADC"]["worker"].set_manual_drive.emit(value)
         self.workers["PlasmaCurrent"]["worker"].output_voltage_signal.emit(value)
         self.web_status.record_setpoints(plasma_a=0.0, cathode_mv=value)
         self.log_message(f"Cathode drive set to {value:.0f} mV, PID off")

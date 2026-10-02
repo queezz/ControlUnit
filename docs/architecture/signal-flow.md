@@ -10,12 +10,37 @@
 4. Raw row appended to `adc_values` DataFrame; converted row appended to
    `converted_values`.
 5. If a plasma-current setpoint is non-zero:
-   `plasma_current_control()` runs `simple_pid.PID(0.3, 0.1, 0)` against `Ip`
-   and emits `send_control_voltage` → `MCP4725`.
+   `plasma_current_control()` steps the cathode loop (`CathodeLoop`, below)
+   against `Ip` and emits `send_control_voltage` → `MCP4725`.
 6. Every `STEP` ticks: `send_processed_data_to_main_thread()` emits
    `data_ready([dataframe, device_name])`.
-   `MainApp.on_worker_step` routes to `_adc_step`, appends to
-   `self.datadict["ADC"]`, calls `save_data` (CSV append), triggers plot update.
+   `MainApp.on_worker_step` routes to `_adc_step`, which calls `save_data`
+   (CSV append) first, then adds the rows to the bounded
+   `self.datadict["ADC"]` (`RunHistory`) and redraws the plots.
+
+## What the main thread remembers of a run
+
+The file is the record; `self.datadict["ADC"]` is only what the window
+draws and what a baseline averages. It is a `RunHistory`
+(`controlunit/history.py`): plain column arrays filled in place, at most
+200,000 rows. When full, the older half is thinned to every second row, so
+a long run stays on the screen whole at a resolution that falls with age.
+A delivery costs what it brings and no more, however long the run.
+
+It was one pandas frame concatenated at every delivery until 4.22.3. Two
+days into the 0.1 s run of 2026-09-30 a delivery cost 1.3 s against 0.3 s
+between deliveries, the main thread was 25 hours behind, and the rows
+waiting behind it were lost when the frozen program was killed
+([the October 2 run](../diagnostics/2026-10-02-ar-plasma-pid-run.md)).
+
+Three things now stand between a slow window and the record. The file is
+written before anything is drawn. Each batch carries the moment the reader
+handed it over, and a delivery that arrives more than `BEHIND_SECONDS = 2`
+late is not redrawn, so the thread catches up; the Log says so once each
+way. And the lag travels in the web record: `/api/state` carries it as
+`data.behind`, and `/api/health` answers `degraded` with "screen N s behind
+the reader" while it lasts, so a surface can no longer say `live` over
+readings that are hours old.
 
 ## Averaging at slow sampling
 
@@ -68,12 +93,35 @@ def set_sampling_time(self, sampling_time):
 
 ## Plasma current PID
 
-Live. Uses [`simple_pid`](https://pypi.org/project/simple-pid/).
+Live. `CathodeLoop` in `controlunit/devices/cathode_loop.py`, held by the
+ADC worker.
 
-- `p=0.3, i=0.1, d=0`, `output_limits=(0, 4500)` mV.
-- Setpoint from GUI; feedback from Hall-effect sensor on channel 0.
+- Gains `PID_GAINS = (30, 40, 0)`: 30 mV per ampere of error and 40 mV per
+  ampere-second, almost purely integral. Output is the cathode drive,
+  limited to 0–5000 mV, all of the DAC.
+- Setpoint from the GUI or a browser; feedback from the Hall-effect sensor
+  on channel 0, with the `Ip` zero subtracted.
 - Actuator: MCP4725 DAC behind galvanic I²C isolator (Apr 2026).
-- `baseline = 1000` mV — empirical minimum for plasma ignition (Kawabata-kun).
+- **Engaging takes over from the drive already held.** Going from off to a
+  setpoint starts the loop's clock and sets its integral so that the first
+  command equals the manual drive the cathode holds; from there it moves at
+  the integral's pace, 40 mV/s per ampere of error. The main thread tells
+  the reader the manual value (`set_manual_drive`), which is also what the
+  file records in `PresetV_cathode` while the cathode is held by hand.
+- **A cold start begins at `COLD_START_MV = 1000`.** Engaged with the
+  cathode off, or held below 1000 mV, the loop starts there and walks the
+  filament up. This is the old loop's fixed base (Kawabata-kun's empirical
+  floor), kept as the cold start only.
+- Changing the setpoint of a running loop moves the setpoint and nothing
+  else. The Log carries one line per engagement, with the starting drive.
+- The integral stops at the limits. It does not yet know when the Kikusui
+  is at its own voltage limit, where the command has no effect.
+
+Until 4.23.0 this was a `simple_pid.PID` whose clock ran from the last
+time anything touched it: its first step integrated the error over the
+whole manual stretch before, on top of the 1000 mV base. On 2026-10-02
+three engagements started at 1728, 1759 and 1000 mV; the third put the
+plasma out.
 
 ## Membrane heater PID
 

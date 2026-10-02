@@ -67,7 +67,7 @@ flowchart LR
         APPEND["append raw + converted rows\nplain bounded buffers"]
         STEP_G{"buffer length\n>= STEP ?"}
         PID_G{"Ip setpoint\n≠ 0 ?"}
-        PID_CALC["simple_pid\np=0.3  i=0.1  d=0\noutput 0–4500 mV\nbaseline 1000 mV"]
+        PID_CALC["CathodeLoop\nP 30  I 40 mV per A\noutput 0–5000 mV\nengages from the held drive"]
     end
 
     subgraph MFC_SIDE["DAC8532 worker  —  QThread"]
@@ -76,7 +76,7 @@ flowchart LR
     end
 
     subgraph MAIN_SIDE["MainApp  —  Qt Main Thread"]
-        ON_STEP["on_worker_step\n_adc_step\ndatadict append"]
+        ON_STEP["on_worker_step\n_adc_step\nfile first, then\nbounded RunHistory"]
         CSV_W["save_data\nCSV append\ncu_YYYYMMDD_HHMMSS.csv\nself-describing header"]
         PLOT_W["graph.update\npyqtgraph\nplasma + pressure"]
         SYNC["trigger_signal.py\nGPIO 26 edge\nQMS_signal col logged"]

@@ -10,9 +10,9 @@ import pandas as pd
 import math
 import time, datetime
 from PyQt5 import QtCore
-from simple_pid import PID
 
 from controlunit.devices.adc_setter import AIO_32_0RA_IRC as adc
+from .cathode_loop import CathodeLoop
 from .device import DeviceThread
 from .timing import SampleClock, TimingDiagnostics
 
@@ -41,6 +41,21 @@ RETRY_SECONDS = 0.5
 #: so a bus that is down for an hour is one line a minute, not one a second.
 COMPLAIN_EVERY_SECONDS = 30.0
 
+#: The plasma-current loop's gains: millivolts of cathode drive per ampere
+#: of error, and per ampere-second. Almost purely integral, as it has been
+#: since the loop was written.
+PID_GAINS = (30.0, 40.0, 0.0)
+
+#: The range the loop may command, in millivolts: all of the cathode DAC.
+DRIVE_LIMITS_MV = (0.0, 5000.0)
+
+#: Where the loop starts when it is engaged with the cathode not driven (or
+#: driven below this): well under what lights a discharge, so the integral
+#: walks the filament up from here. It is the old loop's fixed 1000 mV base,
+#: kept as the cold start because the one cold start that began there, on
+#: 2026-10-02 at 17:47:58, lit the plasma without overshoot.
+COLD_START_MV = 1000.0
+
 
 def mean_of_readings(readings):
     """The per-channel mean of one period's raw voltage readings.
@@ -65,6 +80,8 @@ class ADC(DeviceThread):
     send_control_voltage = QtCore.pyqtSignal(float)
     send_zero_adjustment = QtCore.pyqtSignal(dict)
     set_plasma_current = QtCore.pyqtSignal(float)
+    # The drive the main thread is holding by hand, in mV: the loop is off.
+    set_manual_drive = QtCore.pyqtSignal(float)
     # The gauge's channel name, then the setting: each ionization gauge has
     # its own mode and exponent, set from its own selector.
     set_ig_mode_signal = QtCore.pyqtSignal(str, int)
@@ -143,6 +160,8 @@ class ADC(DeviceThread):
         self.zero_bd = 0
         self.set_sampling_time(self.config["Sampling Time"])
         self.pid_verbose = self.config.get("Verbose.Plasma Current PID", False)
+        self._pid_clock = time.monotonic
+        self.prep_pid()
         self._read_failures = 0
         self._failing_since = None
         self._last_complaint = None
@@ -158,6 +177,9 @@ class ADC(DeviceThread):
         """connect signals"""
         self.set_plasma_current.connect(
             self._set_plasma_current, type=QtCore.Qt.DirectConnection
+        )
+        self.set_manual_drive.connect(
+            self._set_manual_drive, type=QtCore.Qt.DirectConnection
         )
         self.set_ig_mode_signal.connect(
             self.set_ig_mode, type=QtCore.Qt.DirectConnection
@@ -384,12 +406,54 @@ class ADC(DeviceThread):
 
     @QtCore.pyqtSlot(float)
     def _set_plasma_current(self, plasma_current_setpopint):
-        """set dac voltage, controlling cathode current"""
-        self.plasma_current_setpopint = plasma_current_setpopint
-        self.pid.setpoint = self.plasma_current_setpopint
+        """The loop's setpoint in amperes; zero turns the loop off.
+
+        Going from off to a setpoint is an engagement: the loop takes over
+        from the drive the cathode already holds. Changing the setpoint of
+        a loop that is already running moves the setpoint and nothing else.
+        """
         if plasma_current_setpopint == 0:
+            self.plasma_current_setpopint = 0
             self.reset_current_control()
-        return
+            return
+        if self.plasma_current_setpopint:
+            self.pid.setpoint = float(plasma_current_setpopint)
+            self.plasma_current_setpopint = plasma_current_setpopint
+            return
+        # The reader steps the loop from its own thread as soon as the
+        # setpoint is not zero, so the engaged loop is in place first.
+        self._engage_pid(float(plasma_current_setpopint))
+        self.plasma_current_setpopint = plasma_current_setpopint
+
+    def _engage_pid(self, setpoint):
+        """Start the loop from what the cathode is driven with right now."""
+        held = float(self.control_voltage or 0.0)
+        start = max(held, COLD_START_MV)
+        measured = None
+        if math.isfinite(self.plasma_current_converted):
+            measured = self.plasma_current_converted - self.zero_ip
+        loop = self._new_loop(setpoint)
+        loop.engage(start, measured)
+        self.pid = loop
+        origin = "the drive already held" if held >= COLD_START_MV else "a cold start"
+        reading = "unavailable" if measured is None else f"{measured:.3f} A"
+        self.send_message.emit(
+            f"Plasma current PID engaged at {start:.0f} mV ({origin}),"
+            f" Ip {reading}, setpoint {setpoint:.2f} A"
+        )
+
+    @QtCore.pyqtSlot(float)
+    def _set_manual_drive(self, millivolts):
+        """The cathode is held by hand at `millivolts`; the loop is off.
+
+        The main thread writes the DAC itself. What it tells the reader is
+        only the number, for two uses: the row records it in
+        `PresetV_cathode`, which read 0 through every manual stretch before,
+        and a later engagement starts from it.
+        """
+        self.plasma_current_setpopint = 0
+        self.prep_pid()
+        self.control_voltage = float(millivolts)
 
     def reset_current_control(self):
         self.prep_pid()
@@ -397,21 +461,27 @@ class ADC(DeviceThread):
 
     def update_pid_coefficients(self, pid_coefficients):
         """update pid"""
-        # self.pid.Ki = 1.0
         self.pid.tunings = pid_coefficients
-        # self.signal_send_pid.emit(self.pid.tunings)
+
+    def _new_loop(self, setpoint):
+        return CathodeLoop(
+            *PID_GAINS,
+            setpoint=setpoint,
+            limits=DRIVE_LIMITS_MV,
+            sample_time=self.sampling_time * self.STEP,
+            clock=self._pid_clock,
+        )
 
     def prep_pid(self):
-        """
-        Set PID parameters
-        ouptput is control voltage, from 0 to 5000 V.
-        """
-        p, i, d = 30, 40, 0
-        self.pid = PID(p, i, d, setpoint=self.plasma_current_setpopint)
-        self.pid.output_limits = (0, 4500)
-        # self.pid.integral_limits = (-1250, 1250)
-        self.pid.sample_time = self.sampling_time * self.STEP
-        # self.signal_send_pid.emit(self.pid.tunings)
+        """A fresh loop: output is the cathode drive in mV."""
+        self.pid = self._new_loop(self.plasma_current_setpopint)
+
+    def set_sampling_time(self, sampling_time):
+        """The loop steps once per delivery, so it follows the sampling."""
+        super().set_sampling_time(sampling_time)
+        loop = getattr(self, "pid", None)
+        if loop is not None:
+            loop.sample_time = self.sampling_time * self.STEP
 
     def plasma_current_control(self):
         """
@@ -419,9 +489,9 @@ class ADC(DeviceThread):
         """
         if not math.isfinite(self.plasma_current_converted):
             return  # Hold the command; never feed a missing reference to PID.
-        baseline = 1000 #2000 #mV, corresponds to 16A
         output = self.pid(self.plasma_current_converted - self.zero_ip)
-        output = output + baseline
+        if not self.plasma_current_setpopint:
+            return  # turned off while this step ran: the hand holds the DAC
         self.set_cathode_current(output)
         if self.pid_verbose:
             print(
@@ -429,7 +499,6 @@ class ADC(DeviceThread):
                 output,
                 self.plasma_current_converted - self.zero_ip,
             )
-
     # MARK: start
     @QtCore.pyqtSlot()
     def start(self):
@@ -615,7 +684,8 @@ class ADC(DeviceThread):
         is one conversion; at and above it the period is filled with
         conversions and the row holds their mean.
         """
-        self.prep_pid()
+        if not self.plasma_current_setpopint:
+            self.prep_pid()
         self._cadence = None
         self._last_sample_clock = None
         diagnostics = TimingDiagnostics("ADC timing", self.send_message.emit, clock=time.monotonic)

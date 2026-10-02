@@ -11,7 +11,7 @@ The box exists. It sits in a multi-chamber plasma lab. It is used today.
 - Logs plasma parameters and vacuum via one I²C ADC (AIO-32/0RA-IRC).
 - Controls two MFCs (H₂ 20 SCCM, O₂ 10 SCCM) via a DAC8532.
 - Controls plasma current via a galvanically isolated MCP4725 DAC,
-  with a `simple_pid` feedback loop.
+  with a feedback loop that takes over from the drive already held.
 - Emits a shared GPIO sync signal (and front-panel LED) to time-align
   external loggers — QMS and others.
 

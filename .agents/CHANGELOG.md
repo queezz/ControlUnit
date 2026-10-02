@@ -1,3 +1,25 @@
+## 4.23.0 — 2026-10-02
+
+- The plasma-current PID takes over from the drive the cathode already
+  holds. Its first command used to be 1000 mV plus forty times the error
+  times the seconds since anybody last touched the loop: on 2026-10-02 the
+  three engagements started at 1728, 1759 and 1000 mV, and the third put
+  the plasma out (queezz: "Manual to PID failed this time"). Engaging now
+  starts the loop's clock and sets its integral so the first command is the
+  manual drive, then moves at the integral's pace.
+- Engaged with the cathode off, the loop starts at 1000 mV and walks up
+  from there, the one cold start of 2026-10-02 that lit without overshoot.
+- The Log carries a line per engagement with the starting drive. Changing
+  the setpoint of a running loop does not restart it. The loop's step
+  follows a mid-run change of sampling time.
+- The file records the manual cathode drive in `PresetV_cathode`, which
+  read 0 through every manual stretch before. Setting a manual value no
+  longer writes 0 to the DAC for an instant first.
+- The loop is this program's own forty lines (`cathode_loop.py`), tested
+  against the three engagements; `simple-pid` is no longer a dependency.
+  Gains are unchanged (30 mV/A, 40 mV/A·s); the range is 0–5000 mV, all of
+  the DAC, where it was 1000–5500.
+
 ## 4.22.3 — 2026-10-02
 
 - A long fast run no longer chokes the program. The whole run used to be
