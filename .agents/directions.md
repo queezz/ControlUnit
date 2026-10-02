@@ -20,7 +20,55 @@ holds what is still undecided or unbuilt.
   Safe default: the lists stand as they are. Either way it is one line in
   `PRESETS` in `controlunit/web/server.py`.
 
+- Should the Hall sensor's resting point be written into the settings as
+  0.4961 of its supply instead of the assumed 0.5000, so an un-zeroed
+  readout and the PID's setpoint mean the real current? — awaiting the owner.
+  On 2026-10-02 the readout with no discharge was −0.098 A all run (and
+  −0.098 A on 2026-09-30), nobody pressed Zero Ip, and the PID's "0.50 A"
+  was therefore 0.60 A at the sensor.
+  Stakes: with the change a fresh start reads about 0 A with no plasma and
+  a PID setpoint is the Hall current; old files are not touched, and a run
+  after the change differs from one before by that 0.098 A unless both are
+  zeroed.
+  Recommendation: yes — one line, `Zero Ratio: 0.4961` in `settings.yml`,
+  with the date in the file header's formula line; Zero Ip stays for the
+  last few milliamperes.
+  Safe default: nothing changes, and Zero Ip has to be pressed before
+  every discharge for the PID's number to be the current.
+  Evidence: docs/diagnostics/2026-10-02-ar-plasma-pid-run.md.
+
 ## Work only queezz can do
+
+- Say which wire the Hall sensor sits on, and run the known-current
+  calibration — owner work pending. On 2026-10-02 the Hall current, zero
+  removed, was 0.60 A while your table read I_pl 0.7 A and I_pre 0.9 A;
+  on 2026-09-15 it was 0.78 A against 1 A. After the zero, what is left
+  is the sensor's scale (the settings' 5 A per volt is provisional and
+  matches no documented part) and which current it is measuring at all —
+  anode, preanode or the cathode return carry different currents. The
+  calibration is step 7 of the Hall rework: 0, ±0.5, ±1 and ±2 A, 30 s
+  each at 10 Hz, discharge off. The rest of that rework you reported done
+  on 2026-09-29 (fleet letter `20260929-2e17d3fd-15bcb4`), and the files
+  agree: `Vhall` is recorded on channel 1 since 2026-09-30 and the quiet
+  ten minutes exist (2026-10-02 17:02–17:11, sd 9.7 mA against 23 mA
+  before).
+  Done when: the conductor and the sensor's part number are written in
+  docs/hardware/channel-map.md and a calibration file exists with the
+  currents noted by time.
+- Put a meter or a scope on the cathode DAC's output at the green plug
+  and watch for a step every 7.5 s — owner work pending. The 2026-10-02
+  files show the filament current itself stepping by 37 mA (0.24 %) for
+  2.5 s out of every 7.5 s under a constant command, and the plasma
+  current following by 25 mA. The 2026-09-15 files show the same step
+  with no plasma at all, and always the same fraction (0.12–0.14 % from
+  5 A to 16 A), so it multiplies the command: the DAC's output is moving
+  with its own 5 V supply (an MCP4725 is a fraction of its supply), about
+  12 mV, on the same 7.5 s cycle the Hall sensor showed on the Pi's 5 V.
+  Look at the DAC's supply pin too, and for what on that rail switches
+  every 7.5 s. A wire from the DAC output back to a spare ADC channel
+  would record it in every run; a DAC with its own reference would end it.
+  Done when: the step is seen (or not) at the plug and on the DAC's
+  supply, with its size, and the note says what draws it.
 
 - Restart the rig onto 4.18.0 from its desktop shortcut — owner work
   pending. On 2026-09-15, on your word "fix then deploy", master was pushed
@@ -73,38 +121,81 @@ holds what is still undecided or unbuilt.
   for a day the office PC is unreachable.
   Done when: the Control tab's Acting-as field is a list of names rather
   than a text box, and its heading says "· PIHTI Log" with a time.
-- Rework the Hall sensor's wiring at the rig — owner work pending (queezz,
-  2026-09-19: "I don't have RC and ferrite in that ADC channel, can add it.
-  And the power, I can power the Hall directly. Now it's from RasPi, but
-  RasPi sits on a big Mean Well PSU, 10A"). The steps and part values are
-  in docs/diagnostics/2026-09-19-hall-sensor-noise.md, "What the hardware
-  can change" (amended the same day from the ADC board's schematic, the
-  breakout's board file, and his corrections: the breakout has a ground,
-  the ADC board has pads for the RC and surge diodes, all empty, and the
-  breakout's BNC channels carry resistors and capacitors he fitted, so the
-  gauges have an RC and the terminal channels, `Ip` among them, none): (1) a wire from the sensor's own 5 V
-  pin to **channel 1**, the lower terminal block's "1" beside `Ip`'s "0"
-  (the channel the software item below records), then ten quiet minutes at
-  10 Hz; (2) the sensor's ground from the breakout's ground, which is the
-  ADC board's analogue ground, instead of the Pi's ("better to use the ADC
-  side ground. Star like and all"); (3) the sensor on its own supply, its
-  minus joined at that same ground and nowhere else; (4) 2.2 µF ceramic on
-  the ADC board's C1 (channel 0) and the same on C3 (channel 1) — the
-  board's own 39 kΩ / 10 kΩ divider makes the RC, a 9 Hz corner — and
-  never on C41/C42, which sixteen channels share; (5) if clamp diodes go
-  on D1/D3, a silicon BAV99 rather than a Schottky; (6) a clip-on ferrite
-  on the sensor cable and 100 nF with 10 µF at the sensor's supply pins,
-  keeping the breakout's resistors where they are; (7) a calibration run with a known current, 0, ±0.5, ±1 and ±2 A,
-  30 s each at 10 Hz, the discharge off. Also needed, a fact rather than
-  labour: which sensor is fitted (ACS712-05B, -20A, -30A or WCS1800),
-  since the conversion's 5 A/V matches none of them. Before any of it, a
-  multimeter on the sensor's supply pins is expected to read about
-  4.91 V; that one number tests the explanation of the negative zero.
-  Done when: a file recorded after the change holds ten quiet minutes at
-  10 Hz with the supply channel in it, and a calibration run with the
-  currents noted by time.
 
 ## Ready to build
+
+- From the 2026-10-02 argon run (queezz's journal of that day, and
+  docs/diagnostics/2026-10-02-ar-plasma-pid-run.md for every number):
+  - **A long fast run hangs the program and loses the data — first.** The
+    run started 2026-09-30 17:04 at 0.1 s fell behind real time within
+    about four hours, was 25.4 hours behind when he killed it over VNC
+    ("GUI non-responsive, but also WebUI is non-responsive"), and its
+    file ends 25 hours early. The cause is the old item below, the whole
+    run held in memory and copied at every delivery: append and redraw
+    each grow with the run's length (4 and 21 ms at the start, 627 and
+    659 ms after two days, against 300 ms between deliveries). Build: the
+    file is written by the reader's side or before any redraw, so a slow
+    window can never hold back the record; the in-memory history is a
+    bounded, pre-allocated buffer, thinned for the plot; and the delivery
+    queue is watched, with one loud log line and a visible chip when the
+    main thread is more than a few seconds behind. A test feeds a day of
+    0.1 s samples to dummy hardware and holds the per-delivery cost flat.
+  - **Taking over must not zero the cathode.** At 17:23:44 the laptop
+    took control and its first press sent 0 mV, putting the plasma out:
+    the Control tab fills the millivolt field once at page load
+    (`paintCathode` in `control.js`, `dataset.initialized`), so a page
+    opened before another browser set 1800 mV still holds 0, and the
+    step buttons step from the field. The field follows the rig's
+    applied value whenever this browser is not editing it, a step starts
+    from the applied value, and Take over repaints every setter field
+    from the rig. The same audit for the gas and PID fields.
+  - **The PID's first command is an accident of the clock.** Three
+    engagements, three starts: 1728 mV, 1759 mV and 1000 mV (which put
+    the plasma out), all equal to 1000 + 40 × error × seconds since the
+    last manual set or PID off. This is the bumpless-pickup item below
+    with its test cases now measured. Two additions from this run: the
+    loop should hold its integral while the Kikusui reports its voltage
+    limit (7.80 V, reached three times; the command rose 34 mV with no
+    effect and then overshot), and the PID should refuse or warn when
+    `Ip` has not been zeroed and reads away from zero with the supply's
+    output off ("PID tries to keep readout as given, ignoring the Ip
+    signal zero. I never zeroed the sensor. So... Almost a bug").
+  - **Show the PID's command.** "There is no signal voltage exposed from
+    PID run, so I can use that to start the manual emission." It is in
+    `/api/state` as `setpoints.cathode_mv` and in the file; the Cathode
+    card's Held line shows it beside the setpoint while the PID holds,
+    and switching to Manual offers that value as the field's start.
+  - **Kikusui cards must not blink.** "We should not blink, and we
+    shouldn't change state. But we can gray those Kikusui panels when
+    there is no response for a reasonable time." The recorder answered
+    5,150 polls in the 43 minutes with no interval above a second, so the
+    blinking is the page's own freshness rule, not the LAN: hold the last
+    value and its state, and grey the two cards only after several
+    seconds without a fresh reading.
+  - **An hour of plot at 0.1 s.** "1 hour plot cuts of data. Points
+    limit? We need to do better... Especially if we are running 1-2 hour
+    plasmas." The browser keeps 20,000 samples (`STORE_MAX` in
+    `live.js`), 33 minutes at 0.1 s. Keep the recent part whole and thin
+    the older part instead of dropping it, so two hours stay on screen.
+  - **The Settings group goes** (owner decision 2026-10-02: "the right
+    rail on the controlunit is very long when I want to access something
+    simple like IG, or sampling. I say we get rid of the settings group
+    as it is. It hides controls from me"). This is the 4.19 design's
+    status-line Sampling and QMS sync and the Ion gauges card, further
+    down this file; build it from there. The panel and grouping PIHTI
+    Log's letter `20260915-7d7f0cb5-fa5d91` carries are his approved
+    reference for it: cathode Ic, Vc and plasma Ip together in that
+    order; upstream Pu, Pu2, Bu together; downstream Pd, Bd together and
+    quieter; green lamps for on, numbers in readout boxes, sampling and
+    the other statistics compact; mantissa and exponent flowed as one
+    run with no gap. Picture: `docs/controlunit-panel-example.svg` in
+    PIHTI Log's repository. Design guidance, not a change to control.
+  - **Output on/off logs the wrong readback.** "Kikusui output ON sent,
+    readback 0" and "OFF sent, readback 1" every time: the query follows
+    the write too soon. Wait for the supply, then read, and say
+    "confirmed" only when the readback agrees.
+  - The manual drive still writes 0 to `PresetV_cathode` (the 2026-09-15
+    item); the PID's command is recorded there correctly.
 
 - The Hall sensor's zero, scale and filter, from the 2026-09-19 analysis
   (queezz, 2026-09-19: "Yep, need all of that", answering the filter
