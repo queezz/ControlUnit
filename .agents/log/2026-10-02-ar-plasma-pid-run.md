@@ -54,11 +54,13 @@ lines, which a reboot clears.
    times.
 4. A 0.1333 Hz step, 2.5 s low in 7.5 s, is in the filament current
    itself (37 mA peak to peak by the Kikusui's own measurement, constant
-   command) and in the plasma current (25 mA). The 2026-09-15 files show
-   it with no plasma, at the same 0.12–0.14 % from 5 A to 16 A, so it
-   multiplies the command: the MCP4725's output following its own 5 V
-   supply. The 2026-09-19 page read that line as the Hall supply alone;
-   it is the rail, and the cathode DAC hangs on it too.
+   command) and in the plasma current (25 mA). Whether it is the
+   MCP4725 following its own 5 V supply or a ground shift on the control
+   cable is open. This entry first settled it from the 2026-09-15 files;
+   queezz then ruled the September runs out as measurements (preanode
+   grounding, his journal of 2026-09-09 to 2026-09-11, which this session
+   had not read before using those files), and the conclusion was
+   withdrawn the same evening.
 5. Web: takeover sent 0 mV from a stale field; the Cathode cards blinked
    with the supply answering every poll; the browser's 20,000-sample
    store cuts an hour at 0.1 s; output on/off logs the readback before

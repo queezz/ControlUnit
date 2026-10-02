@@ -20,29 +20,12 @@ holds what is still undecided or unbuilt.
   Safe default: the lists stand as they are. Either way it is one line in
   `PRESETS` in `controlunit/web/server.py`.
 
-- Should the Hall sensor's resting point be written into the settings as
-  0.4961 of its supply instead of the assumed 0.5000, so an un-zeroed
-  readout and the PID's setpoint mean the real current? — awaiting the owner.
-  On 2026-10-02 the readout with no discharge was −0.098 A all run (and
-  −0.098 A on 2026-09-30), nobody pressed Zero Ip, and the PID's "0.50 A"
-  was therefore 0.60 A at the sensor.
-  Stakes: with the change a fresh start reads about 0 A with no plasma and
-  a PID setpoint is the Hall current; old files are not touched, and a run
-  after the change differs from one before by that 0.098 A unless both are
-  zeroed.
-  Recommendation: yes — one line, `Zero Ratio: 0.4961` in `settings.yml`,
-  with the date in the file header's formula line; Zero Ip stays for the
-  last few milliamperes.
-  Safe default: nothing changes, and Zero Ip has to be pressed before
-  every discharge for the PID's number to be the current.
-  Evidence: docs/diagnostics/2026-10-02-ar-plasma-pid-run.md.
-
 ## Work only queezz can do
 
 - Say which wire the Hall sensor sits on, and run the known-current
   calibration — owner work pending. On 2026-10-02 the Hall current, zero
-  removed, was 0.60 A while your table read I_pl 0.7 A and I_pre 0.9 A;
-  on 2026-09-15 it was 0.78 A against 1 A. After the zero, what is left
+  removed, was 0.60 A while your table read I_pl 0.7 A (the anode
+  supply's panel) and I_pre 0.9 A. After the zero, what is left
   is the sensor's scale (the settings' 5 A per volt is provisional and
   matches no documented part) and which current it is measuring at all —
   anode, preanode or the cathode return carry different currents. The
@@ -59,16 +42,21 @@ holds what is still undecided or unbuilt.
   and watch for a step every 7.5 s — owner work pending. The 2026-10-02
   files show the filament current itself stepping by 37 mA (0.24 %) for
   2.5 s out of every 7.5 s under a constant command, and the plasma
-  current following by 25 mA. The 2026-09-15 files show the same step
-  with no plasma at all, and always the same fraction (0.12–0.14 % from
-  5 A to 16 A), so it multiplies the command: the DAC's output is moving
-  with its own 5 V supply (an MCP4725 is a fraction of its supply), about
-  12 mV, on the same 7.5 s cycle the Hall sensor showed on the Pi's 5 V.
-  Look at the DAC's supply pin too, and for what on that rail switches
-  every 7.5 s. A wire from the DAC output back to a spare ADC channel
-  would record it in every run; a DAC with its own reference would end it.
-  Done when: the step is seen (or not) at the plug and on the DAC's
-  supply, with its size, and the note says what draws it.
+  current following by 25 mA. Two causes fit: the DAC's output moving
+  with its own 5 V supply (an MCP4725 is a fraction of its supply; 12 mV
+  would do it, on the same 7.5 s cycle the Hall sensor showed on the
+  Pi's 5 V), or the ground between the box and the Kikusui's control
+  input shifting by about 4 mV. The first scales with the drive, the
+  second does not, and 2026-10-02 holds only one level. The cheapest
+  test needs no scope and no plasma: output on, no gas, two minutes at
+  600 mV and two at 1800 mV at 0.1 s, and a session reads the step's
+  size at both. (The September files hint at the first cause, but they
+  do not count: your ruling of 2026-10-02, AGENTS.md.) A wire from the
+  DAC output back to a spare ADC channel would record it in every run; a
+  DAC with its own reference would end it.
+  Done when: a filament-only file with two drive levels exists, or the
+  step is seen at the plug and on the DAC's supply, and the note says
+  which cause it is.
 
 - Restart the rig onto 4.18.0 from its desktop shortcut — owner work
   pending. On 2026-09-15, on your word "fix then deploy", master was pushed
@@ -228,7 +216,10 @@ holds what is still undecided or unbuilt.
   assessment, "full manual gas and cathode ... Very good plasma, 15 min.
   Constant current" — 18:54 to 19:10, 0.77–0.79 A on the Hall sensor,
   the supply flat at about 16.5 A and 7.7 V, drive and gas untouched.
-  That is the baseline the PID rebuild starts from. The cable/address are
+  That was called the baseline the PID rebuild starts from; it is not
+  one any more (owner ruling 2026-10-02: the September runs had the
+  preanode grounding and are not measurements — AGENTS.md). The baseline
+  is the 2026-10-02 run. The cable/address are
   established in the lab record and read-only SCPI was verified with
   output off.
   4.17.0 publishes fresh Kikusui V/I in Qt, full WebUI cards and a separate

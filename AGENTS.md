@@ -157,6 +157,21 @@ repository with gates to dodge, and "starting a commander for this write
 is a waste". The journal's own day file stays his to write. Code in a
 sibling's *repository* is still a letter.
 
+## Which runs count as measurements
+
+**Read the journal for the source's state before analysing a run (owner
+ruling 2026-10-02, live).** The September 2026 discharges ran with the
+preanode grounding through the plasma — the journal of 2026-09-09 to
+2026-09-11 says so in his words, "PREANODE GROUNDS, 5Ohm after plasma" —
+and queezz ruled them out: "don't take those for any meaningful
+measurements". That covers every September file, the 2026-09-15 evening
+included, and every use: a current calibration, a PID baseline, a noise
+or ripple figure taken under plasma. They remain evidence of how the
+program behaved, never of what the plasma or the supplies did. The first
+run to measure from is 2026-10-02. A session that reaches for an older
+file opens that day's journal first; this ruling exists because one did
+not, and had to withdraw a conclusion the same evening.
+
 ## Read first
 
 1. [README.md](README.md) — current hardware, runtime status, and documentation.

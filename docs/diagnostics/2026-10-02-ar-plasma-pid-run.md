@@ -97,8 +97,9 @@ I_pl 0.7 A and I_pre 0.9 A while the Hall current, zero removed, was
 one the 2026-09-19 page left open: the conversion's 5 A/V (200 mV/A) is
 provisional and matches no sensor the lab documents. If the part is an
 ACS712-05B (185 mV/A) the 0.60 A is 0.65 A; to read 0.70 A the sensor
-would have to be 171 mV/A. On 2026-09-15 the same comparison was 0.78 A
-against 1 A. Two things are needed to close it and neither is in a file:
+would have to be 171 mV/A. I_pl is the anode supply's panel reading (the
+journal of 2026-09-15 names it so). Two things are needed to close it and
+neither is in a file:
 which conductor the sensor is on (anode, preanode or the cathode return
 — the two supplies read different currents, so they cannot both match),
 and one calibration with a known current, the step still open from the
@@ -191,29 +192,30 @@ So the filament current is really being modulated, by about 0.24 % peak
 to peak, and the discharge current follows at about 0.6 A per ampere of
 filament current.
 
-The plasma is not needed for it, and its size follows the drive. The
-2026-09-15 files hold a filament conditioning with no gas and no
-discharge, and the discharge of that evening:
+The cause is not settled by this run. The cathode DAC is an MCP4725,
+whose output is a fraction of its own supply voltage, so a 12 mV step on
+its 5 V supply for 2.5 s out of every 7.5 s would do exactly this, and it
+is the same 7.5 s the Hall sensor showed while it ran from the Pi's 5 V
+pin; a ground shift of about 4 mV between the box and the supply's
+control input would do it too. The two differ in how the step scales: a
+reference error multiplies the command, a ground shift adds the same
+milliamperes at every level. This run holds only one level, 15 to 16 A.
+A filament-only record at two drive levels, no gas and no discharge,
+tells them apart, and so does a meter or scope on the DAC's supply pin
+and on its output at the green plug.
 
-| Record | Command | Filament current | Line at 0.1333 Hz | As a fraction |
-| --- | --- | --- | --- | --- |
-| 2026-09-15, no plasma | 599 mV | 4.94 A | 6.2 mA | 0.12 % |
-| 2026-09-15, discharge | 1900 mV | 16.51 A | 18–21 mA | 0.12 % |
-| 2026-10-02, discharge | 1730–1800 mV | 15.1–15.5 A | 19–23 mA | 0.14 % |
-
-A disturbance that keeps the same fraction from 5 A to 16 A multiplies
-the command; a ground shift between the box and the supply's control
-input would add the same few milliamperes at every level, and it does
-not. That points at the DAC's reference: the cathode DAC is an MCP4725,
-whose output is a fraction of its own supply voltage, and a 12 mV step
-on its 5 V supply for 2.5 s out of every 7.5 s does exactly this. It is
-the same 7.5 s the Hall sensor showed while it ran from the Pi's 5 V
-pin. Something on that rail draws current on that cycle. A meter or
-scope on the DAC's supply pin and on its output at the green plug
-confirms it; a DAC with its own reference, or a clean regulator for the
-one fitted, removes it. Wiring the output back to a spare ADC channel
-would record the drive in every run.
-
+**Corrected 2026-10-02, the same evening.** This section first settled
+the question with the 2026-09-15 files (a 599 mV conditioning with no
+plasma, 6.2 mA on 4.94 A, and that evening's discharge, 18–21 mA on
+16.5 A: the same 0.12 % at both levels, which reads as a reference
+error). Queezz ruled the September runs out as measurements: the
+preanode was grounding through the discharge then (journal 2026-09-09 to
+2026-09-11, "PREANODE GROUNDS, 5Ohm after plasma"), and he does not want
+anything meaningful taken from them. The comparison is kept here as what
+it is, a hint from files that do not count, and the conclusion drawn
+from it is withdrawn until a clean record repeats it. The same applies
+to the 0.78 A against 1 A of 2026-09-15 that an earlier version of the
+current section quoted.
 The PID does not reject it: its command moves 0.8 mV at that frequency
 against the 4–5 mV the disturbance needs. It is 4 % of the discharge
 current, peak to peak, and most of what looks like noise on a lit `Ip`.
