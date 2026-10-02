@@ -384,7 +384,11 @@ measured, and a readout with a baseline held says `zeroed` beside its name.
 
     **The browser keeps its own history.** The page fills once from the ring
     and then asks `since` (above), appending into a per-channel store capped
-    at a day. The window buttons cut that store and redraw without asking the
+    at a day and at 20,000 points a channel. Past the count the older half of
+    the store is thinned to every second point (4.23.2), so the recent stretch
+    stays whole and a long fast run stays on the chart from its start; before
+    that the oldest points were dropped, and an hour at 0.1 s showed its last
+    33 minutes. The window buttons cut that store and redraw without asking the
     rig anything, so `Full` is what this browser has seen — said once, as an
     aside on the Window card's heading. A new run — a different start time or
     a different file — empties the store and refills it from the ring.
@@ -597,6 +601,19 @@ measured, and a readout with a baseline held says `zeroed` beside its name.
   from `setpoints.plasma_a` and `setpoints.cathode_mv` and stated once, on the
   group's own feedback line, so the switch never moves on its own when
   somebody else sets the rig. Baseline zero buttons sit in the corresponding plot headers (4.7.2). Stop all outputs remains independently available.
+
+  **A setter field nobody is editing reads the rig** (4.23.2). The gas
+  fields, the cathode's Drive field and the PID's setpoint field follow what
+  the rig holds until their reader types or steps, keep that draft until it
+  is sent, and follow again once the draft is what the rig holds. When
+  control changes hands every draft is dropped. They used to be filled once,
+  at page load: on 2026-10-02 a laptop whose page predated a phone's 1800 mV
+  took control, stepped down from the 0 its field still showed, and put the
+  plasma out. While the loop holds the cathode its command stands on the
+  feedback line beside the setpoint (`Held · PID 0.50 A · 1773 mV`), and the
+  Drive field reads it too, so switching to Manual and pressing Set carries
+  on from where the loop was. The folded card's line keeps its two facts,
+  what is driving and what Ip reads, and does not grow.
 
   **The mode switch is one control on the group's own heading line**, from
   4.13.0 (owner direction 2026-09-10, looking at 4.12.0 on the rig: *"Can we

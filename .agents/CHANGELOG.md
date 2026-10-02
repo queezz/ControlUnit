@@ -1,3 +1,26 @@
+## 4.23.2 — 2026-10-02
+
+- Taking over no longer starts from a stale field. The gas, cathode Drive
+  and PID setpoint fields follow what the rig holds until their reader
+  edits them, and every draft is dropped when control changes hands. On
+  2026-10-02 a laptop took control from a phone, stepped down from the 0
+  its Drive field had held since page load, and put the plasma out
+  (queezz: "Need to address this issue when taking over").
+- With the PID holding the cathode, its command is shown beside the
+  setpoint, and the Drive field reads it, so Manual carries on from where
+  the loop was ("there is no signal voltage exposed from PID run").
+- The Cathode V and I cards and the output lamp no longer blink. A reading
+  that goes missing is held unchanged for ten seconds, then the cards turn
+  grey with a dash and the reason ("We should not blink, and we shouldn't
+  change state. But we can gray those Kikusui panels when there is no
+  response for a reasonable time"). The supply had answered every poll of
+  that run; the page was giving a reading up 1.5 s after a 1 s poll.
+- An hour and more at 0.1 s stays on the charts: past 20,000 points the
+  browser thins the older half instead of dropping it ("1 hour plot cuts
+  of data").
+- The freshness pill says how far the rig's screen is behind its reader,
+  when it is.
+
 ## 4.23.1 — 2026-10-02
 
 - Switching the Kikusui's output waits for the supply's own answer to

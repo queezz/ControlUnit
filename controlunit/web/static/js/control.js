@@ -219,6 +219,37 @@
 
     function setupGasRow(row) { setupDraftRow(row, GAS_DRAFT); }
 
+    /* A draft field follows what the rig holds until its reader edits it,
+       and follows again once the edit is what the rig holds.
+
+       It used to be filled once, when the page loaded. On 2026-10-02 a
+       laptop's page had loaded before a phone set the cathode to 1800 mV;
+       the laptop took control, its field still said 0, one press of a step
+       button stepped from there, and the plasma went out. A field nobody
+       is editing is a reading of the rig, not a memory of the page. */
+    function followApplied(row, input, held) {
+        row.dataset.applied = String(held);
+        if (input.dataset.edited && input.value !== ''
+                && Number(input.value) === Math.round(Number(held))) {
+            delete input.dataset.edited;
+        }
+        if (!input.dataset.edited) input.value = Math.round(Number(held));
+    }
+
+    /* Control changed hands: whatever was half-typed here belonged to the
+       moment before, and every field goes back to reading the rig. */
+    var DRAFT_INPUTS = '[data-role="mfc-input"], [data-role="cathode-input"], [data-role="plasma-input"]';
+    var holding = null;
+    function noteControl(state) {
+        var mine = Boolean((state.control || {}).mine);
+        if (holding !== null && mine !== holding) {
+            root.querySelectorAll(DRAFT_INPUTS).forEach(function (input) {
+                delete input.dataset.edited;
+            });
+        }
+        holding = mine;
+    }
+
     function reflectDraft(row, spec) {
         var input = row.querySelector(spec.input);
         var changed = input.value === '' || Number(input.value) !== Number(row.dataset.applied);
@@ -236,12 +267,8 @@
         root.querySelectorAll(".frow[data-mfc]").forEach(function (row) {
             var number = row.dataset.mfc;
             var held = Number(sp["mfc" + number + "_v"] || 0);
-            row.dataset.applied = String(held);
             var input = row.querySelector('[data-role="mfc-input"]');
-            if (!input.dataset.initialized) {
-                if (!input.dataset.edited) input.value = Math.round(held);
-                input.dataset.initialized = 'true';
-            }
+            followApplied(row, input, held);
             reflectDraft(row, GAS_DRAFT);
             set('[data-role="mfc-setpoint"][data-mfc="' + number + '"]',
                 Math.round(held) + " mV");
@@ -402,8 +429,13 @@
         var sp = state.setpoints || {};
         var amperes = Number(sp.plasma_a || 0);
         var millivolts = Number(sp.cathode_mv || 0);
+        /* With the loop on, its command is said beside its setpoint: it is
+           the number a person needs to carry on by hand from where the loop
+           was (queezz, 2026-10-02: "there is no signal voltage exposed from
+           PID run, so I can use that to start the manual emission"). */
+        var loop = "Held · PID " + amperes.toFixed(2) + " A";
         var driving = amperes > 0
-            ? "Held · PID " + amperes.toFixed(2) + " A"
+            ? loop + (millivolts > 0 ? " · " + Math.round(millivolts) + " mV" : "")
             : millivolts > 0
                 ? "Held · manual " + Math.round(millivolts) + " mV"
                 : "off";
@@ -414,18 +446,30 @@
         /* The folded card carries the same sentence the open card ends with,
            less the word the card's own name already says: what is driving
            the filament, and what the rig reads back. */
+        /* The loop's command stays on the open card: the folded row is
+           already cut short on a phone, and what it must not lose is the
+           reading at its end. */
         set('[data-role="fold-plasma"]',
-            driving.replace("Held · ", "") + " · read " + current);
+            (amperes > 0 ? loop : driving).replace("Held · ", "") + " · read " + current);
 
+        /* The manual field reads the drive the cathode holds, the loop's
+           command included, so switching to Manual starts from it. */
         var row = root.querySelector('[data-role="cathode-manual-row"]');
         if (row) {
-            row.dataset.applied = String(millivolts);
             var input = row.querySelector('[data-role="cathode-input"]');
-            if (input && !input.dataset.initialized) {
-                if (!input.dataset.edited) input.value = Math.round(millivolts);
-                input.dataset.initialized = 'true';
-            }
+            if (input) followApplied(row, input, millivolts);
+            else row.dataset.applied = String(millivolts);
             reflectDraft(row, CATHODE_DRAFT);
+        }
+        /* The setpoint field shows the setpoint the loop holds while it
+           holds one; with the loop off it keeps what was typed, because
+           zero there would be "off", not a number to start from. */
+        var ampereBox = root.querySelector('[data-role="plasma-input"]');
+        if (ampereBox && amperes > 0) {
+            if (ampereBox.dataset.edited && Number(ampereBox.value) === amperes) {
+                delete ampereBox.dataset.edited;
+            }
+            if (!ampereBox.dataset.edited) ampereBox.value = amperes;
         }
         set('[data-role="cathode-applied"]', Math.round(millivolts) + " mV");
 
@@ -619,6 +663,7 @@
 
     function paint(state) {
         var map = readings(state);
+        noteControl(state);
         paintRun(state);
         paintGas(state, map);
         paintCathode(state, map);
@@ -740,6 +785,9 @@
         root.querySelectorAll(".frow[data-mfc]").forEach(setupGasRow);
 
         var plasmaInput = root.querySelector('[data-role="plasma-input"]');
+        plasmaInput.addEventListener("input", function () {
+            plasmaInput.dataset.edited = 'true';
+        });
         root.querySelector('[data-role="plasma-set"]').addEventListener("click", function () {
             send("/api/plasma-current", {a: Number(plasmaInput.value)}, "the plasma setpoint");
         });

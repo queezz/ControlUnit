@@ -162,7 +162,16 @@
     }
 
     /* A day of samples per channel, and never more points than a browser can
-       draw. Both cuts take from the oldest end. */
+       draw. The day is cut from the oldest end. The count is not: a channel
+       over the cap has the older half of what it holds thinned to every
+       second point, so the recent stretch stays whole and the run stays on
+       the chart from its start, at a resolution that falls with age.
+
+       It used to drop the oldest points instead, and at the rig's fast
+       0.1 s the cap is 33 minutes: an hour of plasma showed its last half
+       hour (queezz, 2026-10-02: "1 hour plot cuts of data. Points limit? We
+       need to do better. A bit better. Especially if we are running 1-2 hour
+       plasmas"). */
     function trim() {
         if (newest === null) return;
         var oldest = newest - STORE_SECONDS;
@@ -170,8 +179,13 @@
             var kept = store[name];
             var drop = 0;
             while (drop < kept.length && kept[drop][0] < oldest) drop++;
-            if (kept.length - drop > STORE_MAX) drop = kept.length - STORE_MAX;
-            if (drop > 0) store[name] = kept.slice(drop);
+            if (drop > 0) kept = store[name] = kept.slice(drop);
+            if (kept.length > STORE_MAX) {
+                var half = kept.length >> 1;
+                var thinned = [];
+                for (var i = 0; i < half; i += 2) thinned.push(kept[i]);
+                store[name] = thinned.concat(kept.slice(half));
+            }
         });
     }
 
@@ -479,8 +493,14 @@
             chip.textContent = data.state || "idle";
             chip.className = "chip chip-" + (data.state || "idle");
         }
+        /* `behind` is how long the newest delivery waited for the rig's own
+           main thread: the readings are that much older than "ago" says, and
+           it is zero whenever the rig keeps up. */
         var age = root.querySelector('[data-role="data-age"]');
-        if (age) age.textContent = data.age === null || data.age === undefined ? "" : fmtSeconds(data.age) + " ago";
+        if (age) {
+            age.textContent = (data.age === null || data.age === undefined ? "" : fmtSeconds(data.age) + " ago")
+                + (Number(data.behind) > 0 ? " · " + fmtSeconds(Number(data.behind)) + " behind" : "");
+        }
         var after = root.querySelector('[data-role="stale-after"]');
         if (after && data.stale_after) after.textContent = String(Number(data.stale_after));
     }
@@ -502,9 +522,22 @@
        short because it shares the name's row with the name and the unit; the
        long form of each is on the Log and in the docs, said once.
 
-       The number is "—" the moment it is not fresh, and the expiry below is
-       why: without it a hung fetch or a lost Pi would leave the last good
-       reading standing on the card looking current. */
+       A reading that goes missing is held for `KIKUSUI_HOLD_MS` before the
+       cards give it up. The cards used to go to "—" the instant a reading
+       was older than the recorder's own two seconds, on a page that polls
+       once a second: one late poll and the cards and the lamp blinked, with
+       the supply answering every one of the recorder's questions (queezz,
+       2026-10-02: "We should not blink, and we shouldn't change state. But
+       we can gray those Kikusui panels when there is no response for a
+       reasonable time"). So a gap shorter than the hold changes nothing on
+       the page, and a longer one turns the two cards grey with "—" and the
+       word for why. The expiry below is what makes the second half true
+       without another answer: a hung fetch or a lost Pi still ends in grey.
+
+       What is held is a reading that went missing — late, the LAN lost, the
+       rig not answering. A state the rig names outright (stopped, not
+       recording, a press just sent) is painted at once: that is news, not
+       a blink. */
     var CATHODE_TAGS = {idle: "not recording", disabled: "not configured",
         connecting: "connecting", unavailable: "LAN lost", stale: "stale",
         stopped: "stopped", error: "see Log", unreachable: "unreachable",
@@ -514,6 +547,10 @@
         output_on: "output on sent", output_off: "output off sent",
         output_on_failed: "output on FAILED", output_off_failed: "output off FAILED"};
     var CATHODE_UNITS = {voltage_v: "V", current_a: "A"};
+    var KIKUSUI_HOLD_MS = 10000;
+    var KIKUSUI_MISSING = {stale: true, unavailable: true, unreachable: true, connecting: true};
+    var kikusuiNow = function () { return Date.now(); };
+    var kikusuiGood = null;
     var kikusuiExpiry = null;
     function paintKikusui(telemetry) {
         window.clearTimeout(kikusuiExpiry);
@@ -526,12 +563,28 @@
             && (k.output_on === 0 || k.output_on === 1);
         var status = k.status;
         if (!fresh && (status === "ok" || status === "dummy")) status = "stale";
+        var holdLeft = 0;
+        if (fresh) {
+            kikusuiGood = {reading: k, at: kikusuiNow()};
+        } else if (KIKUSUI_MISSING[status] && kikusuiGood) {
+            holdLeft = KIKUSUI_HOLD_MS - (kikusuiNow() - kikusuiGood.at);
+            if (holdLeft > 0) {
+                // Nothing on the page changes: the last good reading stands.
+                k = kikusuiGood.reading;
+                status = k.status;
+                fresh = true;
+            }
+        } else {
+            kikusuiGood = null;
+        }
+        var lost = !fresh && Boolean(KIKUSUI_MISSING[status]);
         var tag = fresh
             ? (status === "dummy" ? "SIM · " : "") + "output " + (k.output_on === 1 ? "on" : "off")
             : (CATHODE_TAGS[status] || "unavailable");
         ["voltage_v", "current_a"].forEach(function (key) {
             var card = root.querySelector('.readout[data-cathode-readout="' + key + '"]');
             if (card) {
+                if (card.dataset) card.dataset.lost = lost ? "true" : "false";
                 /* Signed always, like every other number on the strip, so a
                    cathode reading crossing zero moves no digit sideways. */
                 card.querySelector('[data-role="value"]').textContent =
@@ -580,7 +633,12 @@
             var word = lamp.querySelector('[data-role="cathode-output-word"]');
             if (word) word.textContent = tag;
         }
-        if (fresh) {
+        if (holdLeft > 0) {
+            // Held: look again when the hold runs out, answer or no answer.
+            kikusuiExpiry = window.setTimeout(function () {
+                paintKikusui({status: telemetry && telemetry.status === "unreachable" ? "unreachable" : "stale"});
+            }, holdLeft + 1);
+        } else if (fresh) {
             // Expire even when a fetch hangs or the browser loses the Pi.
             kikusuiExpiry = window.setTimeout(function () {
                 paintKikusui({status: "stale"});

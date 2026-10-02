@@ -1479,7 +1479,9 @@ def test_the_folded_numbers_are_written_by_the_poll_that_writes_the_card():
     assert 'set(\'[data-role="fold-gas"]\', folded.join(" · "));' in gas
     cathode = script[script.index("function paintCathode"):script.index("function paintGauge")]
     assert 'set(\'[data-role="plasma-setpoint"]\', driving);' in cathode
-    assert 'driving.replace("Held · ", "") + " · read " + current);' in cathode
+    # The same two values, less the loop's command, which stays on the open
+    # card: the folded row is cut short on a phone and must keep its reading.
+    assert '(amperes > 0 ? loop : driving).replace("Held · ", "") + " · read " + current);' in cathode
     live = _live_js()
     assert '[data-fold-readout="\' + channel.name + \'"] [data-role="fold-value"]' in live
 

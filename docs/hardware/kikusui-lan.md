@@ -127,7 +127,15 @@ as a measured supply voltage. The ADC columns retain their original meaning.
 available. The main thread publishes the recorder snapshot; the web thread
 reads plain locked values. Age continues increasing if the main thread
 stalls, independently of ADC freshness. Non-fresh states omit V/I/output
-fields, and browser-side expiry also clears the cards if requests hang.
+fields. The page holds the last good reading for ten seconds when one goes
+missing — late, the LAN lost, the rig not answering — and changes nothing
+meanwhile; after that the two cards turn grey with a dash and the word for
+why, and the lamp goes dim, with or without another answer (4.23.2; owner,
+2026-10-02: "We should not blink, and we shouldn't change state. But we can
+gray those Kikusui panels when there is no response for a reasonable
+time"). A state the rig names outright, stopped or a press just sent, is
+shown at once. The server's own two-second rule is unchanged, and it is
+still what refuses an output-on press.
 These are instantaneous receipt-time measurements, not averaged ADC samples.
 Filament resistance `V/I` and power `VI` can be derived during review; avoid
 dividing near zero current and compare resistance under similar thermal and

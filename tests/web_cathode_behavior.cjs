@@ -82,6 +82,7 @@ function build(storageThrows) {
         querySelectorAll(s) {
             if (s.includes('cathode-mode')) return modes;
             if (s.includes('.sets button')) return gated;
+            if (s.includes('cathode-input')) return [input];
             return [];
         }
     };
@@ -107,7 +108,7 @@ function build(storageThrows) {
         source.slice(0, source.indexOf('    if (document.readyState'))
         + 'send = (path, body) => sent.push({path, body});'
         + ' globalThis.api = {setupDraftRow, setupCathodeMode, setupFolds,'
-        + ' paintCathode, setupOutputLamp, paintGate, CATHODE_DRAFT}; }());',
+        + ' paintCathode, setupOutputLamp, paintGate, noteControl, CATHODE_DRAFT}; }());',
         ctx
     );
     return {api: ctx.api, input, setButton, offButton, note, steps, manualRow,
@@ -241,7 +242,8 @@ test('the feedback line says what is driving, in all three states', () => {
     const d = build();
 
     d.api.paintCathode({setpoints: {plasma_a: 0.5, cathode_mv: 1900}}, {});
-    assert.equal(d.cells.feedback.textContent, 'Held · PID 0.50 A');
+    // The loop's command stands beside its setpoint (queezz, 2026-10-02).
+    assert.equal(d.cells.feedback.textContent, 'Held · PID 0.50 A · 1900 mV');
 
     d.api.paintCathode({setpoints: {plasma_a: 0, cathode_mv: 1900}}, {});
     assert.equal(d.cells.feedback.textContent, 'Held · manual 1900 mV');
@@ -384,4 +386,73 @@ test('Ip is read beside the drive; an analog placeholder cannot pose as Kikusui 
     );
     assert.equal(d.cells.ip.textContent, '0.421 A');
     assert.equal(d.cells.measured.textContent, '');
+});
+
+/* 2026-10-02, 17:23:44. A laptop's page had been open since before a phone
+ * set the cathode to 1800 mV. The laptop took control, its Drive field still
+ * read the 0 it was loaded with, one step-down press sent 0 mV three seconds
+ * later, and the plasma went out. The field was filled once, at page load. */
+test('a field nobody is editing reads the rig, so a step starts from what is held', () => {
+    const d = build();
+    d.api.setupDraftRow(d.manualRow, d.api.CATHODE_DRAFT);
+    d.api.paintCathode({setpoints: {cathode_mv: 0}}, {});
+    assert.equal(+d.input.value, 0);
+
+    // Somebody else sets the drive; this page is only watching.
+    d.api.paintCathode({setpoints: {cathode_mv: 1800}}, {});
+    assert.equal(+d.input.value, 1800);
+    assert.equal(d.note.textContent, 'Draft matches applied');
+
+    d.steps['-10'].press();
+    assert.equal(+d.input.value, 1790, 'ten down from what the rig holds, not from the page load');
+    d.setButton.press();
+    assert.deepEqual(JSON.parse(JSON.stringify(d.sent[0].body)), {mv: 1790});
+});
+
+test('once a draft is what the rig holds, the field follows the rig again', () => {
+    const d = build();
+    d.api.setupDraftRow(d.manualRow, d.api.CATHODE_DRAFT);
+    d.api.paintCathode({setpoints: {cathode_mv: 1800}}, {});
+    d.steps['-10'].press();
+    d.api.paintCathode({setpoints: {cathode_mv: 1800}}, {});
+    assert.equal(+d.input.value, 1790, 'an unsent draft is the reader\'s');
+    d.api.paintCathode({setpoints: {cathode_mv: 1790}}, {});     // Set was applied
+    d.api.paintCathode({setpoints: {cathode_mv: 1700}}, {});     // then it moved again
+    assert.equal(+d.input.value, 1700);
+});
+
+test('control changing hands drops whatever was half-typed', () => {
+    const d = build();
+    d.api.setupDraftRow(d.manualRow, d.api.CATHODE_DRAFT);
+    d.api.noteControl({control: {mine: false}});
+    d.api.paintCathode({setpoints: {cathode_mv: 1800}}, {});
+    d.input.value = '250';
+    d.input.handlers.input();
+    d.api.paintCathode({setpoints: {cathode_mv: 1800}}, {});
+    assert.equal(+d.input.value, 250);
+
+    d.api.noteControl({control: {mine: true}});                  // Take over
+    d.api.paintCathode({setpoints: {cathode_mv: 1800}}, {});
+    assert.equal(+d.input.value, 1800);
+    // Holding control steadily is not a change of hands.
+    d.input.value = '1810';
+    d.input.handlers.input();
+    d.api.noteControl({control: {mine: true}});
+    d.api.paintCathode({setpoints: {cathode_mv: 1800}}, {});
+    assert.equal(+d.input.value, 1810);
+});
+
+test('with the loop on, the manual field reads the loop\'s command', () => {
+    // "There is no signal voltage exposed from PID run, so I can use that to
+    // start the manual emission" (queezz, 2026-10-02).
+    const d = build();
+    d.api.setupDraftRow(d.manualRow, d.api.CATHODE_DRAFT);
+    d.api.paintCathode({setpoints: {plasma_a: 0.5, cathode_mv: 1773.4}}, {Ip: {value: 0.505, unit: 'A'}});
+    assert.equal(d.cells.feedback.textContent, 'Held · PID 0.50 A · 1773 mV');
+    assert.equal(+d.input.value, 1773);
+    // The folded row keeps its two facts and does not grow.
+    assert.equal(d.cells.fold.textContent, 'PID 0.50 A · read 0.505 A');
+    // Before the loop's first command is recorded there is no number to show.
+    d.api.paintCathode({setpoints: {plasma_a: 0.5, cathode_mv: 0}}, {});
+    assert.equal(d.cells.feedback.textContent, 'Held · PID 0.50 A');
 });

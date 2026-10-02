@@ -479,6 +479,11 @@ dl.facts dd.wide { margin-top: -2px; }
    "keep the a) signal name b) signal unit and for some c) signal comment").
    The caption is bounded by the card's own width and the tag is the part that
    gives, so a long wording is shortened by live.js rather than cut here. */
+/* A cathode card whose reading has been missing for longer than the page
+   holds one: grey, with "—" and the word for why, until the supply answers
+   again. Shorter gaps never reach here; see `paintKikusui`. */
+.readout[data-lost="true"] { opacity: 0.45; }
+
 .readout-cap {
   position: absolute;
   top: 0.12rem;
