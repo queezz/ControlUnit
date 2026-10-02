@@ -1,3 +1,12 @@
+## 4.23.1 — 2026-10-02
+
+- Switching the Kikusui's output waits for the supply's own answer to
+  agree before it reports. The readback was asked the instant after the
+  write, while the supply was still switching, so every press was logged
+  as "ON sent, readback 0" or "OFF sent, readback 1"; it now asks again
+  for up to 0.6 s and says "(confirmed)" when the supply agrees, and a
+  mismatch only when it lasts.
+
 ## 4.23.0 — 2026-10-02
 
 - The plasma-current PID takes over from the drive the cathode already

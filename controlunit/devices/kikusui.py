@@ -85,6 +85,11 @@ def load_config(path=None):
 #: sent, because a client that can only say these six cannot set a supply.
 PERMITTED = "Only the four telemetry queries and OUTP 0 / OUTP 1 are permitted"
 
+#: How long a press waits for the supply's own answer to agree with it, and
+#: how often it asks meanwhile.
+OUTPUT_SETTLE_S = 0.6
+OUTPUT_RECHECK_S = 0.05
+
 
 class ReadOnlyClient:
     """Read-only but for the output switch: it cannot set a voltage or current."""
@@ -188,10 +193,19 @@ class ReadOnlyClient:
         deadline = time.monotonic() + self.config.timeout_s
         self._connect(deadline)
         self._send("OUTP 1" if on else "OUTP 0", deadline)
-        state = self._query("OUTP?", deadline)
-        if state not in ("0", "1"):
-            raise ValueError("Invalid SCPI output state")
-        return int(state)
+        # The supply takes a moment to switch: asked at once it still answers
+        # with the state it is leaving, and every press of 2026-09-30 and
+        # 2026-10-02 was logged as "ON sent, readback 0". Ask again for a
+        # short while, and report a mismatch only when it lasts.
+        wanted = "1" if on else "0"
+        settled_by = min(deadline, time.monotonic() + OUTPUT_SETTLE_S)
+        while True:
+            state = self._query("OUTP?", deadline)
+            if state not in ("0", "1"):
+                raise ValueError("Invalid SCPI output state")
+            if state == wanted or time.monotonic() >= settled_by:
+                return int(state)
+            time.sleep(OUTPUT_RECHECK_S)
 
     def sample(self):
         # One deadline for the entire transaction, even on a slow trickle of bytes.

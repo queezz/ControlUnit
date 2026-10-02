@@ -453,6 +453,16 @@ def test_both_directions_travel_and_the_supply_follows(tmp_path, supply):
     ]
 
 
+def test_a_supply_slow_to_switch_is_confirmed_once_it_has(monkeypatch):
+    """The supply answers the first query after a write with the state it is
+    leaving: every press on the rig was logged "ON sent, readback 0"."""
+    client, sock = client_with(
+        monkeypatch, [b"KIKUSUI,PWR401L,TEST,1\n", b"0\n", b"0\n", b"1\n"]
+    )
+    assert client.set_output(True) == 1
+    assert sock.sent == [b"*IDN?\n", b"OUTP 1\n", b"OUTP?\n", b"OUTP?\n", b"OUTP?\n"]
+    client.close()
+
 def test_a_supply_that_ignores_the_write_is_never_reported_as_confirmed(tmp_path):
     stubborn = FakeSupply(stubborn=True)
     stubborn.output_on = 1
