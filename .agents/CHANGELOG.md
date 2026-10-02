@@ -1,3 +1,21 @@
+## 4.22.3 — 2026-10-02
+
+- A long fast run no longer chokes the program. The whole run used to be
+  copied at every delivery, so a delivery cost as much as the run was long:
+  two days into the 0.1 s run of 2026-09-30 the main thread was 25 hours
+  behind, the window and the web view had stopped answering, and the rows
+  waiting behind it were lost when it was killed (queezz, 2026-10-02:
+  "ControlUnit really hangs"). The window now remembers a run in a bounded
+  store filled in place, 200,000 rows at most with the older half thinned
+  when full, so a delivery costs the same at any length (1.5 ms measured
+  off-rig at 1,000 rows and at 180,000).
+- The file is written before anything is drawn.
+- A delivery that arrives more than 2 s late is not redrawn, so the thread
+  catches up; the Log says so once each way, `/api/state` carries the lag
+  as `data.behind`, and `/api/health` is `degraded` with "screen N s behind
+  the reader" while it lasts. Before, every surface said `live` over
+  readings a day old.
+
 ## 4.22.2 — 2026-10-02
 
 - The Hall sensor's resting point is 0.4961 of its supply, as measured on

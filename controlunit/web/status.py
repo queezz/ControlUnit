@@ -145,6 +145,12 @@ def _thin(count, max_points):
         picked.append(count - 1)
     return picked
 
+#: How far the main thread may trail the reader before the record says so.
+#: Samples can keep arriving, each one late, while the screen shows a moment
+#: long past: on 2026-10-02 that moment was 25 hours old and every surface
+#: still said `live`.
+BEHIND_SECONDS = 2.0
+
 DATA_LIVE = "live"
 DATA_STALE = "stale"
 DATA_IDLE = "idle"
@@ -232,6 +238,7 @@ class RigStatus:
         self._last_command = None
         self._kikusui = {"status": "idle"}
         self._kikusui_at = self._clock()
+        self._behind = 0.0
 
     # -- what the main thread writes -----------------------------------------
 
@@ -257,6 +264,15 @@ class RigStatus:
         result["file"] = result.get("file", "").replace("\\", "/").rsplit("/", 1)[-1]
         return result
 
+    def record_backlog(self, seconds):
+        """How long the newest delivery waited for the main thread."""
+        try:
+            seconds = max(0.0, float(seconds))
+        except (TypeError, ValueError):
+            return
+        with self._lock:
+            self._behind = seconds
+
     def describe_run(self, channels, sampling, names=None, units=None):
         """Record the channel count and sampling time the config declares."""
         with self._lock:
@@ -273,6 +289,7 @@ class RigStatus:
             self._acquiring = bool(running)
             if not self._acquiring:
                 self._last_sample_at = None
+                self._behind = 0.0
 
     def start_run(self, file_name):
         """A new data file has been opened: a new run starts, the ring empties."""
@@ -287,6 +304,7 @@ class RigStatus:
                 column.clear()
             self._latest = {}
             self._last_sample_at = None
+            self._behind = 0.0
 
     def record_samples(self, times, values):
         """Append samples the ADC step delivered.
@@ -476,6 +494,7 @@ class RigStatus:
                 "samples": self._samples,
                 "held_seconds": self._keep_seconds,
                 "age": age,
+                "behind": self._behind,
                 "now": now,
             }
 
@@ -713,7 +732,25 @@ def health_detail(snapshot):
     stalled = stalled_for(snapshot)
     if stalled is not None:
         parts.append("no new reading for {:d} s".format(int(stalled)))
+    behind = behind_by(snapshot)
+    if behind is not None:
+        parts.append("screen {:d} s behind the reader".format(int(behind)))
     return ", ".join(parts)
+
+
+def behind_by(snapshot):
+    """How far the main thread trails the reader, or None while it keeps up.
+
+    Not a stall: samples are arriving. They are arriving late, so what the
+    screen and this record show is that many seconds old.
+    """
+    if not snapshot.get("acquiring"):
+        return None
+    try:
+        behind = float(snapshot.get("behind") or 0.0)
+    except (TypeError, ValueError):
+        return None
+    return behind if behind > BEHIND_SECONDS else None
 
 
 def stalled_for(snapshot):
@@ -757,6 +794,8 @@ def health_status(snapshot):
     answer, and the reader asking is the one who finds that out.
     """
     if stalled_for(snapshot) is not None:
+        return "degraded"
+    if behind_by(snapshot) is not None:
         return "degraded"
     if snapshot.get("dummy"):
         return "degraded"
@@ -833,6 +872,9 @@ def state_body(status, version, control=None, fence=None, roster=None):
             "state": data_state(snapshot),
             "age": snapshot.get("age"),
             "stale_after": stale_after(snapshot.get("sampling")),
+            # Seconds the newest delivery waited for the main thread; the
+            # readings are that much older than `age` says.
+            "behind": behind_by(snapshot) or 0.0,
         },
         "run": {
             "file": snapshot.get("file") or "",

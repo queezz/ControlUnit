@@ -1,6 +1,7 @@
 """Acquisition deadlines, data integrity, and diagnostics without hardware."""
 
 import datetime
+import time
 from types import SimpleNamespace
 
 import pandas as pd
@@ -196,30 +197,97 @@ def test_batch_is_typed_detached_and_uses_captured_gauge_metadata(worker):
     assert row.attrs['adc_emitted_at'] > 0
 
 
-def test_empty_history_preserves_typed_batches_and_plot_time_values():
-    from controlunit.main import MainApp
-    dates = pd.date_range('2026-09-10 19:00:00.123456', periods=3, freq='100ms')
-    batch = pd.DataFrame({'date': dates, 'Ip_c': [1., 2., 3.]})
+def _plot_batch(start, rows=3):
+    dates = pd.date_range(start, periods=rows, freq='100ms')
+    batch = pd.DataFrame({'date': dates, 'Ip_c': [float(i + 1) for i in range(rows)]})
     for name in ('Pu', 'Pu2', 'Pd', 'Bu', 'Bd'):
         batch[name + '_c'] = batch['Ip_c']
+    return batch
+
+
+def test_history_keeps_typed_columns_and_plot_time_values():
+    from controlunit.history import RunHistory
+    from controlunit.main import MainApp
+    first = _plot_batch('2026-09-10 19:00:00.123456')
+    second = _plot_batch('2026-09-10 19:00:00.423456')
     plotted = {}
     host = SimpleNamespace(
-        datadict={'ADC': pd.DataFrame(columns=batch.columns)}, newdata={'ADC': batch},
-        zero_adjustment={'Ip': 0.25},
+        datadict={'ADC': RunHistory()}, newdata={'ADC': first},
+        zero_adjustment={'Ip': 0.25}, time_window=0, PLOT_POINTS=MainApp.PLOT_POINTS,
         graph=SimpleNamespace(plot_lines={name: SimpleNamespace(
             setData=lambda x, y, name=name: plotted.update({name: (x, y)})
         ) for name in ('Ip', 'Pu', 'Pu2', 'Pd', 'Bu', 'Bd')}),
     )
-    MainApp.append_data(host, 'ADC')
-    MainApp.append_data(host, 'ADC')
-    assert pd.api.types.is_float_dtype(host.datadict['ADC']['Ip_c'])
-    host.select_data_to_plot = lambda _: batch
+    host.select_data_to_plot = lambda name: MainApp.select_data_to_plot(host, name)
     host.calculate_skip_points = lambda _: 1
+    MainApp.append_data(host, 'ADC')
+    host.newdata['ADC'] = second
+    MainApp.append_data(host, 'ADC')
+    assert len(host.datadict['ADC']) == 6
+    assert host.datadict['ADC'].column('Ip_c').dtype == float
     MainApp.update_plots_adc(host)
+    dates = list(first['date']) + list(second['date'])
     expected = [(stamp - datetime.timedelta(hours=9)).timestamp() for stamp in dates]
     assert plotted['Ip'][0] == pytest.approx(expected, abs=1e-6, rel=0)
+    assert plotted['Ip'][1] == pytest.approx([0.75, 1.75, 2.75, 0.75, 1.75, 2.75])
+    # A window cuts by time, not by row count.
+    host.time_window = 0.25
+    MainApp.update_plots_adc(host)
     assert plotted['Ip'][1] == pytest.approx([0.75, 1.75, 2.75])
 
+
+def test_history_is_bounded_and_keeps_the_whole_run_on_screen():
+    from controlunit.history import RunHistory
+    history = RunHistory(max_rows=1000)
+    start = pd.Timestamp('2026-09-30 17:04:12')
+    for batch in range(2000):
+        rows = pd.DataFrame({
+            'date': [start + pd.Timedelta(milliseconds=100 * (3 * batch + i)) for i in range(3)],
+            'Ip_c': [float(3 * batch + i) for i in range(3)],
+        })
+        history.append(rows)
+        assert len(history) <= 1000
+    assert history.thinned > 0
+    values = history.column('Ip_c')
+    assert values[-1] == 5999.0                 # the newest row is always there
+    assert values[0] < 100.0                    # and so is the start of the run
+    assert all(values[i] < values[i + 1] for i in range(len(values) - 1))
+    assert list(history.tail('Ip_c', 3)) == [5997.0, 5998.0, 5999.0]
+    recent = history.view(seconds=10, max_points=3000)
+    assert len(recent['Ip_c']) == 100           # ten seconds at full resolution
+    whole = history.view(seconds=0, max_points=100)
+    assert len(whole['Ip_c']) <= 101
+    history.clear()
+    assert len(history) == 0 and history.empty
+
+
+def test_a_delivery_costs_the_same_late_in_a_long_run():
+    """The 2026-10-02 hang: appending and selecting must not grow with the run."""
+    from controlunit.history import RunHistory
+    history = RunHistory()
+    start = pd.Timestamp('2026-09-30 17:04:12').value
+    names = ['date'] + ['c%d' % i for i in range(32)]
+
+    def batch(index):
+        frame = pd.DataFrame({name: [float(index)] * 3 for name in names[1:]})
+        frame.insert(0, 'date', pd.to_datetime([start + (3 * index + i) * 100_000_000 for i in range(3)]))
+        return frame
+
+    def cost(first, count):
+        frames = [batch(first + i) for i in range(count)]
+        began = time.perf_counter()
+        for frame in frames:
+            history.append(frame)
+            history.view(seconds=300, max_points=3000)
+        return (time.perf_counter() - began) / count
+
+    early = cost(0, 200)
+    # Fill to the equivalent of many hours without timing every append.
+    bulk = pd.DataFrame({name: [0.0] * 150_000 for name in names[1:]})
+    bulk.insert(0, 'date', pd.to_datetime([start + (600 + i) * 100_000_000 for i in range(150_000)]))
+    history.append(bulk)
+    late = cost(60_000, 200)
+    assert late < max(5 * early, 0.005)
 
 def test_timing_reports_slow_successes_without_flooding_the_log():
     clock, messages = Clock(), []

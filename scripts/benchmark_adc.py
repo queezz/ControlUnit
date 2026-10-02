@@ -71,17 +71,21 @@ def main():
             history["date"] = pd.date_range("2026-09-10 18:00", periods=size, freq="100ms")
             fresh = batch.copy()
             fresh["date"] = pd.date_range(history["date"].iloc[-1] + pd.Timedelta("100ms"), periods=3, freq="100ms")
+            from controlunit.history import RunHistory
+            from controlunit.ui.widgets.graph import Graph
+
+            kept = RunHistory()
+            kept.append(history)
             host = SimpleNamespace(
-                datadict={"ADC": history}, newdata={"ADC": fresh},
-                time_window=300, zero_adjustment={},
+                datadict={"ADC": kept}, newdata={"ADC": fresh},
+                time_window=300, zero_adjustment={}, PLOT_POINTS=MainApp.PLOT_POINTS,
                 graph=SimpleNamespace(plot_lines={name: SimpleNamespace(setData=lambda *args: None)
-                                                 for name in ("Ip", "Pu", "Pd", "Bu", "Bd")}),
+                                                 for name in ("Ip", *Graph.PRESSURE_CURVES)}),
             )
-            for name in ("downsample_data", "select_data_to_plot", "calculate_skip_points"):
+            for name in ("select_data_to_plot", "calculate_skip_points"):
                 setattr(host, name, getattr(MainApp, name).__get__(host))
 
             def append():
-                host.datadict["ADC"] = history
                 MainApp.append_data(host, "ADC")
 
             results[str(size)] = {"append": measure(append, 50),

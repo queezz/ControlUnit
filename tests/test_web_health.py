@@ -119,6 +119,24 @@ def test_health_route_answers_the_same_body(real_hardware):
     }
 
 
+def test_a_main_thread_behind_the_reader_is_degraded_and_says_by_how_much(real_hardware):
+    """2026-10-02: samples kept arriving, 25 hours late, and every surface
+    said `live`. Late is not stalled, and it is not fine either."""
+    rig = RigStatus(channels=9, sampling=0.1)
+    rig.set_acquiring(True)
+    rig.record_backlog(1.5)                       # inside the allowance
+    assert health_body(rig, __version__)["status"] == "ok"
+    rig.record_backlog(91546.9)
+    body = health_body(rig, __version__)
+    assert body["status"] == "degraded"
+    assert body["detail"] == (
+        "acquiring 9 channels at 10 Hz, screen 91546 s behind the reader"
+    )
+    assert status_module.state_body(rig, __version__)["data"]["behind"] == 91546.9
+    rig.start_run("cu_next.csv")                  # a new run starts level
+    assert health_body(rig, __version__)["status"] == "ok"
+    assert status_module.state_body(rig, __version__)["data"]["behind"] == 0.0
+
 @pytest.mark.parametrize("path", ["/", "/api/health", "/api/neighbours"])
 def test_every_response_forbids_storage(path, tmp_path):
     from controlunit.web.neighbours import NeighbourBoard

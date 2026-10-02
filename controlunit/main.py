@@ -2,11 +2,13 @@ import argparse
 import sys, datetime, os
 import threading
 import time
+import numpy as np
 import pandas as pd
 from PyQt5 import QtCore, QtWidgets, QtGui
 
 from mainView import UIWindow
 from controlunit.devices.adc import ADC
+from controlunit.history import RunHistory
 from controlunit.devices.timing import TimingDiagnostics
 from controlunit.devices.dac8532 import DAC8532
 from controlunit.devices.mcp4725 import MCP4725
@@ -27,6 +29,7 @@ from controlunit.ui.widgets.graph import Graph
 # and the queue it puts commands on. Nothing here imports Flask, so a machine
 # without it starts as it always did.
 from controlunit.web.status import (
+    BEHIND_SECONDS,
     CATHODE_PEN,
     RigStatus,
     sidecar_epoch,
@@ -402,10 +405,9 @@ class MainApp(QtCore.QObject, UIWindow):
         self.devices = devices
 
         self.savepaths = {}
-        self.datadict = {
-            # "MembraneTemperature": pd.DataFrame(columns=self.config["Temperature Columns"]),
-            "ADC": pd.DataFrame(columns=self.config["ADC Column Names"]),
-        }
+        # What the window draws from, bounded: the file is the record.
+        self.datadict = {"ADC": RunHistory()}
+        self._behind_since = None
         self.newdata = {
             # "MembraneTemperature": pd.DataFrame(columns=self.config["Temperature Columns"]),
             "ADC": pd.DataFrame(columns=self.config["ADC Column Names"]),
@@ -765,40 +767,37 @@ class MainApp(QtCore.QObject, UIWindow):
     # MARK: Data - append
     def append_data(self, device_name):
         """
-        Append new data to dataframe
+        Add the delivered rows to what the window remembers of the run.
+
+        This used to concatenate the whole run into a new frame at every
+        delivery, which cost as much as the run was long and, two days into
+        a 0.1 s run, more than the time between deliveries (2026-10-02).
+        The history is a bounded store filled in place: see `history.py`.
         """
-        # self.datadict[device_name] = pd.concat([self.datadict[device_name], self.newdata[device_name]], ignore_index=True)
-        # Fix FutureWarning
-        incoming = self.newdata[device_name]
-        # An initially empty frame has object dtypes. Casting every batch to
-        # it made the entire run object-valued forever, including its numbers.
-        if self.datadict[device_name].empty:
-            self.datadict[device_name] = incoming.copy()
-        else:
-            self.datadict[device_name] = pd.concat(
-                [self.datadict[device_name], incoming], ignore_index=True
-            )
-        # self.data = pd.concat([self.adc_values, new_data_row.astype(self.adc_values.dtypes)], ignore_index=True)
+        self.datadict[device_name].append(self.newdata[device_name])
+
+    #: How many points a curve is drawn with at most.
+    PLOT_POINTS = 3000
 
     def select_data_to_plot(self, device_name):
         """
-        Select data based on self.time_window
+        The stretch `self.time_window` asks for, thinned for the screen:
+        a dict of column arrays.
         """
-        df = self.datadict[device_name]
-        if self.time_window > 0:
-            last_ts = df["date"].iloc[-1]
-            timewindow = last_ts - pd.Timedelta(self.time_window, "seconds")
-            df = df[df["date"] > timewindow]
-        return self.downsample_data(df)
-
-    def downsample_data(self, df, noskip=3000):
-        """downsample data"""
-        if df.shape[0] > noskip:
-            return df.iloc[:: df.shape[0] // noskip + 1]
-        return df
+        return self.datadict[device_name].view(self.time_window, self.PLOT_POINTS)
 
     def calculate_skip_points(self, l, noskip=5000):
         return 1 if l < noskip else l // noskip + 1
+
+    def _recent_mean(self, device_name, column, rows=3):
+        """The mean of a column's last rows, as the readouts show it; NaN
+        while there is nothing to average."""
+        try:
+            tail = self.datadict[device_name].tail(column, rows)
+        except KeyError:
+            return float("nan")
+        tail = tail[np.isfinite(tail)]
+        return float(tail.mean()) if tail.size else float("nan")
 
     def save_data(self, device_name):
         """
@@ -822,36 +821,74 @@ class MainApp(QtCore.QObject, UIWindow):
         self.step_methods[device_name](result)
         self.update_current_values()
 
+    #: How late a delivery may arrive before the window stops redrawing to
+    #: catch up. The reader stamps each batch as it hands it over; the gap
+    #: to its arrival here is how far this thread is behind.
+    BEHIND_SECONDS = BEHIND_SECONDS
+
     def _adc_step(self, result):
         received = time.monotonic()
         device_name = result[-1]
         self._note_sample_arrived()
         #  self.data_ready.emit([newdata, self.device_name])
-        self.newdata[device_name] = result[0]
-        self.append_data(device_name)
-        appended = time.monotonic()
+        batch = result[0]
+        self.newdata[device_name] = batch
+        emitted = batch.attrs.get('adc_emitted_at', received)
+        period = batch.attrs.get('adc_period', 0.1)
+        lag = max(0.0, received - emitted)
+        # The record first. Nothing the screen does may stand between a
+        # delivered row and the file.
         self.save_data(device_name)
         saved = time.monotonic()
+        self.append_data(device_name)
+        appended = time.monotonic()
         for plotname, name in zip(
             self.config["ADC Signal Names"], self.config["ADC Converted Names"]
         ):
-            self.currentvalues[plotname] = self.datadict["ADC"].iloc[-3:][name].mean()
+            self.currentvalues[plotname] = self._recent_mean("ADC", name)
         # to debug mV signal from Baratron, ouptut it directly.
-        self.baratronsignal1 = self.datadict["ADC"].iloc[-3:]["Bu"].mean()
-        self.baratronsignal2 = self.datadict["ADC"].iloc[-3:]["Bd"].mean()
-        self.update_plots(device_name)
-        self._publish_step(result[0])
+        self.baratronsignal1 = self._recent_mean("ADC", "Bu")
+        self.baratronsignal2 = self._recent_mean("ADC", "Bd")
+        if not self._note_backlog(lag):
+            self.update_plots(device_name)
+        self._publish_step(batch)
         finished = time.monotonic()
         if not hasattr(self, '_adc_delivery_timing'):
             self._adc_delivery_timing = TimingDiagnostics('ADC delivery', self.log_message)
-        emitted = result[0].attrs.get('adc_emitted_at', received)
-        period = result[0].attrs.get('adc_period', 0.1)
-        lag = max(0.0, received - emitted)
         self._adc_delivery_timing.observe(
-            {'queue': lag, 'append': appended - received, 'save': saved - appended,
-             'display': finished - saved, 'total': finished - received},
+            {'queue': lag, 'save': saved - received, 'append': appended - saved,
+             'display': finished - appended, 'total': finished - received},
             slow=lag > max(0.1, 3 * period) or finished - received > max(0.1, period),
         )
+
+    def _note_backlog(self, lag):
+        """Whether this thread is behind the reader, said once each way.
+
+        Behind, the charts are not redrawn: redrawing is the one cost here
+        that can be skipped, and skipping it is how the thread catches up.
+        The file, the readouts and the web view are still served from every
+        delivery. The web record carries the lag, so the health report and
+        a browser can say it too.
+        """
+        behind = lag > self.BEHIND_SECONDS
+        self.web_status.record_backlog(lag)
+        if behind and self._behind_since is None:
+            self._behind_since = time.monotonic()
+            self.log_message(
+                f"<font color='red'>Screen behind the reader</font> by {lag:.0f} s:"
+                " chart redraws are paused until it catches up. Rows are still"
+                " written as they are delivered",
+                htmltag="div",
+            )
+        elif not behind and self._behind_since is not None:
+            lasted = time.monotonic() - self._behind_since
+            self._behind_since = None
+            self.log_message(
+                f"<font color='#1cad47'>Screen caught up</font> with the reader"
+                f" after {lasted:.0f} s; charts are redrawn again",
+                htmltag="div",
+            )
+        return behind
 
     def _membrane_heater_step(self, result):
         device_name = result[-1]
@@ -861,7 +898,7 @@ class MainApp(QtCore.QObject, UIWindow):
         self.save_data(device_name)
         # here 3 is number of data points recieved from worker.
         # TODO: update to self.newdata[device_name]['T'].mean()
-        self.currentvalues["T"] = self.datadict[device_name].iloc[-3:]["T"].mean()
+        self.currentvalues["T"] = self._recent_mean(device_name, "T")
         self.update_plots(device_name)
 
     # MARK: reader watchdog
@@ -920,7 +957,7 @@ class MainApp(QtCore.QObject, UIWindow):
             self.abort_all_threads()
 
     def reset_data(self, device_name):
-        self.datadict[device_name] = self.datadict[device_name].iloc[0:0]
+        self.datadict[device_name].clear()
         self.newdata[device_name] = self.newdata[device_name].iloc[0:0]
 
     # MARK: update values
@@ -958,8 +995,8 @@ class MainApp(QtCore.QObject, UIWindow):
         MAX6675 data: update plots
         """
         df = self.select_data_to_plot("MAX6675")
-        time = df["time"].values.astype(float)
-        temperature = df["T"].values.astype(float)
+        time = df["time"].astype(float)
+        temperature = df["T"].astype(float)
         skip = self.calculate_skip_points(time.shape[0])
         self.graph.valueTPlot.setData(time[::skip], temperature[::skip])
 
@@ -972,13 +1009,15 @@ class MainApp(QtCore.QObject, UIWindow):
         utc_offset = 9
         # Vectorize the same naive timestamp arithmetic. Explicit nanoseconds
         # keep this correct across pandas versions with different resolutions.
-        time = (df["date"].to_numpy(dtype='datetime64[ns]').astype('int64') / 1e9
+        if "date" not in df:
+            return  # nothing delivered yet
+        time = (np.asarray(df["date"], dtype='datetime64[ns]').astype('int64') / 1e9
                 - utc_offset * 3600)
         skip = self.calculate_skip_points(time.shape[0])
 
         what_to_plot = ["Ip", *Graph.PRESSURE_CURVES]
         for name in what_to_plot:
-            values = df[name + "_c"].values.astype(float) - self.zero_adjustment.get(
+            values = np.asarray(df[name + "_c"], dtype=float) - self.zero_adjustment.get(
                 name, 0
             )
             self.graph.plot_lines[name].setData(time[::skip], values[::skip])
@@ -1112,17 +1151,13 @@ class MainApp(QtCore.QObject, UIWindow):
         never zero-adjusted, or None while there is not a sample yet.
         """
         try:
-            column = self.datadict["ADC"][channel + "_c"].astype(float)
-        except (KeyError, AttributeError, TypeError, ValueError):
-            return None
-        try:
             rows = max(1, int(round(self.BASELINE_SECONDS / float(self.sampling))))
         except (TypeError, ValueError, ZeroDivisionError):
             rows = 20
-        tail = column.iloc[-rows:]
-        if tail.empty:
+        try:
+            mean = self._recent_mean("ADC", channel + "_c", rows)
+        except (KeyError, AttributeError, TypeError, ValueError):
             return None
-        mean = float(tail.mean())
         if mean != mean:
             return None
         return mean
