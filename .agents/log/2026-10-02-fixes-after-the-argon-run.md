@@ -178,9 +178,23 @@ On the 7.80 V: it is the supply's own voltage setting (CV), not a limit of
 the PWR401L, and it has been changed at the panel since 2026-09-30, when a
 query read 5 V. Recorded in directions with what would let the loop see it.
 
+## Deployed, 2026-10-03 00:37 (4.25.0)
+
+Queezz, to the offer to push 4.25.0 and pull it the same way: "Push".
+`c67fcd6..ec1b908` pushed. The rig was as it had been left (measuring at
+10 s, no outputs, the Kikusui unpowered). One script on the Pi did the
+same sequence as at 22:30 and stopped at the first thing not as expected:
+stop the run through the API, health `idle, not recording`, `kill -TERM`,
+process gone, `pull --ff-only` to `ec1b908`, the new modules checked on
+the Pi's own Python (the walk held at 1900 mV with no discharge), start
+through the desktop launcher, health 4.25.0, gauges as found, run started,
+sampling 10 s. The vacuum log goes on in `cu_20261003_003741.csv`. The
+script removed its own files from `/tmp`.
+
 ## Left
 
-In `directions.md`: the push of 4.25.0, the loop's blindness to the
-Kikusui's voltage setting, and the unbuilt rest of the 4.19 design.
+In `directions.md`: the first real discharge under the new loop, which
+is his; the loop's blindness to the Kikusui's voltage setting; and the
+unbuilt rest of the 4.19 design.
 
 agent: claude

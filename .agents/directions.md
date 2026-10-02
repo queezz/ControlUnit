@@ -58,15 +58,17 @@ holds what is still undecided or unbuilt.
   step is seen at the plug and on the DAC's supply, and the note says
   which cause it is.
 
-- Say "push" for 4.25.0, the PID's cold-start walk and ceiling — owner
-  work pending. The rig runs 4.24.0 since 2026-10-02 22:32 (pushed, pulled
-  and restarted on your word that evening, the vacuum log resumed at 10 s
-  in `cu_20261002_223317.csv`). 4.25.0 is committed here and not pushed:
-  it changes how the loop drives the cathode with no discharge, so it
-  waits for your eye on its five numbers in `settings.yml` (start
-  1000 mV, 25 mV/s, ceiling 1900 mV, lit above 0.1 A, unlit after 2 s).
-  Done when: `http://pihti:4187/api/health` reports 4.25.0, or you have
-  said which numbers to change first.
+- Try the PID's cold start and takeover on a real discharge — owner work
+  pending. The rig runs 4.25.0 since 2026-10-03 00:37 (pushed, pulled and
+  restarted on your word; the 10 s vacuum log goes on in
+  `cu_20261003_003741.csv`). Nothing that drives an output has run on the
+  rig in the new code: the takeover from a held drive, the walk from
+  1000 mV at 25 mV/s, the 1900 mV ceiling with no discharge, and the
+  Kikusui's on/off readback are tested off-rig only. The five numbers are
+  in `settings.yml` under `Plasma Current PID`.
+  Done when: a run's Log shows "PID engaged at … (the drive already
+  held)" and a cold start's "walking the drive up" and "discharge lit",
+  and you have said whether the ceiling and the pace suit the source.
 - Add the Mac-reachable address to the Pi's neighbours file — owner work
   pending. On your Mac the Pi's bare name `pihti` does not resolve, while
   `pihti.local` and the numeric address do, so the diagram's Open link on
