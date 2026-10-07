@@ -184,6 +184,29 @@ def test_the_supply_is_not_switched_on_while_nothing_can_see_it(qt_app, home):
         widget.abort_all_threads()
 
 
+def test_a_failed_supply_press_reaches_the_log_and_the_browser_s_answer(qt_app, home):
+    """The link's failure sentence goes to the Log as every link line does,
+    and marks the browser's press failed with it (queezz, 2026-10-07)."""
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        press = commands.Command(3, "cathode_output", {"on": False}, actor="queezz")
+        widget.web_status.record_command(press.as_record(commands.APPLIED))
+        why = ("Kikusui output OFF FAILED: the supply's LAN did not answer. Press "
+               "OUTPUT on the supply, or power-cycle it to bring its LAN back; the "
+               "DAC drive is unchanged.")
+        widget._kikusui_said(why)
+        assert why in _log_of(widget)
+        last = widget.web_status.read()["last_command"]
+        assert (last["outcome"], last["reason"]) == ("failed", why)
+        # Any other line from the link is only a Log line.
+        widget._kikusui_said("Kikusui telemetry BACK: recording fresh measurements")
+        assert widget.web_status.read()["last_command"]["reason"] == why
+    finally:
+        widget.abort_all_threads()
+
+
 def _log_of(widget):
     """The message log as the Log tab reads it."""
     return [line["text"] for line in widget.web_status.log_since(0)["lines"]]
@@ -384,6 +407,33 @@ def test_every_gauge_selector_reaches_a_freshly_started_worker(qt_app, home):
         gauges = widget.web_status.read()["setpoints"]["gauges"]
         assert gauges["Pd"] == {"mode": "Torr", "range": -8}
         assert gauges["Pu2"] == {"mode": "Pa", "range": -6}
+        widget.stop_acquisition()
+    finally:
+        widget.abort_all_threads()
+
+
+def test_a_gauge_declared_off_on_the_dock_reaches_the_worker_and_the_record(qt_app, home):
+    """queezz, 2026-10-07: "I need a toggle in ControlUnit for IGs to be off."
+    The dock's box has a third item, Off; choosing it tells the worker mode 2
+    through the existing signal, the record says Off, and the dock's own
+    readout writes the word rather than a NaN."""
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        pu2_mode, _ = widget.control_dock.gauges["Pu2"]
+        assert [pu2_mode.itemText(i) for i in range(pu2_mode.count())] == list(
+            commands.GAUGE_MODES)
+        pu2_mode.setCurrentIndex(2)
+        widget.start_acquisition()
+        worker = widget.workers["ADC"]["worker"]
+        assert worker._gauge_settings["Pu2"]["mode"] == 2
+        assert widget.web_status.read()["setpoints"]["gauges"]["Pu2"]["mode"] == "Off"
+        seen = []
+        widget.control_dock.update_current_values = seen.append
+        widget._render_value_browser()
+        pu2 = [entry for entry in seen[-1] if entry[1] == "Pu2"]
+        assert pu2 and pu2[0][2] == "off"
         widget.stop_acquisition()
     finally:
         widget.abort_all_threads()

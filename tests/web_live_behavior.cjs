@@ -78,10 +78,10 @@ function instrument(cardRoom, parts) {
         [key, readoutCard(key, undefined, {cathodeReadout: key}, '#ff6b35')]));
     const chips = chipRow();
     const buttons = Object.fromEntries(['Bu', 'Bd'].map(name => [name, {
-        dataset: {channel: name}, listeners: {},
-        setAttribute() {},
+        dataset: {channel: name}, listeners: {}, attrs: {}, aside: {textContent: ''},
+        setAttribute(key, v) { this.attrs[key] = v; },
         addEventListener(event, fn) { this.listeners[event] = fn; },
-        querySelector() { return {textContent: ''}; }
+        querySelector() { return this.aside; }
     }]));
     const legend = {
         querySelector(selector) { return buttons[selector.match(/"(.*?)"/)[1]]; },
@@ -940,8 +940,8 @@ test('the view-mode switch binds only its own buttons, never the gauge Torr/Pa o
  * queezz, 2026-10-07: "when operating, I wanted a click to toggle the big
  * digit screens for gauges and ADC readings. For some regimes I only need
  * 2-3, so others get in the way on mobile." A press on a card hides it in
- * Operate and Observe; it comes back as a pill in its own pen at the grid's
- * end, and a press on the pill shows it again. Monitor shows every card. */
+ * every mode; it comes back as a pill in its own pen at the grid's end, and
+ * a press on the pill shows it again. */
 
 test('a press on a readout card hides it and leaves a pill with its name and pen', () => {
     const {api, cards, chips} = instrument();
@@ -1038,34 +1038,72 @@ test('the hidden cards are remembered with the view and restored', () => {
     }
 });
 
-test('Monitor shows every card and no pills, and a press there does nothing', () => {
+/* queezz, 2026-10-07, a diagnostic run: "The Monitor mode needs signal
+ * cards selector as all others do." Monitor once showed every card; now the
+ * three modes share one hidden set and a press works in each. */
+test('Monitor hides and shows cards like the other modes, from the one shared set', () => {
     const {api, cards, cathode, chips} = instrument();
     api.setupReadouts();
     api.paintHidden();
     cards.Bu.handlers.click();
     cathode.current_a.handlers.click();
     api.setMode('monitor');
-    for (const card of [cards.Bu, cards.Bd, cathode.voltage_v, cathode.current_a]) {
-        assert.equal(card.hidden, false);
-        assert.equal(card.attrs['aria-pressed'], 'true');
-        assert.equal(card.attrs['aria-disabled'], 'true');
-        assert.equal(card.tabIndex, -1);
-    }
-    assert.equal(chips.hidden, true);
-    assert.equal(chips.children.length, 0);
-    cards.Bd.handlers.click();
-    cards.Bd.handlers.keydown({key: 'Enter', preventDefault() {}});
-    assert.equal(cards.Bd.hidden, false);
-    assert.deepEqual([...api.view.hiddenReadouts], ['Bu', 'current_a']);
-
-    // Observe shares Operate's set: the same two cards are away again.
-    api.setMode('observe');
+    // What Operate hid stays hidden, with its pills.
     assert.equal(cards.Bu.hidden, true);
     assert.equal(cathode.current_a.hidden, true);
-    assert.equal(cards.Bd.hidden, false);
-    assert.equal(cards.Bd.tabIndex, 0);
-    assert.equal(cards.Bd.attrs['aria-disabled'], undefined);
     assert.deepEqual(chips.children.map(c => c.dataset.show), ['Bu', 'current_a']);
+    assert.equal(chips.hidden, false);
+    for (const card of [cards.Bu, cards.Bd, cathode.voltage_v, cathode.current_a]) {
+        assert.equal(card.attrs['aria-disabled'], undefined);
+        assert.equal(card.tabIndex, 0);
+    }
+    // A press in Monitor hides, and the pill brings the card back.
+    cards.Bd.handlers.keydown({key: 'Enter', preventDefault() {}});
+    assert.equal(cards.Bd.hidden, true);
+    assert.deepEqual([...api.view.hiddenReadouts], ['Bu', 'current_a', 'Bd']);
+    chips.children.find(c => c.dataset.show === 'Bu').handlers.click();
+    assert.equal(cards.Bu.hidden, false);
+
+    // Observe reads the same set Monitor just changed.
+    api.setMode('observe');
+    assert.equal(cards.Bu.hidden, false);
+    assert.equal(cathode.current_a.hidden, true);
+    assert.equal(cards.Bd.hidden, true);
+    assert.deepEqual(chips.children.map(c => c.dataset.show), ['Bd', 'current_a']);
+});
+
+/* queezz, 2026-10-07: "I need a toggle in ControlUnit for IGs to be off. So
+ * when I turn a gauge off and click in CU it off, it should be known that the
+ * signal on that channel is noise." A gauge whose mode the rig holds as Off
+ * reads `—` tagged `off`, folded `—`, and its curve leaves the chart with its
+ * pill saying off; Torr brings all of it back. */
+test('a gauge declared off reads a dash tagged off, and its curve is not drawn', () => {
+    const {api, cards, folded, buttons} = instrument();
+    const state = (mode) => Object.assign(reading({Bu: -0.004, Bd: 0.004}),
+        {setpoints: {gauges: {Bd: {mode, range: -6}}}});
+    api.paintState(state('Torr'));
+    assert.equal(buttons.Bd.dataset.curveState, 'drawn');
+
+    api.paintState(state('Off'));
+    assert.equal(cards.Bd.parts.value.innerHTML, '—');
+    assert.equal(cards.Bd.parts.note.textContent, 'off');
+    assert.equal(folded.Bd.textContent, '—');
+    // The curve left at once, its pill dimmed with the word beside it, and
+    // the reader's own choice for it untouched.
+    assert.equal(buttons.Bd.dataset.curveState, 'off');
+    assert.equal(buttons.Bd.attrs['aria-pressed'], 'false');
+    assert.equal(buttons.Bd.aside.textContent, 'off');
+    assert.notEqual(api.view.channels.Bd, false);
+    // The other channel is untouched.
+    assert.equal(cards.Bu.parts.value.innerHTML, MINUS_FOUR_MILLI);
+    assert.equal(cards.Bu.parts.note.textContent, '');
+
+    api.paintState(state('Torr'));
+    assert.equal(cards.Bd.parts.value.innerHTML, PLUS_FOUR_MILLI);
+    assert.equal(cards.Bd.parts.note.textContent, '');
+    assert.equal(folded.Bd.textContent, '4.0e-3');
+    assert.equal(buttons.Bd.dataset.curveState, 'drawn');
+    assert.equal(buttons.Bd.attrs['aria-pressed'], 'true');
 });
 
 test('folded, the row still carries a hidden card\'s value', () => {

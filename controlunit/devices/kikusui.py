@@ -21,6 +21,7 @@ own thread, which is the only thread that ever touches the socket.
 
 import csv
 import datetime
+import errno
 import ipaddress
 import math
 import queue
@@ -242,6 +243,53 @@ class DummyClient:
         pass
 
 
+#: Errors that mean the supply's LAN did not answer at all, as against one
+#: that answered with something wrong. `socket.timeout` is named beside
+#: `TimeoutError` because the rig's Python 3.9 keeps them apart; an
+#: unreachable host is the same dead port seen from another angle.
+_SILENT_ERRNOS = {
+    code for code in (
+        getattr(errno, name, None) for name in ("EHOSTUNREACH", "ENETUNREACH", "EHOSTDOWN")
+    ) if code is not None
+}
+
+
+def link_did_not_answer(error):
+    """Whether a failed write failed because nothing answered on the LAN."""
+    if isinstance(error, (TimeoutError, socket.timeout, ConnectionRefusedError)):
+        return True
+    return isinstance(error, OSError) and error.errno in _SILENT_ERRNOS
+
+
+def output_failure(on, error, lost_since=None):
+    """The sentence a failed press leaves in the Log and on the web page.
+
+    On 2026-10-07 the supply's LAN died at 17:08:59 and stayed dead until
+    queezz power-cycled the supply at 18:02 ("LAN LED turned from red to
+    green"). His two presses at 17:31 were logged as `FAILED: timed out`,
+    which is true and tells a person at the rack nothing to do. A link that
+    did not answer is now said in his words, with what to do about it and,
+    when the recorder saw the loss, since when; any other failure keeps the
+    error as it was raised.
+    """
+    word = "ON" if on else "OFF"
+    if not link_did_not_answer(error):
+        return "Kikusui output {} FAILED: {}; manual drive unchanged".format(word, error)
+    since = ""
+    if lost_since is not None:
+        since = " (lost since {})".format(lost_since.strftime("%H:%M"))
+    return (
+        "Kikusui output {} FAILED: the supply's LAN did not answer{}. Press "
+        "OUTPUT on the supply, or power-cycle it to bring its LAN back; the DAC "
+        "drive is unchanged.".format(word, since)
+    )
+
+
+def is_output_failure(text):
+    """Whether a Log line is a press that failed, in either wording."""
+    return str(text).startswith(("Kikusui output ON FAILED: ", "Kikusui output OFF FAILED: "))
+
+
 def _report_output(message, on, state, dummy):
     """The one sentence a press leaves in the Log, and whether it stuck.
 
@@ -264,21 +312,18 @@ def _report_output(message, on, state, dummy):
     return False
 
 
-def set_output(config, on, message):
+def set_output(config, on, message, lost_since=None):
     """The same write with no recorder running: connect, write, read back, close.
 
     Called on a short daemon thread so the GUI thread never waits on a LAN,
     and it therefore swallows nothing: every ending leaves a line in the Log.
+    `lost_since` is when the last recorder saw the LAN go, if one did.
     """
     client = DummyClient() if config.dummy else ReadOnlyClient(config)
     try:
         state = client.set_output(on)
     except Exception as error:  # noqa: BLE001 -- a press must never end silently.
-        message(
-            "Kikusui output {} FAILED: {}; manual drive unchanged".format(
-                "ON" if on else "OFF", error
-            )
-        )
+        message(output_failure(on, error, lost_since))
         return False
     finally:
         client.close()
@@ -320,6 +365,10 @@ class KikusuiLogger:
         self._lock = threading.Lock()
         self._latest = {"status": "connecting"}
         self._received_at = None
+        #: When this recorder last logged the LAN LOST, cleared when it came
+        #: BACK; a failed press says it. Written by this thread, read by any
+        #: under `_lock`.
+        self._lost_since = None
         self.thread = threading.Thread(target=self._run, name="Kikusui telemetry", daemon=True)
 
     def snapshot(self):
@@ -333,6 +382,11 @@ class KikusuiLogger:
             result = {"status": "stale"}
         result.update(age_s=age, stale_after_s=expires, file=str(self.path))
         return result
+
+    def lost_since(self):
+        """When the LAN was last seen lost, or None while it answers."""
+        with self._lock:
+            return self._lost_since
 
     def _publish(self, row, received=None):
         with self._lock:
@@ -419,11 +473,7 @@ class KikusuiLogger:
         except (OSError, ValueError, UnicodeError) as error:
             self.client.close()
             row.update(status="output_{}_failed".format(word), error=str(error)[:240])
-            self.message(
-                "Kikusui output {} FAILED: {}; manual drive unchanged".format(
-                    word.upper(), error
-                )
-            )
+            self.message(output_failure(on, error, self.lost_since()))
         return row, self._stamp(row, before, started)
 
     def _run(self):
@@ -480,6 +530,11 @@ class KikusuiLogger:
                     target.flush()
                     self._publish(row, now)
                     if status != state:
+                        with self._lock:
+                            if status == "unavailable":
+                                self._lost_since = datetime.datetime.now()
+                            elif state == "unavailable":
+                                self._lost_since = None
                         if status == "unavailable":
                             self.message(
                                 "Kikusui telemetry LOST: measurements unavailable; "

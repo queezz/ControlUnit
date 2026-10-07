@@ -104,13 +104,14 @@ def test_control_offers_each_ion_gauge_its_own_mode_and_range(control):
     for gauge, heading in (("Pd", "Downstream · Pd"), ("Pu2", "Upstream · Pu2")):
         assert '<h3 class="gauge-name">{}</h3>'.format(heading) in control
         assert 'class="mono gauge-now" data-gauge="{}"'.format(gauge) in control
-        for mode in ("Torr", "Pa"):
+        for mode in ("Torr", "Pa", "Off"):
             assert 'data-role="gauge-mode" data-gauge="{}"'.format(gauge) in control
             assert 'data-gauge="{}"\n                                            data-mode="{}"'.format(gauge, mode) in control
         for decade in range(-8, -2):
             assert 'data-gauge="{}"\n                                            data-range="{}"'.format(gauge, decade) in control
     assert control.count('data-role="gauge-range"') == 12
-    assert control.count('data-role="gauge-mode"') == 4
+    # Torr, Pa and Off, for each of the two (queezz, 2026-10-07).
+    assert control.count('data-role="gauge-mode"') == 6
 
 
 def test_the_gauges_card_names_each_gauges_place(control):
@@ -370,9 +371,10 @@ def test_a_press_on_a_readout_card_hides_it_and_a_pill_brings_it_back(client, li
     rules = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
     card = rules[rules.index(".readout {"):]
     assert "cursor: pointer" in card[: card.index("}")]
-    assert 'body[data-mode="monitor"] .readout { cursor: default; }' in rules
     assert ".readout:hover, .readout:focus-visible { border-color: var(--accent);" in rules
-    assert 'body[data-mode="monitor"] .readout:hover {' in rules
+    # queezz, 2026-10-07: "The Monitor mode needs signal cards selector as
+    # all others do." No mode turns the card back into a bare meter.
+    assert 'body[data-mode="monitor"] .readout' not in rules
     chips = rules[rules.index(".readout-chips {"):]
     assert "grid-column: 1 / -1" in chips[: chips.index("}")]
     # Nothing moves on a hide or a show, so there is nothing to animate.
@@ -1269,6 +1271,58 @@ def test_the_segmented_switch_is_a_component_and_not_this_group_s_dressing(clien
     assert "* { transition: none !important; animation: none !important; }" in css
 
 
+def test_the_view_mode_switch_is_one_three_segment_track(client):
+    """queezz, 2026-10-07, a diagnostic run in Monitor: "Also mode buttons are
+    same as gauges and all else in monitor, bad." The switch wears the
+    house's segmented track with three segments and one thumb, never three
+    loose choice buttons."""
+    page = client.get("/?mode=observe").get_data(as_text=True)
+    start = page.index('data-role="mode-switch"')
+    switch = page[page.rindex("<div", 0, start):]
+    switch = switch[:switch.index("</div>")]
+    assert 'class="view-toolbar seg-toggle seg-toggle--3"' in switch
+    assert switch.count('class="seg-thumb"') == 1
+    assert switch.count('class="seg-option"') == 3
+    assert 'class="choice"' not in switch
+    # The thumb comes first, so the options are children two to four.
+    assert switch.index("seg-thumb") < switch.index('data-mode="operate"')
+    assert 'data-mode="observe" aria-pressed="true"' in switch
+
+    css = client.get("/static/css/controlunit.css").get_data(as_text=True)
+    rules = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    assert ".seg-toggle--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }" in rules
+    assert ".seg-toggle--3 > .seg-thumb { width: calc((100% - 4px) / 3); }" in rules
+    second = '.seg-toggle--3:has(> .seg-option:nth-child(3)[aria-pressed="true"]) .seg-thumb {'
+    third = '.seg-toggle--3:has(> .seg-option:nth-child(4)[aria-pressed="true"]) .seg-thumb {'
+    assert "transform: translateX(100%)" in rules[rules.index(second):][:120]
+    assert "transform: translateX(200%)" in rules[rules.index(third):][:120]
+    # Both stand after the two-state rule, which the third option (the last
+    # child) also matches, so they win at equal specificity.
+    two = rules.index('.seg-toggle:has(> .seg-option:last-child[aria-pressed="true"])')
+    assert two < rules.index(second) < rules.index(third)
+    # In a phone's Menu the track stretches and keeps its own padding.
+    menu = rules[rules.index(".main-tabs > .view-toolbar {"):]
+    menu = menu[:menu.index("}")]
+    assert "align-self: stretch" in menu
+    assert "padding" not in menu and "border" not in menu
+
+
+def test_the_cathode_card_never_changes_width_with_its_reading(client):
+    """queezz, 2026-10-07: "The current card keeps changing width. Due to
+    current readouts, no doubt." The feedback line wraps inside its card;
+    nothing in the left rail may widen the fixed column."""
+    css = client.get("/static/css/controlunit.css").get_data(as_text=True)
+    rules = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    feedback = rules[rules.index(".output-feedback {"):]
+    feedback = feedback[:feedback.index("}")]
+    assert "nowrap" not in feedback
+    assert "white-space: normal" in feedback
+    assert "overflow-wrap: anywhere" in feedback
+    assert ".control-workspace > .rail-left { min-width: 0; }" in rules
+    group = rules[rules.index(".control-workspace .operation-setters .fgroup {"):]
+    assert "min-width: 0" in group[:group.index("}")]
+
+
 def test_the_settings_group_is_gone_and_its_three_setters_stand_in_reach(control):
     """queezz, 2026-10-02, an hour into a plasma: "the right rail on the
     controlunit is very long when I want to access something simple like IG,
@@ -1441,7 +1495,7 @@ def test_the_menu_carries_the_mode_switch_and_the_rare_press_on_a_phone():
     assert "window.matchMedia(PHONE)" in source
     page = _client_page()
     assert page.count('data-role="mode-switch"') == 1
-    assert page.count('class="view-toolbar"') == 1
+    assert page.count('class="view-toolbar seg-toggle seg-toggle--3"') == 1
     assert page.count('data-role="stop-all"') == 1
     css = _css()
     assert ".main-tabs > .view-toolbar {" in css
@@ -1543,7 +1597,8 @@ def test_one_slim_line_heads_the_page_in_every_mode(client):
         kids = _children(page, 'class="instrument-header"')
         classes = [attrs.get("class", "") for _, attrs in kids]
         assert classes == ["pills", "command-status mono", "quick-sets sets",
-                           "display-tools", "mode-actions", "view-toolbar"], mode
+                           "display-tools", "mode-actions",
+                           "view-toolbar seg-toggle seg-toggle--3"], mode
         assert kids[-1][1].get("data-role") == "mode-switch"
         # The display tools are rendered at home on the line, and outside
         # `.sets`: what this browser draws is never behind the gate.

@@ -78,7 +78,7 @@ Temperature Columns:
 # - "No Conversion" # If no conversion neededt
 #
 # An "Ionization Gauge" channel also names the two record columns that carry
-# the mode (0 Torr linear, 1 Pa log) and the exponent its controller was set
+# the mode (0 Torr linear, 1 Pa log, 2 off: converted value NaN) and the exponent its controller was set
 # to when each row was taken: Mode Column and Scale Column, both listed under
 # ADC Additional Columns below. Each gauge has its own pair, set from its own
 # selector on the Control dock and the web Control tab. The first gauge keeps

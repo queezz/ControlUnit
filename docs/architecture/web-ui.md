@@ -261,8 +261,8 @@ point. A new run empties these series with the rest of the ring.
 | `POST /api/mfc/<1\|2>` | `{"mv": 0..5000}` — a gas flow setpoint; `0` is the Zero button |
 | `POST /api/plasma-current` | `{"a": 0..3}` or `{"off": true}` — the plasma-current PID, which moves the cathode DAC for you |
 | `POST /api/cathode` | `{"mv": 0..5000}` or `{"off": true}` — the cathode DAC held at a millivolt value with the PID off; whole millivolts, gated exactly as the PID setpoint is |
-| `POST /api/cathode-output` | `{"on": false}` or `{"on": true}` — the supply's own output switch, the only thing the Kikusui LAN link writes (`OUTP 0` / `OUTP 1`, owner decision 2026-09-15). Off is always allowed, like `stop-all`: no switch, no name, no word, no run. On is gated like every other setter and answers `409` with `the supply is not answering; turn it on at the supply` while the telemetry is not fresh. The outcome — confirmed, sent with a disagreeing readback, or failed — arrives in the Log, not in this reply |
-| `POST /api/gauge` | `{"gauge": "Pd"\|"Pu2", "mode": "Torr"\|"Pa"}` and/or `{"range": -8..-3}` — one ionization gauge's own mode and exponent; a body naming no gauge means the first, `Pd` |
+| `POST /api/cathode-output` | `{"on": false}` or `{"on": true}` — the supply's own output switch, the only thing the Kikusui LAN link writes (`OUTP 0` / `OUTP 1`, owner decision 2026-09-15). Off is always allowed, like `stop-all`: no switch, no name, no word, no run. On is gated like every other setter and answers `409` with `the supply is not answering; turn it on at the supply` while the telemetry is not fresh. The outcome — confirmed, sent with a disagreeing readback, or failed — arrives in the Log, not in this reply. A failure also turns the same command's `last_command.outcome` to `failed` with the Log's sentence as its `reason`, and the page that pressed it says that sentence in place of "done"; a supply whose LAN did not answer is said as `Kikusui output OFF FAILED: the supply's LAN did not answer (lost since 17:08). Press OUTPUT on the supply, or power-cycle it to bring its LAN back; the DAC drive is unchanged.` (4.29.0; queezz, 2026-10-07: *"Kikusui output button in WebUI not working"*, on a LAN dead from 17:08 to 18:02) |
+| `POST /api/gauge` | `{"gauge": "Pd"\|"Pu2", "mode": "Torr"\|"Pa"\|"Off"}` and/or `{"range": -8..-3}` — one ionization gauge's own mode and exponent; a body naming no gauge means the first, `Pd`. `Off` declares the gauge switched off at its controller: the rows record mode 2 and NaN as its pressure, the Log says `Pd declared off`, and the Live page reads its card as `—` tagged `off` with its curve not drawn |
 | `POST /api/sync` | `{"on": true\|false}` — the QMS sync line |
 | `POST /api/zero` | `{"channel": "Ip"\|"Bu"\|"Bd"}` — take that channel's baseline |
 
@@ -414,15 +414,25 @@ measured, and a readout with a baseline held says `zeroed` beside its name.
     clipping. What a zero is is explained once, in the right rail's Data
     card; a readout card never explains itself.
 
-    **A press on a card hides it** in Operate and Observe (4.27.0; queezz,
+    From 4.29.0 the tag has one more word, `off`, on an ion gauge the rig
+    holds as declared off (its mode `Off` in `setpoints.gauges`; queezz,
+    2026-10-07: *"when I turn a gauge off and click in CU it off, it should
+    be known that the signal on that channel is noise"*). The card's number
+    is then `—`, the folded row's too, and the gauge's curve is not drawn:
+    its legend pill is dimmed with `off` beside it, while the reader's own
+    choice for that curve is kept and comes back with Torr or Pa.
+
+    **A press on a card hides it**, in every mode (4.27.0; queezz,
     2026-10-07: "For some regimes I only need 2-3, so others get in the way
     on mobile"). The card takes its `hidden` flag and leaves the grid, and
     comes back as a dimmed pill in its own pen at the grid's end, named as
     the folded row names it (`Pu`, `Uc`, `Ic`) — the legend's vocabulary,
     where a dimmed pill is something switched off. Pressing the pill shows
-    the card again at its own place. The two modes share one hidden set,
-    remembered per browser as `hiddenReadouts` in the view; Monitor shows
-    every card and no pills, and a press there does nothing. The folded row
+    the card again at its own place. Operate, Observe and Monitor share one
+    hidden set, remembered per browser as `hiddenReadouts` in the view;
+    Monitor showed every card until 4.29.0, when he asked for the same
+    selector there ("The Monitor mode needs signal cards selector as all
+    others do"). The folded row
     keeps every value, and nothing recorded or asked of the rig changes.
 
     The line that used to stand under every zeroable card — `zero -0.345 A`,
@@ -635,6 +645,13 @@ measured, and a readout with a baseline held says `zeroed` beside its name.
   on from where the loop was. The folded card's line keeps its two facts,
   what is driving and what Ip reads, and does not grow.
 
+  From 4.29.0 the card never changes width with its reading (queezz,
+  2026-10-07: *"The current card keeps changing width. Due to current
+  readouts, no doubt."*). Ip is read to the milliampere in fixed notation
+  below 10 A (`0.416 A`, `-0.005 A`), where it used to turn into `-4.72e-3`
+  under 10 mA, and the feedback line wraps inside the card rather than
+  standing on one unbreakable line that grew the card past the 21rem rail.
+
   **The mode switch is one control on the group's own heading line**, from
   4.13.0 (owner direction 2026-09-10, looking at 4.12.0 on the rig: *"Can we
   make Cathode / mode PID Manual bit better? I.e. one line: Cathode PID/Manual
@@ -645,7 +662,16 @@ measured, and a readout with a baseline held says `zeroed` beside its name.
   inside it, and a filled thumb that slides under the chosen one in 170 ms.
   It is written as a reusable component (`.seg-toggle`, `.seg-thumb`,
   `.seg-option`) so the next two-state control on this page wears the same
-  thing; the Cathode mode is the only one wearing it today.
+  thing. QMS sync wears it too, and from 4.29.0 the view-mode switch wears
+  its three-state form, `.seg-toggle--3`: three equal segments on one track,
+  the thumb a third of the track wide and sliding one or two of its own
+  widths for the second and third option (the thumb is the track's first
+  child, so those are `:nth-child(3)` and `:nth-child(4)`). Operate | Observe
+  | Monitor were three loose choice buttons until then, the same buttons as
+  the gauges' (queezz, 2026-10-07, in Monitor: *"Also mode buttons are same
+  as gauges and all else in monitor, bad."*). In a phone's Menu the track
+  stretches to the panel's width and keeps its own padding and border, which
+  the thumb is measured from.
 
   Under the pill the two sides remain real `<button>`s carrying
   `aria-pressed`, inside the block the gate's `.sets` blanket names — so Tab

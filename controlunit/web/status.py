@@ -27,6 +27,11 @@ import time
 
 from controlunit.web.commands import NOBODY
 
+#: How long after a browser's press a failure from the supply's link is
+#: still that press's: the link's own timeout is at most five seconds, and a
+#: press waits at most one poll for the recorder's thread.
+FAILURE_WINDOW_S = 30.0
+
 # The dummy stubs are imported under either name depending on how the
 # package was entered, so both spellings count as "the stubs are loaded".
 _DUMMY_MODULES = ("devices.dummy", "controlunit.devices.dummy")
@@ -322,9 +327,16 @@ class RigStatus:
                 row = {}
                 for name, column in columns.items():
                     try:
-                        row[name] = float(column[index])
+                        number = float(column[index])
                     except (TypeError, ValueError, IndexError):
-                        row[name] = None
+                        number = None
+                    # A NaN is a reading that is not one — a gauge declared
+                    # off, a Hall sensor with no valid supply — and JSON has
+                    # no word for it: `NaN` in /api/state is a parse error in
+                    # every browser, and the whole page would stop updating.
+                    if number is not None and not math.isfinite(number):
+                        number = None
+                    row[name] = number
                 self._times.append(stamp)
                 self._rows.append(row)
             self._samples += len(times)
@@ -445,6 +457,29 @@ class RigStatus:
         """Keep what became of the last command a browser sent."""
         with self._lock:
             self._last_command = dict(record or {})
+
+    def fail_command(self, kinds, reason):
+        """A press answered `applied` when it was handed over, which then
+        failed where the browser could not see it: the supply's output
+        switch, carried on its own thread after the answer was written. The
+        last command, if it is one of `kinds` and was applied, is marked
+        `failed` with the sentence the Log got, so the page that pressed it
+        says so. Anything else is left as it was, and so is a press older
+        than `FAILURE_WINDOW_S`: a failure that late belongs to a press made
+        somewhere else, at the rig's own screen."""
+        with self._lock:
+            last = self._last_command
+            if not last or last.get("kind") not in kinds or last.get("outcome") != "applied":
+                return False
+            try:
+                age = self._clock() - float(last.get("at"))
+            except (TypeError, ValueError):
+                return False
+            if not 0 <= age <= FAILURE_WINDOW_S:
+                return False
+            last["outcome"] = "failed"
+            last["reason"] = str(reason)
+            return True
 
     def log(self, text, stamp=None):
         """Keep one message-log line, tags already stripped."""

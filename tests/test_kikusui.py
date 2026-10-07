@@ -12,7 +12,9 @@ from controlunit.devices.kikusui import (
     KikusuiConfig,
     KikusuiLogger,
     ReadOnlyClient,
+    is_output_failure,
     load_config,
+    output_failure,
     set_output,
 )
 
@@ -260,6 +262,8 @@ def test_outage_writes_missing_rows_warns_once_and_recovers(tmp_path):
     assert rows[3]["commanded_cathode_mv"] == "1500"
     assert sum("LOST" in m for m in messages) == 1
     assert sum("BACK" in m for m in messages) == 1
+    # BACK forgets when the LAN was lost: a later failed press claims no time.
+    assert logger.lost_since() is None
     assert context == {"cathode_mv": 1500, "plasma_a": 0}
     assert logger.path.name == "kikusui_20260914_120000.csv"
 
@@ -503,8 +507,14 @@ def test_a_press_with_no_lan_says_so_loudly_and_changes_nothing():
         KikusuiConfig(host="127.0.0.1", port=port, timeout_s=0.3), False, messages.append
     ) is False
     assert len(messages) == 1
-    assert messages[0].startswith("Kikusui output OFF FAILED: ")
-    assert messages[0].endswith("; manual drive unchanged")
+    # A port nothing answers on is a LAN that did not answer, said in words
+    # a person at the rack can act on; no recorder saw a loss, so no time.
+    assert messages[0] == (
+        "Kikusui output OFF FAILED: the supply's LAN did not answer. Press "
+        "OUTPUT on the supply, or power-cycle it to bring its LAN back; the DAC "
+        "drive is unchanged."
+    )
+    assert is_output_failure(messages[0])
 
 
 def test_a_press_on_dummy_hardware_is_simulated_and_says_so():
@@ -546,13 +556,79 @@ def test_a_failed_press_writes_its_own_row_and_leaves_the_drive_alone(tmp_path):
         wait_until(lambda: any("FAILED" in m for m in messages))
     finally:
         assert logger.stop()
+    # The telemetry was answering, so no loss time is claimed.
     assert (
-        "Kikusui output OFF FAILED: LAN unplugged; manual drive unchanged" in messages
+        "Kikusui output OFF FAILED: the supply's LAN did not answer. Press "
+        "OUTPUT on the supply, or power-cycle it to bring its LAN back; the DAC "
+        "drive is unchanged." in messages
     )
     failed = [r for r in read_rows(logger.path) if r["status"] == "output_off_failed"]
     assert len(failed) == 1
     assert failed[0]["error"] == "LAN unplugged"
     assert failed[0]["output_on"] == ""
+
+
+def test_a_failed_press_says_what_to_do_in_plain_words():
+    """queezz, 2026-10-07: "Kikusui output button in WebUI not working". The
+    supply's LAN had died at 17:08:59; his presses at 17:31 were logged as
+    `FAILED: timed out`, true and of no use at the rack."""
+    import datetime
+    import errno
+
+    lost = datetime.datetime(2026, 10, 7, 17, 8, 59)
+    assert output_failure(False, socket.timeout("timed out"), lost) == (
+        "Kikusui output OFF FAILED: the supply's LAN did not answer (lost since "
+        "17:08). Press OUTPUT on the supply, or power-cycle it to bring its LAN "
+        "back; the DAC drive is unchanged."
+    )
+    for silent in (TimeoutError("timed out"), ConnectionRefusedError(111, "refused"),
+                   OSError(errno.EHOSTUNREACH, "No route to host")):
+        sentence = output_failure(True, silent)
+        assert sentence.startswith("Kikusui output ON FAILED: the supply's LAN did not answer. ")
+        assert is_output_failure(sentence)
+    # Anything that did answer keeps its own error, as it always read.
+    for spoken in (ValueError("Expected a KIKUSUI PWR401L"),
+                   OSError("Supply closed the telemetry connection")):
+        assert output_failure(False, spoken, lost) == (
+            "Kikusui output OFF FAILED: {}; manual drive unchanged".format(spoken)
+        )
+    assert not is_output_failure("Kikusui output OFF (confirmed)")
+    assert not is_output_failure("Kikusui output OFF not sent: no link")
+
+
+def test_a_press_during_an_outage_says_since_when_the_lan_was_lost(tmp_path):
+    class Silent:
+        identity = ""
+
+        def sample(self):
+            raise socket.timeout("timed out")
+
+        def set_output(self, on):
+            raise socket.timeout("timed out")
+
+        def close(self):
+            pass
+
+    messages = []
+    logger = KikusuiLogger(
+        KikusuiConfig(host="127.0.0.1", interval_s=0.1, retry_s=1),
+        tmp_path / "cu_20261007_170000.csv", messages.append, client=Silent(),
+    )
+    try:
+        logger.start()
+        wait_until(lambda: any("LOST" in m for m in messages))
+        lost = logger.lost_since()
+        assert lost is not None
+        assert logger.request_output(False) is True
+        wait_until(lambda: any(is_output_failure(m) for m in messages))
+    finally:
+        assert logger.stop()
+    failed = [m for m in messages if is_output_failure(m)]
+    assert failed == [
+        "Kikusui output OFF FAILED: the supply's LAN did not answer (lost since "
+        "{}). Press OUTPUT on the supply, or power-cycle it to bring its LAN "
+        "back; the DAC drive is unchanged.".format(lost.strftime("%H:%M"))
+    ]
 
 
 def test_a_press_with_no_live_recorder_is_refused_rather_than_swallowed(tmp_path):

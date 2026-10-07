@@ -53,6 +53,19 @@
         return value.toFixed(size >= 100 ? 0 : size >= 10 ? 1 : 3);
     }
 
+    /* The plasma current read back on the Cathode card, to the milliampere in
+       fixed notation below 10 A: `0.416`, `-0.005`, `1.234`. The general
+       `fmt` turns anything under 10 mA into `-4.72e-3`, so an Ip hovering
+       about zero changed the line's length every poll and the card in the
+       21rem rail grew and shrank with it (queezz, 2026-10-07: "The current
+       card keeps changing width. Due to current readouts, no doubt"). */
+    function fmtAmperes(value) {
+        if (value === null || value === undefined || !isFinite(value)) return "—";
+        if (Math.abs(value) >= 10) return fmt(value, "A");
+        var fixed = value.toFixed(3);
+        return fixed === "-0.000" ? "0.000" : fixed;
+    }
+
     function fmtSeconds(seconds) {
         if (seconds === null || seconds === undefined || !isFinite(seconds)) return "";
         if (seconds < 60) return seconds.toFixed(1) + " s";
@@ -470,7 +483,7 @@
                 : "off";
         set('[data-role="plasma-setpoint"]', driving);
         var ip = map.Ip;
-        var current = ip ? fmt(ip.value, ip.unit) + " A" : "—";
+        var current = ip ? fmtAmperes(ip.value) + " A" : "—";
         set('[data-role="plasma-measured"]', current);
         /* The folded card carries the same sentence the open card ends with,
            less the word the card's own name already says: what is driving
@@ -678,12 +691,30 @@
         }
     }
 
+    /* The command whose answer this browser said last, and how it ended.
+       The supply's output switch is handed to its own thread and answered
+       `applied` at once; if the LAN then stays silent the rig marks that same
+       command `failed` a poll or two later, and the sentence it carries is
+       said in place of "done" (queezz, 2026-10-07: "Kikusui output button in
+       WebUI not working" — the press had failed on a dead LAN, and the page
+       had said done). */
+    var heard = {id: 0, outcome: ""};
+
     function paintOutcome(state) {
         var last = state.last_command;
-        if (!last || !pending || last.id < pending) return;
+        if (!last) return;
+        if (last.outcome === "failed" && last.id === heard.id && heard.outcome !== "failed") {
+            heard.outcome = "failed";
+            say(last.reason || "the rig could not carry that out");
+            return;
+        }
+        if (!pending || last.id < pending) return;
         pending = 0;
+        heard = {id: last.id, outcome: last.outcome};
         if (last.outcome === "applied") {
             say("done: " + last.value + (last.reason ? " — " + last.reason : ""));
+        } else if (last.outcome === "failed") {
+            say(last.reason || "the rig could not carry that out");
         } else {
             say("refused: " + (last.reason || "the rig did not accept that"));
         }

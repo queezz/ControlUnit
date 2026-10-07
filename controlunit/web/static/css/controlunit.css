@@ -482,17 +482,10 @@ dl.facts dd.wide { margin-top: -2px; }
   cursor: pointer;
 }
 
-/* A press on a card hides it in Operate and Observe, so the card looks
-   pressable there the way every button on the page does: its border already
-   stands at rest, and the pointer or the keyboard brings the accent ring.
-   Monitor shows every card and a press there does nothing, so there the
-   card is a meter again: no pointer, no ring. */
+/* A press on a card hides it, in every mode, so the card looks pressable
+   the way every button on the page does: its border already stands at
+   rest, and the pointer or the keyboard brings the accent ring. */
 .readout:hover, .readout:focus-visible { border-color: var(--accent); outline: none; }
-body[data-mode="monitor"] .readout { cursor: default; }
-body[data-mode="monitor"] .readout:hover {
-  border-color: var(--line);
-  border-color: color-mix(in srgb, var(--pen, var(--line)) 45%, transparent);
-}
 
 /* The hidden cards, one pill each in the card's own pen, on a row of their
    own at the grid's end — the legend's pill, dimmed as a curve switched off
@@ -1323,7 +1316,11 @@ body[data-mode="monitor"] .readout:hover {
 /* The rare press, at the foot of the group that holds the rest of the rig's
    access — quiet, bordered, no fill, so it is findable and never inviting. */
 .access-card .stop-all { margin-top: 12px; }
-.output-feedback { display: block; flex-basis: 100%; font-size: 0.75rem; color: var(--muted); white-space: nowrap; margin: 0; }
+/* The feedback line wraps inside its card rather than widening it: on one
+   unbreakable line, `Held · manual 1780 mV · Read Ip -4.72e-3 A` grew the
+   Cathode card past the 21rem rail and back as the number's length changed
+   (queezz, 2026-10-07: "The current card keeps changing width"). */
+.output-feedback { display: block; flex-basis: 100%; font-size: 0.75rem; color: var(--muted); white-space: normal; overflow-wrap: anywhere; margin: 0; }
 .output-feedback b { font-weight: 400; color: var(--fg); }
 .control-workspace .command-status { min-height: 1.6em; margin: -8px 0 8px; font-size: 0.8rem; color: var(--accent); overflow-wrap: anywhere; }
 .control-workspace .access-card .holder-line { min-height: 3.1em; }
@@ -1527,7 +1524,9 @@ body[data-mode="monitor"] .drawer-backdrop:not([hidden]) { display: block; }
 
 .control-workspace .operation-setters { padding: 0; flex: 0 0 auto; }
 .control-workspace .operation-setters > .sets { display: grid; gap: 10px; }
-.control-workspace .operation-setters .fgroup { margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.control-workspace .operation-setters .fgroup { min-width: 0; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+/* The left rail is a fixed column; nothing inside may widen it. */
+.control-workspace > .rail-left { min-width: 0; }
 
 .control-workspace #sec-gas { background: rgba(38, 154, 172, 0.10); border-color: rgba(38, 154, 172, 0.35); }
 .control-workspace #sec-plasma { background: rgba(255, 107, 53, 0.10); border-color: rgba(255, 107, 53, 0.35); }
@@ -1540,10 +1539,12 @@ body[data-mode="monitor"] .drawer-backdrop:not([hidden]) { display: block; }
    bar away, shows it there; Operate and Observe on a desktop dock it into
    the tab bar's right end (live.js, `modeSwitchHost`), a row that is on the
    screen anyway, so the reading column spends none of its own on it. In
-   either place it stands in the line's own flow. Its three presses share one
-   width, so the chosen one's bolder face moves nothing. */
+   either place it stands in the line's own flow. It is a three-segment
+   `.seg-toggle--3` (below), never three loose buttons: "mode buttons are
+   same as gauges and all else in monitor, bad" (queezz, 2026-10-07). Its
+   three segments share one width. */
 .view-toolbar { display: inline-flex; flex: 0 0 auto; gap: 3px; }
-.view-toolbar > button { min-width: 5rem; padding: 3px 8px; font-size: 0.84rem; line-height: 1.35; }
+.view-toolbar > button { min-width: 4.7rem; padding: 3px 8px; font-size: 0.84rem; line-height: 1.35; }
 body[data-mode="observe"] .control-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 15rem; }
 body[data-mode="observe"] .control-workspace > .rail-left,
 body[data-mode="monitor"] .control-workspace > .rail-left,
@@ -1741,6 +1742,21 @@ select.quick-select:disabled { cursor: not-allowed; }
    still arrives, it just does not slide. */
 .seg-toggle:has(> .seg-option:last-child[aria-pressed="true"]) .seg-thumb {
   transform: translateX(100%);
+}
+
+/* Three states on the same track: the view mode, Operate | Observe |
+   Monitor. Three equal columns and no gap, so the thumb's travel is again a
+   whole number of its own widths. The thumb is the track's first child, so
+   the options are children two to four; the first needs no rule, and these
+   two stand after the two-state rule above, which the third option, being
+   the last child, would otherwise match. */
+.seg-toggle--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
+.seg-toggle--3 > .seg-thumb { width: calc((100% - 4px) / 3); }
+.seg-toggle--3:has(> .seg-option:nth-child(3)[aria-pressed="true"]) .seg-thumb {
+  transform: translateX(100%);
+}
+.seg-toggle--3:has(> .seg-option:nth-child(4)[aria-pressed="true"]) .seg-thumb {
+  transform: translateX(200%);
 }
 
 .seg-option {
@@ -2103,11 +2119,12 @@ select.quick-select:disabled { cursor: not-allowed; }
      fixed bar "costs a permanent row… on mobile they belong maybe in the
      hamburger"). live.js moves the one element into #main-tabs on this
      breakpoint in Operate and Observe; here it becomes a row of that panel,
-     under a hairline of its own. Monitor takes the tab bar away, so there it
-     stays at home on the status line, which Monitor keeps on the screen. */
-  .main-tabs > .view-toolbar { padding: 6px 0 0; margin: 4px 0 0;
-    border-top: 1px solid var(--line-soft); justify-content: stretch; }
-  .main-tabs > .view-toolbar > button { flex: 1 1 auto; width: auto; }
+     as one segmented track across the panel's width. Monitor takes the tab
+     bar away, so there it stays at home on the status line, which Monitor
+     keeps on the screen. The track keeps its own padding and border, which
+     the thumb is measured from; only its margin and width are the Menu's. */
+  .main-tabs > .view-toolbar { margin: 8px 0 0; align-self: stretch; width: auto; }
+  .main-tabs > .view-toolbar > button { min-width: 0; width: auto; padding: 6px 8px; }
   /* And the one press that zeroes the outputs rides there too, quiet and
      bordered, under a hairline of its own. */
   .main-tabs > .stop-all { margin: 6px 0 0; padding: 8px 12px;

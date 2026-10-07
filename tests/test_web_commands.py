@@ -550,13 +550,13 @@ class PlasmaDock(object):
 
 class ControlDock(object):
     def __init__(self):
-        self.IGmode = ComboBox(["Torr", "Pa"])
+        self.IGmode = ComboBox(["Torr", "Pa", "Off"])
         self.IGrange = SpinBox(-3)
         # The real dock keys a (mode, range) pair by gauge name, the first
         # pair being the two widgets above.
         self.gauges = {
             "Pd": (self.IGmode, self.IGrange),
-            "Pu2": (ComboBox(["Torr", "Pa"]), SpinBox(-3)),
+            "Pu2": (ComboBox(["Torr", "Pa", "Off"]), SpinBox(-3)),
         }
         self.qmsSigSw = Switch()
         self.OnOffSW = Switch()
@@ -695,6 +695,33 @@ def test_a_plasma_command_sets_the_spinbox_then_the_setpoint():
     commands.drain(app)
     assert app.plasma_control_dock.ampere_spin_box.value() == 1.2
     assert app.calls == [("set_currentcontrol_voltage", 1.2)]
+
+
+def test_a_gauge_may_be_declared_off_and_nothing_else_new():
+    """queezz, 2026-10-07: "I need a toggle in ControlUnit for IGs to be
+    off." Off is the third mode, in the order the dock's box holds them, so
+    its index is the code each row records."""
+    assert commands.GAUGE_MODES == ("Torr", "Pa", "Off")
+    assert commands.GAUGE_MODES.index(commands.GAUGE_OFF) == 2
+    assert commands.validate_gauge({"gauge": "Pu2", "mode": "Off"}) == {
+        "gauge": "Pu2", "mode": "Off"}
+    for word in ("off", "OFF", "Noise"):
+        with pytest.raises(commands.Invalid):
+            commands.validate_gauge({"mode": word})
+
+
+def test_a_gauge_declared_off_reaches_its_box_and_says_so_in_the_log():
+    app = FakeApp()
+    app.web_commands.submit("gauge", {"gauge": "Pu2", "mode": "Off"}, actor="queezz")
+    commands.drain(app)
+    mode_box, _ = app.control_dock.gauges["Pu2"]
+    assert mode_box.currentText() == "Off"
+    assert app.calls == [("update_ig_mode", "Pu2", "Off")]
+    assert app.control_dock.IGmode.currentText() == "Torr"
+    assert commands.summarise("gauge", {"gauge": "Pu2", "mode": "Off"}) == "Pu2 declared off"
+    assert commands.summarise("gauge", {"gauge": "Pd", "mode": "Torr"}) == "Pd in Torr"
+    assert commands.summarise(
+        "gauge", {"gauge": "Pd", "mode": "Off", "range": -6}) == "Pd declared off, Pd range -6"
 
 
 def test_plasma_off_takes_the_same_path_the_off_button_takes():
@@ -1406,6 +1433,40 @@ def test_state_carries_the_switch_the_zeros_and_the_last_command(tmp_path):
     assert body["last_command"]["actor"] == "queezz"
     assert body["last_command"]["outcome"] == "applied"
     assert body["last_command"]["value"] == "baseline of Ip taken"
+
+
+def test_a_supply_press_that_fails_later_is_marked_failed_with_the_log_s_sentence(tmp_path):
+    """queezz, 2026-10-07: "Kikusui output button in WebUI not working". The
+    output press is answered `applied` when it is handed to the link's own
+    thread; when the LAN then stays silent the same command becomes `failed`
+    carrying the Log's sentence, so the page that pressed it can say why."""
+    clock = [1000.0]
+    status = RigStatus(channels=8, sampling=0.1, names=NAMES, clock=lambda: clock[0])
+    why = ("Kikusui output OFF FAILED: the supply's LAN did not answer (lost since "
+           "17:08). Press OUTPUT on the supply, or power-cycle it to bring its LAN "
+           "back; the DAC drive is unchanged.")
+    press = commands.Command(9, "cathode_output", {"on": False}, actor="queezz", at=999.0)
+    status.record_command(press.as_record(commands.APPLIED))
+    kinds = ("cathode_output", "stop_all")
+    assert status.fail_command(kinds, why) is True
+    body = app_for(status, tmp_path).test_client().get("/api/state").get_json()
+    assert body["last_command"]["id"] == 9
+    assert body["last_command"]["outcome"] == "failed"
+    assert body["last_command"]["reason"] == why
+    # Once only, and never a command of another kind or a refused one.
+    assert status.fail_command(kinds, why) is False
+    status.record_command(commands.Command(10, "zero", {"channel": "Ip"}, at=999.0)
+                          .as_record(commands.APPLIED))
+    assert status.fail_command(kinds, why) is False
+    status.record_command(commands.Command(11, "cathode_output", {"on": True}, at=999.0)
+                          .as_record(commands.REFUSED, "no answer"))
+    assert status.fail_command(kinds, why) is False
+    # A failure long after the browser's press belongs to some other press.
+    status.record_command(commands.Command(12, "stop_all", {}, at=900.0)
+                          .as_record(commands.APPLIED))
+    assert status.fail_command(kinds, why) is False
+    clock[0] = 920.0
+    assert status.fail_command(kinds, why) is True
 
 
 def test_an_untouched_rig_reports_no_last_command(tmp_path):

@@ -744,11 +744,32 @@ def _client():
     ).test_client()
 
 
+def test_a_reading_that_is_not_a_number_reaches_the_browser_as_null(tmp_path):
+    """A gauge declared off records NaN, and so does a Hall sensor without a
+    valid supply. JSON has no word for NaN: written as it is, /api/state is a
+    parse error in every browser and the page stops updating. It is kept as
+    null, which every painter already reads as a dash and a gap."""
+    import math
+    import time
+
+    status = RigStatus(channels=8, sampling=0.1, names=["Pd", "Ip"])
+    status.set_acquiring(True)
+    now = time.time()
+    status.record_samples([now - 1, now], {"Pd": [1e-6, math.nan], "Ip": [0.1, math.inf]})
+    client = create_app(status=status, board=NeighbourBoard(home=tmp_path / "nowhere")).test_client()
+    for path in ("/api/state", "/api/series?window=10"):
+        text = client.get(path).get_data(as_text=True)
+        assert "NaN" not in text and "Infinity" not in text, path
+    state = client.get("/api/state").get_json()
+    values = {c["name"]: c["value"] for c in state["channels"]}
+    assert values == {"Pd": None, "Ip": None}
+
+
 def test_the_ordinary_page_is_the_ordinary_page():
     """No mode in the address is the page as it has always been."""
     page = _client().get("/").get_data(as_text=True)
     assert '<body data-mode="operate">' in page
-    assert _pressed(page, 'class="choice" data-mode="monitor"') == "false"
+    assert _pressed(page, 'class="seg-option" data-mode="monitor"') == "false"
 
 
 def test_a_bookmarked_monitor_address_renders_in_that_shape_first(client=None):
@@ -757,7 +778,7 @@ def test_a_bookmarked_monitor_address_renders_in_that_shape_first(client=None):
     (queezz, 2026-09-07: "Monitor: plots only, even hide the rails")."""
     page = _client().get("/?mode=monitor").get_data(as_text=True)
     assert '<body data-mode="monitor">' in page
-    assert _pressed(page, 'class="choice" data-mode="monitor"') == "true"
+    assert _pressed(page, 'class="seg-option" data-mode="monitor"') == "true"
 
 
 def test_a_mistyped_mode_is_the_ordinary_page_and_never_an_error():
@@ -786,7 +807,7 @@ def test_monitor_keeps_the_two_pills_and_hides_the_rest():
     pills = pills[:pills.index("</div>")]
     assert 'data-role="operating"' in pills
     assert 'data-role="data-state"' in pills
-    toolbar = page[page.index('class="view-toolbar"'):page.index('class="readout-toolbar"')]
+    toolbar = page[page.index('class="view-toolbar seg-toggle seg-toggle--3"'):page.index('class="readout-toolbar"')]
     assert 'data-drawer="live-controls"' not in toolbar
     assert 'data-drawer="live-context"' in page
     assert 'data-mode="observe"' in toolbar

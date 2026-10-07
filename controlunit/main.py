@@ -14,6 +14,7 @@ from controlunit.devices.dac8532 import DAC8532
 from controlunit.devices.mcp4725 import MCP4725
 from controlunit.devices.kikusui import (
     KikusuiLogger,
+    is_output_failure,
     load_config as load_kikusui_config,
     set_output as set_supply_output,
 )
@@ -90,7 +91,10 @@ class MainApp(QtCore.QObject, UIWindow):
         self.__workers_done = 0
         self.workers = {}
         self._kikusui_logger = None
-        self.kikusui_message.connect(self.log_message)
+        # When the last recorder saw the supply's LAN go, kept past that
+        # recorder's end so a press with none running can still say it.
+        self._kikusui_lost_since = None
+        self.kikusui_message.connect(self._kikusui_said)
         self.kikusui_display_timer = QtCore.QTimer(self)
         self.kikusui_display_timer.timeout.connect(self._refresh_kikusui_display)
         self.kikusui_display_timer.start(500)
@@ -459,6 +463,25 @@ class MainApp(QtCore.QObject, UIWindow):
     def _refresh_kikusui_display(self):
         if self._kikusui_logger is not None:
             self._publish_kikusui(self._kikusui_logger.snapshot())
+            self._remember_lost_since()
+
+    def _remember_lost_since(self):
+        """Copy the recorder's last LOST time; None once the LAN came BACK."""
+        logger = getattr(self, "_kikusui_logger", None)
+        if logger is not None:
+            self._kikusui_lost_since = logger.lost_since()
+        return getattr(self, "_kikusui_lost_since", None)
+
+    @QtCore.pyqtSlot(str)
+    def _kikusui_said(self, text):
+        """A line from the supply's link, on the main thread: into the Log,
+        and, when it is a press that failed, onto the browser's own answer
+        too. The press was answered `done` when it was handed over, before
+        the LAN had a chance to stay silent (queezz, 2026-10-07: "Kikusui
+        output button in WebUI not working")."""
+        self.log_message(text)
+        if is_output_failure(text):
+            self.web_status.fail_command(("cathode_output", "stop_all"), text)
 
     def _publish_kikusui(self, snapshot):
         self._kikusui_snapshot = snapshot
@@ -509,8 +532,13 @@ class MainApp(QtCore.QObject, UIWindow):
         """The Control dock's numbers: the ADC signals the screen keeps,
         the three with no other display large, then the cathode supply."""
         values = []
+        gauges = getattr(self.control_dock, "gauges", {})
         for label in Graph.SCREEN_READOUTS:
             v = self.currentvalues[label] - self.zero_adjustment.get(label, 0)
+            # A gauge declared off at its controller reads the word, not the
+            # NaN its row records (queezz, 2026-10-07).
+            if label in gauges and gauges[label][0].currentText() == "Off":
+                v = "off"
             values.append([self.graph.pens[label]["color"], label, v,
                            label in Graph.SCREEN_PROMINENT])
         values.extend(self._cathode_readouts())
@@ -621,6 +649,7 @@ class MainApp(QtCore.QObject, UIWindow):
         logger = getattr(self, "_kikusui_logger", None)
         if logger is not None:
             if logger.stop():
+                self._remember_lost_since()
                 self._kikusui_logger = None
                 self._publish_kikusui({"status": "idle"})
             else:
@@ -738,6 +767,15 @@ class MainApp(QtCore.QObject, UIWindow):
                     f"{channel.supply_minimum:g}..{channel.supply_maximum:g} V; "
                     "invalid = NaN; raw voltages retained\n"
                 )
+        # Each gauge's mode column, and what its codes mean.
+        gauge_metadata = []
+        for name in self.config.get("Ion Gauges", []):
+            channel = self.config["Adc Channel Properties"][name]
+            gauge_metadata.append(
+                f"# {name}_c: mode in {channel.mode_column} (0 = Torr linear, "
+                f"1 = Pa log, 2 = off, converted value NaN), exponent in "
+                f"{channel.scale_column}; raw voltages retained\n"
+            )
         return [
             "# Title , Control Unit ADC signals\n",
             f"# Date , {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n",
@@ -746,6 +784,7 @@ class MainApp(QtCore.QObject, UIWindow):
             f"# Channels , {', '.join([str(i) for i in self.config['ADC Channel Numbers']])}\n",
             "# For converted signals '_c' is added\n",
             *hall_metadata,
+            *gauge_metadata,
             "#\n",
             "# [Data]\n",
         ]
@@ -1340,7 +1379,7 @@ class MainApp(QtCore.QObject, UIWindow):
             return False, "dummy hardware never contacts the supply"
         threading.Thread(
             target=set_supply_output,
-            args=(config, on, self.kikusui_message.emit),
+            args=(config, on, self.kikusui_message.emit, self._remember_lost_since()),
             name="Kikusui output switch",
             daemon=True,
         ).start()

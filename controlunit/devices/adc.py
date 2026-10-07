@@ -26,6 +26,11 @@ from .timing import SampleClock, TimingDiagnostics
 #: 2026-09-07).
 AVERAGE_FROM_SECONDS = 1.0
 
+#: An ionization gauge's mode code when it is declared off: the third item of
+#: the Control dock's box, after Torr (0) and Pa (1). Its row keeps the raw
+#: volts and records NaN as the pressure (queezz, 2026-10-07).
+IG_MODE_OFF = 2
+
 #: How often the reader converts inside an averaged period. Fifty readings
 #: fill the rig's ten-second period; five fill a one-second one.
 INNER_SECONDS = 0.2
@@ -129,7 +134,7 @@ class ADC(DeviceThread):
         date: datetime.datetime
         time: float, seconds from start of recording
         adc_voltage_columns: ADC raw signals
-        <gauge's Mode Column>: int, 0 Torr linear or 1 Pa log, per gauge
+        <gauge's Mode Column>: int, 0 Torr linear, 1 Pa log or 2 off, per gauge
         <gauge's Scale Column>: int, the exponent in linear mode, per gauge
         QMS_signal: int, "trigger" on or off. When on emits a signal from GPIO
         """
@@ -249,6 +254,8 @@ class ADC(DeviceThread):
         Sets one Ionization Gauge's mode from GUI
         0: Torr
         1: Pa
+        2: Off — the gauge is switched off at its controller, so its channel
+           carries noise: the raw volts are kept and the converted value is NaN
         """
         self._gauge_settings[gauge]["mode"] = IGmode
         return
@@ -361,7 +368,11 @@ class ADC(DeviceThread):
                 converted.append(self.adc_channels[name].convert_hall(voltages))
             elif conversion.__name__ == "ionization_gauge":
                 mode_index, scale_index = self._gauge_columns[name]
-                converted.append(conversion(value, raw[mode_index], raw[scale_index]))
+                if raw[mode_index] == IG_MODE_OFF:
+                    # Declared off: the volts are noise, never a pressure.
+                    converted.append(float("nan"))
+                else:
+                    converted.append(conversion(value, raw[mode_index], raw[scale_index]))
             else:
                 converted.append(conversion(value))
         self._converted_rows.append(converted)

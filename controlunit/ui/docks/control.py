@@ -87,8 +87,11 @@ class ControlDock(Dock):
             # Mouse-sized, not touch-sized: the rig has a small mouse and
             # nobody reads these settings loudly (queezz, 2026-09-15: "I
             # built that for touch at first, but we never use touch").
+            # Torr, Pa, or Off: the gauge switched off at its controller,
+            # recorded as mode 2 with its converted value NaN (queezz,
+            # 2026-10-07). The same three words as the web's GAUGE_MODES.
             mode = QtWidgets.QComboBox()
-            [mode.addItem(i) for i in ["Torr", "Pa"]]
+            [mode.addItem(i) for i in ["Torr", "Pa", "Off"]]
             mode.setFont(QtGui.QFont("serif", 12))
             # The short name alone: the place is spelled out on the web card,
             # where there is room, and not here (queezz, 2026-09-15, seeing
@@ -214,7 +217,8 @@ class ControlDock(Dock):
             values: List of [pen colour, label, value, prominent, fmt]; a
                     missing fourth item means prominent and a missing fifth
                     means the old rule (two decimals for Ip, else
-                    exponent form). A value of None reads as a dash.
+                    exponent form). A value of None reads as a dash, and a
+                    word (a gauge's "off") is written as it is.
         """
         padding = "1px"  # Set your desired padding here
         cell_width = "10px"  # Set your desired cell width here
@@ -227,7 +231,7 @@ class ControlDock(Dock):
             prominent = entry[3] if len(entry) > 3 else True
             fmt = entry[4] if len(entry) > 4 else (".2f" if label == "Ip" else ".2e")
             size = self.PROMINENT_SIZE if prominent else self.QUIET_SIZE
-            text = "—" if val is None else f"{val:{fmt}}"
+            text = "—" if val is None else val if isinstance(val, str) else f"{val:{fmt}}"
             table_cells.append(
                 f'<td style="padding:{padding};width:{cell_width};">'
                 f'<font size="{size}" color="{pen}">{label} = {text}</font></td>'

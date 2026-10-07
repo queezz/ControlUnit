@@ -131,7 +131,15 @@ holds what is still undecided or unbuilt.
   it cannot. The DAC drive is already cut regardless. The same two days
   also show the LAN itself: on 10-05 the recorder had an answer for 84 %
   of its polls; on 10-06, 7 losses in three hours. Worth a line in the
-  diagnostics when it is built. Files: `data/rig/2026-10-05/`.
+  diagnostics when it is built. Files: `data/rig/2026-10-05/`. Seen
+  again 2026-10-07 by queezz himself ("Kikusui output button in WebUI
+  not working"): the supply's LAN was lost from 17:08:59, his two
+  presses at 17:31 timed out, and the link came back only when he
+  power-cycled the supply at 18:02 ("LAN LED turned from red to green").
+  So two things: the press must say in words that the LAN is dead and
+  what to do at the rack (built in 4.29.0), and the Kikusui's own LAN
+  interface drops and stays down until a power cycle — a note for the
+  hardware page, and a reason the retry should not run forever.
 
 - From the 2026-10-02 argon run (queezz's journal of that day, and
   docs/diagnostics/2026-10-02-ar-plasma-pid-run.md for every number).
@@ -508,22 +516,22 @@ holds what is still undecided or unbuilt.
   (queezz, 2026-09-15, after turning every PSU off with the rig still
   logging: "the rig still searches for it. We need a toggle. Thing off.
   Also for IGs. So we don't collect nonsense signal. Or at least know when
-  it is from the log file, without looking at pihti-vacuum"). Design:
-  - One "off" switch per instrument that can be off while the rig logs —
-    the cathode supply (Kikusui) and each ion gauge — on the rig's dock
-    and on the web Cathode card and Ion gauges card, the house's sliding
-    pill, gated like every setter. These switches alone decide what the
-    file marks (queezz, 2026-09-15: "ControlUnit NEEDS a switch. Why
-    depend on a separate server?"). The flow between the two runs the
-    other way, on his word the same night: "we can rather ping control
-    from diagram to check upon values, pressures and on/off. We still
-    operate it as is. And tell what the control actually sees." So
-    `/api/state` carries each instrument's off mark beside its value, and
-    the PIHTI Diagram reads ControlUnit — values, pressures, on/off — and
-    shows what the rig sees; a letter to the Diagram once the switches
-    exist. ControlUnit may consult the Diagram's vacuum state as advice
-    and never overwrites it ("control doesn't overwrite diagram. It
-    consults"). "PSUs off" in his words means the plasma power supplies.
+  it is from the log file, without looking at pihti-vacuum"; asked again
+  2026-10-07: "I need a toggle in ControlUnit for IGs to be off"). The
+  ion gauges' half shipped in 4.29.0: Off is a third mode beside Torr
+  and Pa on the dock and the web card, the row's mode column carries 2
+  with the converted value NaN, the card and the curve say off, and
+  `/api/state` carries the mode. Left of the design:
+  - The cathode supply's own "off" is the Kikusui lamp and its telemetry
+    (stopped, stale, unavailable say themselves); the plasma power
+    supplies (anode, preanode) are not read by the rig at all, so an
+    "off" for them waits on their being read. The flow between the two
+    web views runs from the Diagram to ControlUnit (queezz, 2026-09-15:
+    "we can rather ping control from diagram to check upon values,
+    pressures and on/off… And tell what the control actually sees");
+    ControlUnit consults the Diagram's state as advice and never
+    overwrites it. Letter to the Diagram sent 2026-10-07
+    (`20261007-677c6c98-ca9550`) saying the gauge mark exists.
   - Heuristics suggest, the operator decides (queezz, 2026-09-15: "An
     off IG unit usually reads low values.. we note those, and suggest").
     An ion gauge whose raw volts sit near the floor for a minute gets a
@@ -894,6 +902,18 @@ holds what is still undecided or unbuilt.
   the display-side stopgap.
 
 ## Reported, not reproduced
+
+- The upstream Baratron Bu jumped when the ion-gauge controller was
+  powered off (queezz, 2026-10-07 17:28: "Turning off the IG made a huge
+  jump in Bu signal. I powered off the IG, not filament, not
+  unplugged"). A ground or supply shift reaching the ADC box when that
+  controller drops off the mains; the same family as the 7.5 s step and
+  the I²C upsets. Look for it in `cu_20261007_170858.csv` around 17:28
+  before guessing at a cause.
+- The Pirani reads below the rig's own Pu (queezz, 2026-10-07 17:43:
+  "The pfeiffer reads 7.7e-4, while our ADC shows 8.5e-4. And all are
+  below the baratron. I trust Bu more that this pirani"). One more pair
+  of numbers for the Pu conversion item below.
 
 - Clicking the page logo produced an error before acquisition was started,
   and did not after (queezz, 2026-09-04, against 0.5.0 on the rig). Not

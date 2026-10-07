@@ -78,10 +78,9 @@
         smooth: 0,
         monitorBig: true,
         big: false,
-        /* The readout cards a reader pressed away in Operate and Observe, by
-           the card's own key: an ADC channel's name, or the cathode supply's
-           `voltage_v` / `current_a`. Monitor shows every card whatever this
-           holds; see `paintHidden`. */
+        /* The readout cards a reader pressed away, by the card's own key: an
+           ADC channel's name, or the cathode supply's `voltage_v` /
+           `current_a`. One set for all three modes; see `paintHidden`. */
         hiddenReadouts: []
     };
 
@@ -409,10 +408,30 @@
 
     // -- state ---------------------------------------------------------------
 
+    /* The ion gauges the rig has been told are switched off at their
+       controllers, by channel name (queezz, 2026-10-07: "when I turn a gauge
+       off and click in CU it off, it should be known that the signal on that
+       channel is noise"). Read from the gauge's mode in the setpoints every
+       poll; such a gauge's card reads `—` tagged `off`, and its curve is not
+       drawn, until the mode is Torr or Pa again. */
+    var gaugesOff = {};
+
+    function readGaugesOff(state) {
+        var gauges = (state.setpoints || {}).gauges || {};
+        var next = {};
+        Object.keys(gauges).forEach(function (name) {
+            if (gauges[name] && gauges[name].mode === "Off") next[name] = true;
+        });
+        var changed = Object.keys(next).sort().join() !== Object.keys(gaugesOff).sort().join();
+        gaugesOff = next;
+        return changed;
+    }
+
     function paintState(state) {
         var key = runKey(state);
         if (run === null) run = key;
         else if (key !== run) { run = key; forget(); fillFromRing(); }
+        var gaugesMoved = readGaugesOff(state);
 
         var zeros = state.zeros || {};
         var shared = sharedUnit(state.channels);
@@ -428,6 +447,8 @@
                 var smoothed = latestMedian(channel.name, view.smooth);
                 if (smoothed !== null) value = smoothed;
             }
+            var declaredOff = gaugesOff[channel.name] === true;
+            if (declaredOff) value = null;   // its volts are noise, not a pressure
             /* The signed number and its unit, always, in the value's own
                size — a negative Baratron reads -5.00×10⁻³ Torr, not the word
                "Below zero" where its number should be (owner, 2026-09-10:
@@ -457,8 +478,11 @@
                again was the second copy this page's own rule forbids. Empty
                otherwise, and empty it occupies no room. */
             var note = box.querySelector('[data-role="readout-note"]');
-            if (note) note.textContent = Number(zeros[channel.name] || 0) !== 0 ? "zeroed" : "";
+            if (note) note.textContent = declaredOff ? "off"
+                : Number(zeros[channel.name] || 0) !== 0 ? "zeroed" : "";
         });
+        // A gauge just declared off, or back on, leaves or rejoins its chart now.
+        if (gaugesMoved) drawAll();
         var units = root.querySelector('[data-role="fold-units"]');
         if (units) units.textContent = shared;
 
@@ -878,7 +902,9 @@
             if (!name) return;
             var right = rightNames.indexOf(name) >= 0;
             var chosen = view.channels[name] !== false;
-            var points = chosen ? slice(name, from, to) : [];
+            // A gauge declared off draws nothing, whatever the reader chose.
+            var declaredOff = gaugesOff[name] === true;
+            var points = chosen && !declaredOff ? slice(name, from, to) : [];
             if (right) { if (points.length > extra) extra = points.length; }
             else if (points.length > count) count = points.length;
             var kept = [];
@@ -899,7 +925,7 @@
                 if (v < lo) lo = v;
                 if (v > hi) hi = v;
             });
-            series.push({name: name, chosen: chosen, right: right, points: kept,
+            series.push({name: name, chosen: chosen && !declaredOff, right: right, points: kept,
                 lo: lo, hi: hi, nonpositive: nonpositive});
         });
 
@@ -1306,7 +1332,7 @@
         dockModes();
         closeDrawers();
         applyDisplay();
-        paintHidden();   // Monitor shows every card; the other two, the reader's choice
+        paintHidden();
         drawAll();   // the reading column just changed width
     }
 
@@ -1606,20 +1632,19 @@
         press("[data-display]", "display", big ? "big" : "normal");
     }
 
-    /* A press on a readout card hides it, in Operate and Observe (queezz,
-       2026-10-07: "For some regimes I only need 2-3, so others get in the way
-       on mobile"). The card stays where it is in the page and only its
-       `hidden` flag changes, so one shown again stands at its own place in
-       the grid. Each hidden card is said once more as a pill at the grid's
-       end, in the card's pen, named as the folded row names it — the legend's
-       own vocabulary: a dimmed pill is something switched off, and pressing
-       it brings it back.
+    /* A press on a readout card hides it (queezz, 2026-10-07: "For some
+       regimes I only need 2-3, so others get in the way on mobile"). The card
+       stays where it is in the page and only its `hidden` flag changes, so
+       one shown again stands at its own place in the grid. Each hidden card
+       is said once more as a pill at the grid's end, in the card's pen, named
+       as the folded row names it — the legend's own vocabulary: a dimmed pill
+       is something switched off, and pressing it brings it back.
 
-       Monitor shows every card and no pills: it is the page read from across
-       the room, and a card pressed away at the desk must not leave a hole
-       there. A press in Monitor does nothing. The two other modes share one
-       hidden set, remembered with the rest of the view. Nothing here touches
-       the folded row, what is recorded, or the rig. */
+       All three modes share one hidden set, remembered with the rest of the
+       view. Monitor was once exempt and showed every card; the same evening
+       he asked for the selector there too ("The Monitor mode needs signal
+       cards selector as all others do"). Nothing here touches the folded
+       row, what is recorded, or the rig. */
     var CHIP_NAMES = {voltage_v: "Uc", current_a: "Ic"};
 
     function readoutKey(card) {
@@ -1651,17 +1676,15 @@
 
     function paintHidden() {
         var chips = root.querySelector('[data-role="readout-chips"]');
-        var hiding = mode !== "monitor";
         var count = 0;
         if (chips) while (chips.firstChild) chips.removeChild(chips.firstChild);
         readoutCards().forEach(function (card) {
             var key = readoutKey(card);
-            var hidden = hiding && view.hiddenReadouts.indexOf(key) >= 0;
+            var hidden = view.hiddenReadouts.indexOf(key) >= 0;
             card.hidden = hidden;
             card.setAttribute("aria-pressed", hidden ? "false" : "true");
-            card.tabIndex = hiding ? 0 : -1;
-            if (hiding) card.removeAttribute("aria-disabled");
-            else card.setAttribute("aria-disabled", "true");
+            card.tabIndex = 0;
+            card.removeAttribute("aria-disabled");
             if (hidden && chips) {
                 chips.appendChild(readoutChip(card, key));
                 count += 1;
@@ -1675,7 +1698,7 @@
     }
 
     function hideReadout(key) {
-        if (mode === "monitor" || !key) return;
+        if (!key) return;
         if (view.hiddenReadouts.indexOf(key) < 0) view.hiddenReadouts.push(key);
         remember();
         paintHidden();

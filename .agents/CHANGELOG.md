@@ -1,3 +1,40 @@
+## 4.29.0 — 2026-10-07
+
+From a diagnostic run on the rig the same evening.
+
+- Readout cards hide in Monitor too (queezz, 2026-10-07: "The Monitor mode
+  needs signal cards selector as all others do."). The three modes share
+  one hidden set: a press hides a card in Monitor as elsewhere, and its
+  pill stands at the end of the readouts there as well.
+- The Operate/Observe/Monitor switch is one segmented track with a thumb
+  that slides under the chosen mode, the house's two-state switch made
+  three-state (queezz: "Also mode buttons are same as gauges and all else
+  in monitor, bad."). It keeps its homes: the tab bar on a desktop, the
+  status line in Monitor, the Menu on a phone, where it spans the panel.
+- The Cathode card no longer changes width (queezz: "The current card keeps
+  changing width. Due to current readouts, no doubt."). Ip reads to the
+  milliampere in fixed notation (`0.416 A`, `-0.005 A`) instead of turning
+  into `-4.72e-3` near zero, and the line wraps inside the card instead of
+  pushing it past the rail.
+- An ion gauge can be declared **Off**, beside Torr and Pa, on the rig's
+  Control dock and on the web Ion gauges card (queezz: "I need a toggle in
+  ControlUnit for IGs to be off. So when I turn a gauge off and click in CU
+  it off, it should be known that the signal on that channel is noise.").
+  Every row then records mode `2` in that gauge's mode column, keeps the
+  raw volts and records the pressure as NaN; the data file's header says
+  so. The Log says `Pu2 declared off`. On the Live page the card reads `—`
+  tagged `off` and the curve is not drawn; on the rig's dock the reading
+  says `off`. A reading that is not a number now reaches the browser as
+  null, where it used to be written as `NaN`, which no browser can parse.
+- A press on the supply's output that fails says why, in words a person at
+  the rack can act on (queezz: "Kikusui output button in WebUI not
+  working"; the supply's LAN had been dead from 17:08 until he
+  power-cycled it at 18:02). When the LAN did not answer, the Log and the
+  pressing page both say `Kikusui output OFF FAILED: the supply's LAN did
+  not answer (lost since 17:08). Press OUTPUT on the supply, or power-cycle
+  it to bring its LAN back; the DAC drive is unchanged.` The page used to
+  say "done" and leave the failure to the Log.
+
 ## 4.28.0 — 2026-10-07
 
 - Window, Median, fast polling and Show are four small controls that are

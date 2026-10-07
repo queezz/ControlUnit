@@ -108,7 +108,8 @@ function build(storageThrows) {
         source.slice(0, source.indexOf('    if (document.readyState'))
         + 'send = (path, body) => sent.push({path, body});'
         + ' globalThis.api = {setupDraftRow, setupCathodeMode, setupFolds,'
-        + ' paintCathode, setupOutputLamp, paintGate, noteControl, CATHODE_DRAFT}; }());',
+        + ' paintCathode, setupOutputLamp, paintGate, noteControl, CATHODE_DRAFT,'
+        + ' paintOutcome, hold(id) { pending = id; }, listen(cell) { status = cell; }}; }());',
         ctx
     );
     return {api: ctx.api, input, setButton, offButton, note, steps, manualRow,
@@ -386,6 +387,52 @@ test('Ip is read beside the drive; an analog placeholder cannot pose as Kikusui 
     );
     assert.equal(d.cells.ip.textContent, '0.421 A');
     assert.equal(d.cells.measured.textContent, '');
+});
+
+/* queezz, 2026-10-07: "Kikusui output button in WebUI not working". The press
+ * is handed to the supply's own thread and answered `applied` at once; when
+ * the LAN then stays silent the rig marks the same command `failed`, and the
+ * page says the rig's sentence in place of "done". */
+test('a press that fails after its answer says why, in the words of the rig', () => {
+    const d = build();
+    const status = el();
+    d.api.listen(status);
+    d.api.hold(7);
+    const press = {id: 7, kind: 'cathode_output', value: 'cathode output off', outcome: 'applied', reason: ''};
+    d.api.paintOutcome({last_command: press});
+    assert.equal(status.textContent, 'done: cathode output off');
+    const why = "Kikusui output OFF FAILED: the supply's LAN did not answer (lost since 17:08). "
+        + 'Press OUTPUT on the supply, or power-cycle it to bring its LAN back; the DAC drive is unchanged.';
+    d.api.paintOutcome({last_command: {...press, outcome: 'failed', reason: why}});
+    assert.equal(status.textContent, why);
+    // Said once: a later poll of the same record changes nothing.
+    status.textContent = 'something since';
+    d.api.paintOutcome({last_command: {...press, outcome: 'failed', reason: why}});
+    assert.equal(status.textContent, 'something since');
+    // Another browser's failed press is not this page's to announce.
+    d.api.paintOutcome({last_command: {...press, id: 8, outcome: 'failed', reason: why}});
+    assert.equal(status.textContent, 'something since');
+});
+
+/* queezz, 2026-10-07: "The current card keeps changing width. Due to current
+ * readouts, no doubt." Ip is read to the milliampere in fixed notation, so a
+ * reading hovering about zero keeps the line's length steady. */
+test('Ip is read to the milliampere in fixed notation, so the line keeps its length', () => {
+    const d = build();
+    const read = value => {
+        d.api.paintCathode({setpoints: {cathode_mv: 1780}}, {Ip: {value, unit: 'A'}});
+        return d.cells.ip.textContent;
+    };
+    assert.equal(read(0.4163), '0.416 A');
+    assert.equal(read(-0.00472), '-0.005 A');
+    assert.equal(read(0.012), '0.012 A');
+    assert.equal(read(1.2345), '1.234 A');
+    // No negative zero, and the general format past 10 A.
+    assert.equal(read(-0.0001), '0.000 A');
+    assert.equal(read(12.5), '12.5 A');
+    // Every reading below 1 A is the same length.
+    assert.equal(new Set([0.4163, -0.00472, 0.012, -0.3].map(v => read(v).replace('-', '').length)).size, 1);
+    assert.equal(d.cells.fold.textContent, 'manual 1780 mV · read -0.300 A');
 });
 
 /* 2026-10-02, 17:23:44. A laptop's page had been open since before a phone

@@ -130,8 +130,14 @@ PLASMA_MAX_A = 3.0
 #: whatever the plasma does.
 CATHODE_MAX_MV = 5000
 
-#: An ionization gauge's two modes and its decade range.
-GAUGE_MODES = ("Torr", "Pa")
+#: An ionization gauge's modes, in the order of the Control dock's box and of
+#: the code each row records (0, 1, 2), and its decade range. `Off` declares
+#: the gauge switched off at its controller, so its channel is noise and its
+#: converted value is NaN (queezz, 2026-10-07: "I need a toggle in
+#: ControlUnit for IGs to be off. So when I turn a gauge off and click in CU
+#: it off, it should be known that the signal on that channel is noise").
+GAUGE_MODES = ("Torr", "Pa", "Off")
+GAUGE_OFF = "Off"
 GAUGE_RANGE_LOW = -8
 GAUGE_RANGE_HIGH = -3
 
@@ -495,7 +501,7 @@ def validate_cathode_output(body):
 
 
 def validate_gauge(body):
-    """`{"gauge": name, "mode": "Torr"|"Pa"}` and/or `{"range": -8..-3}`;
+    """`{"gauge": name, "mode": "Torr"|"Pa"|"Off"}` and/or `{"range": -8..-3}`;
     at least one of mode and range, and the first gauge when none is named."""
     body = _body(body)
     gauge = body.get("gauge")
@@ -507,7 +513,7 @@ def validate_gauge(body):
     if body.get("mode") is not None:
         mode = str(body["mode"])
         if mode not in GAUGE_MODES:
-            raise Invalid("the gauge reads in Torr or in Pa")
+            raise Invalid("the gauge reads in Torr or in Pa, or is declared Off")
         value["mode"] = mode
     if body.get("range") is not None:
         value["range"] = _whole_number(
@@ -708,7 +714,9 @@ def summarise(kind, value):
     if kind == "gauge":
         gauge = value.get("gauge", "gauge")
         parts = []
-        if value.get("mode"):
+        if value.get("mode") == GAUGE_OFF:
+            parts.append("{} declared off".format(gauge))
+        elif value.get("mode"):
             parts.append("{} in {}".format(gauge, value["mode"]))
         if value.get("range") is not None:
             parts.append("{} range {}".format(gauge, value["range"]))

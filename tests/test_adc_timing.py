@@ -151,6 +151,38 @@ def test_each_ion_gauge_records_and_converts_with_its_own_settings(worker):
     assert worker.config['Ion Gauges'] == ['Pd', 'Pu2']
 
 
+def test_a_gauge_declared_off_records_mode_2_its_volts_and_no_pressure(worker):
+    """queezz, 2026-10-07: "when I turn a gauge off and click in CU it off,
+    it should be known that the signal on that channel is noise." Mode 2 is
+    written in the gauge's own column on every row, the raw volts are kept,
+    and the converted value is NaN; the other gauge is untouched."""
+    import math
+    captured = []
+    worker.data_ready.connect(lambda result: captured.append(result[0]))
+    worker.hold_voltages({name: 0.5 for name in worker.adc_signals_columns})
+    worker.set_ig_mode('Pd', 0)
+    worker.set_ig_range('Pd', -6)
+    worker.set_ig_mode('Pu2', 2)
+    worker.set_ig_range('Pu2', -3)
+    for _ in range(2):
+        worker.put_new_data_in_dataframe()
+        worker.update_processed_signals_dataframe()
+    worker.send_processed_data_to_main_thread()
+    rows = captured[0]
+    assert list(rows['IGmode_Pu2']) == [2, 2]
+    assert list(rows['Pu2']) == [0.5, 0.5]
+    assert all(math.isnan(v) for v in rows['Pu2_c'])
+    assert list(rows['IGmode']) == [0, 0]
+    assert rows['Pd_c'].iloc[0] == pytest.approx(0.5e-6)
+    # And back: Torr converts again from the next row on.
+    worker.set_ig_mode('Pu2', 0)
+    worker.put_new_data_in_dataframe()
+    worker.update_processed_signals_dataframe()
+    worker.send_processed_data_to_main_thread()
+    assert captured[1]['IGmode_Pu2'].iloc[0] == 0
+    assert captured[1]['Pu2_c'].iloc[0] == pytest.approx(0.5e-3)
+
+
 def test_ion_gauge_places_names_where_each_gauge_sits():
     """Pd and Pu2 each carry the place their settings give them, in the same
     order as ion_gauge_names; a gauge with no Place would fall back to its
