@@ -98,11 +98,32 @@ Not walked: the output press failure's sentence (the dummy supply
 cannot lose its LAN; covered by `tests/test_kikusui.py` and the Qt
 test), and 320 px.
 
+## Deployed, 20:01 (4.29.0)
+
+Queezz, from home: "Sure, deploy." Pushed `244cd2f..57f306b`. The same
+script from the Pi: the rig read `measuring`, no outputs; take control,
+stop (`cu_20261007_180340.csv` closed), `idle`, TERM, pull to
+`57f306b`, `compileall` clean, start on display `:0`, health 4.29.0,
+acquisition started, sampling 10 s: `cu_20261007_200145.csv`.
+
+One mistake, corrected within the minute: the script restores the
+gauges from a copy taken at 14:00 (Pu2 range 1e-5), but he had set Pu2
+to 1e-6 at 18:00. Read from `/api/state` before the stop and missed;
+put back to 1e-6 with one gauge command at 20:02. The next deployment
+script reads the gauges from the state it stops and restores those,
+not a constant.
+
+His question from home, "Is pu2 below 1e-6 or it's stuck?": in the two
+hours before the restart Pu2 read 1.503e-6 to 1.513e-6 Torr on the 1e-6
+range, every sample a different number, a slow 0.6 % drift, Pd and Pu
+drifting the same way; not a floor and not stuck. What the rig cannot
+see is whether the controller's own range switch matches the 1e-6 the
+rig was told.
+
 ## Left
 
 `directions.md`: the "declared off" item is trimmed to what remains
 (the plasma supplies, the heuristics); the Bu jump on IG power-off and
-the Pirani reading stand as reported. The rig runs 4.28.0; 4.29.0 is
-committed and not pushed. Pushing and deploying it is his to say.
+the Pirani reading stand as reported. The rig runs 4.29.0.
 
 agent: claude
