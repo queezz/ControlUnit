@@ -42,22 +42,25 @@ holds what is still undecided or unbuilt.
 
 ## Work only queezz can do
 
-- Say which wire the Hall sensor sits on, and run the known-current
-  calibration — owner work pending. On 2026-10-02 the Hall current, zero
-  removed, was 0.60 A while your table read I_pl 0.7 A (the anode
-  supply's panel) and I_pre 0.9 A. After the zero, what is left
-  is the sensor's scale (the settings' 5 A per volt is provisional and
-  matches no documented part) and which current it is measuring at all —
-  anode, preanode or the cathode return carry different currents. The
-  calibration is step 7 of the Hall rework: 0, ±0.5, ±1 and ±2 A, 30 s
+- Run the Hall sensor's known-current calibration — owner work pending.
+  Which wire is answered (owner statement 2026-10-07, live: "plasma
+  current IS preanode current presently"): the sensor is on the preanode
+  wire, so `Ip` is the preanode supply's current. Against that supply's
+  panel it reads about 0.70 in every comparison on file — 0.60 A against
+  0.9 A on 2026-10-02, 1.54 against 2.2 A on 2026-10-05, and a flat 3.53 A
+  wherever the supply sat at its 5 A limit on 2026-10-06 — so the
+  settings' provisional 5 A per volt is about 7 A per volt in truth, and
+  the readout, the PID's setpoint and the charts all read 30 % low until
+  the calibration says the exact number. The calibration is step 7 of
+  the Hall rework: 0, ±0.5, ±1 and ±2 A, 30 s
   each at 10 Hz, discharge off. The rest of that rework you reported done
   on 2026-09-29 (fleet letter `20260929-2e17d3fd-15bcb4`), and the files
   agree: `Vhall` is recorded on channel 1 since 2026-09-30 and the quiet
   ten minutes exist (2026-10-02 17:02–17:11, sd 9.7 mA against 23 mA
   before).
-  Done when: the conductor and the sensor's part number are written in
-  docs/hardware/channel-map.md and a calibration file exists with the
-  currents noted by time.
+  Done when: the sensor's part number is written in
+  docs/hardware/channel-map.md beside the preanode wire, and a
+  calibration file exists with the currents noted by time.
 - Put a meter or a scope on the cathode DAC's output at the green plug
   and watch for a step every 7.5 s — owner work pending. The 2026-10-02
   files show the filament current itself stepping by 37 mA (0.24 %) for

@@ -38,12 +38,23 @@ The comparison and the reasoning are in the vault note; in short:
 1. At 30–50 mTorr and 17 A his hydrogen gives 1.5–2.3 A of plasma
    current, three to four times the 2024 runs at 17–18 A and 16–20
    mTorr. Emission is not what is wrong.
-2. What is wrong is September's preanode fault, back: the anode supply
-   pegged at its 3 A limit (3.5 A on the provisional Hall scale) in 17 of
-   32 episodes on 10-06, seven fast spikes to 4–7.5 A, abrupt deaths from
-   a steady 1.5 A with the filament unchanged. 10-05 had none of the
-   first two; 10-06 had them inside the first minute. One spike is inside
-   the argon test he took as clearing the preanode.
+2. What is wrong: the preanode supply at its 5 A limit (3.5 A on the
+   provisional Hall scale) in 17 of 32 episodes on 10-06, seven fast
+   spikes to 4–7.5 A, abrupt deaths from a steady 1.5 A with the filament
+   unchanged. 10-05 had none of the first two; 10-06 had them inside the
+   first minute. One spike is inside the argon test he took as clearing
+   the preanode. Two readings fit and the files cannot separate them:
+   the September short back, or too much emission for the preanode's
+   limit at a 1.5 A setpoint (queezz: "hands on controls still fits").
+   His own hydrogen run at his settings is the test. First written as
+   the short alone, and as the anode supply pegging; both corrected the
+   same afternoon on his word.
+8. The Hall sensor is on the preanode wire (queezz, live: "plasma
+   current IS preanode current presently"), and reads about 0.70 of the
+   supply's panel in every comparison on file (0.60/0.9 on 10-02,
+   1.54/2.2 on 10-05, 3.53 at the 5 A limit). The "which wire" half of
+   the Hall owner-work item is answered in directions; the calibration
+   remains his.
 3. The PID's 1900 mV unlit ceiling is below hydrogen's ignition drive of
    2030–2100 mV; the loop flipped lit/unlit six times at 1900 mV on
    10-06 18:00. Owner decision in directions.
