@@ -20,6 +20,26 @@ holds what is still undecided or unbuilt.
   Safe default: the lists stand as they are. Either way it is one line in
   `PRESETS` in `controlunit/web/server.py`.
 
+- Should the PID's unlit ceiling rise from 1900 mV to about 2150 mV, or
+  follow the last drive that lit the source by hand? — the owner's call.
+  The ceiling is the most the loop may give an unlit filament (settings
+  key `Unlit Ceiling mV`, 1900). It came from your argon runs, where
+  1800–1830 mV lights the source. Kawabata's hydrogen on 2026-10-05 and
+  10-06 lit by hand at 2030–2100 mV (17.2–17.5 A on the Kikusui) and not
+  below; under the PID the loop sat at 1900 mV (16.5–16.9 A) beneath a
+  plasma that needed more, and flipped between lit and "no discharge at
+  the ceiling" six times in four minutes on 10-06 at 18:00.
+  Stakes: too low and hydrogen cannot be lit or held by the PID at all;
+  too high and a filament with no gas or no anode voltage is driven
+  harder than anyone would by hand, blind.
+  Recommendation: 2150 mV, which is 17.7 A, inside the 17–20 A the good
+  hydrogen runs of 2024–2026 used; and when the PID is engaged from a
+  held manual drive that has a discharge under it, let that drive stand
+  as the ceiling for the engagement, so the loop never pulls a lit
+  hydrogen plasma down to an argon number.
+  Safe default: 1900 mV stands; hydrogen is lit by hand and the PID is
+  engaged only after it is lit, as Kawabata did at 18:00.
+
 ## Work only queezz can do
 
 - Say which wire the Hall sensor sits on, and run the known-current
@@ -95,6 +115,20 @@ holds what is still undecided or unbuilt.
   than a text box, and its heading says "· PIHTI Log" with a time.
 
 ## Ready to build
+
+- The Kikusui output-off press gives up after one second on a flapping
+  LAN (2026-10-05 16:02, twice: "Kikusui output OFF FAILED: Telemetry
+  query deadline exceeded", in a two-hour stretch with 57 "telemetry
+  LOST" messages). The press shares `timeout_s` (1.0) with a telemetry
+  sample, and the budget covers connect, `*IDN?`, `OUTP 0` and the
+  readback. Off is the safety press (owner decision 2026-09-15), so it
+  should keep trying — fresh connections for several seconds, say five,
+  logging each attempt, and only then report the failure — and the log
+  should say whether `OUTP 0` was sent before the deadline, which today
+  it cannot. The DAC drive is already cut regardless. The same two days
+  also show the LAN itself: on 10-05 the recorder had an answer for 84 %
+  of its polls; on 10-06, 7 losses in three hours. Worth a line in the
+  diagnostics when it is built. Files: `data/rig/2026-10-05/`.
 
 - From the 2026-10-02 argon run (queezz's journal of that day, and
   docs/diagnostics/2026-10-02-ar-plasma-pid-run.md for every number).
@@ -526,7 +560,15 @@ holds what is still undecided or unbuilt.
   folded into the same line — so the readouts start about 60 px from the
   top and the charts get the rest. Same family as the status-line
   Sampling and QMS sync controls in the 4.19 design above; build them
-  together.
+  together. Said again 2026-10-07, on 4.25.0 at 2000 px wide: "Observe
+  and monitor waste a lot of top bar space by showing there... nothing!"
+  — the bar holds the mode switch alone, the pills and the sampling line
+  sit under it, and Window and Median under those. And of the right rail
+  on Live: "the display items are hidden uncomfortably there" — the
+  Display drawer's header is one box and its Window, Median, Polling and
+  Show groups are four separate boxes below it, so the header does not
+  read as owning them. Both go together with this strip; a UI change
+  routes through the fleet's UI law and the Perimeter Walk first.
 - Sessions may stop and start the rig's program only when queezz asks
   directly in the chat, never on their own (owner decision 2026-09-15,
   live; now in AGENTS.md). Asked, a session refuses while an output is
