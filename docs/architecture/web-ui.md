@@ -439,15 +439,15 @@ measured, and a readout with a baseline held says `zeroed` beside its name.
     moves.
 
     `big`, beside the readouts, makes the five readouts the column's lead, for reading
-    the rig from a metre away, and is remembered per browser. `Poll: fast`, in the same card,
-    asks for state and series four times a second instead of once a second and once every two seconds,
+    the rig from a metre away, and is remembered per browser. **Fast polling**, the
+    lightning-bolt press among the display tools (pressed is fast), asks for state and series four times a second instead of once a second and once every two seconds,
     for watching a value settle while a gauge is zeroed at the rig; it keeps
     whatever window is chosen, and it is deliberately forgotten on reload so a
-    page left open overnight stops asking. Every other choice in that rail is
+    page left open overnight stops asking. Every other display choice is
     remembered.
 
     **A preset sets the page for a kind of work.** **Show** (`All`, `Vacuum`,
-    `Plasma`), a pulldown in the Display card, is a named set of exactly the per-curve
+    `Plasma`), a pulldown among the display tools, is a named set of exactly the per-curve
     switches described above and nothing more: it changes what this browser
     draws, never one byte of what the rig records, and it is remembered the
     same way the switches are. **Vacuum** shows both ion gauges and both
@@ -477,8 +477,8 @@ measured, and a readout with a baseline held says `zeroed` beside its name.
     1225px at a 1280px window, so the charts roughly double in width. The two
     pills stay exactly where they were, at the head of the column they
     describe, because whether the rig is holding gas is what that screen
-    exists to say; the same line carries Sampling and QMS sync, the Display
-    card's Window and Median, a **Display** press that summons the right
+    exists to say; the same line carries Sampling and QMS sync, the four
+    display tools, a **Gauges** press that summons the right
     rail, a **Full screen** press (the browser's own Fullscreen API, silent
     where a browser refuses it) and the mode switch. From 4.26.0 that is one
     line, wrapping only when the window is too narrow for it, where it used
@@ -661,18 +661,31 @@ measured, and a readout with a baseline held says `zeroed` beside its name.
   width must not move between states. The page's `prefers-reduced-motion`
   blanket already drops the slide.
 
-  The right rail holds four folded groups, in this order: **Operator and
-  access**, **Ion gauges**, **Display** and **This run**. Access starts open
+  The right rail holds three folded groups, in this order: **Operator and
+  access**, **Ion gauges** and **This run**. Access starts open
   when the browser needs a name, the lab word, or the rig's Remote switch.
   Name and word remain outside the gated setters. Readout size sits beside
-  the readouts. **Display is one card** from 4.26.0, its heading owning four
-  plain rows — Window, Median, Polling and Show — the way Operator and access
-  owns its own, rather than a heading over four separate cards (queezz,
-  2026-10-07: *"the display items are hidden uncomfortably there"*). Window,
-  Median and Show are pulldowns; Polling is the two-state switch. Folded,
-  its line says the window, the median, the preset and `fast` when they
-  apply. This run is the same single card. Each pressure chart retains its
-  own axis switches and pills.
+  the readouts. Each pressure chart retains its own axis switches and pills.
+
+  **The display tools are four small controls that are always out** from
+  4.28.0 (queezz, 2026-10-07: *"Don't we have space somewhere on the top
+  bar-ish for keeping 4 display pills there permanently? normal/fast is a
+  toggle. And we don't need big descriptors.. Some small one or an icon
+  would do, I think."*). Window, Median, fast polling and Show, in that
+  order, in one group (`span.display-tools`): Window, Median and Show are
+  pulldowns, fast polling is one press that is pressed while fast. Each is
+  named by a small stroked icon — a clock, a smoothed wave, a lightning
+  bolt, an eye — drawn once as `<symbol>`s at the top of `live.html` and
+  named by `<use>`, nothing fetched; the word is each control's `title` and
+  label. The group is one element with two homes, like the mode switch: on
+  a desktop in Operate and Observe it docks into the tab bar's right-end
+  slot before the switch, so the bar reads brand, Log, Lab … the tools, then
+  Operate | Observe | Monitor; in Monitor, which has no tab bar, and on any
+  phone it stays at home on the status line after Sampling and QMS sync.
+  It is never inside `.sets`: what this browser draws is never behind the
+  rig's gate. From 4.26.0 to 4.27.0 these four were the rows of a Display
+  card in the right rail, with Window and Median carried onto Monitor's
+  line one by one; the card and its folded line are gone.
 
   **There is no Settings group** from 4.24.0. It held QMS sync, Sampling
   and the gauges from 4.12.0, and the owner asked for it gone an hour into
@@ -905,8 +918,8 @@ section forbids — a data surface states, and the reading room explains.
 
 
 Monitor (4.8.5) uses the viewport width and shares available height among
-active plots, with a minimum usable plot height on short screens. Window
-and Median move from the Display card onto Monitor's status line without
+active plots, with a minimum usable plot height on short screens. The
+display tools move from the tab bar onto Monitor's status line without
 duplication, and back when the mode changes.
 Monitor defaults to big readouts and remembers its own small/big choice;
 Operate and Observe retain their existing size preference.
@@ -921,8 +934,10 @@ On narrow phones (up to 620 px), Menu opens Log and Lab; ControlUnit returns
 to the instrument view. The Operate / Observe / Monitor selector rides in
 the Menu in Operate and Observe and at the end of the status line in
 Monitor; above the phone width it stands at the tab bar's right end in
-Operate and Observe (the `tab-tools` slot every tab renders empty) and at
-the end of the status line in Monitor, which has no tab bar. Menu closes on Escape, an outside press, or navigation.
+Operate and Observe (the `tab-tools` slot every tab renders empty), after
+the display tools, and at the end of the status line in Monitor, which has
+no tab bar. The display tools never ride in the Menu: on a phone they stay
+on the status line in every mode. Menu closes on Escape, an outside press, or navigation.
 
 Each gas line folds independently by pressing its heading. Applied and
 measured values stay visible, and reopening preserves the current draft.
@@ -933,7 +948,7 @@ The browser remembers each fold across reloads. Folding sends no command.
 Every card on the Live page folds independently, at every window width, and
 each fold is remembered per browser under `controlunit.fold.<card>`: Gas
 flow, Cathode, the readouts strip, each chart, and the right rail's Operator
-and access, Ion gauges, Display and This run. Start and Stop is the one card
+and access, Ion gauges and This run. Start and Stop is the one card
 that does not fold. Every card ships open; only a browser that has folded one
 overrides that, and a browser that cannot store anything works unchanged.
 
@@ -980,14 +995,17 @@ takes the whole tab bar away, and with it the Menu, so on a phone Monitor
 leaves the switch at home, at the end of the status line it keeps on the
 screen beside Display and Full screen; Operate and Observe keep the bar, so
 there it rides in the Menu.
-`modeSwitchHost` decides, and `applyMode` re-docks on every mode change.
+`modeSwitchHost` decides, `displayToolsHost` beside it decides for the
+display tools, and `applyMode` re-docks both on every mode change.
 Escape is the second way out: it closes an open drawer first, then walks one
 mode back towards Operate — Monitor to Observe, Observe to Operate — and
 stops there. Above the phone width there is no Menu: Operate and Observe
 dock the switch into the tab bar's right end, a row already on the screen,
 so the reading column spends none of its own on it (measured 2026-10-07:
 at 1280 px the status line wrapped to two rows with the switch on it), and
-Monitor, which takes the bar away, keeps it at home on the status line.
+Monitor, which takes the bar away, keeps it at home on the status line. The
+display tools share the slot, docked first so they stand before the switch,
+and `dockModes` puts them back in front if the switch ever arrived first.
 
 At desktop widths Stop all outputs stands at the foot of the right rail's Operator and
 access group: it is not a safety device (the rig's own switches are), it is

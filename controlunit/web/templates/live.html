@@ -5,6 +5,27 @@
 <script defer src="{{ url_for('static', filename='js/live.js') }}?v={{ app_version }}"></script>
 {% endblock %}
 {% block content %}
+{# The four display tools' icons, drawn once and named by `<use>` (queezz,
+   2026-10-07: "we don't need big descriptors.. Some small one or an icon
+   would do"). Strokes in the text's own colour, nothing fetched. #}
+<svg class="icon-sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="icon-window" viewBox="0 0 16 16" stroke="currentColor" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="8" cy="8" r="6.2"></circle>
+        <line x1="8" y1="8" x2="8" y2="4.4"></line>
+        <line x1="8" y1="8" x2="10.6" y2="9.6"></line>
+    </symbol>
+    <symbol id="icon-median" viewBox="0 0 16 16" stroke="currentColor" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M1.5 8.5 L3 5 L4.5 11 L6 6.5 L7.5 9"></path>
+        <path d="M7.5 9 C9.2 9.6 10.2 6.6 12 6.6 C13.2 6.6 13.9 7.6 14.5 8.2"></path>
+    </symbol>
+    <symbol id="icon-poll" viewBox="0 0 16 16" stroke="currentColor" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9.2 1.5 L3.5 9 H8 L6.8 14.5 L12.5 7 H8 Z"></path>
+    </symbol>
+    <symbol id="icon-show" viewBox="0 0 16 16" stroke="currentColor" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M1.5 8 C3.4 4.8 5.6 3.6 8 3.6 C10.4 3.6 12.6 4.8 14.5 8 C12.6 11.2 10.4 12.4 8 12.4 C5.6 12.4 3.4 11.2 1.5 8 Z"></path>
+        <circle cx="8" cy="8" r="2.1"></circle>
+    </symbol>
+</svg>
 {% set fence_closed = state.fence.needed and not state.fence.passed %}
 <div class="page control-workspace" id="control" data-live data-actor="{{ actor }}"
      data-default-window="{{ default_window }}" data-pens='{{ curve_pens | tojson }}'>
@@ -245,20 +266,58 @@
                 </span>
             </span>
         </div>
-        {# Monitor's own controls ride on this same line rather than on rows
-           of their own (queezz, 2026-10-07: "Observe and monitor waste a lot
-           of top bar space by showing there... nothing!"). Window and Median
-           are the Display card's own two rows, moved here whole while the
-           mode is Monitor (live.js) and given back after. They stand outside
-           `.sets`: what this browser draws is never behind the rig's gate. #}
-        <span class="monitor-settings" data-role="monitor-settings"></span>
+        {# The four display tools, small and always out (queezz, 2026-10-07:
+           "Don't we have space somewhere on the top bar-ish for keeping 4
+           display pills there permanently? normal/fast is a toggle. And we
+           don't need big descriptors.. Some small one or an icon would do").
+           An icon names each; the word is its `title` and its label. One
+           element with two homes: here on the strip in Monitor and on any
+           phone, and in the tab bar's right-end slot, before the mode switch,
+           in Operate and Observe on a desktop (live.js, `displayToolsHost`).
+           Outside `.sets`: what this browser draws is never behind the rig's
+           gate. The window cuts a history this browser keeps for itself;
+           Median changes the curves and the readouts both; fast polling
+           resets on reload; Show is a named set of the legend's switches. #}
+        <span class="display-tools" data-role="display-tools" role="group" aria-label="Display">
+            <span class="tool">
+                <svg class="tool-icon" aria-hidden="true" focusable="false"><use href="#icon-window"></use></svg>
+                <select class="find quick-select" data-role="window" aria-label="Window" title="Window">
+                    {% for label, seconds in windows %}
+                    <option value="{{ seconds }}" {% if seconds == default_window %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </span>
+            <span class="tool">
+                <svg class="tool-icon" aria-hidden="true" focusable="false"><use href="#icon-median"></use></svg>
+                <select class="find quick-select" data-role="smooth" aria-label="Median smoothing" title="Median">
+                    <option value="0" selected>off</option>
+                    <option value="5">5</option>
+                    <option value="15">15</option>
+                    <option value="51">51</option>
+                </select>
+            </span>
+            <span class="tool">
+                <button type="button" class="choice poll-toggle" data-poll aria-pressed="false"
+                        aria-label="Fast polling" title="Fast polling"><svg class="tool-icon" aria-hidden="true" focusable="false"><use href="#icon-poll"></use></svg></button>
+            </span>
+            <span class="tool">
+                <svg class="tool-icon" aria-hidden="true" focusable="false"><use href="#icon-show"></use></svg>
+                <select class="find quick-select" data-role="preset" aria-label="What to show" title="Show">
+                    <option value="" disabled hidden>custom</option>
+                    {% for name, label, channels in presets %}
+                    <option value="{{ name }}" data-channels="{{ channels | join(',') }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </span>
+        </span>
         <span class="mode-actions" data-role="mode-actions" hidden>
-            <button type="button" data-drawer="live-context" aria-controls="live-context" aria-expanded="false">Display</button>
+            <button type="button" data-drawer="live-context" aria-controls="live-context" aria-expanded="false">Gauges</button>
             <button type="button" data-role="fullscreen" aria-pressed="false">Full screen</button>
         </span>
-        {# The one mode switch on the page, at the end of this line in every
-           mode. On a phone in Operate and Observe it is moved into the Menu
-           (live.js, `modeSwitchHost`) and never copied, so there is exactly
+        {# The one mode switch on the page, at the end of this line. In
+           Operate and Observe it is moved into the tab bar's slot, after the
+           display tools, on a desktop and into the Menu on a phone (live.js,
+           `modeSwitchHost`) and never copied, so there is exactly
            one of these in the document and pressing it always means the same
            thing. #}
         <div class="view-toolbar" data-role="mode-switch" role="group" aria-label="View mode">
@@ -269,7 +328,7 @@
         </div>
         {% include '_live_readings.html' %}
     </main>
-    <aside class="rail rail-right operation-rail" id="live-context" aria-label="Access and display">
+    <aside class="rail rail-right operation-rail" id="live-context" aria-label="Access and gauges">
         <button class="drawer-close" type="button">Close</button>
         <details class="rail-card access-card fold" data-fold="access" {{ 'open' if fence_closed or not state.remote or not actor or (state.control.holder and not state.control.mine) else '' }}>
             <summary class="fold-head">
@@ -388,55 +447,6 @@
                     </details>
             </div>
         </div>
-        {# One card, its name heading the four rows it owns (queezz,
-           2026-10-07: "the display items are hidden uncomfortably there").
-           Plain labelled rows, no frame inside the frame. The window cuts a
-           history this browser keeps for itself, so Full is this browser's
-           own memory rather than the rig's ring. Median changes the curves
-           and the readouts both. Fast polling resets on reload; readout size
-           is beside the readouts. The channel switches stand in the legend of
-           the chart each belongs to (2026-09-07: "hard to find the one I
-           need"), and Show is a named set of them. #}
-        <details class="rail-card display-card fold" data-fold="display" open>
-            <summary class="fold-head"><h2 class="fold-name">Display</h2><span class="fold-line" data-role="fold-display"></span></summary>
-            <div class="display-rows">
-                <label class="display-row quick-set" data-monitor-setting>
-                    <span class="quick-label">Window</span>
-                    <select class="find quick-select" data-role="window" aria-label="Window">
-                        {% for label, seconds in windows %}
-                        <option value="{{ seconds }}" {% if seconds == default_window %}selected{% endif %}>{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                </label>
-                <label class="display-row quick-set" data-monitor-setting>
-                    <span class="quick-label">Median</span>
-                    <select class="find quick-select" data-role="smooth" aria-label="Smoothing">
-                        <option value="0" selected>off</option>
-                        <option value="5">5</option>
-                        <option value="15">15</option>
-                        <option value="51">51</option>
-                    </select>
-                </label>
-                <div class="display-row">
-                    <span class="quick-label">Polling</span>
-                    <span class="seg-toggle" role="group" aria-label="Poll rate">
-                        <span class="seg-thumb" aria-hidden="true"></span>
-                        <button type="button" class="seg-option" data-poll="normal" aria-pressed="true">normal</button>
-                        <button type="button" class="seg-option" data-poll="fast" aria-pressed="false">fast</button>
-                    </span>
-                </div>
-                <label class="display-row">
-                    <span class="quick-label">Show</span>
-                    <select class="find quick-select" data-role="preset" aria-label="What to show">
-                        <option value="" disabled hidden>custom</option>
-                        {% for name, label, channels in presets %}
-                        <option value="{{ name }}" data-channels="{{ channels | join(',') }}">{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                </label>
-            </div>
-        </details>
-
         <details class="rail-card run-details fold" data-fold="run-details" open>
             <summary class="fold-head"><h2 class="fold-name">This run</h2></summary>
             <dl class="facts">

@@ -119,9 +119,15 @@ function instrument(cardRoom, parts) {
     let saved;
     const context = vm.createContext({
         document: {
-            // Only the page's own root; everything else this harness does not
-            // model is simply absent, as it is on a page without it.
-            querySelector(selector) { return selector === '[data-live]' ? root : null; },
+            // The page's own root, and the display tools a test brings along:
+            // they are looked up from the document, because docked into the
+            // tab bar they are outside the page element. Everything else this
+            // harness does not model is simply absent, as it is on a page
+            // without it.
+            querySelector(selector) {
+                if (selector === '[data-live]') return root;
+                return (parts && parts[selector]) || null;
+            },
             getElementById(id) { return id === 'chart-bar' ? canvas : null; },
             querySelectorAll() { return []; },
             createComment() { return {}; },
@@ -133,7 +139,8 @@ function instrument(cardRoom, parts) {
             history: {pushState(state, title, url) {
                 context.window.location.href = url;
                 context.window.location.search = new URL(url).search;
-            }}},
+            }},
+            setInterval() { return 1; }, clearInterval() {}},
         fetch() { throw new Error('Mode changes must not send requests'); },
         getComputedStyle() { return {getPropertyValue() { return ''; }}; },
         localStorage: {setItem(k, v) { saved = v; }, getItem() { return saved; }}
@@ -142,13 +149,13 @@ function instrument(cardRoom, parts) {
     // Exercise production handlers and drawing decisions without starting timers.
     const end = source.indexOf('    if (document.readyState === "loading")');
     vm.runInContext(source.slice(0, end) +
-        'globalThis.instrument = {append, draw, drawAll, setupRails, applyPreset, view, recall, remember, setMode, modeInAddress, paintState, setupReadouts, paintHidden};\n}());', context);
+        'globalThis.instrument = {append, draw, drawAll, setupRails, applyPreset, view, recall, remember, setMode, modeInAddress, paintState, setupReadouts, paintHidden, applyPoll, isFast() { return fast; }};\n}());', context);
     const api = context.instrument;
     api.append({to: 4, channels: {Bu: [[1, -0.004], [2, -0.004], [3, -0.004], [4, -0.004]],
         Bd: [[1, 0.001], [2, 0.002], [3, 0.003], [4, 0.004]]}});
     api.setupRails();
     api.drawAll();
-    return {api, buttons, canvas, cards, cathode, chips, folded, units,
+    return {api, buttons, canvas, cards, cathode, chips, folded, units, context,
             stored() { return saved === undefined ? null : JSON.parse(saved); },
             store(view) { saved = JSON.stringify(view); }};
 }
@@ -217,17 +224,24 @@ function el(spec) {
    whose `display` a mode may take away. Monitor's own Display and Full
    screen strip is modelled too, because it used to be the switch's third
    home and must no longer be one. */
-function phone(startMode) {
+/* `wide` is a desktop: the same page above the phone breakpoint, where the
+   tab bar's right-end slot holds the display tools and the switch in
+   Operate and Observe. */
+function phone(startMode, wide) {
     const buttons = ['operate', 'observe', 'monitor'].map(name =>
         el({dataset: {mode: name}}));
     const toolbar = el({className: 'view-toolbar', dataset: {role: 'mode-switch'},
         querySelectorAll() { return buttons; }});
+    const tools = el({className: 'display-tools', dataset: {role: 'display-tools'}});
     const menu = el({id: 'main-tabs', ancestors: ['.tabbar', '#main-tabs']});
+    const slot = el({className: 'tab-tools', dataset: {role: 'tab-tools'},
+        ancestors: ['.tabbar', '.tab-tools']});
     const actions = el({dataset: {role: 'mode-actions'}, hidden: true,
         ancestors: ['.mode-actions']});
     const stop = el({dataset: {role: 'stop-all'}});
     const home = el({className: 'instrument-header',
         ancestors: ['.page-main', '.instrument-header']});
+    home.appendChild(tools);
     home.appendChild(toolbar);
     const away = el({className: 'rail-card'});
     away.appendChild(stop);
@@ -261,6 +275,8 @@ function phone(startMode) {
             querySelector(selector) {
                 if (selector === '[data-live]') return root;
                 if (selector.indexOf('mode-switch') !== -1) return toolbar;
+                if (selector.indexOf('display-tools') !== -1) return tools;
+                if (selector.indexOf('tab-tools') !== -1) return slot;
                 if (selector.indexOf('stop-all') !== -1) return stop;
                 return null;   // no open Menu, no open drawer, no backdrop
             },
@@ -276,7 +292,7 @@ function phone(startMode) {
         URL, URLSearchParams,
         window: {
             devicePixelRatio: 1,
-            matchMedia(query) { return {matches: query.indexOf('620px') !== -1,
+            matchMedia(query) { return {matches: !wide && query.indexOf('620px') !== -1,
                 addEventListener() {}, addListener() {}}; },
             location: {href: 'http://localhost/', search: startMode && startMode !== 'operate'
                 ? '?mode=' + startMode : ''},
@@ -298,7 +314,7 @@ function phone(startMode) {
         'globalThis.phone = {setupModes, applyMode, setMode, modeInAddress};\n}());', context);
     context.phone.setupModes();
     context.phone.applyMode();
-    return {api: context.phone, toolbar, menu, actions, home, buttons, body,
+    return {api: context.phone, toolbar, tools, slot, menu, actions, home, buttons, body,
             escape() { keys.forEach(fn => fn({key: 'Escape'})); }};
 }
 
@@ -347,6 +363,45 @@ test('the switch is moved between its homes and never copied', () => {
     // The status line and the Menu are two homes, not two switches.
     assert.ok(seen.has(rig.menu) && seen.has(rig.home));
     assert.equal(rig.buttons.length, 3);
+});
+
+/* -- the four display tools ------------------------------------------------ *
+ *
+ * queezz, 2026-10-07: "Don't we have space somewhere on the top bar-ish for
+ * keeping 4 display pills there permanently?" One group, moved with the
+ * switch: into the tab bar's slot before it on a desktop in Operate and
+ * Observe, at home on the strip in Monitor and on any phone. */
+
+test('on a desktop the display tools dock into the tab bar before the switch', () => {
+    const rig = phone('operate', true);
+    for (const mode of ['operate', 'observe', 'monitor', 'operate', 'monitor', 'observe']) {
+        rig.api.setMode(mode);
+        if (mode === 'monitor') {
+            // No tab bar: both at home on the strip, in the strip's order.
+            assert.deepEqual(rig.slot.children, []);
+            const order = rig.home.children.filter(c => c === rig.tools || c === rig.toolbar);
+            assert.deepEqual(order, [rig.tools, rig.toolbar]);
+        } else {
+            assert.deepEqual(rig.slot.children, [rig.tools, rig.toolbar], mode);
+            assert.equal(rig.home.children.indexOf(rig.tools), -1);
+        }
+        assert.ok(rendered(rig.tools.parentNode, mode), mode + ' hides the display tools');
+    }
+    // Whichever arrived in the slot first, the tools stand before the switch.
+    rig.api.setMode('monitor');
+    rig.slot.appendChild(rig.toolbar);
+    rig.api.setMode('operate');
+    assert.deepEqual(rig.slot.children, [rig.tools, rig.toolbar]);
+});
+
+test('on a phone the switch rides in the Menu and the display tools stay on the strip', () => {
+    for (const mode of ['operate', 'observe', 'monitor']) {
+        const rig = phone(mode);
+        assert.equal(rig.tools.parentNode, rig.home, mode);
+        assert.equal(rig.toolbar.parentNode, mode === 'monitor' ? rig.home : rig.menu, mode);
+        assert.deepEqual(rig.slot.children, [], mode);
+        assert.equal(rig.menu.children.indexOf(rig.tools), -1, 'the Menu is navigation');
+    }
 });
 
 test('Escape walks one mode back towards Operate, and stops there', () => {
@@ -425,29 +480,43 @@ test('the Show pulldown names the preset on the page, and says custom when there
     const preset = pulldown([['', 'custom'], ['all', 'All', 'Ip,Ic,Pu,Pu2,Pd,Bu,Bd'],
         ['vacuum', 'Vacuum', 'Pu,Pu2,Pd,Bu,Bd'], ['plasma', 'Plasma', 'Ip,Ic,Bu,Bd']], '');
     const cut = pulldown([['60', '1 m'], ['300', '5 m'], ['3600', '1 h'], ['0', 'Full']], '300');
-    const line = {textContent: ''};
+    // Handed to the document only, never to `root`: docked into the tab bar
+    // the display tools are outside the page element.
     const {api, buttons} = instrument(undefined, {
         'select[data-role="preset"]': preset,
-        'select[data-role="window"]': cut,
-        '[data-role="fold-display"]': line
+        'select[data-role="window"]': cut
     });
     api.drawAll();
     assert.equal(preset.value, 'all');
-    assert.equal(line.textContent, '5 m · All');
     // One curve switched by hand: no named set is on the page any more.
     buttons.Bd.listeners.click();
     assert.equal(preset.value, '');
-    assert.equal(line.textContent, '5 m');
     // Choosing one from the pulldown is the same press a preset always was.
     api.applyPreset(preset.options[3]);
     assert.equal(preset.value, 'plasma');
-    // The window is a change on its pulldown, and the folded line follows.
+    // The window is a change on its pulldown.
     cut.value = '3600';
     cut.listeners.change();
     assert.equal(api.view.window, 3600);
-    api.view.smooth = 5;
-    api.drawAll();
-    assert.equal(line.textContent, '1 h · median 5 · Plasma');
+});
+
+test('fast polling is one press: pressed is fast, pressed again is normal', () => {
+    // queezz, 2026-10-07: "normal/fast is a toggle".
+    const toggle = el({dataset: {poll: ''}, attrs: {'aria-pressed': 'false'}});
+    const {api, context} = instrument(undefined, {'[data-poll]': toggle});
+    // A press polls at once; the rig is not modelled, so the asks never answer.
+    context.fetch = () => new Promise(() => {});
+    api.applyPoll();
+    assert.equal(api.isFast(), false);
+    assert.equal(toggle.attrs['aria-pressed'], 'false');
+    toggle.handlers.click();
+    assert.equal(api.isFast(), true);
+    assert.equal(toggle.attrs['aria-pressed'], 'true');
+    toggle.handlers.click();
+    assert.equal(api.isFast(), false);
+    assert.equal(toggle.attrs['aria-pressed'], 'false');
+    // A rate, not a view: nothing about it is written to the store.
+    assert.equal(JSON.stringify(api.view).indexOf('fast'), -1);
 });
 
 

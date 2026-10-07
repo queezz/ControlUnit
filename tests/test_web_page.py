@@ -190,10 +190,9 @@ def test_the_plasma_chart_carries_its_own_scale_choice(live):
 
 def test_live_offers_the_smoothing_the_current_needs(live):
     """The median remains a single choice affecting curves and readouts, a
-    pulldown since 2026-10-07."""
-    assert '<span class="quick-label">Median</span>' in live
+    pulldown since 2026-10-07, named by its icon and its title."""
     median = _select(live, "smooth")
-    assert 'aria-label="Smoothing"' in median
+    assert 'aria-label="Median smoothing" title="Median"' in median
     for samples in (0, 5, 15, 51):
         assert '<option value="{}"'.format(samples) in median
     assert median.count("<option") == 4
@@ -306,16 +305,18 @@ def _select(page, role):
 
 
 def test_live_offers_a_readout_size_and_a_poll_rate(live):
-    # One card for both, because six rail cards outgrew a 700px window.
-    assert '<span class="quick-label">Polling</span>' in live
     main = live[live.index('<main'):live.index('</main>')]
     assert main.count('data-display="normal"') == 1
     assert main.count('data-display="big"') == 1
-    assert 'aria-label="Readout size"' in live and 'aria-label="Poll rate"' in live
-    for choice in ("display", "poll"):
-        assert 'data-{}="normal"'.format(choice) in live
-    assert 'data-display="big"' in live
-    assert 'data-poll="fast"' in live
+    assert 'aria-label="Readout size"' in live
+    # Polling is one press, pressed for fast (queezz, 2026-10-07:
+    # "normal/fast is a toggle"), not a two-sided switch.
+    assert live.count("data-poll") == 1
+    assert ('<button type="button" class="choice poll-toggle" data-poll aria-pressed="false"'
+            in live)
+    assert 'aria-label="Fast polling" title="Fast polling"' in live
+    assert 'data-poll="normal"' not in live and 'data-poll="fast"' not in live
+    assert 'aria-label="Poll rate"' not in live
     # That the fast poll does not survive a reload is said once, on the
     # card's own heading line, and nowhere else on the page.
     assert "forgotten on reload" not in live
@@ -1094,7 +1095,7 @@ def test_a_card_says_which_address_your_own_browser_will_open(lab):
 def test_control_combines_setters_feedback_and_shared_live_charts(control):
     operations = control[:control.index("<main")]
     main = control[control.index("<main"):control.index("</main>")]
-    access = control[control.index('aria-label="Access and display"'):]
+    access = control[control.index('aria-label="Access and gauges"'):]
     assert main.count('data-role="zero-now"') == 3
     assert 'class="chart-zero sets"' in main
     # The left rail is the gas and the plasma, the two a shift has its hand
@@ -1283,13 +1284,12 @@ def test_the_settings_group_is_gone_and_its_three_setters_stand_in_reach(control
     groups = [
         right.index('<h2 class="fold-name">Operator and access</h2>'),
         right.index('<h2 class="fold-name">Ion gauges</h2>'),
-        right.index('<h2 class="fold-name">Display</h2>'),
         right.index('<h2 class="fold-name">This run</h2>'),
     ]
     assert groups == sorted(groups)
     # The gauges arrive open, and are still gated by the blanket that names
     # `.sets` (queezz, 2026-09-10: "I don't like IGs hidden by default").
-    gauges = right[right.index('class="operation-setters gauge-setters"'):right.index('class="rail-card display-card')]
+    gauges = right[right.index('class="operation-setters gauge-setters"'):right.index('class="rail-card run-details')]
     assert '<div class="sets">' in gauges
     assert 'id="sec-gauge" data-fold="gauge" open' in gauges
 
@@ -1333,7 +1333,7 @@ def test_every_card_on_the_live_page_folds_and_folds_the_same_way(control):
     cards = (
         "gas", "plasma",                                       # the left rail
         "readouts", "chart-plasma", "chart-ig", "chart-bar",   # the column
-        "access", "display", "run-details",                    # the right rail
+        "access", "run-details",                               # the right rail
         "gauge",
     )
     for card in cards:
@@ -1433,7 +1433,8 @@ def test_the_menu_carries_the_mode_switch_and_the_rare_press_on_a_phone():
     # Looked up from the document, never from `root`: once it is docked into
     # the Menu it is outside the page element, and a root-scoped query would
     # never find it to bring it back.
-    assert 'dockTo(document.querySelector(\'[data-role="mode-switch"]\'), modeSwitchHost())' in dock
+    assert "var toggle = document.querySelector('[data-role=\"mode-switch\"]');" in dock
+    assert "dockTo(toggle, modeSwitchHost());" in dock
     assert "root.querySelector('[data-role=\"mode-switch\"]')" not in source
     assert 'dockTo(document.querySelector(\'[data-role="stop-all"]\'), phone ? menu : null)' in dock
     assert "cloneNode" not in source
@@ -1535,18 +1536,18 @@ def _children(page, marker):
 def test_one_slim_line_heads_the_page_in_every_mode(client):
     """queezz, 2026-10-07, at 2000px in Monitor: "Observe and monitor waste
     a lot of top bar space by showing there... nothing!" The switch, Monitor's
-    Display and Full screen and its Window and Median now ride on the status
+    Display and Full screen and the four display tools ride on the status
     line, and the switch is the line's last item in every mode."""
     for mode in ("operate", "observe", "monitor"):
         page = client.get("/?mode=" + mode).get_data(as_text=True)
         kids = _children(page, 'class="instrument-header"')
         classes = [attrs.get("class", "") for _, attrs in kids]
         assert classes == ["pills", "command-status mono", "quick-sets sets",
-                           "monitor-settings", "mode-actions", "view-toolbar"], mode
+                           "display-tools", "mode-actions", "view-toolbar"], mode
         assert kids[-1][1].get("data-role") == "mode-switch"
-        # The host Monitor docks Window and Median into is on the line, and
-        # outside `.sets`: what this browser draws is never behind the gate.
-        assert kids[3][1].get("data-role") == "monitor-settings"
+        # The display tools are rendered at home on the line, and outside
+        # `.sets`: what this browser draws is never behind the gate.
+        assert kids[3][1].get("data-role") == "display-tools"
         assert page.count('data-role="mode-switch"') == 1
     css = _css()
     # The switch stands in the line's flow; nothing fixes it to the window,
@@ -1556,36 +1557,79 @@ def test_one_slim_line_heads_the_page_in_every_mode(client):
     assert "position" not in switch
     assert "padding-top: 68px" not in css and "padding-top: 116px" not in css
     assert "body:has(.control-workspace) .tabbar { margin-bottom: 70px; }" not in css
-    assert ".monitor-settings .rail-card" not in css
+    assert ".monitor-settings" not in css
 
 
-def test_the_display_card_is_one_card_with_its_rows_inside(control):
-    """queezz, 2026-10-07: "the display items are hidden uncomfortably
-    there". One card whose own heading owns Window, Median, Polling and Show,
-    the same shape as Operator and access — never a heading over four cards."""
-    right = control[control.index('id="live-context"'):]
-    card = right[right.index('<details class="rail-card display-card fold" data-fold="display" open>'):]
-    card = card[:card.index("</details>")]
-    assert '<h2 class="fold-name">Display</h2>' in card
-    assert 'data-role="fold-display"' in card
-    assert "rail-card" not in card[card.index("</summary>"):]
-    assert "<section" not in card
-    labels = [card.index('<span class="quick-label">{}</span>'.format(name))
-              for name in ("Window", "Median", "Polling", "Show")]
-    assert labels == sorted(labels)
-    # Window and Median are the two that dock into Monitor's line.
-    assert card.count("data-monitor-setting") == 2
-    # Polling wears the house's two-state switch, normal on its left half.
-    assert 'class="seg-toggle" role="group" aria-label="Poll rate"' in card
-    assert card.index('data-poll="normal"') < card.index('data-poll="fast"')
+def test_the_four_display_tools_are_one_group_named_by_icons(control):
+    """queezz, 2026-10-07: "Don't we have space somewhere on the top bar-ish
+    for keeping 4 display pills there permanently? normal/fast is a toggle.
+    And we don't need big descriptors.. Some small one or an icon would do,
+    I think." One group on the strip, an icon before each control and the
+    word in its label and title; the rail's Display card is gone."""
+    assert control.count('data-role="display-tools"') == 1
+    assert "display-card" not in control
+    assert 'data-fold="display"' not in control
+    assert 'data-role="fold-display"' not in control
+    assert "data-monitor-setting" not in control
+    assert 'data-role="monitor-settings"' not in control
+    main = control[control.index("<main"):control.index("</main>")]
+    tools = main[main.index('<span class="display-tools" data-role="display-tools"'):]
+    tools = tools[:tools.index('<span class="mode-actions"')]
+    # Outside `.sets`, never behind the rig's gate.
+    assert "sets" not in tools
+    # Window, Median, Polling, Show, in that order, each after its icon.
+    order = [tools.index(marker) for marker in (
+        '<use href="#icon-window">', 'data-role="window"',
+        '<use href="#icon-median">', 'data-role="smooth"',
+        'data-poll', '<use href="#icon-poll">',
+        '<use href="#icon-show">', 'data-role="preset"')]
+    assert order == sorted(order)
+    assert tools.count('<span class="tool">') == 4
+    assert tools.count('<svg class="tool-icon" aria-hidden="true"') == 4
+    # No word labels: the icon is the label, the word is the title.
+    assert "quick-label" not in tools
+    for title in ('title="Window"', 'title="Median"', 'title="Fast polling"', 'title="Show"'):
+        assert title in tools, title
+    # Each icon is one symbol, defined once on the page, from strokes only.
+    for name in ("window", "median", "poll", "show"):
+        assert control.count('<symbol id="icon-{}" viewBox="0 0 16 16"'.format(name)) == 1
+        assert control.count('<use href="#icon-{}">'.format(name)) == 1
+    sprite = control[control.index('<svg class="icon-sprite"'):]
+    sprite = sprite[:sprite.index("</svg>")]
+    assert sprite.count('stroke="currentColor" fill="none" stroke-width="1.6" '
+                        'stroke-linecap="round"') == 4
+    assert "http" not in sprite.replace('xmlns="http://www.w3.org/2000/svg"', "")
     # Show is a pulldown of the presets, whose `custom` can be shown and
     # never chosen.
-    show = _select(card, "preset")
+    show = _select(tools, "preset")
     assert '<option value="" disabled hidden>custom</option>' in show
     assert show.count("<option") == 4
-    assert "display-settings" not in control
-    # This run is the same single card.
+    # This run is still its single card in the right rail.
+    right = control[control.index('id="live-context"'):]
     assert '<details class="rail-card run-details fold" data-fold="run-details" open>' in right
+    css = _css()
+    for gone in (".display-rows", ".display-row", ".monitor-settings", ".display-card"):
+        assert gone not in css, gone
+    for rule in (".display-tools { display: inline-flex;",
+                 ".tool { display: inline-flex; align-items: center; gap: 4px; }",
+                 ".tool-icon { width: 14px; height: 14px; color: var(--muted); flex: 0 0 auto; }",
+                 ".tab-tools { display: inline-flex; align-items: center; gap: 10px;"):
+        assert rule in css, rule
+    assert ".instrument-header > .display-tools," in css
+
+
+def test_the_display_tools_dock_before_the_switch_in_the_tab_bar():
+    source = _live_js()
+    host = source[source.index("function displayToolsHost"):source.index("function dockModes")]
+    assert 'if (mode === "monitor") return null;' in host
+    assert "matchMedia(PHONE).matches) return null;" in host
+    assert """document.querySelector('[data-role="tab-tools"]')""" in host
+    dock = source[source.index("function dockModes"):source.index("function setupModes")]
+    assert dock.index("dockTo(tools, toolsHost);") < dock.index("dockTo(toggle, modeSwitchHost());")
+    assert "toolsHost.insertBefore(tools, toggle);" in dock
+    # Nothing still docks Window and Median one by one.
+    assert "data-monitor-setting" not in source
+    assert "paintDisplayLine" not in source
 
 
 def test_the_pulldowns_wear_the_house_field_and_obey_the_gate():

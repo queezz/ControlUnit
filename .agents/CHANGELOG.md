@@ -1,3 +1,21 @@
+## 4.28.0 — 2026-10-07
+
+- Window, Median, fast polling and Show are four small controls that are
+  always out (queezz, 2026-10-07: "Don't we have space somewhere on the
+  top bar-ish for keeping 4 display pills there permanently? normal/fast
+  is a toggle. And we don't need big descriptors.. Some small one or an
+  icon would do, I think."). Each is named by a small icon — a clock, a
+  smoothed wave, a lightning bolt, an eye — with the word in its tooltip.
+  On a desktop in Operate and Observe they stand in the tab bar before the
+  Operate/Observe/Monitor switch; in Monitor and on a phone they stand on
+  the status line.
+- Polling is one press: pressed is fast, pressed again is normal.
+- The Display card in the right rail is gone with its folded line; the
+  four controls are in one place only. Remembered choices carry over.
+- Monitor's drawer button says **Gauges**, which is what the right rail
+  holds there now (Ion gauges and This run; Display left it), and the
+  rail's own label is "Access and gauges".
+
 ## 4.27.0 — 2026-10-07
 
 - A press on a readout card hides it, in Operate and Observe (queezz,

@@ -1223,38 +1223,25 @@
        it is what the pulldown says while the curves on the page are not any
        named set, which is the honest answer once one is switched by hand. */
     function reflectPreset() {
-        var select = root.querySelector('select[data-role="preset"]');
-        if (select) {
-            var named = "";
-            Array.prototype.forEach.call(select.options, function (option) {
-                if (!named && option.value && matchesPreset(option)) named = option.value;
-            });
-            if (select.value !== named) select.value = named;
-        }
-        paintDisplayLine();
+        var select = displayTool("preset");
+        if (!select) return;
+        var named = "";
+        Array.prototype.forEach.call(select.options, function (option) {
+            if (!named && option.value && matchesPreset(option)) named = option.value;
+        });
+        if (select.value !== named) select.value = named;
     }
 
-    /* The Display card's folded line: what it would show open, in a few
-       words, so a folded card still says how the charts are being drawn. */
-    function paintDisplayLine() {
-        var line = root.querySelector('[data-role="fold-display"]');
-        if (!line) return;
-        var parts = [];
-        var cut = root.querySelector('select[data-role="window"]');
-        var cutOption = cut && cut.selectedIndex >= 0 ? cut.options[cut.selectedIndex] : null;
-        if (cutOption) parts.push(cutOption.textContent.trim());
-        if (view.smooth) parts.push("median " + view.smooth);
-        var shown = root.querySelector('select[data-role="preset"]');
-        if (shown && shown.value && shown.selectedIndex >= 0) {
-            parts.push(shown.options[shown.selectedIndex].textContent.trim());
-        }
-        if (fast) parts.push("fast");
-        var text = parts.join(" · ");
-        if (line.textContent !== text) line.textContent = text;
+    /* Window, Median and Show, wherever the display tools stand. Looked up
+       from the document and never from `root`: docked into the tab bar they
+       are outside the page element (the mode switch's lesson, above
+       `dockModes`). */
+    function displayTool(role) {
+        return document.querySelector('select[data-role="' + role + '"]');
     }
 
     function choose(role, value) {
-        var select = root.querySelector('select[data-role="' + role + '"]');
+        var select = displayTool(role);
         if (select && select.value !== String(value)) select.value = String(value);
     }
 
@@ -1318,16 +1305,6 @@
         // it is settled here, every time the mode changes.
         dockModes();
         closeDrawers();
-        root.querySelectorAll('[data-monitor-setting]').forEach(function (card) {
-            if (!card.originalParent) {
-                card.originalParent = card.parentNode;
-                card.originalSlot = document.createComment("monitor setting");
-                card.parentNode.insertBefore(card.originalSlot, card);
-            }
-            var dock = root.querySelector('[data-role="monitor-settings"]');
-            if (mode === "monitor" && dock) dock.appendChild(card);
-            else card.originalParent.insertBefore(card, card.originalSlot.nextSibling);
-        });
         applyDisplay();
         paintHidden();   // Monitor shows every card; the other two, the reader's choice
         drawAll();   // the reading column just changed width
@@ -1441,20 +1418,40 @@
         return document.querySelector('[data-role="tab-tools"]');
     }
 
-    /* Both of these are looked up from the document and never from `root`:
-       once one has been docked into the Menu it is no longer inside the page
-       element at all, and a `root`-scoped query would never find it again —
-       which is exactly how Monitor kept the switch it had been told to give
-       back. */
+    /* Where the four display tools stand (queezz, 2026-10-07: "Don't we have
+       space somewhere on the top bar-ish for keeping 4 display pills there
+       permanently?"). Beside the mode switch in the tab bar's slot on a
+       desktop in Operate and Observe; at home on the strip in Monitor, which
+       has no tab bar, and on any phone, where the Menu is navigation and
+       these are not. */
+    function displayToolsHost() {
+        if (mode === "monitor") return null;
+        if (window.matchMedia && window.matchMedia(PHONE).matches) return null;
+        return document.querySelector('[data-role="tab-tools"]');
+    }
+
+    /* All of these are looked up from the document and never from `root`:
+       once one has been docked into the Menu or the tab bar it is no longer
+       inside the page element at all, and a `root`-scoped query would never
+       find it again — which is exactly how Monitor kept the switch it had
+       been told to give back. Sharing the tab bar's slot, the tools stand
+       before the switch, whichever of the two arrived there first. */
     function dockModes() {
         var phone = Boolean(window.matchMedia && window.matchMedia(PHONE).matches);
         var menu = document.getElementById("main-tabs");
-        dockTo(document.querySelector('[data-role="mode-switch"]'), modeSwitchHost());
+        var tools = document.querySelector('[data-role="display-tools"]');
+        var toolsHost = displayToolsHost();
+        var toggle = document.querySelector('[data-role="mode-switch"]');
+        dockTo(tools, toolsHost);
+        dockTo(toggle, modeSwitchHost());
+        if (toolsHost && tools && toggle && toggle.parentNode === toolsHost) {
+            toolsHost.insertBefore(tools, toggle);
+        }
         dockTo(document.querySelector('[data-role="stop-all"]'), phone ? menu : null);
     }
 
     function setupModes() {
-        var preset = root.querySelector('select[data-role="preset"]');
+        var preset = displayTool("preset");
         if (preset) preset.addEventListener("change", function () {
             var chosen = preset.selectedIndex >= 0 ? preset.options[preset.selectedIndex] : null;
             if (chosen && chosen.value) applyPreset(chosen);
@@ -1515,7 +1512,7 @@
     function setupRails() {
         /* The window cuts what this browser already holds. Nothing is asked
            of the rig: the samples are here, and Full is all of them. */
-        var cut = root.querySelector('select[data-role="window"]');
+        var cut = displayTool("window");
         if (cut) cut.addEventListener("change", function () {
             view.window = Number(cut.value);
             remember();
@@ -1573,7 +1570,7 @@
                 drawAll();
             });
         });
-        var median = root.querySelector('select[data-role="smooth"]');
+        var median = displayTool("smooth");
         if (median) median.addEventListener("change", function () {
             view.smooth = Number(median.value);
             remember();
@@ -1589,14 +1586,15 @@
                 drawAll();
             });
         });
-        root.querySelectorAll("[data-poll]").forEach(function (button) {
-            button.addEventListener("click", function () {
-                fast = button.dataset.poll === "fast";
-                applyPoll();
-                pollState();
-                pollSeries();
-                drawAll();   // the span labels say which rate is running
-            });
+        /* One press, pressed for fast (queezz, 2026-10-07: "normal/fast is a
+           toggle"). From the document: it travels with the display tools. */
+        var poll = document.querySelector("[data-poll]");
+        if (poll) poll.addEventListener("click", function () {
+            fast = !fast;
+            applyPoll();
+            pollState();
+            pollSeries();
+            drawAll();   // the span labels say which rate is running
         });
     }
 
@@ -1708,8 +1706,8 @@
     var seriesTimer = null;
 
     function applyPoll() {
-        press("[data-poll]", "poll", fast ? "fast" : "normal");
-        paintDisplayLine();
+        var poll = document.querySelector("[data-poll]");
+        if (poll) poll.setAttribute("aria-pressed", fast ? "true" : "false");
         if (stateTimer) window.clearInterval(stateTimer);
         if (seriesTimer) window.clearInterval(seriesTimer);
         // The readouts come from /api/state, so both have to speed up for a

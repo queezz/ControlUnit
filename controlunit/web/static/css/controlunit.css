@@ -192,8 +192,9 @@ input.find:focus, select.find:focus { border-color: var(--accent); outline: none
 .tab-group { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; width: min(var(--page-max), 100%); margin: 0 auto; padding: 0 var(--gutter); }
 
 /* The bar's right-end slot: empty, it takes no room; holding the Live
-   page's mode switch, it keeps it at the bar's right edge on a desktop. */
-.tab-tools { display: inline-flex; align-items: center; margin-left: auto; }
+   page's display tools and mode switch, it keeps them at the bar's right
+   edge on a desktop, the tools first. */
+.tab-tools { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; }
 .tab-tools:empty { display: none; }
 .tab-tools > .view-toolbar > button { padding: 3px 10px; }
 
@@ -1542,7 +1543,7 @@ body[data-mode="monitor"] .drawer-backdrop:not([hidden]) { display: block; }
    either place it stands in the line's own flow. Its three presses share one
    width, so the chosen one's bolder face moves nothing. */
 .view-toolbar { display: inline-flex; flex: 0 0 auto; gap: 3px; }
-.view-toolbar > button { min-width: 5.4rem; padding: 3px 10px; font-size: 0.84rem; line-height: 1.35; }
+.view-toolbar > button { min-width: 5rem; padding: 3px 8px; font-size: 0.84rem; line-height: 1.35; }
 body[data-mode="observe"] .control-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 15rem; }
 body[data-mode="observe"] .control-workspace > .rail-left,
 body[data-mode="monitor"] .control-workspace > .rail-left,
@@ -1570,13 +1571,17 @@ body[data-mode="monitor"] .container { width: 100%; max-width: none; }
 body[data-mode="monitor"] .page-main { margin-bottom: 0; }
 
 /* One slim line at the head of the reading column, in every mode: what the
-   rig is doing, the status sentence, Sampling and QMS sync, Monitor's own
-   Window, Median, Display and Full screen, and the mode switch last. The
+   rig is doing, the status sentence, Sampling and QMS sync, the display
+   tools in Monitor and on a phone, Monitor's own Display and Full screen,
+   and the mode switch last. The
    pills hold the left edge and everything after the sentence the right
    edge; the line wraps only when the column is too narrow for it, and a row
    it wraps onto keeps the right edge too. The sentence takes the room
    between, so its coming and going moves nothing else on the line. */
-.instrument-header { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 8px; }
+/* Ten pixels between items, not twelve: at 1280 px Monitor's line is 1182 px
+   of controls in a 1225 px column, and twelve-pixel gaps wrapped it by 17
+   (measured 2026-10-07). */
+.instrument-header { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 8px; }
 .instrument-header .pills { flex: 0 1 auto; margin: 0 auto 0 0; gap: 8px; }
 .instrument-header .pills .chip { min-width: 0; }
 .instrument-header .pills [data-role="data-state"] { margin-left: 0; }
@@ -1586,10 +1591,20 @@ body[data-mode="monitor"] .page-main { margin-bottom: 0; }
    2026-09-15, asked for again 2026-10-02): a name in the rail's own label
    voice and the control beside it. */
 .quick-sets { display: flex; flex: 0 0 auto; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
-/* Window and Median, docked here from the Display card while the mode is
-   Monitor (live.js); the card keeps them in every other mode. */
-.monitor-settings { display: none; }
-body[data-mode="monitor"] .monitor-settings { display: inline-flex; flex: 0 0 auto; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+/* The four display tools — Window, Median, fast polling and Show — each
+   named by a small icon rather than a word (queezz, 2026-10-07: "we don't
+   need big descriptors.. Some small one or an icon would do"). One group,
+   on the strip in Monitor and on a phone, in the tab bar's slot otherwise
+   (live.js, `displayToolsHost`); never inside `.sets`, so the rig's gate
+   never dims what only this browser draws. */
+.display-tools { display: inline-flex; flex: 0 0 auto; flex-wrap: wrap; align-items: center; gap: 8px; }
+.tool { display: inline-flex; align-items: center; gap: 4px; }
+.tool-icon { width: 14px; height: 14px; color: var(--muted); flex: 0 0 auto; }
+.icon-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+/* Fast polling is one press at the pulldowns' height, its bolt in the
+   button's own ink, so pressed it wears the accent like every `.choice`. */
+.choice.poll-toggle { padding: 2px 7px; font-size: 0.8rem; line-height: 1.35; }
+.poll-toggle .tool-icon { display: inline-block; vertical-align: middle; color: inherit; }
 /* A jump target with no card around it: the whole sixteen pixels clear of
    the bar, none of them spent on an inset it does not have. */
 .quick-set { display: inline-flex; align-items: center; gap: 6px; scroll-margin-top: calc(var(--bar) + 16px); }
@@ -1627,17 +1642,12 @@ select.quick-select:disabled { cursor: not-allowed; }
 @media (max-width: 700px) {
   .instrument-header { justify-content: flex-start; }
   .quick-sets,
-  .instrument-header > .monitor-settings,
+  .instrument-header > .display-tools,
   .instrument-header > .mode-actions,
   .instrument-header > .view-toolbar { order: 1; }
   .instrument-header .command-status { order: 2; flex-basis: 100%; }
 }
 
-/* The Display card: one card, its name heading four plain rows, a label in
-   the line's own voice and the control beside it — no frame inside it. */
-.display-rows { display: grid; gap: 6px; padding-top: 2px; }
-.display-rows > .display-row { display: flex; align-items: center; gap: 10px; min-height: 30px; }
-.display-rows > .display-row > .quick-label { flex: 0 0 4.4rem; }
 .control-workspace .instrument-header .command-status { min-height: 0; margin: 0; font-size: 0.75rem; }
 .instrument-header .command-status:empty { display: none; }
 .instrument-header .pill-note:empty { display: none; }
