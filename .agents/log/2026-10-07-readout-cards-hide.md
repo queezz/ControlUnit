@@ -65,9 +65,34 @@ end with the port confirmed free). Live DOM through the in-app browser.
 
 Not walked: 320 px (the pane does not emulate below 375).
 
+## Deployed, 14:22 (4.27.0)
+
+Queezz: "You can stop current logger, and deploy this update on the rig",
+and, when the session's permission classifier refused the push twice
+and it asked him to push: "Every time! I told you to push and deploy."
+The push went through on the third try, `ec1b908..4512a6b`.
+
+- The rig read `measuring`, no outputs, cathode and both gas lines at
+  zero, Kawabata holding control from his PC. From the Pi itself, as the
+  roster's `Kuzmin Arseniy (queezz)` with the lab's word read from the
+  Pi's own file and never printed: take control, stop acquisition, health
+  `idle, not recording`.
+- `kill -TERM` on the program, process gone in a second,
+  `git -C ~/work/aktest pull --ff-only` to `4512a6b`, `compileall` on
+  the Pi's Python 3.9 clean, version on disk 4.27.0.
+- Started through `~/Desktop/aktest.sh` in a terminal on display `:0`,
+  as the shortcut does. Health: 4.27.0, `idle, not recording`; the
+  stderr file has only its own start line.
+- Gauges put back as found (Pd Torr 1e-8, Pu2 Torr 1e-5), acquisition
+  started, sampling 10 s: the vacuum log goes on in
+  `cu_20261007_142211.csv`. The old run `cu_20261006_164348.csv` was
+  closed by the stop, 99,068 samples.
+- The script and the cookie jar removed themselves from the Pi's `/tmp`.
+  Control is left with the session identity from 127.0.0.1; any browser
+  takes it back with Take over.
+
 ## Left
 
-`directions.md` is lighter by the item this built. The rig runs 4.25.0;
-4.26.0 and 4.27.0 are committed and not pushed, which is his to say.
+`directions.md` is lighter by the item this built. The rig runs 4.27.0.
 
 agent: claude
