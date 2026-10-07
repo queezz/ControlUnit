@@ -75,9 +75,23 @@ port confirmed free. Live DOM through the in-app browser pane.
 
 Not walked: 320 px (the pane does not emulate below 375).
 
+## Deployed, 15:00 (4.28.0)
+
+Queezz: "Deploy, restart the rig logging". Pushed `4512a6b..244cd2f`.
+The same script as for 4.27.0, from the Pi itself, stopping at the first
+thing not as expected: the rig read `measuring`, no outputs; as the
+roster's identity with the lab's word from the Pi's own file, take
+control, stop acquisition (`cu_20261007_142211.csv` closed), health
+`idle`, `kill -TERM`, process gone in a second, `pull --ff-only` to
+`244cd2f`, `compileall` clean, start through the desktop launcher on
+display `:0`, health 4.28.0, gauges as found (Pd Torr 1e-8, Pu2 Torr
+1e-5), acquisition started, sampling 10 s: the vacuum log goes on in
+`cu_20261007_150028.csv`. The stderr file has only its start line. The
+script and the cookie jar removed themselves from `/tmp`; control is
+left with the session identity from 127.0.0.1.
+
 ## Left
 
-Nothing new in `directions.md`. The rig runs 4.27.0; 4.28.0 is committed
-and not pushed. Pushing and deploying it is his to say.
+Nothing new in `directions.md`. The rig runs 4.28.0.
 
 agent: claude
