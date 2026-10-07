@@ -567,8 +567,14 @@ holds what is still undecided or unbuilt.
   on Live: "the display items are hidden uncomfortably there" — the
   Display drawer's header is one box and its Window, Median, Polling and
   Show groups are four separate boxes below it, so the header does not
-  read as owning them. Both go together with this strip; a UI change
-  routes through the fleet's UI law and the Perimeter Walk first.
+  read as owning them. And the shape he wants (owner decision
+  2026-10-07): "we don't have to make all the buttons for all the
+  samplings. We can use a pulldown selector. So it shows what's selected,
+  and all the options don't crowd our UI" — one select showing the
+  chosen value, for Sampling, and by the same reasoning for Window and
+  Median in the strip, in place of the rows of buttons. Both go together
+  with this strip; a UI change routes through the fleet's UI law and the
+  Perimeter Walk first.
 - Sessions may stop and start the rig's program only when queezz asks
   directly in the chat, never on their own (owner decision 2026-09-15,
   live; now in AGENTS.md). Asked, a session refuses while an output is

@@ -26,7 +26,10 @@ was left on the Pi.
   words added to the Monitor-strip item with the Display drawer.
 - Mail: the packet said two letters were posted here; `fleet letters`
   shows every letter collected or logged, none posted. Nothing to
-  collect.
+  collect. Posted `20261007-010813ad-936c7b` to
+  `code/pihti-experiment-log`: the vault note exists, and queezz wants
+  the Troubleshooting notes reachable from their web view ("your notes
+  should be accessible through our pihti-log webui").
 
 ## Found
 
@@ -50,6 +53,15 @@ The comparison and the reasoning are in the vault note; in short:
    10-05. The known item.
 6. He drove the supply from its own panel at 20–23 A on 10-06 (DAC at 0
    in the file); the anode pegged for 92–95 % of those episodes.
+7. The DAC-to-filament mapping is unchanged, 8.5–8.7 A per volt on
+   10-02, 10-05 and 10-06, and at 15 A with no discharge the filament
+   takes 7.3 V against 7.4 V on 10-02: not thinning. Hydrogen asks
+   17–18 A where argon lit at 15 A, as it did in 2024. A first reading
+   of "five percent more voltage" compared samples taken under a plasma
+   with samples taken without one, and was withdrawn in the vault note
+   the same afternoon. His question of where the circuit closes with
+   the preanode grounded is answered there too: a thermal contact,
+   measured cold; look for the witness mark, measure hot.
 
 ## Also, from queezz during the session
 
@@ -57,6 +69,8 @@ The rig runs 4.25.0, the newest deployed; the code is not old. Two UI
 observations, recorded in directions, not acted on (a UI change routes
 through the fleet's UI law and the Perimeter Walk first): the Display
 drawer's body sits apart from its header in the right rail, and Observe
-and Monitor leave the top bar empty but for the mode switch.
+and Monitor leave the top bar empty but for the mode switch. And a
+shape for the strip: a pulldown showing the chosen value in place of
+the rows of sampling buttons (owner decision 2026-10-07, in directions).
 
 agent: claude
