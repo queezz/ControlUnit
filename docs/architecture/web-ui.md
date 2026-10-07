@@ -414,6 +414,17 @@ measured, and a readout with a baseline held says `zeroed` beside its name.
     clipping. What a zero is is explained once, in the right rail's Data
     card; a readout card never explains itself.
 
+    **A press on a card hides it** in Operate and Observe (4.27.0; queezz,
+    2026-10-07: "For some regimes I only need 2-3, so others get in the way
+    on mobile"). The card takes its `hidden` flag and leaves the grid, and
+    comes back as a dimmed pill in its own pen at the grid's end, named as
+    the folded row names it (`Pu`, `Uc`, `Ic`) — the legend's vocabulary,
+    where a dimmed pill is something switched off. Pressing the pill shows
+    the card again at its own place. The two modes share one hidden set,
+    remembered per browser as `hiddenReadouts` in the view; Monitor shows
+    every card and no pills, and a press there does nothing. The folded row
+    keeps every value, and nothing recorded or asked of the rig changes.
+
     The line that used to stand under every zeroable card — `zero -0.345 A`,
     or `as measured` — is gone, with the two lines of room it held open.
     "as measured" said nothing that was not true of every signal on this

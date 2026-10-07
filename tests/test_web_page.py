@@ -331,6 +331,53 @@ def test_the_big_readouts_are_one_class_over_the_same_dom(client, live):
     assert live.count("data-cathode-readout=") == 2
 
 
+def test_a_press_on_a_readout_card_hides_it_and_a_pill_brings_it_back(client, live):
+    """queezz, 2026-10-07: "when operating, I wanted a click to toggle the big
+    digit screens for gauges and ADC readings. For some regimes I only need
+    2-3, so others get in the way on mobile."
+
+    Every card is the press, keyboard-reachable, and says its verb only to a
+    screen reader, before its own name and number. The hidden cards' pills
+    have one row at the grid's end, shipped empty and hidden: live.js writes
+    them from the remembered view. The folded row keeps all eight values."""
+    strip = live[live.index('<div class="readouts">'):]
+    strip = strip[: strip.index("</details>")]
+    for marker in ['data-readout="{}"'.format(n) for n in ("Ip", "Pu", "Pd", "Bu", "Bd")] + [
+            'data-cathode-readout="voltage_v"', 'data-cathode-readout="current_a"']:
+        card = strip[strip.rindex("<div", 0, strip.index(marker)):]
+        card = card[: card.index("</div>")]
+        assert 'role="button" tabindex="0" aria-pressed="true"' in card
+        assert '<span class="sr-only">Hide</span>' in card
+    assert strip.count('role="button"') == 8
+    # The pills' row: the grid's last child, empty, hidden until a card is.
+    assert strip.rstrip().endswith(
+        '<span class="readout-chips" data-role="readout-chips" role="group" '
+        'aria-label="Hidden readouts" hidden></span>\n        </div>')
+    assert 'data-show=' not in live
+    # Nothing new is said on the page about it.
+    assert "Press a card" not in live and "to hide" not in live
+    # The folded row is untouched: every value is there, hidden or not.
+    assert live.count("data-fold-readout=") == 6
+    assert live.count("data-fold-cathode=") == 2
+
+    script = client.get("/static/js/live.js").get_data(as_text=True)
+    assert "hiddenReadouts: []" in script
+    assert '{voltage_v: "Uc", current_a: "Ic"}' in script
+    assert 'className = "pen readout-chip"' in script
+
+    css = client.get("/static/css/controlunit.css").get_data(as_text=True)
+    rules = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    card = rules[rules.index(".readout {"):]
+    assert "cursor: pointer" in card[: card.index("}")]
+    assert 'body[data-mode="monitor"] .readout { cursor: default; }' in rules
+    assert ".readout:hover, .readout:focus-visible { border-color: var(--accent);" in rules
+    assert 'body[data-mode="monitor"] .readout:hover {' in rules
+    chips = rules[rules.index(".readout-chips {"):]
+    assert "grid-column: 1 / -1" in chips[: chips.index("}")]
+    # Nothing moves on a hide or a show, so there is nothing to animate.
+    assert "transition" not in card[: card.index("}")]
+
+
 def test_the_number_is_the_loudest_thing_on_every_readout_card(client):
     """queezz, 2026-09-15, on the Live tab: "Big is somewhat smaller than
     small. The cards and all. It's very inconsistent… Big means BIG NUMBERS

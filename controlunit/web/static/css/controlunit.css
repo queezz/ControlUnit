@@ -478,6 +478,31 @@ dl.facts dd.wide { margin-top: -2px; }
   background: var(--panel);
   background: color-mix(in srgb, var(--pen, var(--panel)) 14%, var(--panel));
   border-color: color-mix(in srgb, var(--pen, var(--line)) 45%, transparent);
+  cursor: pointer;
+}
+
+/* A press on a card hides it in Operate and Observe, so the card looks
+   pressable there the way every button on the page does: its border already
+   stands at rest, and the pointer or the keyboard brings the accent ring.
+   Monitor shows every card and a press there does nothing, so there the
+   card is a meter again: no pointer, no ring. */
+.readout:hover, .readout:focus-visible { border-color: var(--accent); outline: none; }
+body[data-mode="monitor"] .readout { cursor: default; }
+body[data-mode="monitor"] .readout:hover {
+  border-color: var(--line);
+  border-color: color-mix(in srgb, var(--pen, var(--line)) 45%, transparent);
+}
+
+/* The hidden cards, one pill each in the card's own pen, on a row of their
+   own at the grid's end — the legend's pill, dimmed as a curve switched off
+   is, and pressed to bring the card back. Empty, the row is `hidden` and
+   takes no room. */
+.readout-chips {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
 }
 
 /* Top-left corner: the name in the pen, the state tag beside it. Both are

@@ -1,3 +1,17 @@
+## 4.27.0 — 2026-10-07
+
+- A press on a readout card hides it, in Operate and Observe (queezz,
+  2026-10-07: "when operating, I wanted a click to toggle the big digit
+  screens for gauges and ADC readings. For some regimes I only need 2-3,
+  so others get in the way on mobile."). A hidden card comes back as a
+  pill in its own pen at the end of the readouts, named as the folded row
+  names it (`Pu`, `Uc`, `Ic`); pressing the pill shows the card again in
+  its own place. The choice is remembered in this browser with the rest
+  of the view.
+- Monitor shows every card and no pills, and a press there does nothing.
+  The folded row keeps every value either way; nothing recorded changes
+  and nothing is asked of the rig.
+
 ## 4.26.0 — 2026-10-07
 
 - One slim line heads the Live page in every mode (queezz, 2026-10-07:

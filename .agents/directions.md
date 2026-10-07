@@ -554,19 +554,6 @@ holds what is still undecided or unbuilt.
   - The toggles rest on "on" at Start; a rig started with an instrument
     already off should say so within the first minute (a warning when a
     gauge reads at its floor for a minute, later).
-- A press on a readout card hides it, so a phone shows the two or three
-  a regime needs (queezz, 2026-10-07, live: "when operating, I wanted a
-  click to toggle the big digit screens for gauges and ADC readings. For
-  some regimes I only need 2-3, so others get in the way on mobile").
-  Design to build: in Operate and Observe a tap on a readout card's name
-  corner hides that card; the hidden ones are listed as small chips in
-  the card's own pen at the end of the strip (name only), and a tap on a
-  chip brings its card back, so nothing is ever gone without a door. The
-  folded strip's one-line row keeps every value, hidden or not — it is
-  the glance, the cards are the regime. Remembered per browser with the
-  rest of the view (`controlunit.live`), per mode as small/big is. The
-  Cathode V and I cards hide the same way. Nothing recorded changes. A UI
-  change routes through the fleet's UI law and the Perimeter Walk first.
 - Sessions may stop and start the rig's program only when queezz asks
   directly in the chat, never on their own (owner decision 2026-09-15,
   live; now in AGENTS.md). Asked, a session refuses while an output is

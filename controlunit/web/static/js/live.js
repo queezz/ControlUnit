@@ -77,7 +77,12 @@
         downstreamLog: true,
         smooth: 0,
         monitorBig: true,
-        big: false
+        big: false,
+        /* The readout cards a reader pressed away in Operate and Observe, by
+           the card's own key: an ADC channel's name, or the cathode supply's
+           `voltage_v` / `current_a`. Monitor shows every card whatever this
+           holds; see `paintHidden`. */
+        hiddenReadouts: []
     };
 
     /* What each fixed choice pins the left axis to, in amperes, and `null`
@@ -121,6 +126,12 @@
             if (SMOOTHING.indexOf(Number(kept.smooth)) > 0) view.smooth = Number(kept.smooth);
             if (typeof kept.monitorBig === "boolean") view.monitorBig = kept.monitorBig;
             if (typeof kept.big === "boolean") view.big = kept.big;
+            // A store written before cards could be hidden has no list, and
+            // reads as every card shown.
+            if (Array.isArray(kept.hiddenReadouts))
+                view.hiddenReadouts = kept.hiddenReadouts.filter(function (key) {
+                    return typeof key === "string" && key;
+                });
         } catch (e) { /* fine */ }
     }
 
@@ -1318,6 +1329,7 @@
             else card.originalParent.insertBefore(card, card.originalSlot.nextSibling);
         });
         applyDisplay();
+        paintHidden();   // Monitor shows every card; the other two, the reader's choice
         drawAll();   // the reading column just changed width
     }
 
@@ -1596,6 +1608,102 @@
         press("[data-display]", "display", big ? "big" : "normal");
     }
 
+    /* A press on a readout card hides it, in Operate and Observe (queezz,
+       2026-10-07: "For some regimes I only need 2-3, so others get in the way
+       on mobile"). The card stays where it is in the page and only its
+       `hidden` flag changes, so one shown again stands at its own place in
+       the grid. Each hidden card is said once more as a pill at the grid's
+       end, in the card's pen, named as the folded row names it — the legend's
+       own vocabulary: a dimmed pill is something switched off, and pressing
+       it brings it back.
+
+       Monitor shows every card and no pills: it is the page read from across
+       the room, and a card pressed away at the desk must not leave a hole
+       there. A press in Monitor does nothing. The two other modes share one
+       hidden set, remembered with the rest of the view. Nothing here touches
+       the folded row, what is recorded, or the rig. */
+    var CHIP_NAMES = {voltage_v: "Uc", current_a: "Ic"};
+
+    function readoutKey(card) {
+        return card.dataset.readout || card.dataset.cathodeReadout || "";
+    }
+
+    function readoutCards() {
+        return Array.prototype.slice.call(root.querySelectorAll(".readouts > .readout"));
+    }
+
+    function readoutChip(card, key) {
+        var chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "pen readout-chip";
+        chip.dataset.show = key;
+        chip.setAttribute("aria-pressed", "false");
+        var pen = card.style && card.style.getPropertyValue
+            ? card.style.getPropertyValue("--pen").trim() : "";
+        if (pen) chip.style.setProperty("--pen", pen);
+        var dot = document.createElement("span");
+        dot.className = "pen-dot";
+        var name = document.createElement("span");
+        name.textContent = CHIP_NAMES[key] || key;
+        chip.appendChild(dot);
+        chip.appendChild(name);
+        chip.addEventListener("click", function () { showReadout(key); });
+        return chip;
+    }
+
+    function paintHidden() {
+        var chips = root.querySelector('[data-role="readout-chips"]');
+        var hiding = mode !== "monitor";
+        var count = 0;
+        if (chips) while (chips.firstChild) chips.removeChild(chips.firstChild);
+        readoutCards().forEach(function (card) {
+            var key = readoutKey(card);
+            var hidden = hiding && view.hiddenReadouts.indexOf(key) >= 0;
+            card.hidden = hidden;
+            card.setAttribute("aria-pressed", hidden ? "false" : "true");
+            card.tabIndex = hiding ? 0 : -1;
+            if (hiding) card.removeAttribute("aria-disabled");
+            else card.setAttribute("aria-disabled", "true");
+            if (hidden && chips) {
+                chips.appendChild(readoutChip(card, key));
+                count += 1;
+            }
+        });
+        if (chips) chips.hidden = count === 0;
+    }
+
+    function focusOn(target) {
+        if (target && target.focus) target.focus({preventScroll: true});
+    }
+
+    function hideReadout(key) {
+        if (mode === "monitor" || !key) return;
+        if (view.hiddenReadouts.indexOf(key) < 0) view.hiddenReadouts.push(key);
+        remember();
+        paintHidden();
+        // The card the reader was on has left; the pill that brings it back
+        // takes the focus, so a keyboard is not dropped to the page's top.
+        focusOn(root.querySelector('[data-role="readout-chips"] [data-show="' + key + '"]'));
+    }
+
+    function showReadout(key) {
+        view.hiddenReadouts = view.hiddenReadouts.filter(function (kept) { return kept !== key; });
+        remember();
+        paintHidden();
+        focusOn(readoutCards().filter(function (card) { return readoutKey(card) === key; })[0]);
+    }
+
+    function setupReadouts() {
+        readoutCards().forEach(function (card) {
+            card.addEventListener("click", function () { hideReadout(readoutKey(card)); });
+            card.addEventListener("keydown", function (event) {
+                if (event.key !== "Enter" && event.key !== " ") return;
+                event.preventDefault();   // a space would scroll the page
+                hideReadout(readoutKey(card));
+            });
+        });
+    }
+
     var stateTimer = null;
     var seriesTimer = null;
 
@@ -1635,6 +1743,7 @@
         applyPressureGrouping();
         setupRails();
         setupModes();
+        setupReadouts();
         applyMode();
         reflectFullscreen();
         root.addEventListener("controlunit:refresh", pollState);

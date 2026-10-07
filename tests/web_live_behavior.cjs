@@ -11,7 +11,7 @@ const vm = require('node:vm');
    50, which is the case the fit-down in paintState exists for. The width
    model is deliberately crude and monotonic in the text's length; what is
    being tested is which words the card ends up carrying, not typography. */
-function readoutCard(name, room) {
+function readoutCard(name, room, dataset, pen) {
     const value = {innerHTML: '', textContent: ''};
     const unit = {textContent: ''};
     const note = {
@@ -22,9 +22,19 @@ function readoutCard(name, room) {
         get scrollWidth() { return note.text.length * 5; },
         get clientWidth() { return room === undefined ? 200 : room; }
     };
+    /* The card is also the press that hides it: a `hidden` flag, its
+       attributes, its listeners and its pen, read back the way the page
+       writes them. */
     return {
-        dataset: {readout: name},
+        dataset: dataset || {readout: name},
         classList: {toggle() {}},
+        hidden: false, tabIndex: 0, attrs: {'aria-pressed': 'true'}, handlers: {},
+        style: {getPropertyValue(prop) { return prop === '--pen' ? ' ' + (pen || '#123456') : ''; }},
+        setAttribute(key, v) { this.attrs[key] = v; },
+        getAttribute(key) { return this.attrs[key]; },
+        removeAttribute(key) { delete this.attrs[key]; },
+        addEventListener(kind, fn) { this.handlers[kind] = fn; },
+        focus() { focused.at = this; },
         parts: {value, unit, note},
         querySelector(selector) {
             if (selector.indexOf('readout-note') !== -1) return note;
@@ -38,9 +48,35 @@ function readoutCard(name, room) {
 /* `cardRoom` is one width for every card, or a width per channel — a card
    whose unit is "Torr" leaves its tag less room than one whose unit is "A",
    in the same strip. */
+/* Which element last took the focus, across every harness: the hide and
+   show presses hand it on, and a test reads where it went. */
+const focused = {at: null};
+
+/* A node `document.createElement` hands back: enough for the page to build
+   a pill from — a class, a dataset, a pen, children and a listener. */
+function made(tagName) {
+    const node = el({tagName: tagName.toUpperCase(), textContent: '', focus() { focused.at = node; }});
+    node.style = {props: {}, setProperty(key, v) { this.props[key] = v; }};
+    return node;
+}
+
+/* The row the hidden cards' pills stand in, which the page empties and
+   refills on every paint. */
+function chipRow() {
+    const row = el({hidden: true});
+    Object.defineProperty(row, 'firstChild', {get() { return row.children[0] || null; }});
+    row.removeChild = function (child) { row.detach(child); child.parentNode = null; return child; };
+    return row;
+}
+
 function instrument(cardRoom, parts) {
     const roomFor = (name) => (cardRoom && typeof cardRoom === 'object') ? cardRoom[name] : cardRoom;
     const cards = Object.fromEntries(['Bu', 'Bd'].map(name => [name, readoutCard(name, roomFor(name))]));
+    /* The cathode supply's two cards, keyed as the template keys them and in
+       their own pen. */
+    const cathode = Object.fromEntries(['voltage_v', 'current_a'].map(key =>
+        [key, readoutCard(key, undefined, {cathodeReadout: key}, '#ff6b35')]));
+    const chips = chipRow();
     const buttons = Object.fromEntries(['Bu', 'Bd'].map(name => [name, {
         dataset: {channel: name}, listeners: {},
         setAttribute() {},
@@ -66,13 +102,19 @@ function instrument(cardRoom, parts) {
         querySelector(selector) {
             // The rail's own pieces a test brings along: a pulldown, a folded line.
             if (parts && parts[selector]) return parts[selector];
+            const chip = selector.match(/^\[data-role="readout-chips"\] \[data-show="(.*?)"\]$/);
+            if (chip) return chips.children.find(c => c.dataset.show === chip[1]) || null;
+            if (selector === '[data-role="readout-chips"]') return chips;
             const readout = selector.match(/^\.readout\[data-readout="(.*?)"\]$/);
             if (readout) return cards[readout[1]] || null;
             if (selector.indexOf('fold-units') !== -1) return units;
             const fold = selector.match(/\[data-fold-readout="(.*?)"\]/);
             return fold ? folded[fold[1]] || null : null;
         },
-        querySelectorAll(selector) { return selector === '[data-channel]' ? Object.values(buttons) : []; }
+        querySelectorAll(selector) {
+            if (selector === '.readouts > .readout') return [...Object.values(cards), ...Object.values(cathode)];
+            return selector === '[data-channel]' ? Object.values(buttons) : [];
+        }
     };
     let saved;
     const context = vm.createContext({
@@ -83,6 +125,7 @@ function instrument(cardRoom, parts) {
             getElementById(id) { return id === 'chart-bar' ? canvas : null; },
             querySelectorAll() { return []; },
             createComment() { return {}; },
+            createElement: made,
             body: {dataset: {}}, documentElement: {}
         },
         URL, URLSearchParams,
@@ -99,13 +142,15 @@ function instrument(cardRoom, parts) {
     // Exercise production handlers and drawing decisions without starting timers.
     const end = source.indexOf('    if (document.readyState === "loading")');
     vm.runInContext(source.slice(0, end) +
-        'globalThis.instrument = {append, draw, drawAll, setupRails, applyPreset, view, recall, remember, setMode, modeInAddress, paintState};\n}());', context);
+        'globalThis.instrument = {append, draw, drawAll, setupRails, applyPreset, view, recall, remember, setMode, modeInAddress, paintState, setupReadouts, paintHidden};\n}());', context);
     const api = context.instrument;
     api.append({to: 4, channels: {Bu: [[1, -0.004], [2, -0.004], [3, -0.004], [4, -0.004]],
         Bd: [[1, 0.001], [2, 0.002], [3, 0.003], [4, 0.004]]}});
     api.setupRails();
     api.drawAll();
-    return {api, buttons, canvas, cards, folded, units};
+    return {api, buttons, canvas, cards, cathode, chips, folded, units,
+            stored() { return saved === undefined ? null : JSON.parse(saved); },
+            store(view) { saved = JSON.stringify(view); }};
 }
 
 /* The number as the card renders it: mantissa, then `×10-` small, then the
@@ -819,4 +864,150 @@ test('the view-mode switch binds only its own buttons, never the gauge Torr/Pa o
     const source = fs.readFileSync(path.join(__dirname, '../controlunit/web/static/js/live.js'), 'utf8');
     assert.equal(source.indexOf('querySelectorAll("[data-mode]")'), -1);
     assert.notEqual(source.indexOf('[data-role="mode-switch"] [data-mode]'), -1);
+});
+
+/* -- a press hides a readout card ---------------------------------------- *
+ *
+ * queezz, 2026-10-07: "when operating, I wanted a click to toggle the big
+ * digit screens for gauges and ADC readings. For some regimes I only need
+ * 2-3, so others get in the way on mobile." A press on a card hides it in
+ * Operate and Observe; it comes back as a pill in its own pen at the grid's
+ * end, and a press on the pill shows it again. Monitor shows every card. */
+
+test('a press on a readout card hides it and leaves a pill with its name and pen', () => {
+    const {api, cards, chips} = instrument();
+    api.setupReadouts();
+    api.paintHidden();
+    assert.equal(chips.hidden, true);
+    assert.equal(chips.children.length, 0);
+
+    cards.Bu.handlers.click();
+    assert.equal(cards.Bu.hidden, true);
+    assert.equal(cards.Bd.hidden, false);
+    assert.deepEqual([...api.view.hiddenReadouts], ['Bu']);
+    assert.equal(chips.hidden, false);
+    assert.equal(chips.children.length, 1);
+    const chip = chips.children[0];
+    assert.equal(chip.tagName, 'BUTTON');
+    assert.equal(chip.type, 'button');
+    assert.equal(chip.className, 'pen readout-chip');
+    assert.equal(chip.dataset.show, 'Bu');
+    assert.equal(chip.attrs['aria-pressed'], 'false');
+    assert.equal(chip.style.props['--pen'], '#123456');
+    assert.equal(chip.children[0].className, 'pen-dot');
+    assert.equal(chip.children[1].textContent, 'Bu');
+    // The keyboard is not dropped: the pill that brings the card back has it.
+    assert.equal(focused.at, chip);
+
+    // The pill's press shows the card where it stood, and the pill leaves.
+    chip.handlers.click();
+    assert.equal(cards.Bu.hidden, false);
+    assert.equal(cards.Bu.attrs['aria-pressed'], 'true');
+    assert.deepEqual([...api.view.hiddenReadouts], []);
+    assert.equal(chips.children.length, 0);
+    assert.equal(chips.hidden, true);
+    assert.equal(focused.at, cards.Bu);
+});
+
+test('Enter and Space press a card as a click does, and Space does not scroll', () => {
+    const {api, cards, chips} = instrument();
+    api.setupReadouts();
+    api.paintHidden();
+    let stopped = 0;
+    cards.Bd.handlers.keydown({key: 'Tab', preventDefault() { stopped += 1; }});
+    assert.equal(cards.Bd.hidden, false);
+    cards.Bd.handlers.keydown({key: ' ', preventDefault() { stopped += 1; }});
+    assert.equal(cards.Bd.hidden, true);
+    assert.equal(stopped, 1);
+    cards.Bu.handlers.keydown({key: 'Enter', preventDefault() {}});
+    // The pills stand in the cards' own order, whatever order they were hidden in.
+    assert.deepEqual(chips.children.map(c => c.dataset.show), ['Bu', 'Bd']);
+});
+
+test('the cathode cards hide to pills named as the folded row names them, Uc and Ic', () => {
+    const {api, cathode, chips} = instrument();
+    api.setupReadouts();
+    api.paintHidden();
+    cathode.current_a.handlers.click();
+    cathode.voltage_v.handlers.click();
+    assert.deepEqual(chips.children.map(c => c.dataset.show), ['voltage_v', 'current_a']);
+    assert.deepEqual(chips.children.map(c => c.children[1].textContent), ['Uc', 'Ic']);
+    assert.deepEqual(chips.children.map(c => c.style.props['--pen']), ['#ff6b35', '#ff6b35']);
+});
+
+test('the hidden cards are remembered with the view and restored', () => {
+    const first = instrument();
+    first.api.setupReadouts();
+    first.api.paintHidden();
+    first.cards.Bu.handlers.click();
+    first.cathode.voltage_v.handlers.click();
+    const kept = first.stored();
+    assert.deepEqual(kept.hiddenReadouts, ['Bu', 'voltage_v']);
+    // Every key the view already kept is still there beside it.
+    for (const key of ['window', 'channels', 'igLog', 'barLog', 'plasmaScale', 'smooth', 'big', 'monitorBig'])
+        assert.ok(key in kept, key);
+
+    const second = instrument();
+    second.store(kept);
+    second.api.recall();
+    second.api.paintHidden();
+    assert.equal(second.cards.Bu.hidden, true);
+    assert.equal(second.cathode.voltage_v.hidden, true);
+    assert.equal(second.cards.Bd.hidden, false);
+    assert.deepEqual(second.chips.children.map(c => c.dataset.show), ['Bu', 'voltage_v']);
+
+    // A view stored before cards could be hidden reads as every card shown,
+    // and a list that is not one is not read.
+    for (const old of [{window: 300}, {hiddenReadouts: 'Bu'}]) {
+        const third = instrument();
+        third.store(old);
+        third.api.recall();
+        third.api.paintHidden();
+        assert.deepEqual([...third.api.view.hiddenReadouts], []);
+        assert.equal(third.cards.Bu.hidden, false);
+        assert.equal(third.chips.hidden, true);
+    }
+});
+
+test('Monitor shows every card and no pills, and a press there does nothing', () => {
+    const {api, cards, cathode, chips} = instrument();
+    api.setupReadouts();
+    api.paintHidden();
+    cards.Bu.handlers.click();
+    cathode.current_a.handlers.click();
+    api.setMode('monitor');
+    for (const card of [cards.Bu, cards.Bd, cathode.voltage_v, cathode.current_a]) {
+        assert.equal(card.hidden, false);
+        assert.equal(card.attrs['aria-pressed'], 'true');
+        assert.equal(card.attrs['aria-disabled'], 'true');
+        assert.equal(card.tabIndex, -1);
+    }
+    assert.equal(chips.hidden, true);
+    assert.equal(chips.children.length, 0);
+    cards.Bd.handlers.click();
+    cards.Bd.handlers.keydown({key: 'Enter', preventDefault() {}});
+    assert.equal(cards.Bd.hidden, false);
+    assert.deepEqual([...api.view.hiddenReadouts], ['Bu', 'current_a']);
+
+    // Observe shares Operate's set: the same two cards are away again.
+    api.setMode('observe');
+    assert.equal(cards.Bu.hidden, true);
+    assert.equal(cathode.current_a.hidden, true);
+    assert.equal(cards.Bd.hidden, false);
+    assert.equal(cards.Bd.tabIndex, 0);
+    assert.equal(cards.Bd.attrs['aria-disabled'], undefined);
+    assert.deepEqual(chips.children.map(c => c.dataset.show), ['Bu', 'current_a']);
+});
+
+test('folded, the row still carries a hidden card\'s value', () => {
+    const {api, cards, folded} = instrument();
+    api.setupReadouts();
+    api.paintHidden();
+    cards.Bu.handlers.click();
+    assert.equal(cards.Bu.hidden, true);
+    api.paintState(reading({Bu: -0.004, Bd: 0.004}));
+    assert.equal(folded.Bu.textContent, '-4.0e-3');
+    assert.equal(folded.Bd.textContent, '4.0e-3');
+    // The hidden card is still written, so it comes back current.
+    assert.equal(cards.Bu.parts.value.innerHTML, MINUS_FOUR_MILLI);
 });

@@ -76,7 +76,9 @@
                small texts are pinned to its corners and take no room from
                them: the name and its tag at the top left, the unit at the
                bottom right, under the exponent. #}
-            <div class="readout" data-readout="{{ name }}" style="--pen: {{ colour }}">
+            <div class="readout" data-readout="{{ name }}" style="--pen: {{ colour }}"
+                 role="button" tabindex="0" aria-pressed="true">
+                <span class="sr-only">Hide</span>
                 <span class="readout-cap">
                     <span class="readout-name">{{ name }}</span>
                     <span class="readout-note" data-role="readout-note"></span>
@@ -99,7 +101,9 @@
                a LAN can be stale in a way an ADC channel cannot, and that is
                what `paintKikusui` writes there. #}
             {% for key, name, unit in [('voltage_v', 'Cathode V', 'V'), ('current_a', 'Cathode I', 'A')] %}
-            <div class="readout" data-cathode-readout="{{ key }}" style="--pen: {{ cathode_pen }}">
+            <div class="readout" data-cathode-readout="{{ key }}" style="--pen: {{ cathode_pen }}"
+                 role="button" tabindex="0" aria-pressed="true">
+                <span class="sr-only">Hide</span>
                 <span class="readout-cap">
                     <span class="readout-name">{{ name }}</span>
                     <span class="readout-note" data-role="readout-note"></span>
@@ -108,6 +112,24 @@
                 <span class="readout-unit mono">{{ unit }}</span>
             </div>
             {% endfor %}
+
+            {# A press on a card hides it, in Operate and Observe (queezz,
+               2026-10-07: "when operating, I wanted a click to toggle the big
+               digit screens for gauges and ADC readings. For some regimes I
+               only need 2-3, so others get in the way on mobile."). A hidden
+               card leaves the grid and comes back here as a pill in its own
+               pen, the same pill a chart's legend uses to bring a curve back;
+               a press on the pill shows the card again at its own place.
+               live.js writes the pills from the remembered view. Monitor shows
+               every card and no pills, and the folded row above keeps every
+               value either way.
+
+               The card is a `div` with the button role rather than a
+               `<button>`: the digits are sized from the card as a container,
+               and a button is not a size container every browser honours. The
+               verb is said once, to a screen reader, before the card's own
+               name and number, which stay its accessible name. #}
+            <span class="readout-chips" data-role="readout-chips" role="group" aria-label="Hidden readouts" hidden></span>
         </div>
         </details>
 
