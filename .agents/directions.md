@@ -42,6 +42,27 @@ holds what is still undecided or unbuilt.
 
 ## Work only queezz can do
 
+- Put a series resistor in each ion gauge line at the ADC input, so a
+  controller switched off cannot drag the board's upper half with it —
+  owner work pending. Read from `cu_20261007_170858.csv` (queezz,
+  2026-10-07 17:28: "Turning off the IG made a huge jump in Bu signal"):
+  when the upstream IG controller was switched off its output, on
+  channel 16, fell to −1.56 V, 1.5 V below the ADS1115's negative limit,
+  and at that instant every channel on the board's upper half (Bu, Bd,
+  Pd, Pu, MFC1, MFC2 — channels 20 to 30) read 0.66 V low for six
+  seconds with the same shape, while channels 0, 1, 7 and 8 did not
+  move; the rig logged an I²C read failure at the same second. The
+  Baratron itself never moved (Bu raw 0.0007 V before and after); the
+  input protection conducting shifts what those sixteen inputs share.
+  A 10 kΩ resistor in series with each gauge line limits the clamp
+  current to under a milliampere; a Schottky diode from input to ground
+  if that is not enough. The vault note "Bu dip when the IG controller
+  is switched off 2026-10-07" has the table. The same mechanism is a
+  candidate for the arc-and-I²C item below: a line pulled negative by
+  an arc.
+  Done when: the resistors are in and switching the IG controller off
+  with a run going moves no other channel in the file.
+
 - Run the Hall sensor's known-current calibration — owner work pending.
   Which wire is answered (owner statement 2026-10-07, live: "plasma
   current IS preanode current presently"): the sensor is on the preanode
@@ -903,13 +924,6 @@ holds what is still undecided or unbuilt.
 
 ## Reported, not reproduced
 
-- The upstream Baratron Bu jumped when the ion-gauge controller was
-  powered off (queezz, 2026-10-07 17:28: "Turning off the IG made a huge
-  jump in Bu signal. I powered off the IG, not filament, not
-  unplugged"). A ground or supply shift reaching the ADC box when that
-  controller drops off the mains; the same family as the 7.5 s step and
-  the I²C upsets. Look for it in `cu_20261007_170858.csv` around 17:28
-  before guessing at a cause.
 - The Pirani reads below the rig's own Pu (queezz, 2026-10-07 17:43:
   "The pfeiffer reads 7.7e-4, while our ADC shows 8.5e-4. And all are
   below the baratron. I trust Bu more that this pirani"). One more pair

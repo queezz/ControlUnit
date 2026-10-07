@@ -120,6 +120,18 @@ drifting the same way; not a floor and not stuck. What the rig cannot
 see is whether the controller's own range switch matches the 1e-6 the
 rig was told.
 
+## Also answered from home
+
+"Why bu sagged when I shut down IG controller? It shouldn't." It did
+not: Bu's raw volts are 0.0007 V before and after. The IG controller's
+output on channel 16 went to −1.56 V as it lost its rails, and the
+board's upper sixteen inputs (channels 20–30, every pressure channel
+and both MFC readbacks) read 0.66 V low together for six seconds, with
+the I²C read failure at the same second. An input below the ADS1115's
+negative limit, clamping, and shifting what the upper half shares. Vault
+note "Bu dip when the IG controller is switched off 2026-10-07"; owner
+work in directions (a series resistor per gauge line).
+
 ## Left
 
 `directions.md`: the "declared off" item is trimmed to what remains
