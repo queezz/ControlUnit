@@ -8,15 +8,6 @@
 {% set fence_closed = state.fence.needed and not state.fence.passed %}
 <div class="page control-workspace" id="control" data-live data-actor="{{ actor }}"
      data-default-window="{{ default_window }}" data-pens='{{ curve_pens | tojson }}'>
-    {# The one mode switch on the page. It is moved between the places a mode
-       actually leaves on the screen (live.js, `modeSwitchHost`) and never
-       copied, so there is exactly one of these in the document and pressing
-       it always means the same thing. #}
-    <div class="view-toolbar" data-role="mode-switch" role="group" aria-label="View mode">
-        {% for name, label in modes %}
-        <button type="button" class="choice" data-mode="{{ name }}" aria-pressed="{{ 'true' if name == page_mode else 'false' }}">{{ label }}</button>
-        {% endfor %}
-    </div>
     {# Every card on this page folds, and folds the same way (queezz,
        2026-09-14, on his phone at the rig: "Minimized gas control takes too
        much space, which is a killer on my phone… Hide 'any' card then, not
@@ -231,14 +222,19 @@
            sentence stands between the pills and these, so a sentence
            arriving or leaving moves neither. #}
         <div class="quick-sets sets" data-role="quick-sets" aria-label="Sampling and QMS sync">
+            {# A pulldown, not four buttons (queezz, 2026-10-07: "we don't
+               have to make all the buttons for all the samplings. We can use
+               a pulldown selector. So it shows what's selected, and all the
+               options don't crowd our UI"). It shows the time the rig holds,
+               painted by every poll; choosing another sends it, gated like
+               every setter in `.sets`. #}
             <span class="quick-set" id="sec-acquisition">
                 <span class="quick-label">Sampling</span>
-                <span class="quick-choices" role="group" aria-label="Sampling time">
+                <select class="find quick-select" data-role="sampling" aria-label="Sampling time">
                     {% for seconds, label in sampling_choices %}
-                    <button type="button" class="choice" data-role="sampling"
-                            data-seconds="{{ seconds }}" aria-pressed="false">{{ label }}</button>
+                    <option value="{{ seconds }}" {% if state.run.sampling is not none and (seconds | float) == (state.run.sampling | float) %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
-                </span>
+                </select>
             </span>
             <span class="quick-set sync-card" id="sec-sync">
                 <span class="quick-label">QMS sync</span>
@@ -249,12 +245,28 @@
                 </span>
             </span>
         </div>
+        {# Monitor's own controls ride on this same line rather than on rows
+           of their own (queezz, 2026-10-07: "Observe and monitor waste a lot
+           of top bar space by showing there... nothing!"). Window and Median
+           are the Display card's own two rows, moved here whole while the
+           mode is Monitor (live.js) and given back after. They stand outside
+           `.sets`: what this browser draws is never behind the rig's gate. #}
+        <span class="monitor-settings" data-role="monitor-settings"></span>
+        <span class="mode-actions" data-role="mode-actions" hidden>
+            <button type="button" data-drawer="live-context" aria-controls="live-context" aria-expanded="false">Display</button>
+            <button type="button" data-role="fullscreen" aria-pressed="false">Full screen</button>
+        </span>
+        {# The one mode switch on the page, at the end of this line in every
+           mode. On a phone in Operate and Observe it is moved into the Menu
+           (live.js, `modeSwitchHost`) and never copied, so there is exactly
+           one of these in the document and pressing it always means the same
+           thing. #}
+        <div class="view-toolbar" data-role="mode-switch" role="group" aria-label="View mode">
+            {% for name, label in modes %}
+            <button type="button" class="choice" data-mode="{{ name }}" aria-pressed="{{ 'true' if name == page_mode else 'false' }}">{{ label }}</button>
+            {% endfor %}
         </div>
-            <span class="mode-actions" data-role="mode-actions" hidden>
-                <button type="button" data-drawer="live-context" aria-controls="live-context" aria-expanded="false">Display</button>
-                <button type="button" data-role="fullscreen" aria-pressed="false">Full screen</button>
-            </span>
-        <div class="monitor-settings" data-role="monitor-settings"></div>
+        </div>
         {% include '_live_readings.html' %}
     </main>
     <aside class="rail rail-right operation-rail" id="live-context" aria-label="Access and display">
@@ -376,61 +388,57 @@
                     </details>
             </div>
         </div>
-        <details class="display-settings fold" data-fold="display" open>
-            <summary class="fold-head"><h2 class="fold-name">Display</h2></summary>
-        <section class="rail-card rail-card--fit" data-monitor-setting>
-            {# The window cuts a history this browser keeps for itself, so
-               Full is this browser's own memory rather than the rig's ring.
-               Said once, on the heading's line, where it costs no height. #}
-            <h2 class="rail-label">Window</h2>
-            <div class="choice-grid" role="group" aria-label="Window">
-                {% for label, seconds in windows %}
-                <button type="button" class="choice" data-window="{{ seconds }}"
-                        {% if seconds == default_window %}aria-pressed="true"{% else %}aria-pressed="false"{% endif %}>{{ label }}</button>
-                {% endfor %}
+        {# One card, its name heading the four rows it owns (queezz,
+           2026-10-07: "the display items are hidden uncomfortably there").
+           Plain labelled rows, no frame inside the frame. The window cuts a
+           history this browser keeps for itself, so Full is this browser's
+           own memory rather than the rig's ring. Median changes the curves
+           and the readouts both. Fast polling resets on reload; readout size
+           is beside the readouts. The channel switches stand in the legend of
+           the chart each belongs to (2026-09-07: "hard to find the one I
+           need"), and Show is a named set of them. #}
+        <details class="rail-card display-card fold" data-fold="display" open>
+            <summary class="fold-head"><h2 class="fold-name">Display</h2><span class="fold-line" data-role="fold-display"></span></summary>
+            <div class="display-rows">
+                <label class="display-row quick-set" data-monitor-setting>
+                    <span class="quick-label">Window</span>
+                    <select class="find quick-select" data-role="window" aria-label="Window">
+                        {% for label, seconds in windows %}
+                        <option value="{{ seconds }}" {% if seconds == default_window %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label class="display-row quick-set" data-monitor-setting>
+                    <span class="quick-label">Median</span>
+                    <select class="find quick-select" data-role="smooth" aria-label="Smoothing">
+                        <option value="0" selected>off</option>
+                        <option value="5">5</option>
+                        <option value="15">15</option>
+                        <option value="51">51</option>
+                    </select>
+                </label>
+                <div class="display-row">
+                    <span class="quick-label">Polling</span>
+                    <span class="seg-toggle" role="group" aria-label="Poll rate">
+                        <span class="seg-thumb" aria-hidden="true"></span>
+                        <button type="button" class="seg-option" data-poll="normal" aria-pressed="true">normal</button>
+                        <button type="button" class="seg-option" data-poll="fast" aria-pressed="false">fast</button>
+                    </span>
+                </div>
+                <label class="display-row">
+                    <span class="quick-label">Show</span>
+                    <select class="find quick-select" data-role="preset" aria-label="What to show">
+                        <option value="" disabled hidden>custom</option>
+                        {% for name, label, channels in presets %}
+                        <option value="{{ name }}" data-channels="{{ channels | join(',') }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
             </div>
-        </section>
-
-        {# The channel switches used to stand here, five in a row, and were
-           the ones queezz could not find: "all the little toggles on the
-           Live view, hard to find the one I need" (2026-09-07). Each one
-           now stands in the legend of the chart it belongs to, where the
-           curve it turns off is. One control, in one place. #}
-
-        {# Smoothing changes both the curves and the readouts. #}
-        <section class="rail-card rail-card--fit" data-monitor-setting>
-            <h2 class="rail-label">Median</h2>
-            <div class="choice-row" role="group" aria-label="Smoothing">
-
-                <button type="button" class="choice" data-smooth="0" aria-pressed="true">off</button>
-                <button type="button" class="choice" data-smooth="5" aria-pressed="false">5</button>
-                <button type="button" class="choice" data-smooth="15" aria-pressed="false">15</button>
-                <button type="button" class="choice" data-smooth="51" aria-pressed="false">51</button>
-            </div>
-        </section>
-
-        {# Fast polling resets on reload; size is beside the readouts. #}
-        <section class="rail-card rail-card--fit">
-            <h2 class="rail-label">Polling</h2>
-            <div class="choice-row" role="group" aria-label="Poll rate">
-                <button type="button" class="choice" data-poll="normal" aria-pressed="true">normal</button>
-                <button type="button" class="choice" data-poll="fast" aria-pressed="false">fast</button>
-            </div>
-        </section>
-
-        <section class="rail-card">
-            <h2 class="rail-label">Show</h2>
-            <div class="choice-row" role="group" aria-label="What to show">
-            {% for name, label, channels in presets %}
-                <button type="button" class="choice" data-preset="{{ name }}" data-channels="{{ channels | join(',') }}" aria-pressed="false">{{ label }}</button>
-            {% endfor %}
-            </div>
-        </section>
         </details>
 
-        <details class="run-details fold" data-fold="run-details" open>
+        <details class="rail-card run-details fold" data-fold="run-details" open>
             <summary class="fold-head"><h2 class="fold-name">This run</h2></summary>
-        <section class="rail-card rail-card--fit">
             <dl class="facts">
                 <dt class="wide">File</dt>
                 <dd class="mono wide" data-fact="file">{{ state.run.file or '—' }}</dd>
@@ -441,8 +449,6 @@
                 <dt>Hardware</dt>
                 <dd data-fact="hardware">{{ 'dummy' if state.dummy else 'real' }}</dd>
             </dl>
-        </section>
-
         </details>
     </aside>
 </div>

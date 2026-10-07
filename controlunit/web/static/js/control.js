@@ -127,7 +127,7 @@
 
         /* The sampling time the rig holds, and the rate it works out to —
            the same two facts the right rail carries, said here beside the
-           buttons that change them. */
+           pulldown that changes them. */
         var sampling = run.sampling === null || run.sampling === undefined
             ? null
             : Number(run.sampling);
@@ -135,10 +135,39 @@
             sampling === null || !isFinite(sampling)
                 ? "—"
                 : String(sampling) + " s" + (run.rate ? " · " + run.rate : ""));
-        root.querySelectorAll('[data-role="sampling"]').forEach(function (button) {
-            var held = sampling !== null && Number(button.dataset.seconds) === sampling;
-            button.setAttribute("aria-pressed", held ? "true" : "false");
+        root.querySelectorAll('select[data-role="sampling"]').forEach(function (select) {
+            paintSampling(select, sampling);
         });
+    }
+
+    /* The pulldown shows the time the rig holds and nothing else. A time
+       that is not one of the four on offer — which the rig's own screen can
+       still set — is shown as itself in an option of its own that cannot be
+       chosen, so the control never claims a time the rig is not sampling at.
+       A change the rig refused is put back here by the poll that follows. */
+    function paintSampling(select, sampling) {
+        var known = sampling !== null && isFinite(sampling);
+        var held = null;
+        Array.prototype.forEach.call(select.options, function (option) {
+            if (!held && option.dataset.transient === undefined
+                && known && Number(option.value) === sampling) held = option;
+        });
+        var odd = select.querySelector("option[data-transient]");
+        if (held) {
+            if (odd) select.removeChild(odd);
+        } else {
+            if (!odd) {
+                odd = document.createElement("option");
+                odd.dataset.transient = "";
+                odd.value = "";
+                odd.disabled = true;
+                odd.hidden = true;
+                select.insertBefore(odd, select.firstChild);
+            }
+            odd.textContent = known ? String(sampling) + " s" : "—";
+            held = odd;
+        }
+        if (!held.selected) held.selected = true;
     }
 
     function readings(state) {
@@ -618,7 +647,7 @@
            they are how a person opens the gate and must never be switched
            off by it. */
         var allowed = Boolean(state.remote) && !fenced && Boolean(state.acquiring) && mine;
-        root.querySelectorAll(".sets button, .sets input").forEach(function (control) {
+        root.querySelectorAll(".sets button, .sets input, .sets select").forEach(function (control) {
             control.disabled = !allowed;
         });
 
@@ -771,13 +800,11 @@
             send("/api/acquisition/stop", {}, "the stop of acquisition");
         });
 
-        root.querySelectorAll('[data-role="sampling"]').forEach(function (button) {
-            button.addEventListener("click", function () {
-                send(
-                    "/api/sampling",
-                    {seconds: Number(button.dataset.seconds)},
-                    "the sampling time"
-                );
+        root.querySelectorAll('select[data-role="sampling"]').forEach(function (select) {
+            select.addEventListener("change", function () {
+                var seconds = Number(select.value);
+                if (select.value === "" || !isFinite(seconds)) return;
+                send("/api/sampling", {seconds: seconds}, "the sampling time");
             });
         });
 

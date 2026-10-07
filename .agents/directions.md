@@ -554,30 +554,19 @@ holds what is still undecided or unbuilt.
   - The toggles rest on "on" at Start; a rig started with an instrument
     already off should say so within the first minute (a warning when a
     gauge reads at its floor for a minute, later).
-- Monitor mode wastes the top of the screen (queezz, 2026-09-15, on a
-  1920×1080 monitor: the mode switch, the two pills, Display and Leave
-  full screen, then the Window and Median rows take about 220 px before
-  the first readout). Design: one slim strip — the pills at the left, the
-  Window and Median choices as compact segmented pills in the middle,
-  small/big, Display and Leave full screen at the right, the mode switch
-  folded into the same line — so the readouts start about 60 px from the
-  top and the charts get the rest. Same family as the status-line
-  Sampling and QMS sync controls in the 4.19 design above; build them
-  together. Said again 2026-10-07, on 4.25.0 at 2000 px wide: "Observe
-  and monitor waste a lot of top bar space by showing there... nothing!"
-  — the bar holds the mode switch alone, the pills and the sampling line
-  sit under it, and Window and Median under those. And of the right rail
-  on Live: "the display items are hidden uncomfortably there" — the
-  Display drawer's header is one box and its Window, Median, Polling and
-  Show groups are four separate boxes below it, so the header does not
-  read as owning them. And the shape he wants (owner decision
-  2026-10-07): "we don't have to make all the buttons for all the
-  samplings. We can use a pulldown selector. So it shows what's selected,
-  and all the options don't crowd our UI" — one select showing the
-  chosen value, for Sampling, and by the same reasoning for Window and
-  Median in the strip, in place of the rows of buttons. Both go together
-  with this strip; a UI change routes through the fleet's UI law and the
-  Perimeter Walk first.
+- A press on a readout card hides it, so a phone shows the two or three
+  a regime needs (queezz, 2026-10-07, live: "when operating, I wanted a
+  click to toggle the big digit screens for gauges and ADC readings. For
+  some regimes I only need 2-3, so others get in the way on mobile").
+  Design to build: in Operate and Observe a tap on a readout card's name
+  corner hides that card; the hidden ones are listed as small chips in
+  the card's own pen at the end of the strip (name only), and a tap on a
+  chip brings its card back, so nothing is ever gone without a door. The
+  folded strip's one-line row keeps every value, hidden or not — it is
+  the glance, the cards are the regime. Remembered per browser with the
+  rest of the view (`controlunit.live`), per mode as small/big is. The
+  Cathode V and I cards hide the same way. Nothing recorded changes. A UI
+  change routes through the fleet's UI law and the Perimeter Walk first.
 - Sessions may stop and start the rig's program only when queezz asks
   directly in the chat, never on their own (owner decision 2026-09-15,
   live; now in AGENTS.md). Asked, a session refuses while an output is

@@ -139,7 +139,7 @@ button:hover, button:focus-visible { border-color: var(--accent); outline: none;
 /* A control the gate would refuse keeps its border and its place: it is a
    button that cannot be pressed right now, not a word that vanished. Why it
    cannot is said once, in the Remote card, never here. */
-button:disabled, input:disabled {
+button:disabled, input:disabled, select:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
@@ -190,6 +190,12 @@ input.find:focus, select.find:focus { border-color: var(--accent); outline: none
 }
 
 .tab-group { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; width: min(var(--page-max), 100%); margin: 0 auto; padding: 0 var(--gutter); }
+
+/* The bar's right-end slot: empty, it takes no room; holding the Live
+   page's mode switch, it keeps it at the bar's right edge on a desktop. */
+.tab-tools { display: inline-flex; align-items: center; margin-left: auto; }
+.tab-tools:empty { display: none; }
+.tab-tools > .view-toolbar > button { padding: 3px 10px; }
 
 .tabbar .tab {
   display: inline-flex;
@@ -1502,24 +1508,16 @@ body[data-mode="monitor"] .drawer-backdrop:not([hidden]) { display: block; }
 .control-workspace #sec-gauge { background: rgba(219, 168, 62, 0.09); border-color: rgba(219, 168, 62, 0.32); }
 
 /* One instrument surface; modes change visibility, never rig state. */
-/* A mode switch must not travel with the columns it rearranges. */
-.view-toolbar {
-  position: fixed;
-  left: 50%;
-  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-  transform: translateX(-50%);
-  z-index: 35;
-  display: flex;
-  gap: 4px;
-  padding: 5px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--header);
-  box-shadow: 0 3px 16px rgba(0, 0, 0, 0.25);
-}
-.view-toolbar > button { width: 80px; flex: 0 0 80px; padding: 6px 4px; }
-.control-workspace { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
-.control-workspace .page-main > .mode-actions { display: flex; justify-content: flex-end; gap: 6px; margin-bottom: 8px; }
+/* The mode switch's home is the end of the status line at the head of the
+   reading column (queezz, 2026-10-07: "Observe and monitor waste a lot of
+   top bar space by showing there... nothing!"). Monitor, which takes the tab
+   bar away, shows it there; Operate and Observe on a desktop dock it into
+   the tab bar's right end (live.js, `modeSwitchHost`), a row that is on the
+   screen anyway, so the reading column spends none of its own on it. In
+   either place it stands in the line's own flow. Its three presses share one
+   width, so the chosen one's bolder face moves nothing. */
+.view-toolbar { display: inline-flex; flex: 0 0 auto; gap: 3px; }
+.view-toolbar > button { min-width: 5.4rem; padding: 3px 10px; font-size: 0.84rem; line-height: 1.35; }
 body[data-mode="observe"] .control-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 15rem; }
 body[data-mode="observe"] .control-workspace > .rail-left,
 body[data-mode="monitor"] .control-workspace > .rail-left,
@@ -1542,56 +1540,79 @@ body[data-mode="observe"] .command-status,
 body[data-mode="monitor"] .command-status { display: none; }
 
 
-/* The mode switch stays in the header region, outside changing columns. */
-.view-toolbar { top: 6px; bottom: auto; left: auto; right: max(20px, calc((100% - var(--page-max)) / 2 + 20px)); transform: none; }
 .control-workspace { padding-bottom: 12px; }
-body[data-mode="monitor"] .container { width: 100%; max-width: none; padding-top: 68px; }
+body[data-mode="monitor"] .container { width: 100%; max-width: none; }
 body[data-mode="monitor"] .page-main { margin-bottom: 0; }
-.monitor-settings { display: none; }
-body[data-mode="monitor"] .monitor-settings { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin-bottom: 10px; }
-.monitor-settings .rail-card { padding: 0; margin: 0; border: 0; background: none; flex: 0 1 auto; }
-.monitor-settings .rail-label { display: inline-block; margin: 0 8px 0 0; }
-.monitor-settings .choice-grid, .monitor-settings .choice-row { display: inline-flex; flex-wrap: wrap; gap: 4px; }
-@media (max-width: 620px) {
-  .view-toolbar { top: 58px; left: 12px; right: auto; }
-  body:has(.control-workspace) .tabbar { margin-bottom: 70px; }
-  body[data-mode="monitor"] .container { padding-top: 116px; }
-}
 
-/* Status and readout sizing share one compact instrument header. */
-/* Two rows below a wide window, one at and above it. The pills and the
-   status sentence share the first row, the sentence taking the room the
-   pills leave; two lines of it stand inside the pills' own height, so a
-   sentence arriving, leaving or wrapping once moves nothing at all. The two
-   small setters have the second row to themselves, at its right edge. */
-.instrument-header { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 8px; }
-.instrument-header .pills { flex: 0 1 auto; margin: 0; gap: 8px; }
+/* One slim line at the head of the reading column, in every mode: what the
+   rig is doing, the status sentence, Sampling and QMS sync, Monitor's own
+   Window, Median, Display and Full screen, and the mode switch last. The
+   pills hold the left edge and everything after the sentence the right
+   edge; the line wraps only when the column is too narrow for it, and a row
+   it wraps onto keeps the right edge too. The sentence takes the room
+   between, so its coming and going moves nothing else on the line. */
+.instrument-header { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 8px; }
+.instrument-header .pills { flex: 0 1 auto; margin: 0 auto 0 0; gap: 8px; }
 .instrument-header .pills .chip { min-width: 0; }
 .instrument-header .pills [data-role="data-state"] { margin-left: 0; }
 .instrument-header .command-status { flex: 1 1 6rem; min-width: 0; line-height: 1.15; }
 
-/* Sampling and QMS sync, small, at the end of the status line (owner design
+/* Sampling and QMS sync, small, on the status line (owner design
    2026-09-15, asked for again 2026-10-02): a name in the rail's own label
-   voice and the control beside it. They keep the right edge at every width
-   the line fits on; on a phone the line wraps and they start a row. */
-.quick-sets { display: flex; flex: 1 1 100%; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px 14px; }
-@media (min-width: 1500px) {
-  .quick-sets { flex: 0 0 auto; margin-left: auto; }
-}
+   voice and the control beside it. */
+.quick-sets { display: flex; flex: 0 0 auto; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+/* Window and Median, docked here from the Display card while the mode is
+   Monitor (live.js); the card keeps them in every other mode. */
+.monitor-settings { display: none; }
+body[data-mode="monitor"] .monitor-settings { display: inline-flex; flex: 0 0 auto; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
 /* A jump target with no card around it: the whole sixteen pixels clear of
    the bar, none of them spent on an inset it does not have. */
 .quick-set { display: inline-flex; align-items: center; gap: 6px; scroll-margin-top: calc(var(--bar) + 16px); }
 .quick-label { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
-.quick-choices { display: inline-flex; gap: 3px; }
-/* One width for all four, so the chosen one's bolder face moves none. */
-.quick-choices .choice { padding: 2px 4px; min-width: 3.3rem; font-size: 0.8rem; }
 .quick-sets .seg-toggle > button { padding: 2px 9px; font-size: 0.8rem; }
-/* On a phone the setters start their row at the left, and the sentence has
-   a row of its own under them. */
+
+/* The house's pulldown, small (queezz, 2026-10-07: "We can use a pulldown
+   selector. So it shows what's selected, and all the options don't crowd
+   our UI"). The field `.find` already wears, a border and a fill at rest so
+   it reads as pressable, cut to the line's height, with its own small
+   chevron drawn in the page's muted ink rather than the platform's. */
+select.quick-select {
+  width: auto;
+  min-width: 4.6rem;
+  padding: 2px 22px 2px 6px;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 13px) 55%, calc(100% - 9px) 55%;
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+}
+select.quick-select:hover:not(:disabled) { border-color: var(--accent); }
+select.quick-select:disabled { cursor: not-allowed; }
+
+/* On a phone the line wraps: the pills keep the first row, the setters and
+   Monitor's controls start the next at the left, and the sentence has a row
+   of its own under them. */
 @media (max-width: 700px) {
-  .quick-sets { justify-content: flex-start; order: 1; }
+  .instrument-header { justify-content: flex-start; }
+  .quick-sets,
+  .instrument-header > .monitor-settings,
+  .instrument-header > .mode-actions,
+  .instrument-header > .view-toolbar { order: 1; }
   .instrument-header .command-status { order: 2; flex-basis: 100%; }
 }
+
+/* The Display card: one card, its name heading four plain rows, a label in
+   the line's own voice and the control beside it — no frame inside it. */
+.display-rows { display: grid; gap: 6px; padding-top: 2px; }
+.display-rows > .display-row { display: flex; align-items: center; gap: 10px; min-height: 30px; }
+.display-rows > .display-row > .quick-label { flex: 0 0 4.4rem; }
 .control-workspace .instrument-header .command-status { min-height: 0; margin: 0; font-size: 0.75rem; }
 .instrument-header .command-status:empty { display: none; }
 .instrument-header .pill-note:empty { display: none; }
@@ -2046,27 +2067,17 @@ body[data-mode="monitor"] .monitor-settings { display: flex; flex-wrap: wrap; ga
   /* The mode switch rides in the Menu on a phone (queezz, 2026-09-14: the
      fixed bar "costs a permanent row… on mobile they belong maybe in the
      hamburger"). live.js moves the one element into #main-tabs on this
-     breakpoint; here it loses the fixed shell and becomes a row of that
-     panel, in the same segmented shape it wears on a desktop. */
-  .main-tabs > .view-toolbar { position: static; transform: none; box-shadow: none;
-    border: 0; background: none; padding: 6px 0 0; margin: 4px 0 0;
+     breakpoint in Operate and Observe; here it becomes a row of that panel,
+     under a hairline of its own. Monitor takes the tab bar away, so there it
+     stays at home on the status line, which Monitor keeps on the screen. */
+  .main-tabs > .view-toolbar { padding: 6px 0 0; margin: 4px 0 0;
     border-top: 1px solid var(--line-soft); justify-content: stretch; }
   .main-tabs > .view-toolbar > button { flex: 1 1 auto; width: auto; }
-  /* Monitor takes the tab bar away, so on a phone the switch rides in the
-     one strip Monitor does put on the screen, beside Display and Full
-     screen — never behind a Menu that mode has removed. */
-  .mode-actions > .view-toolbar { position: static; transform: none; box-shadow: none;
-    border: 0; background: none; padding: 0; margin: 0 auto 0 0; gap: 4px; }
-  .mode-actions > .view-toolbar > button { width: auto; flex: 0 0 auto;
-    padding: 3px 10px; font-size: 0.84rem; }
   /* And the one press that zeroes the outputs rides there too, quiet and
      bordered, under a hairline of its own. */
   .main-tabs > .stop-all { margin: 6px 0 0; padding: 8px 12px;
     background: transparent; color: var(--stop-fg); border-color: var(--stop); }
   .main-tabs > .stop-all:hover { background: var(--stop-wash); }
-  .view-toolbar { position: static; order: -2; grid-column: 1 / -1; justify-self: start; align-self: flex-start;
-    margin-bottom: 12px; box-shadow: none; }
-  body[data-mode="monitor"] .container { padding-top: 14px; }
   .chart--collapsed { padding: 8px 12px; }
   .chart--collapsed .chart-head { margin-bottom: 4px; }
   .chart--collapsed .chart-span, .chart--collapsed .chart-zero,

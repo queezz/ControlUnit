@@ -894,9 +894,10 @@ def test_the_two_presets_are_the_curves_the_work_needs():
         ("vacuum", "Pu,Pu2,Pd,Bu,Bd"),
         ("plasma", "Ip,Ic,Bu,Bd"),
     ):
-        button = page[page.index('data-preset="{}"'.format(name)):]
-        button = button[:button.index("</button>")]
-        assert 'data-channels="{}"'.format(channels) in button
+        # An option of the Show pulldown since 2026-10-07.
+        option = page[page.index('<option value="{}" data-channels='.format(name)):]
+        option = option[:option.index("</option>")]
+        assert 'data-channels="{}"'.format(channels) in option
 
 
 def test_a_preset_changes_what_is_drawn_and_nothing_the_rig_records():

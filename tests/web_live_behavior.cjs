@@ -38,7 +38,7 @@ function readoutCard(name, room) {
 /* `cardRoom` is one width for every card, or a width per channel — a card
    whose unit is "Torr" leaves its tag less room than one whose unit is "A",
    in the same strip. */
-function instrument(cardRoom) {
+function instrument(cardRoom, parts) {
     const roomFor = (name) => (cardRoom && typeof cardRoom === 'object') ? cardRoom[name] : cardRoom;
     const cards = Object.fromEntries(['Bu', 'Bd'].map(name => [name, readoutCard(name, roomFor(name))]));
     const buttons = Object.fromEntries(['Bu', 'Bd'].map(name => [name, {
@@ -64,6 +64,8 @@ function instrument(cardRoom) {
         classList: {toggle() {}},
         dataset: {},
         querySelector(selector) {
+            // The rail's own pieces a test brings along: a pulldown, a folded line.
+            if (parts && parts[selector]) return parts[selector];
             const readout = selector.match(/^\.readout\[data-readout="(.*?)"\]$/);
             if (readout) return cards[readout[1]] || null;
             if (selector.indexOf('fold-units') !== -1) return units;
@@ -79,6 +81,7 @@ function instrument(cardRoom) {
             // model is simply absent, as it is on a page without it.
             querySelector(selector) { return selector === '[data-live]' ? root : null; },
             getElementById(id) { return id === 'chart-bar' ? canvas : null; },
+            querySelectorAll() { return []; },
             createComment() { return {}; },
             body: {dataset: {}}, documentElement: {}
         },
@@ -164,8 +167,11 @@ function el(spec) {
     return node;
 }
 
-/* The page as a phone sees it: the switch, the two places it can stand, and
-   the ancestors whose `display` a mode may take away. */
+/* The page as a phone sees it: the switch, the two places it can stand —
+   its home at the end of the status line, and the Menu — and the ancestors
+   whose `display` a mode may take away. Monitor's own Display and Full
+   screen strip is modelled too, because it used to be the switch's third
+   home and must no longer be one. */
 function phone(startMode) {
     const buttons = ['operate', 'observe', 'monitor'].map(name =>
         el({dataset: {mode: name}}));
@@ -175,7 +181,8 @@ function phone(startMode) {
     const actions = el({dataset: {role: 'mode-actions'}, hidden: true,
         ancestors: ['.mode-actions']});
     const stop = el({dataset: {role: 'stop-all'}});
-    const home = el({className: 'control-workspace'});
+    const home = el({className: 'instrument-header',
+        ancestors: ['.page-main', '.instrument-header']});
     home.appendChild(toolbar);
     const away = el({className: 'rail-card'});
     away.appendChild(stop);
@@ -188,14 +195,16 @@ function phone(startMode) {
            `root.querySelector` can never bring it back. */
         querySelector(selector) {
             if (selector.indexOf('mode-switch') !== -1) {
-                return (toolbar.parentNode === home || toolbar.parentNode === actions)
-                    ? toolbar : null;
+                return toolbar.parentNode === home ? toolbar : null;
             }
             if (selector.indexOf('mode-actions') !== -1) return actions;
             return null;
         },
         querySelectorAll(selector) {
-            if (selector === '[data-mode]') return buttons;
+            /* The gauge buttons carry `data-mode="Torr"`; a bare `[data-mode]`
+               query from live.js would reach them, so the harness answers
+               only the switch's own scoped selector. */
+            if (selector === '[data-role="mode-switch"] [data-mode]') return buttons;
             return [];
         }
     });
@@ -209,6 +218,10 @@ function phone(startMode) {
                 if (selector.indexOf('mode-switch') !== -1) return toolbar;
                 if (selector.indexOf('stop-all') !== -1) return stop;
                 return null;   // no open Menu, no open drawer, no backdrop
+            },
+            querySelectorAll(selector) {
+                if (selector === '[data-role="mode-switch"] [data-mode]') return buttons;
+                return [];
             },
             getElementById(id) { return id === 'main-tabs' ? menu : null; },
             createComment() { return el({}); },
@@ -240,7 +253,7 @@ function phone(startMode) {
         'globalThis.phone = {setupModes, applyMode, setMode, modeInAddress};\n}());', context);
     context.phone.setupModes();
     context.phone.applyMode();
-    return {api: context.phone, toolbar, menu, actions, buttons, body,
+    return {api: context.phone, toolbar, menu, actions, home, buttons, body,
             escape() { keys.forEach(fn => fn({key: 'Escape'})); }};
 }
 
@@ -275,14 +288,19 @@ test('the switch is moved between its homes and never copied', () => {
         rig.api.setMode(mode);
         seen.add(rig.toolbar.parentNode);
         // Wherever it stands, it stands there once.
-        const homes = [rig.menu, rig.actions];
+        const homes = [rig.menu, rig.home, rig.actions];
         const copies = homes.reduce(
             (n, h) => n + h.children.filter(c => c === rig.toolbar).length, 0);
-        assert.equal(copies, rig.toolbar.parentNode === rig.menu
-            || rig.toolbar.parentNode === rig.actions ? 1 : 0);
+        assert.equal(copies, 1);
+        // On a phone Monitor keeps it at home on the status line, and the
+        // other two modes put it in the Menu; Display and Full screen are
+        // never its host (2026-10-07: the status line is on the screen in
+        // Monitor, so the switch needs no strip of its own there).
+        assert.equal(rig.toolbar.parentNode, mode === 'monitor' ? rig.home : rig.menu);
+        assert.equal(rig.actions.children.length, 0);
     }
-    // Monitor's strip and the Menu are two homes, not two switches.
-    assert.ok(seen.has(rig.menu) && seen.has(rig.actions));
+    // The status line and the Menu are two homes, not two switches.
+    assert.ok(seen.has(rig.menu) && seen.has(rig.home));
     assert.equal(rig.buttons.length, 3);
 });
 
@@ -341,6 +359,50 @@ test('a preset restores automatic suppression; nonpositive log data stays absent
     api.drawAll();
     assert.equal(buttons.Bu.dataset.curveState, 'nonpositive');
     assert.equal(buttons.Bd.dataset.curveState, 'drawn');
+});
+
+/* A <select> as much as live.js touches: its options, which one is chosen,
+   and `value` read and written the way a browser does it. */
+function pulldown(options, chosen) {
+    const opts = options.map(([value, text, channels]) => ({
+        value, textContent: text, dataset: channels ? {channels} : {}}));
+    return {
+        options: opts, listeners: {},
+        selectedIndex: Math.max(0, opts.findIndex(o => o.value === chosen)),
+        addEventListener(kind, fn) { this.listeners[kind] = fn; },
+        get value() { return this.selectedIndex >= 0 ? opts[this.selectedIndex].value : ''; },
+        set value(next) { this.selectedIndex = opts.findIndex(o => o.value === String(next)); }
+    };
+}
+
+test('the Show pulldown names the preset on the page, and says custom when there is none', () => {
+    // queezz, 2026-10-07: "a pulldown selector. So it shows what's selected".
+    const preset = pulldown([['', 'custom'], ['all', 'All', 'Ip,Ic,Pu,Pu2,Pd,Bu,Bd'],
+        ['vacuum', 'Vacuum', 'Pu,Pu2,Pd,Bu,Bd'], ['plasma', 'Plasma', 'Ip,Ic,Bu,Bd']], '');
+    const cut = pulldown([['60', '1 m'], ['300', '5 m'], ['3600', '1 h'], ['0', 'Full']], '300');
+    const line = {textContent: ''};
+    const {api, buttons} = instrument(undefined, {
+        'select[data-role="preset"]': preset,
+        'select[data-role="window"]': cut,
+        '[data-role="fold-display"]': line
+    });
+    api.drawAll();
+    assert.equal(preset.value, 'all');
+    assert.equal(line.textContent, '5 m · All');
+    // One curve switched by hand: no named set is on the page any more.
+    buttons.Bd.listeners.click();
+    assert.equal(preset.value, '');
+    assert.equal(line.textContent, '5 m');
+    // Choosing one from the pulldown is the same press a preset always was.
+    api.applyPreset(preset.options[3]);
+    assert.equal(preset.value, 'plasma');
+    // The window is a change on its pulldown, and the folded line follows.
+    cut.value = '3600';
+    cut.listeners.change();
+    assert.equal(api.view.window, 3600);
+    api.view.smooth = 5;
+    api.drawAll();
+    assert.equal(line.textContent, '1 h · median 5 · Plasma');
 });
 
 
@@ -542,6 +604,7 @@ function plasmaPanel(saved) {
         document: {
             querySelector(selector) { return selector === '[data-live]' ? root : null; },
             getElementById(id) { return id === 'chart-plasma' ? canvas : null; },
+            querySelectorAll() { return []; },
             createComment() { return {}; },
             addEventListener() {},
             body: {dataset: {}}, documentElement: {}
@@ -670,4 +733,90 @@ test('the plasma axis choice is remembered in this browser and restored', () => 
     // Anything the store does not offer falls back to the autoscale.
     const nonsense = plasmaPanel(JSON.stringify({plasmaScale: '0-9'}));
     assert.equal(nonsense.api.view.plasmaScale, 'auto');
+});
+
+/* -- the Sampling pulldown ---------------------------------------------- *
+ *
+ * queezz, 2026-10-07: "we don't have to make all the buttons for all the
+ * samplings. We can use a pulldown selector. So it shows what's selected".
+ * It shows the time the rig holds, from every poll; a time the rig holds
+ * that is not one of the four on offer is shown as itself in an option that
+ * cannot be chosen, so the pulldown never names a time the rig is not using.
+ */
+function samplingPage() {
+    let select;
+    function option(value, text) {
+        return {
+            dataset: {}, value, textContent: text, disabled: false, hidden: false, on: false,
+            get selected() { return this.on; },
+            set selected(next) {
+                if (next) select.options.forEach(o => { o.on = false; });
+                this.on = !!next;
+            }
+        };
+    }
+    select = {
+        options: [],
+        querySelector(s) {
+            return s === 'option[data-transient]'
+                ? this.options.find(o => 'transient' in o.dataset) || null : null;
+        },
+        removeChild(o) { this.options.splice(this.options.indexOf(o), 1); },
+        insertBefore(o, ref) {
+            const at = this.options.indexOf(ref);
+            this.options.splice(at < 0 ? this.options.length : at, 0, o);
+        },
+        get firstChild() { return this.options[0] || null; },
+        get shown() { return this.options.find(o => o.selected) || null; }
+    };
+    [['10', '10 s'], ['1', '1 s'], ['0.1', '0.1 s'], ['0.01', '0.01 s']].forEach(
+        ([value, text]) => select.options.push(option(value, text)));
+    const root = {
+        dataset: {},
+        querySelector() { return null; },
+        querySelectorAll(s) { return s === 'select[data-role="sampling"]' ? [select] : []; }
+    };
+    const context = vm.createContext({
+        document: {
+            getElementById(id) { return id === 'control' ? root : null; },
+            querySelectorAll() { return []; },
+            createElement() { return option('', ''); }
+        },
+        window: {localStorage: {getItem() { return null; }, setItem() {}}}
+    });
+    const source = fs.readFileSync(
+        path.join(__dirname, '../controlunit/web/static/js/control.js'), 'utf8');
+    vm.runInContext(source.slice(0, source.indexOf('    if (document.readyState'))
+        + 'globalThis.api = {paintRun}; }());', context);
+    return {paint(sampling) { context.api.paintRun({run: {sampling}}); }, select};
+}
+
+test('the Sampling pulldown shows the time the rig holds, and only that', () => {
+    const {paint, select} = samplingPage();
+    paint(0.1);
+    assert.equal(select.shown.value, '0.1');
+    assert.equal(select.options.length, 4);
+    // The rig's own screen can set a time the page does not offer.
+    paint(7);
+    assert.equal(select.options.length, 5);
+    assert.equal(select.shown.textContent, '7 s');
+    assert.ok(select.shown.disabled && select.shown.hidden, 'it can be shown, never chosen');
+    assert.equal(select.options[0], select.shown);
+    // No reading at all is said as no reading, never as the first option.
+    paint(null);
+    assert.equal(select.shown.textContent, '—');
+    // Back on an offered time, the stand-in goes.
+    paint(1);
+    assert.equal(select.shown.value, '1');
+    assert.equal(select.options.length, 4);
+});
+
+test('the view-mode switch binds only its own buttons, never the gauge Torr/Pa ones', () => {
+    const page = phone('monitor');
+    assert.equal(page.buttons.filter(b => b.handlers.click).length, 3);
+    assert.equal(page.buttons.find(b => b.dataset.mode === 'monitor').attrs['aria-pressed'], 'true');
+    assert.equal(page.buttons.find(b => b.dataset.mode === 'operate').attrs['aria-pressed'], 'false');
+    const source = fs.readFileSync(path.join(__dirname, '../controlunit/web/static/js/live.js'), 'utf8');
+    assert.equal(source.indexOf('querySelectorAll("[data-mode]")'), -1);
+    assert.notEqual(source.indexOf('[data-role="mode-switch"] [data-mode]'), -1);
 });

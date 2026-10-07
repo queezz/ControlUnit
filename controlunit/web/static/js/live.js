@@ -1197,25 +1197,58 @@
        So which preset is pressed is *derived* from the switches rather than
        kept beside them: turn one curve off by hand and the page simply
        stops claiming to be showing a preset, which is the honest answer. */
-    function presetChannels(button) {
-        return String((button && button.dataset.channels) || "").split(",");
+    function presetChannels(choice) {
+        return String((choice && choice.dataset.channels) || "").split(",");
     }
 
-    function matchesPreset(button) {
-        var wanted = presetChannels(button);
+    function matchesPreset(choice) {
+        var wanted = presetChannels(choice);
         return Object.keys(view.channels).every(function (name) {
             return view.channels[name] === (wanted.indexOf(name) >= 0);
         });
     }
 
+    /* Show is a pulldown whose first option, `custom`, can never be chosen:
+       it is what the pulldown says while the curves on the page are not any
+       named set, which is the honest answer once one is switched by hand. */
     function reflectPreset() {
-        root.querySelectorAll("[data-preset]").forEach(function (button) {
-            button.setAttribute("aria-pressed", matchesPreset(button) ? "true" : "false");
-        });
+        var select = root.querySelector('select[data-role="preset"]');
+        if (select) {
+            var named = "";
+            Array.prototype.forEach.call(select.options, function (option) {
+                if (!named && option.value && matchesPreset(option)) named = option.value;
+            });
+            if (select.value !== named) select.value = named;
+        }
+        paintDisplayLine();
     }
 
-    function applyPreset(button) {
-        var wanted = presetChannels(button);
+    /* The Display card's folded line: what it would show open, in a few
+       words, so a folded card still says how the charts are being drawn. */
+    function paintDisplayLine() {
+        var line = root.querySelector('[data-role="fold-display"]');
+        if (!line) return;
+        var parts = [];
+        var cut = root.querySelector('select[data-role="window"]');
+        var cutOption = cut && cut.selectedIndex >= 0 ? cut.options[cut.selectedIndex] : null;
+        if (cutOption) parts.push(cutOption.textContent.trim());
+        if (view.smooth) parts.push("median " + view.smooth);
+        var shown = root.querySelector('select[data-role="preset"]');
+        if (shown && shown.value && shown.selectedIndex >= 0) {
+            parts.push(shown.options[shown.selectedIndex].textContent.trim());
+        }
+        if (fast) parts.push("fast");
+        var text = parts.join(" · ");
+        if (line.textContent !== text) line.textContent = text;
+    }
+
+    function choose(role, value) {
+        var select = root.querySelector('select[data-role="' + role + '"]');
+        if (select && select.value !== String(value)) select.value = String(value);
+    }
+
+    function applyPreset(choice) {
+        var wanted = presetChannels(choice);
         Object.keys(view.channels).forEach(function (name) {
             view.channels[name] = wanted.indexOf(name) >= 0;
         });
@@ -1251,9 +1284,23 @@
         return cleanMode(asked);
     }
 
+    /* The switch's own three buttons, and only those: the ion-gauge Torr/Pa
+       buttons carry a `data-mode` of their own (control.js), and a bare
+       `[data-mode]` query once bound them to the view mode too, so a press
+       on Torr in the Monitor drawer sent the page back to Operate (found
+       2026-10-07). Looked up from the document, never from `root`: on a
+       phone the switch is docked into the Menu, outside the page element. */
+    var MODE_BUTTONS = '[data-role="mode-switch"] [data-mode]';
+
+    function pressModes() {
+        document.querySelectorAll(MODE_BUTTONS).forEach(function (button) {
+            button.setAttribute("aria-pressed", button.dataset.mode === mode ? "true" : "false");
+        });
+    }
+
     function applyMode() {
         document.body.dataset.mode = mode;
-        press("[data-mode]", "mode", mode);
+        pressModes();
         var actions = root.querySelector('[data-role="mode-actions"]');
         if (actions) actions.hidden = mode !== "monitor";
         // Which strip a phone's mode switch rides in depends on the mode, so
@@ -1340,8 +1387,8 @@
        a permanent row… on mobile they belong maybe in the hamburger"). One
        element, moved between its two homes on the breakpoint — never a second
        copy, so the presses, the pressed state and the address all stay the
-       one thing they already are. Above the breakpoint it is exactly where it
-       has always been. */
+       one thing they already are. Above the breakpoint it is at the end of
+       the status line at the head of the page, in every mode. */
     var PHONE = "(max-width: 620px)";
 
     /* Stop all outputs travels with it, and for the same reason: it is the
@@ -1368,14 +1415,18 @@
        whole tab bar away, and 4.14.0 had just moved the switch into the Menu
        inside it, so Monitor became a room whose only door was the Escape key.
        Operate and Observe keep the bar, so there the Menu carries it;
-       Monitor does not, so there it rides in the strip Monitor already puts
-       on the screen beside Display and Full screen. One element, moved —
-       never a second copy of a control that changes the page's shape. */
+       Monitor does not, so there it stays at home, at the end of the status
+       line that Monitor keeps on the screen beside Display and Full screen
+       (2026-10-07). One element, moved — never a second copy of a control
+       that changes the page's shape. */
     function modeSwitchHost() {
-        if (!window.matchMedia || !window.matchMedia(PHONE).matches) return null;
-        return mode === "monitor"
-            ? root.querySelector('[data-role="mode-actions"]')
-            : document.getElementById("main-tabs");
+        if (mode === "monitor") return null;   // no tab bar: home, on the strip
+        if (window.matchMedia && window.matchMedia(PHONE).matches) {
+            return document.getElementById("main-tabs");   // the phone's Menu
+        }
+        // A desktop in Operate or Observe: the tab bar's own right-end slot,
+        // a row already on the screen, so the strip wraps for nothing.
+        return document.querySelector('[data-role="tab-tools"]');
     }
 
     /* Both of these are looked up from the document and never from `root`:
@@ -1391,10 +1442,12 @@
     }
 
     function setupModes() {
-        root.querySelectorAll("[data-preset]").forEach(function (button) {
-            button.addEventListener("click", function () { applyPreset(button); });
+        var preset = root.querySelector('select[data-role="preset"]');
+        if (preset) preset.addEventListener("change", function () {
+            var chosen = preset.selectedIndex >= 0 ? preset.options[preset.selectedIndex] : null;
+            if (chosen && chosen.value) applyPreset(chosen);
         });
-        root.querySelectorAll("[data-mode]").forEach(function (button) {
+        document.querySelectorAll(MODE_BUTTONS).forEach(function (button) {
             button.addEventListener("click", function () { setMode(button.dataset.mode); });
         });
         root.querySelectorAll('[data-role="leave-mode"]').forEach(function (button) {
@@ -1450,13 +1503,11 @@
     function setupRails() {
         /* The window cuts what this browser already holds. Nothing is asked
            of the rig: the samples are here, and Full is all of them. */
-        root.querySelectorAll("[data-window]").forEach(function (button) {
-            button.addEventListener("click", function () {
-                view.window = Number(button.dataset.window);
-                press("[data-window]", "window", view.window);
-                remember();
-                drawAll();
-            });
+        var cut = root.querySelector('select[data-role="window"]');
+        if (cut) cut.addEventListener("change", function () {
+            view.window = Number(cut.value);
+            remember();
+            drawAll();
         });
         root.querySelectorAll("[data-channel]").forEach(function (button) {
             button.addEventListener("click", function () {
@@ -1510,14 +1561,12 @@
                 drawAll();
             });
         });
-        root.querySelectorAll("[data-smooth]").forEach(function (button) {
-            button.addEventListener("click", function () {
-                view.smooth = Number(button.dataset.smooth);
-                press("[data-smooth]", "smooth", view.smooth);
-                remember();
-                drawAll();
-                pollState();   // the readouts follow the lines
-            });
+        var median = root.querySelector('select[data-role="smooth"]');
+        if (median) median.addEventListener("change", function () {
+            view.smooth = Number(median.value);
+            remember();
+            drawAll();
+            pollState();   // the readouts follow the lines
         });
         root.querySelectorAll("[data-display]").forEach(function (button) {
             button.addEventListener("click", function () {
@@ -1552,6 +1601,7 @@
 
     function applyPoll() {
         press("[data-poll]", "poll", fast ? "fast" : "normal");
+        paintDisplayLine();
         if (stateTimer) window.clearInterval(stateTimer);
         if (seriesTimer) window.clearInterval(seriesTimer);
         // The readouts come from /api/state, so both have to speed up for a
@@ -1563,13 +1613,13 @@
     }
 
     function reflectView() {
-        press("[data-window]", "window", view.window);
+        choose("window", view.window);
+        choose("smooth", view.smooth);
         reflectChannels();
         reflectPreset();
         press("[data-scale-ig]", "scaleIg", view.igLog ? "log" : "lin");
         press("[data-scale-bar]", "scaleBar", view.barLog ? "log" : "lin");
         press("[data-scale-plasma]", "scalePlasma", view.plasmaScale);
-        press("[data-smooth]", "smooth", view.smooth);
         applyDisplay();
     }
 

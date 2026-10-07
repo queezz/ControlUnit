@@ -1,3 +1,30 @@
+## 4.26.0 — 2026-10-07
+
+- One slim line heads the Live page in every mode (queezz, 2026-10-07:
+  "Observe and monitor waste a lot of top bar space by showing there...
+  nothing!"). The pills, the status sentence, Sampling, QMS sync and the
+  Operate/Observe/Monitor switch share it; in Monitor so do Window, Median,
+  Display and Full screen. It used to be four rows before the first number
+  in Monitor. The switch no longer floats over the page: in Monitor it is
+  the line's last item; in Operate and Observe on a desktop it docks into
+  the tab bar's right end, a row already on the screen (at 1280 px the
+  line wrapped to two rows with it); on a phone it still rides in the Menu
+  in Operate and Observe.
+- Pressing Torr or Pa in Monitor's drawer sent the page back to Operate:
+  the gauge buttons carry a `data-mode` of their own and the view-mode
+  binding was a bare `[data-mode]`. It binds the switch's own buttons now.
+- Display is one card in the right rail, its heading owning four plain
+  rows, Window, Median, Polling and Show, instead of a heading over four
+  separate cards ("the display items are hidden uncomfortably there").
+  Folded, its line says what it shows, such as `1 h · median 5 · Plasma`.
+  This run is one card the same way.
+- Sampling, Window, Median and Show are pulldowns ("we don't have to make
+  all the buttons for all the samplings. We can use a pulldown selector").
+  Sampling shows the time the rig holds, a time set at the rig that is not
+  on offer included, and is gated like the buttons it replaces. Show reads
+  `custom` while the curves are picked by hand. Remembered choices carry
+  over.
+
 ## 4.25.0 — 2026-10-02
 
 - The PID lights a cold plasma on purpose now, not by accident (queezz,

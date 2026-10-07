@@ -11,5 +11,10 @@
         {% endif %}
         {% endfor %}
         </div>
+        {# An empty slot at the bar's right end. The Live page docks its one
+           mode switch here while the bar is on the screen (live.js,
+           `modeSwitchHost`), so a desktop in Operate or Observe spends no row
+           of the reading column on it; every other tab leaves it empty. #}
+        <span class="tab-tools" data-role="tab-tools"></span>
     </div>
 </nav>
