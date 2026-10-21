@@ -92,13 +92,19 @@ are queried sequentially, not simultaneously; the time column marks receipt,
 not an instrument-provided measurement timestamp. Align with the ADC by time,
 converting the offset-aware timestamp to the rig's local time as needed.
 The DAC can clamp its command; the requested value is not proof of the
-applied voltage. There is one row per attempted poll, not one row per nominal
-sampling slot: use timestamps and status transitions to measure outage
-duration, rather than counting unavailable rows as 0.5-second intervals.
+applied voltage. There is one row per answered poll, not one row per nominal
+sampling slot, and one `unavailable` row per outage, its first: the supply is
+switched off whenever it is not in use, and from 4.29.1 the retries through a
+pump-down are not written (queezz, 2026-10-21: "A perfect noise"). An outage
+runs from its `unavailable` row to the next row of any other status; files
+before 4.29.1 have one `unavailable` row per retry.
 
 **On LAN failure:** the entire poll is unavailable, its measurement/output
 fields are empty, and the application Log says `Kikusui telemetry LOST` once
-per outage. The background recorder retries and logs `BACK` on recovery.
+per outage, after three polls in a row have gone unanswered (about ten
+seconds at the 5 s retry). The background recorder keeps checking every
+`retry_s` and logs `BACK` when the supply answers again. A shorter silence is
+a blip on the LAN: one `unavailable` row in the file and nothing in the Log.
 There is no reuse of the last good reading as a new measurement, no zero
 substitution, and no change to manual drive. Reconnection verifies model and
 serial identity before anything is sent, writes included. Stop interrupts a connected read and

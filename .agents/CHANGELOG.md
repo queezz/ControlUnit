@@ -26,6 +26,14 @@ Two fixes from the rig's own logs.
   dock's combo starts at settings.yml's value. Outputs are not settings:
   gas, the cathode drive, the PID and the supply's output start at zero and
   off after a restart, exactly as before.
+- The Kikusui sidecar writes one `unavailable` row per outage, its first,
+  instead of one per retry. The supply is switched off whenever it is not
+  in use, so a pump-down filled the file with rows of nothing (queezz: "A
+  perfect noise"). The recorder still checks every 5 s. The Log says LOST
+  only after three missed polls in a row (about ten seconds), naming the
+  supply being off as the likely reason, and BACK when it answers again; a
+  shorter blip is one row in the file and nothing in the Log, where
+  2026-10-19 had ten LOST/BACK pairs in two minutes.
 
 ## 4.29.0 — 2026-10-07
 

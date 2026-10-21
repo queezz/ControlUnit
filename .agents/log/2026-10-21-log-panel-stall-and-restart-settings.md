@@ -66,3 +66,22 @@ Not deployed: master is local until queezz says push, and the rig was
 acquiring when read.
 
 agent: claude
+
+## Then: the Kikusui sidecar during pump-downs
+
+Queezz: "Do we need 39 seconds sampling of a PSU being off? A perfect
+noise." (The hung run's sidecar has 4525 `unavailable` rows in two days,
+one per ~38 s because the recorder's thread was starved too; at the
+normal 5 s retry it would be 17 000 a day.) Then: "Maybe some heuristic?
+Or off several times, then check regularly if it comes back, and report
+when it does???"
+
+Done here directly, in the same unreleased 4.29.1: one `unavailable` row
+per outage, its first; LOST in the Log only after three missed polls in a
+row (`KikusuiLogger.LOST_AFTER`, about ten seconds), saying the supply may
+be off and that it is checked every 5 s; BACK only after a LOST. A shorter
+blip is one row and nothing in the Log. The retry stays at 5 s so the
+supply is seen within seconds of being switched on. pytest 719 passed;
+mkdocs clean.
+
+agent: claude

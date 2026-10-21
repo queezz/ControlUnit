@@ -227,12 +227,13 @@ def read_rows(path):
 class FlakyClient:
     identity = "KIKUSUI,PWR401L,TEST,1"
 
-    def __init__(self):
+    def __init__(self, missed=3):
         self.calls = 0
+        self.missed = range(2, 2 + missed)
 
     def sample(self):
         self.calls += 1
-        if self.calls in (2, 3):
+        if self.calls in self.missed:
             raise TimeoutError("LAN unplugged")
         return 2.4, 12.0, 1
 
@@ -240,7 +241,7 @@ class FlakyClient:
         pass
 
 
-def test_outage_writes_missing_rows_warns_once_and_recovers(tmp_path):
+def test_outage_writes_one_row_warns_once_and_recovers(tmp_path):
     messages = []
     context = {"cathode_mv": 1500, "plasma_a": 0}
     logger = KikusuiLogger(
@@ -250,22 +251,44 @@ def test_outage_writes_missing_rows_warns_once_and_recovers(tmp_path):
     )
     try:
         logger.start()
-        wait_until(lambda: any("BACK" in m for m in messages))
+        wait_until(lambda: any("BACK" in m for m in messages), seconds=8)
     finally:
         assert logger.stop()
     rows = read_rows(logger.path)
-    assert [r["status"] for r in rows[:4]] == ["ok", "unavailable", "unavailable", "ok"]
-    for row in rows[1:3]:
-        assert [row[k] for k in ("voltage_v", "current_a", "output_on")] == ["", "", ""]
-        assert row["error"] == "LAN unplugged"
-    assert rows[3]["current_a"] == "12.0"
-    assert rows[3]["commanded_cathode_mv"] == "1500"
+    # Three failed polls, one row: the outage's first.
+    assert [r["status"] for r in rows[:3]] == ["ok", "unavailable", "ok"]
+    assert [rows[1][k] for k in ("voltage_v", "current_a", "output_on")] == ["", "", ""]
+    assert rows[1]["error"] == "LAN unplugged"
+    assert rows[2]["current_a"] == "12.0"
+    assert rows[2]["commanded_cathode_mv"] == "1500"
     assert sum("LOST" in m for m in messages) == 1
     assert sum("BACK" in m for m in messages) == 1
     # BACK forgets when the LAN was lost: a later failed press claims no time.
     assert logger.lost_since() is None
     assert context == {"cathode_mv": 1500, "plasma_a": 0}
     assert logger.path.name == "kikusui_20260914_120000.csv"
+
+
+def test_a_blip_is_a_row_and_nothing_in_the_log(tmp_path):
+    """Fewer missed polls than `LOST_AFTER` is a flapping LAN, not a supply
+    switched off: one row in the file, no LOST and no BACK (2026-10-19 had
+    ten such pairs in two minutes)."""
+    messages = []
+    client = FlakyClient(missed=KikusuiLogger.LOST_AFTER - 1)
+    logger = KikusuiLogger(
+        KikusuiConfig(host="127.0.0.1", interval_s=0.1, retry_s=1),
+        tmp_path / "cu_20261021_120000.csv", messages.append, client=client,
+    )
+    try:
+        logger.start()
+        wait_until(lambda: client.calls > KikusuiLogger.LOST_AFTER + 1, seconds=8)
+    finally:
+        assert logger.stop()
+    rows = read_rows(logger.path)
+    assert [r["status"] for r in rows[:3]] == ["ok", "unavailable", "ok"]
+    assert not any("LOST" in m or "BACK" in m for m in messages)
+    assert sum("connected" in m for m in messages) == 1
+    assert logger.lost_since() is None
 
 
 def test_stop_interrupts_long_wait_and_does_not_overwrite(tmp_path):

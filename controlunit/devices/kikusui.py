@@ -339,6 +339,11 @@ class KikusuiLogger:
     recorder already has. Nothing here presses anything on its own.
     """
 
+    #: Polls missed in a row before the Log says LOST. With the 5 s retry
+    #: that is about ten seconds of silence: the supply switched off, not a
+    #: dropped answer.
+    LOST_AFTER = 3
+
     COLUMNS = (
         "date", "logger_elapsed_s", "query_ms", "voltage_v", "current_a",
         "output_on", "commanded_cathode_mv", "plasma_target_a", "status",
@@ -479,6 +484,8 @@ class KikusuiLogger:
     def _run(self):
         started = time.monotonic()
         state = None
+        #: Polls missed in a row, and what the Log was last told.
+        failures, said = 0, None
         try:
             # Never overwrite a previous telemetry file, even for a same-second restart.
             with self.path.open("x", newline="", encoding="utf-8") as target:
@@ -526,25 +533,41 @@ class KikusuiLogger:
                     if self.stopping.is_set():
                         break
                     now = self._stamp(row, before, started)
-                    writer.writerow(row)
-                    target.flush()
+                    # An outage is one row, its first: the supply is switched
+                    # off whenever it is not in use, and a row every retry
+                    # through a pump-down is a file of nothing (queezz,
+                    # 2026-10-21: "A perfect noise"). The next measured row
+                    # is where it ended. The Log says LOST only once the
+                    # supply has missed `LOST_AFTER` polls in a row, and BACK
+                    # only after a LOST, so a blip on a flapping LAN (ten
+                    # LOST/BACK pairs in two minutes on 2026-10-19) is a row
+                    # in the file and nothing in the Log.
+                    failures = failures + 1 if status == "unavailable" else 0
+                    if failures <= 1:
+                        writer.writerow(row)
+                        target.flush()
                     self._publish(row, now)
-                    if status != state:
+                    if failures == 1:
                         with self._lock:
-                            if status == "unavailable":
-                                self._lost_since = datetime.datetime.now()
-                            elif state == "unavailable":
+                            self._lost_since = datetime.datetime.now()
+                    if failures == self.LOST_AFTER:
+                        self.message(
+                            f"Kikusui telemetry LOST: no answer {failures} times"
+                            " (supply off, or its LAN down); measurements"
+                            " unavailable; manual drive unchanged; checking"
+                            f" every {self.config.retry_s:g} s"
+                        )
+                        said = "lost"
+                    elif not failures:
+                        if state == "unavailable":
+                            with self._lock:
                                 self._lost_since = None
-                        if status == "unavailable":
-                            self.message(
-                                "Kikusui telemetry LOST: measurements unavailable; "
-                                "manual drive unchanged; retrying in background"
-                            )
-                        elif state == "unavailable":
+                        if said == "lost":
                             self.message("Kikusui telemetry BACK: recording fresh measurements")
-                        else:
+                        elif said != status:
                             self.message(f"Kikusui telemetry connected ({status})")
-                        state = status
+                        said = status
+                    state = status
                     delay = self.config.retry_s if status == "unavailable" else self.config.interval_s
                     # No catch-up bursts; a slow poll reduces only this recorder's cadence.
                     self._wait(delay - (time.monotonic() - before))
