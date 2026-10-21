@@ -25,7 +25,7 @@ main thread keeps up to date from methods it already runs:
 | `log_message` | one message-log line, tags stripped |
 | `update_current_values`, the plasma and gauge setters | the setpoints the rig holds |
 | `start_acquisition`, `stop_acquisition`, `abort_all_threads` | whether acquisition runs |
-| `set_sampling` | the sampling time the run holds |
+| `set_sampling`, and every Start (`_apply_screen_settings`) | the sampling time the run holds, which a Start takes from the Settings dock's combo |
 | `_toggle_remote` | whether a browser may set anything |
 | `abort_all_threads`, `_toggle_remote` | letting go of the operator lock |
 | `_adjust_zeros` | the baselines the display subtracts |
@@ -504,7 +504,8 @@ measured, and a readout with a baseline held says `zeroed` beside its name.
     without a door. An unknown `?mode=` is the ordinary page and never an
     error.
 - **Log** — the same message log the Qt Log dock shows, newest first, with a
-  Find and an order switch.
+  Find and an order switch. It also carries the routine 30-second timing
+  summaries, which the dock leaves out (4.29.1).
 - **Lab** — the lab ensemble's own board, built in the PIHTI diagram's shape
   so the three surfaces read the same (owner decision 2026-09-07, "I like the
   pihti-diagram way for the services, and we need to sync that in all 3

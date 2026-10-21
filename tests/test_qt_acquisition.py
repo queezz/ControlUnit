@@ -518,3 +518,177 @@ def test_the_cathode_curve_is_recorded_only_from_a_fresh_sidecar_row(qt_app, hom
         assert widget.web_status.read()["samples"] == 0
     finally:
         widget.abort_all_threads()
+
+
+def _panel_lines(widget):
+    """The Log panel's lines, as the rig's screen shows them."""
+    return widget.logDock.log.toPlainText().split("\n")
+
+
+def _file_lines(widget):
+    with open(widget.config["Log File Path"]) as log:
+        return log.read().splitlines()
+
+
+def test_the_log_panel_is_capped_and_shows_the_newest_line_last(qt_app, home):
+    """The rig's logs of 2026-10-21: every line used to rebuild the whole
+    panel, so a line cost as much as the panel was long and held the reader
+    still while it did. A line is added at the end now, and the panel keeps
+    the newest `LOG_PANEL_LINES`; the file and the web view keep the rest."""
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        cap = MainApp.LOG_PANEL_LINES
+        widget.log_message("<font color='#1cad47'>Starting</font> acquisition", htmltag="h2")
+        widget.log_message("the line after a heading")
+        blocks = widget.logDock.log.document()
+        heading = blocks.begin()
+        while heading.isValid() and "Starting" not in heading.text():
+            heading = heading.next()
+        # A heading keeps its shape and does not lend it to the next line.
+        assert heading.blockFormat().headingLevel() == 2
+        assert heading.next().blockFormat().headingLevel() == 0
+        assert "the line after a heading" in heading.next().text()
+
+        total = cap + 500
+        for number in range(total):
+            widget.log_message(f"line {number}", htmltag="div" if number % 2 else "p")
+        assert blocks.blockCount() == cap
+        lines = _panel_lines(widget)
+        assert len(lines) == cap
+        assert lines[-1].endswith(f": line {total - 1}")
+        assert lines[0].endswith(f": line {total - cap}")
+        # The file is the record and keeps every line.
+        assert _file_lines(widget)[-1].endswith(f", line {total - 1}")
+    finally:
+        widget.abort_all_threads()
+
+
+def test_routine_timing_reports_stay_off_the_panel_and_overruns_do_not(qt_app, home):
+    """The thirty-second timing summaries, ~5800 lines a day, are kept in the
+    file and the web view's Log exactly as before and left off the panel; an
+    overrun still goes to the panel. Through the real worker wiring, and the
+    main thread's own delivery summary as `_adc_step` builds it."""
+    from controlunit.devices.timing import TimingDiagnostics
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        widget.start_acquisition()
+        reader = widget.workers["ADC"]["worker"]
+        routine = ("ADC timing: 300 observations in 30.0 s; read mean/max 1.0/2.0 ms;"
+                   " missed slots 0")
+        overrun = ("ADC timing overrun: 4 observations in 0.5 s; read mean/max"
+                   " 1.0/450.0 ms; missed slots 1")
+        reader.send_routine.emit(routine)
+        reader.send_message.emit(overrun)
+        qt_app.processEvents()
+
+        clock = [0.0]
+        delivery = TimingDiagnostics(
+            "ADC delivery", widget.log_message, clock=lambda: clock[0],
+            routine=widget.log_routine,
+        )
+        clock[0] = 31.0
+        delivery.observe({"total": 0.01})
+        delivery.observe({"total": 0.9}, slow=True)
+
+        panel = "\n".join(_panel_lines(widget))
+        web = _log_of(widget)
+        files = _file_lines(widget)
+        assert routine in web and any(line.endswith(", " + routine) for line in files)
+        assert routine not in panel
+        assert overrun in web and overrun in panel
+        said = [line for line in web if line.startswith("ADC delivery: ")]
+        overran = [line for line in web if line.startswith("ADC delivery overrun: ")]
+        assert said and overran
+        assert said[0] not in panel
+        assert overran[0] in panel
+        assert any(line.endswith(", " + said[0]) for line in files)
+    finally:
+        widget.abort_all_threads()
+
+
+def test_a_restart_runs_with_the_sampling_the_screen_shows(qt_app, home):
+    """2026-10-19: 10 s was chosen from a browser, then Stop and Start; the
+    new reader took settings.yml's 0.1 s while the dock and the web view
+    still said 10 s, and two days were recorded at 0.1 s unseen. queezz:
+    "it should remember settings, not run with whatever is default and
+    invisible"."""
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        assert widget.config["Sampling Time"] != 10.0  # the default is not the choice
+        widget.start_acquisition()
+        widget.set_sampling(10)
+        widget.stop_acquisition()
+        widget.start_acquisition()
+        reader = widget.workers["ADC"]["worker"]
+        assert reader.sampling_time == 10.0
+        assert reader.STEP == 1
+        assert widget.sampling == 10.0
+        assert widget.settings_dock.samplingCb.currentText() == "10 s"
+        assert widget.web_status.read()["sampling"] == 10.0
+        assert "Started with sampling 10 s" in _log_of(widget)
+
+        # The same from a browser's Stop and Start, through the queue.
+        widget.control_dock.remoteSW.setChecked(True)
+        widget._toggle_remote()
+        for kind, body in (("sampling", {"seconds": 1.0}), ("stop", {}), ("start", {})):
+            widget.web_commands.submit(kind, body, actor="tester", origin="10.0.0.9")
+            assert commands.drain(widget) == 1
+        assert widget.web_status.read()["acquiring"] is True
+        assert widget.workers["ADC"]["worker"].sampling_time == 1.0
+        assert widget.web_status.read()["sampling"] == 1.0
+    finally:
+        widget.abort_all_threads()
+
+
+def test_the_sampling_shown_before_the_first_start_is_the_one_it_runs_with(qt_app, home):
+    """The combo starts at settings.yml's value, so the screen, the watchdog
+    and the web view agree from the start; and what it shows when Start is
+    pressed is what the first run takes."""
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        configured = float(widget.config["Sampling Time"])
+        assert widget.settings_dock.samplingCb.currentText() == f"{configured:g} s"
+        assert widget.sampling == configured
+        assert widget.web_status.read()["sampling"] == configured
+
+        widget.settings_dock.samplingCb.setCurrentIndex(
+            widget.settings_dock.samplingCb.findText("1 s")
+        )
+        widget.start_acquisition()
+        assert widget.workers["ADC"]["worker"].sampling_time == 1.0
+        assert widget.web_status.read()["sampling"] == 1.0
+    finally:
+        widget.abort_all_threads()
+
+
+def test_a_restart_drives_nothing(qt_app, home):
+    """Settings are remembered across Stop and Start; outputs are not. Gas,
+    the cathode drive and the PID start at zero and off after a restart."""
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        widget.start_acquisition()
+        widget.plasma_control_dock.cathode_spin_box.setValue(1500)
+        widget.set_cathode_drive()
+        widget._mfc_presets = {1: 1200, 2: 300}
+        widget.stop_acquisition()
+        widget.start_acquisition()
+        reader = widget.workers["ADC"]["worker"]
+        assert reader.plasma_current_setpopint == 0
+        assert reader.control_voltage == 0
+        assert reader._mfc_presets == {1: 0.0, 2: 0.0}
+        setpoints = widget.web_status.read()["setpoints"]
+        assert setpoints["cathode_mv"] == 0
+        assert setpoints["plasma_a"] == 0
+        assert setpoints["mfc1_v"] == 0 and setpoints["mfc2_v"] == 0
+    finally:
+        widget.abort_all_threads()

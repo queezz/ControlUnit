@@ -1,3 +1,32 @@
+## 4.29.1 — 2026-10-21
+
+Two fixes from the rig's own logs.
+
+- The rig's Log panel no longer stalls the program. Every line used to be
+  added by reading the whole panel back as HTML and setting it again, and
+  PyQt holds the interpreter while Qt does that, so the ADC reader stood
+  still too: 5 s a line at first, about 90 s a line two days into a run,
+  until a row was recorded every three minutes and the program looked hung.
+  A line is now added at the end, and the panel keeps its newest 200
+  lines (`MainApp.LOG_PANEL_LINES`; queezz: "100 or 200 is more than
+  enough. The qt side is there for redundancy and history, not for current
+  use. We switched to the Webui."). The web Log is where the log is read,
+  and `controlunit.log` is the record. The routine 30-second `ADC timing:` and `ADC
+  delivery:` summaries (about 5800 lines a day) are kept in the file and
+  the web Log word for word as before and left off the panel; an overrun
+  still goes to the panel.
+- Stop and Start run with the sampling time the screen shows (queezz: "the
+  restart from WebUI, it should remember settings, not run with whatever is
+  default and invisible"). On 2026-10-19 10 s was chosen from a browser,
+  then Stop and Start: the new reader took settings.yml's 0.1 s while the
+  Settings dock, the watchdog and the web view all said 10 s, and two days
+  were recorded at 0.1 s. Every Start now gives the new reader the dock's
+  sampling time, as it already gave every gauge its mode and range, before
+  its thread starts, and says `Started with sampling 10 s` in the Log. The
+  dock's combo starts at settings.yml's value. Outputs are not settings:
+  gas, the cathode drive, the PID and the supply's output start at zero and
+  off after a restart, exactly as before.
+
 ## 4.29.0 — 2026-10-07
 
 From a diagnostic run on the rig the same evening.

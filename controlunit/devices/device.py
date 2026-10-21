@@ -43,6 +43,10 @@ class DeviceThread(QtCore.QObject):
     data_ready = QtCore.pyqtSignal(list)
     sigDone = QtCore.pyqtSignal(str)
     send_message = QtCore.pyqtSignal(str)
+    # A routine report, such as the reader's 30-second timing summary: the
+    # main thread keeps it in the log file and the web view's Log and leaves
+    # it off the rig's Log panel, where `send_message` lines go.
+    send_routine = QtCore.pyqtSignal(str)
 
     def __init__(self, device_name, app, startTime, config, pi):
         super().__init__()

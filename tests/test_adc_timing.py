@@ -337,6 +337,32 @@ def test_timing_reports_slow_successes_without_flooding_the_log():
     assert len(messages) == 2  # empty windows do not log
 
 
+def test_a_routine_report_goes_to_its_own_callback_when_one_is_given():
+    """The routine summary can be kept off the rig's Log panel; an overrun
+    still goes where every message goes."""
+    clock, messages, routine = Clock(), [], []
+    report = TimingDiagnostics('ADC delivery', messages.append, clock.monotonic,
+                               routine=routine.append)
+    clock.sleep(0.1)
+    report.observe({'total': 0.5}, slow=True)
+    clock.sleep(31)
+    report.observe({'total': 0.01})
+    assert [m.split(':')[0] for m in messages] == ['ADC delivery overrun']
+    assert [m.split(':')[0] for m in routine] == ['ADC delivery']
+
+
+def test_the_reader_s_routine_summary_is_routine_and_its_overrun_a_message(worker, monkeypatch):
+    """The reader's summary leaves on `send_routine`, which the main thread
+    keeps off the Log panel; an overrun stays on `send_message`."""
+    messages, routine = [], []
+    worker.send_message.connect(messages.append)
+    worker.send_routine.connect(routine.append)
+    run_clocked(worker, monkeypatch, [0.02, 0.45, 0.02, 0.02])
+    assert any(text.startswith("ADC timing overrun: ") for text in messages)
+    assert not any(text.startswith("ADC timing: ") for text in messages)
+    assert routine and all(text.startswith("ADC timing: ") for text in routine)
+
+
 def test_sample_clock_counts_missed_slots_and_keeps_a_future_deadline():
     clock = SampleClock(0.1, 0.0)
     assert clock.advance(0.65) == 5

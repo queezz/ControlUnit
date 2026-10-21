@@ -776,7 +776,10 @@ class ADC(DeviceThread):
             self.prep_pid()
         self._cadence = None
         self._last_sample_clock = None
-        diagnostics = TimingDiagnostics("ADC timing", self.send_message.emit, clock=time.monotonic)
+        diagnostics = TimingDiagnostics(
+            "ADC timing", self.send_message.emit, clock=time.monotonic,
+            routine=self.send_routine.emit,
+        )
         try:
             while not self._abort:
                 period = self.sampling_time

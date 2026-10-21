@@ -104,7 +104,15 @@ class MainApp(QtCore.QObject, UIWindow):
 
         self.config = readsettings.init_configuration(verbose=True)
         self.datapath = self.config["Data Folder"]
-        self.sampling = self.config["Sampling Time"]
+        # The dock's combo is where the sampling time lives from here on:
+        # it starts at settings.yml's value, and every Start runs with what
+        # it shows (`_apply_screen_settings`), so the two never disagree.
+        index = self.settings_dock.samplingCb.findText(
+            f"{float(self.config['Sampling Time']):g} s"
+        )
+        if index >= 0:
+            self.settings_dock.samplingCb.setCurrentIndex(index)
+        self.sampling = self._screen_sampling()
 
         # What the web view is allowed to know: how many channels, how fast,
         # and whether acquisition is running. It reads a copy, never a worker.
@@ -589,10 +597,24 @@ class MainApp(QtCore.QObject, UIWindow):
     def start_all_threads(self):
         """
         Start all threads by assigning workers to threads and initiating them.
+
+        The screen's settings reach the new workers first, so the first row
+        is already taken with them.
         """
+        self._apply_screen_settings()
         for device_name, worthre in self.workers.items():
             self.start_thread(worthre)
 
+    def _apply_screen_settings(self):
+        """
+        Give fresh workers what the screen shows, never what settings.yml
+        or a constant says.
+
+        Every Start builds new workers, and a new worker begins from its
+        defaults. Settings are pushed here; outputs are not. Gas flows, the
+        cathode drive, the PID and the supply's output start at zero and off,
+        as they always have: a restart never drives anything.
+        """
         # A fresh worker rests at Torr and 1e-3 for every gauge; what the
         # selectors show is what it must run with, so every gauge's pair is
         # pushed, not only the first (4.18.0 pushed Pd's alone, and Pu2 read
@@ -601,6 +623,21 @@ class MainApp(QtCore.QObject, UIWindow):
         for gauge in self.control_dock.gauges:
             self.update_ig_range(gauge)
             self.update_ig_mode(gauge)
+        # The same lie, for the sampling time. On 2026-10-19 the run was set
+        # to 10 s from a browser, then stopped and started: the new reader
+        # took settings.yml's 0.1 s while the dock, the watchdog and the web
+        # view all still said 10 s, and it recorded at 0.1 s for two days.
+        # queezz: "it should remember settings, not run with whatever is
+        # default and invisible."
+        seconds = self._screen_sampling()
+        self.sampling = seconds
+        self.workers["ADC"]["worker"].set_sampling_time(seconds)
+        self.web_status.describe_run(len(self.config["ADC Signal Names"]), seconds)
+        self.log_message(f"Started with sampling {seconds:g} s")
+
+    def _screen_sampling(self):
+        """The sampling time the Settings dock's combo shows, in seconds."""
+        return float(self.settings_dock.samplingCb.currentText().split(" ")[0])
 
     def start_thread(self, worthre):
         """
@@ -618,6 +655,7 @@ class MainApp(QtCore.QObject, UIWindow):
         worker.data_ready.connect(self.on_worker_step)
         worker.sigDone.connect(self.on_worker_done)
         worker.send_message.connect(self.log_message)
+        worker.send_routine.connect(self.log_routine)
 
         if worker.device_name == "ADC":
             worker.send_control_voltage.connect(self._set_cathode_current)
@@ -702,23 +740,69 @@ class MainApp(QtCore.QObject, UIWindow):
         with open(filepath, "a") as f:
             f.write(new_line)
 
-    def log_message(self, message, htmltag="p"):
+    #: How many lines the Log panel keeps; the oldest go first. The web
+    #: view's Log is where the log is read now, and `controlunit.log` is the
+    #: record; the panel is a fallback on the rig's own screen (queezz,
+    #: 2026-10-21: "100 or 200 is more than enough. The qt side is there for
+    #: redundancy and history, not for current use. We switched to the
+    #: Webui."). Few enough lines that the panel never grows into a cost.
+    LOG_PANEL_LINES = 200
+
+    def log_message(self, message, htmltag="p", panel=True):
         """
-        Append a message to the log browser with a timestamp.
+        Append a message to the log file, the web view's Log and, unless
+        `panel` is False, the Log panel on the rig's screen, with a timestamp.
+
+        The panel used to be appended to by reading its whole document back
+        as HTML and setting it again with one more line. That costs as much
+        as the panel is long, and PyQt holds the interpreter while Qt does
+        it, so the reader thread waited too: two days into a run the reader
+        stood still for a minute and a half at every message, and a row was
+        recorded every three minutes (the rig's logs, 2026-10-21). A line is
+        now added at the end, and the panel is capped at `LOG_PANEL_LINES`.
         """
         time_stamp = self.generate_time_stamp()
         self.log_to_file(strip_tags(message))
         self.web_status.log(self._for_web(strip_tags(message)), time_stamp)
-        new_line = f"<{htmltag}>{time_stamp}: {message}</{htmltag}>"
-        if not self.logDock.log.toPlainText():
-            self.logDock.log.setHtml(new_line)
-        else:
-            current_text = self.logDock.log.toHtml()
-            current_text += new_line
-            self.logDock.log.setHtml(current_text)
+        if panel:
+            self._show_in_log_panel(f"<{htmltag}>{time_stamp}: {message}</{htmltag}>")
 
-        self.logDock.log.moveCursor(self.logDock.log.textCursor().End)
-        # self.logDock.log.append(f"<{htmltag}>{nowstamp}: {message}</{htmltag}>")
+    def log_routine(self, message):
+        """A routine report: kept in the file and the web view's Log, and
+        left off the panel.
+
+        The 30-second timing summaries are about six thousand lines a day.
+        They are the record of how the reader kept time and belong in the
+        file; on the panel they would push out, within hours, every line a
+        person needs to see. A timing overrun is not routine and still goes
+        through `log_message` to the panel.
+        """
+        self.log_message(message, panel=False)
+
+    def _show_in_log_panel(self, new_line):
+        """Add one line of HTML at the end of the Log panel, and scroll to it.
+
+        Only the new line is parsed. Its paragraph shape (a `p`'s spacing, an
+        `h2`'s size) is read from the line itself and given to a fresh block,
+        so it neither inherits the previous line's shape nor lends its own
+        to the next one, which is what `QTextEdit.append` would do.
+        """
+        log = self.logDock.log
+        document = log.document()
+        if document.maximumBlockCount() != self.LOG_PANEL_LINES:
+            document.setMaximumBlockCount(self.LOG_PANEL_LINES)
+        shape = QtGui.QTextDocument()
+        shape.setHtml(new_line)
+        first = shape.begin()
+        cursor = QtGui.QTextCursor(document)
+        cursor.movePosition(QtGui.QTextCursor.End)
+        if document.isEmpty():
+            cursor.setBlockFormat(first.blockFormat())
+            cursor.setBlockCharFormat(first.charFormat())
+        else:
+            cursor.insertBlock(first.blockFormat(), first.charFormat())
+        cursor.insertHtml(new_line)
+        log.moveCursor(QtGui.QTextCursor.End)
 
     # MARK: Data - handling
     def create_file(self, device_name):
@@ -893,7 +977,8 @@ class MainApp(QtCore.QObject, UIWindow):
         self._publish_step(batch)
         finished = time.monotonic()
         if not hasattr(self, '_adc_delivery_timing'):
-            self._adc_delivery_timing = TimingDiagnostics('ADC delivery', self.log_message)
+            self._adc_delivery_timing = TimingDiagnostics(
+                'ADC delivery', self.log_message, routine=self.log_routine)
         self._adc_delivery_timing.observe(
             {'queue': lag, 'save': saved - received, 'append': appended - saved,
              'display': finished - appended, 'total': finished - received},

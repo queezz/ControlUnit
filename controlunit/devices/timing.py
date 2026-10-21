@@ -32,10 +32,15 @@ class TimingDiagnostics:
 
     No per-sample I/O or retained sample arrays. Durations are monotonic
     seconds; counts (such as missed slots) are reported separately.
+
+    An overrun goes to `emit`. The routine 30-second summary goes to
+    `routine` when one is given, so the caller can keep it in the log file
+    and off the rig's Log panel; without one it goes to `emit` as well.
     """
 
-    def __init__(self, label, emit, clock=time.monotonic):
+    def __init__(self, label, emit, clock=time.monotonic, routine=None):
         self.label, self.emit, self.clock = label, emit, clock
+        self.routine = routine or emit
         self.started = clock()
         self.last_warning = float('-inf')
         self.count = 0
@@ -72,7 +77,7 @@ class TimingDiagnostics:
         channel, duration = self.slowest_channel
         if duration:
             parts.append(f"slowest channel {channel} {duration * 1000:.1f} ms")
-        self.emit(
+        (self.emit if warning else self.routine)(
             f"{self.label}{' overrun' if warning else ''}: {self.count} observations"
             f" in {now - self.started:.1f} s; " + '; '.join(parts)
             + f"; missed slots {self.missed}"

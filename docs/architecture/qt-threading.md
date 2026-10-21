@@ -58,6 +58,17 @@ records one scan per period; at one second and above it averages raw scans
 through each window. `STEP` only batches completed rows for delivery to the
 GUI thread for CSV logging and plotting. Timing summaries distinguish read,
 processing and delivery costs; see the [timing investigation](../diagnostics/2026-09-10-adc-timing-optimization.md).
+The routine summary leaves the reader on `send_routine` and is kept in
+`controlunit.log` and the web view's Log but not on the Qt Log panel; an
+overrun leaves on `send_message` and reaches all three. The panel is
+appended to, never rebuilt, and keeps its newest `LOG_PANEL_LINES` (4.29.1:
+rebuilding it held the interpreter, and so the reader, for longer at every
+line as the run went on).
+
+Every Start builds fresh workers, and `_apply_screen_settings` gives them
+what the screen shows before their threads start: each gauge's mode and
+range, and the Settings dock's sampling time. Outputs are not carried over:
+gas, the cathode drive, the PID and the supply's output start at zero and off.
 
 ```mermaid
 flowchart LR
