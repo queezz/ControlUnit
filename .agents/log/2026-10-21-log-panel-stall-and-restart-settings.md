@@ -85,3 +85,24 @@ supply is seen within seconds of being switched on. pytest 719 passed;
 mkdocs clean.
 
 agent: claude
+
+## Deployed, 2026-10-22 00:38 (4.29.1)
+
+Queezz: "Deploy. Then restart the acquisition". Pushed `7ed816f..41e716c`.
+A script run on the Pi from `/tmp`, stopping at the first thing not as
+expected (it removed itself and its cookie jar): health `acquiring`, no
+outputs; state read first (sampling 10 s, Pd Torr 1e-7, Pu2 Torr 1e-5,
+sync off); as the roster's `Kuzmin Arseniy` with the lab's word from the
+Pi's own file, take control from Kawabata, stop (`cu_20261021_164856.csv`
+closed), `idle`, TERM, process gone, `pull --ff-only` to `41e716c`,
+`compileall` clean, started through `~/Desktop/aktest.sh` in lxterminal on
+display `:0`, health 4.29.1, the gauges put back from the state read
+before the stop, acquisition started, sampling 10 s:
+`cu_20261022_003813.csv`. The rig's log shows "Started with sampling 0.1 s"
+then "ADC sampling set to 10.0" a second later — the web cannot set the
+sampling while stopped, and a fresh program's combo is settings.yml's —
+and the Kikusui LOST line ten seconds after the start, the supply being
+off, with one `unavailable` row in its file. Control is left with the
+session's identity from 127.0.0.1; a browser takes it back with Take over.
+
+agent: claude
