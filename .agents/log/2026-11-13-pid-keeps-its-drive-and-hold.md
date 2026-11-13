@@ -137,3 +137,38 @@ new queries during a run. All of it waits for the deployment, which waits
 for the student to finish.
 
 agent: claude
+
+## The review, and its fixes
+
+Queezz: "Run a subagent reviewer to look for bugs and all." Two Opus
+reviewers, read-only, split safety-critical (PID, Hold/Off, the program's
+end, the Kikusui link) from the rest (followers, screen memory, the Ip
+warning, Pi health, web). Verified here before fixing: the reviewer's
+scripts reproduced a lost discharge held at 4149 mV after a flicker from
+2100 mV and at 4887 mV after a weak 0.3 A discharge, and the DAC ending at
+2200 mV after Off and 2240 mV after Hold (2211 asked) with a loop step in
+flight. Also confirmed in code: the first version of the uncaught-error
+handler stopped the run, against the owner's "Hold and alarm!".
+
+Fixes by an Opus subagent with decisions from here: `ac06e91` (safety:
+kept drive only from steps at half the setpoint or more, in-flight loop
+commands dropped once the PID is off, uncaught errors held and alarmed,
+SIGTERM/SIGINT default once ending, the Kikusui settings read's LAN blips
+and overflow and shared deadline, `hold`/`off` only as JSON true) and
+`a9db6dc` (the Diagram's first answer, reading modes in screen.json, the
+signal check's late rows and settle, per-gauge failures, stale recorded
+times, the Ip warning's unknown filament, NaN rows and duration, refusals
+keyed by kind, Pi health baseline and disk hysteresis, closing and logging
+guards). Each with a test that failed on the parent tree. Checked here: the
+reviewer's PID scripts now give 2000 mV and 2100 mV held, and the DAC at 0
+after Off and 2211 after Hold; the Ip warning still fires on the 11-13
+15:25 shape (fresh supply under 1 A). Gates: pytest 919 (one timing flake
+in a full run, `test_a_slow_kikusui_stop_does_not_block_the_next_run`, six
+of six alone and green on a full rerun; same-second file names, now in
+directions), mkdocs, node 65.
+
+Open and in directions: a ceiling for the PID while lit (owner's call),
+same-second restarts overwriting, the recorded drive lagging a press, the
+CC/CV bit.
+
+agent: claude

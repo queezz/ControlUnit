@@ -159,6 +159,28 @@ holds what is still undecided or unbuilt.
   the gauges following the Diagram with a signal check, the Ip warning
   with the filament off, the Kikusui's settings, the Pi's health, the exit
   reason and the logged refusals.
+  - **Should the PID have a ceiling while a discharge is lit, and at what
+    drive (for example 2400–2500 mV, above hydrogen's 2170–2270 mV)?** —
+    the owner's call. While a discharge reads above 0.1 A but stays below
+    the setpoint, the loop winds the drive toward the DAC's 5000 mV
+    (a 0.3 A discharge against 1.5 A took 2000 mV to 4887 mV in 60 s in
+    the review's test). That was so before 4.30.0; 4.30.0 only stopped a
+    lost discharge from being held at such a drive.
+    Stakes: none, and a weak discharge can drive the filament far past
+    what anyone would by hand (11-13's hand pulses reached 24.5 A at
+    2800 mV); too low, and hydrogen cannot be held.
+    Recommendation: 2500 mV, a settings key beside `Unlit Ceiling mV`.
+    Safe default: no lit ceiling, as now.
+  - **Same-second restarts overwrite.** File names carry the second, and
+    `create_file` opens the ADC file with "w": a Stop and Start inside one
+    second would overwrite the run just closed, and the Kikusui recorder
+    refuses its file and stops (seen as a rare test flake). Add a suffix
+    when the name exists.
+  - **The cathode's recorded drive can lag a press.** After Off or Hold the
+    DAC is protected (4.30.0), but the reader may still overwrite its own
+    `control_voltage` just after the main thread sets it, so one row's
+    `PresetV_cathode` and the next engagement's start drive can carry the
+    loop's last value. A lock, or the main thread owning that value.
   - **Read which status bit is CC and which CV.** The Kikusui's
     `oper_cond` is recorded raw since 4.30.0 (the manual could not be
     read). The first run where the supply holds its voltage setting (as at

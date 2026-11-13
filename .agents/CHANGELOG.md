@@ -75,11 +75,20 @@ big obvious problems").
   temperature and free disk; a line at start and on each change; the
   latest in `/api/health` as `pi`.
 - **Why the program ended is the Log's last line**: the Quit button, the
-  window closed, SIGTERM, SIGHUP (the terminal closed), SIGINT, or an
-  uncaught error. Each signal, and an uncaught error, now stop the run
-  through Stop, outputs to zero, before the program ends (before, an
-  uncaught error in a slot aborted the process with the DACs holding).
-  Closing the window during a run stops the run first. The launcher no
+  window closed, SIGTERM, SIGHUP (the terminal closed) or SIGINT. Each
+  signal stops the run through Stop, outputs to zero, before the program
+  ends, and closing the program's own window during a run stops the run
+  first (a browser closing does nothing to the rig). Once ending has begun,
+  a second SIGTERM or SIGINT ends it at once.
+- **An uncaught error is held and alarmed, not fatal.** Before, PyQt
+  aborted the process on an exception escaping a slot, leaving the DACs
+  holding with nothing recording. Now one red Log line names it ("Uncaught
+  error: …; outputs held, the program carries on"), once a minute at most,
+  and the program goes on: queezz's standing "Hold and alarm!" for a dead
+  reader (2026-09-07), applied here after the review of 2026-11-13 caught a
+  first version that stopped the run (and would have put a discharge out
+  over a broken plot). An error in a hardware worker's slot reaches the Log
+  the same way. The launcher no
   longer `exec`s the program, outlives a terminal close, and writes
   "# <date> exited with status N" to the stderr file.
 - **Refused web presses are logged** on the main thread, at most one line
@@ -88,6 +97,26 @@ big obvious problems").
   does)". The lab's word is never written.
 - The Hall-supply line names the PID only while the PID runs (on 11-11 it
   said "PID output held" with no PID on and no plasma).
+- **Fixed after a two-reviewer pass over this release (2026-11-13)**:
+  - The kept drive of a lost discharge records only steps where the
+    discharge was at least half the setpoint: a weak or flickering one
+    wound the drive to 4149–4887 mV and a loss then held it there.
+  - A loop command already in flight no longer re-drives the cathode after
+    Off, Hold, a manual Set or Stop all outputs (it could end at 2200 mV
+    with the PID off).
+  - The Kikusui settings read survives a LAN blip (gives up only after
+    three unreadable answers in a row), an overflowing reply no longer
+    stops the recorder, and one poll's queries share one deadline.
+  - The Diagram's first answer after a restart no longer undoes a gauge
+    declared off by hand; each gauge's last seen Diagram word and its
+    reading mode (Torr or Pa) are kept in `screen.json`.
+  - The signal check waits for late rows and a settle at the window's end,
+    and never warns when the newest reading already agrees.
+  - The Ip warning says nothing while a configured Kikusui link is not
+    fresh, skips NaN rows, and its end line's duration is right on a JST
+    clock; refusals are rate-limited by kind, not by the typed name; the
+    Pi's low-disk line has hysteresis; several guards on the closing and
+    logging paths.
 
 ## 4.29.2 — 2026-11-13
 
