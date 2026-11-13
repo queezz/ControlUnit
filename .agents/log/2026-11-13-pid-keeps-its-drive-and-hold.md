@@ -67,3 +67,22 @@ anchors and history are untouched by this slice and were walked for 4.29.2
 the same day.
 
 agent: claude
+
+## The gauge half, from the worktree
+
+An Opus subagent in its own git worktree (branch
+`worktree-agent-a851f61f70d19a19a`, commit `5841014`, cut from `cf19666`)
+built the remembered screen (`controlunit/screen_memory.py`,
+`~/.controlunit/screen.json`), the Log line for a dock gauge press, and the
+watchdog's longer line across a sampling change. Reviewed here (the diff,
+and the module), merged with `--no-ff`; the merged tree passes pytest 738,
+mkdocs, node 65, and left nothing in this PC's real `~/.controlunit`.
+Live on the scratch instance: Pd Torr 1e-7, Pu2 off and 10 s set from the
+web, the program stopped and started, and the Log said "Restored from the
+last run: Pd Torr 1e-7, Pu2 off, sampling 10 s". Before the first Start the
+web state knows only the restored values that differ from the defaults
+(Pd's range, Pu2's mode); Start pushes the rest, as before. The web view's
+own "stale" line still switches to the short threshold at once on a
+sampling change (left; it is the web status's, not the watchdog's).
+
+agent: claude

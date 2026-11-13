@@ -23,6 +23,22 @@ big obvious problems").
   the Manual row's Off already means. `POST /api/plasma-current
   {"hold": true}`. The PID row now has the Manual row's shape, so its
   three presses stand on the field's line.
+- **The gauges and the sampling survive a program restart.** The 11-11
+  16:47 restart came back at Torr 1e-3 for both gauges and forgot Pu2 was
+  declared off (18 s of Pd_c at 1.5e-3 Torr against about 1.5e-7). Each
+  gauge's mode and range and the sampling the run used are kept in
+  `~/.controlunit/screen.json` (`controlunit/screen_memory.py`, schema
+  `controlunit-screen/v1`, written in one step) and put back at launch:
+  "Restored from the last run: Pd Torr 1e-7, Pu2 off, sampling 10 s". A
+  missing or bad file falls back to settings.yml with one line saying so.
+  Outputs are never kept.
+- **A gauge press on the rig's own dock writes a Log line**, in the
+  browser's words ("Pd range -7", "Pu2 declared off"); only browser
+  presses did before (six silent changes on 11-02 and 11-11).
+- **No false "Reader lost" on a sampling change.** From 10 s to 0.1 s the
+  watchdog judged at once by the short line while the reader slept out its
+  old 10 s (10-23 15:48:51; the file had no gap). It now judges by the
+  longer time until a sample taken at the new one arrives.
 
 ## 4.29.2 — 2026-11-13
 

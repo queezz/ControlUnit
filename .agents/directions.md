@@ -154,19 +154,15 @@ holds what is still undecided or unbuilt.
 
 - From the audit of the student runs, 2026-10-22 to 11-13 (2026-11-13;
   vault note "Student runs audit 2026-10-22 to 11-13" has the times and
-  numbers). Software items, most costly first:
+  numbers). Software items, most costly first (the PID's drive, Hold/Off,
+  the remembered gauges and sampling, and the false "Reader lost" shipped
+  in 4.30.0):
   - **Ip pinned near 2.38 A is not "lit".** On 11-13 Ip read a flat 2.38 A
     for 30 s with the cathode drive at 0 mV (15:25:27–15:25:54), and the
     loop called the plateau a lit discharge (15:25:05) and once engaged on
     it (16:38:30). Treat a flat reading at that plateau as "at a limit",
     neither lit nor regulable. The cause is hardware or measurement and is
     with queezz.
-  - **Gauge settings survive a restart, and the rig's own gauge presses
-    are logged.** The 11-11 16:47 restart came back at Torr 1e-3 and lost
-    Pu2's declared off; `update_ig_range` and `update_ig_mode` write no Log
-    line when pressed on the rig's dock. Keep the gauges' modes, ranges
-    and off flags (and the sampling) in `~/.controlunit/` and restore them
-    at launch.
   - **A gauge switched off is seen as off.** Pd sat at its floor for 224 h
     and Pu2 for 132 h without being declared off, and Bd has been
     unplugged since 10-26 (recorded as about −3e-6 Torr). The Diagram's
@@ -176,10 +172,6 @@ holds what is still undecided or unbuilt.
   - **Readings at the ADC rail are marked.** Bu and Bd clip at ±1.254 V
     (`Gain: 1`): 8.1 h and 3.9 h in the period, recorded as readings.
     Whether to change the gain is queezz's.
-  - **No false "Reader lost" on a sampling change.** 10 s → 0.1 s at
-    10-23 15:48:51: the threshold changed at once while the reader slept
-    out its old 10 s; the file has no gap. Use the longer of the two until
-    the next sample, or wake the reader.
   - **Names in the Log can be stale.** The name cookie lasts 30 days on a
     shared PC: on 11-11 one browser took control as one person and stopped
     as another 10 s later. Ask for the name again at Take over, or shorten
