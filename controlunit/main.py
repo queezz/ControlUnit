@@ -1,4 +1,5 @@
 import argparse
+import contextlib
 import sys, datetime, os
 import threading
 import time
@@ -38,6 +39,9 @@ from controlunit.web.status import (
     dummy_hardware_loaded,
 )
 from controlunit.web import commands as web_commands
+# The gauges and the sampling time, as the screen last showed them; the
+# same plain standard library, kept in this machine's settings folder.
+from controlunit import screen_memory
 
 #: How often the main thread looks at when the last sample arrived.
 READER_CHECK_MS = 2000
@@ -73,6 +77,19 @@ class MainApp(QtCore.QObject, UIWindow):
     # Baselines exist before the first run does, so nothing has to ask
     # whether the dict is there yet.
     zero_adjustment = {"Ip": 0, "Bu": 0, "Bd": 0}
+    # Who is moving the screen's selectors when it is not a person: None
+    # for a hand on the dock, "restore" while the last run's settings are
+    # put back at launch, "web" while a browser's command is carried out.
+    # Class-level, because the selectors are connected before `__init__`
+    # gets this far.
+    _selector_mover = None
+    # What `screen_memory` last wrote, or found on disk at launch, so an
+    # unchanged screen costs no write.
+    _remembered = None
+    _remember_failed = False
+    # The longest sampling time since the last sample taken at the current
+    # one; None when no change is pending (see `_check_reader`).
+    _sampling_before_change = None
 
     sigAbortWorkers = QtCore.pyqtSignal()
     kikusui_message = QtCore.pyqtSignal(str)
@@ -105,8 +122,9 @@ class MainApp(QtCore.QObject, UIWindow):
         self.config = readsettings.init_configuration(verbose=True)
         self.datapath = self.config["Data Folder"]
         # The dock's combo is where the sampling time lives from here on:
-        # it starts at settings.yml's value, and every Start runs with what
-        # it shows (`_apply_screen_settings`), so the two never disagree.
+        # it starts at settings.yml's value, then at what the last run used
+        # once `_restore_screen` has run, and every Start runs with what it
+        # shows (`_apply_screen_settings`), so the two never disagree.
         index = self.settings_dock.samplingCb.findText(
             f"{float(self.config['Sampling Time']):g} s"
         )
@@ -151,6 +169,130 @@ class MainApp(QtCore.QObject, UIWindow):
 
         self.showMain()
         self.log_to_file(f"App started: {os.path.abspath(__file__)}")
+        # Before anybody can press Start: the selectors and the combo show
+        # what they showed when the program last ran, and the first Start's
+        # `_apply_screen_settings` carries that into the new workers.
+        self._restore_screen()
+
+    # MARK: Remembered screen
+    def _restore_screen(self):
+        """Put the gauges and the sampling time back as the last run had them.
+
+        A restart on 2026-11-11 at 16:47:15 brought both ion gauges back at
+        Torr and 1e-3 and forgot that Pu2 was declared off: for 18 s Pd_c
+        read 1.5e-3 Torr when the vessel was at about 1.5e-7, and the two
+        ranges were then set from a browser the wrong way round and put
+        right a minute later. The sampling time came back at settings.yml's
+        0.1 s the same way (the 4.29.1 deployment, 2026-10-21).
+
+        Selectors only: nothing is sent to a worker from here, and there is
+        none yet. A file that is missing, unreadable or not what this writes
+        leaves settings.yml's values, with one line in the Log saying so;
+        nothing about it may keep the window from opening.
+        """
+        applied = {"gauges": {}}
+        notes = []
+        try:
+            state, notes = screen_memory.read_screen()
+            if state is None:
+                self.log_message(
+                    "Gauges and sampling from settings.yml: nothing remembered"
+                    " from a last run ({})".format(notes[0])
+                )
+                return
+            with self._moving_selectors("restore"):
+                for gauge, entry in state["gauges"].items():
+                    if gauge not in self.control_dock.gauges:
+                        notes.append(gauge)
+                        continue
+                    mode_box, range_box = self.control_dock.gauges[gauge]
+                    index = mode_box.findText(entry["mode"])
+                    if index < 0:  # -1 would blank the box, not restore it
+                        notes.append(gauge)
+                        continue
+                    mode_box.setCurrentIndex(index)
+                    range_box.setValue(entry["range"])
+                    applied["gauges"][gauge] = entry
+                if "sampling_s" in state:
+                    combo = self.settings_dock.samplingCb
+                    index = combo.findText(
+                        web_commands.sampling_label(state["sampling_s"])
+                    )
+                    if index >= 0:
+                        combo.setCurrentIndex(index)
+                        applied["sampling_s"] = state["sampling_s"]
+                    else:
+                        notes.append("sampling")
+            self._remembered = state
+        except Exception as error:  # noqa: BLE001 -- a convenience never stops a start
+            self.log_message(
+                "Gauges and sampling from settings.yml: the last run's could"
+                " not be restored ({})".format(error)
+            )
+            return
+        finally:
+            # Whatever the combo shows now is the sampling, everywhere.
+            self.sampling = self._screen_sampling()
+            self.web_status.describe_run(
+                len(self.config["ADC Signal Names"]), self.sampling
+            )
+        said = screen_memory.describe(applied)
+        passed = "; passed over: " + ", ".join(notes) if notes else ""
+        if said:
+            self.log_message("Restored from the last run: " + said + passed)
+        else:
+            self.log_message(
+                "Gauges and sampling from settings.yml: nothing usable"
+                " remembered from a last run" + passed
+            )
+
+    def _screen_state(self):
+        """The gauges and the sampling time, as `screen_memory` keeps them.
+
+        The sampling is the one the program runs with, not whatever the
+        combo shows: a choice in the combo that was never Set is not what
+        the run used.
+        """
+        state = {
+            "gauges": {
+                gauge: {"mode": mode_box.currentText(), "range": range_box.value()}
+                for gauge, (mode_box, range_box) in self.control_dock.gauges.items()
+            }
+        }
+        sampling = getattr(self, "sampling", None)
+        if sampling is not None:
+            state["sampling_s"] = float(sampling)
+        return state
+
+    def _remember_screen(self):
+        """Write the screen's gauges and sampling for the next start, when
+        they changed. Never while the last ones are being put back: a start
+        writes nothing until something is set."""
+        if self._selector_mover == "restore":
+            return
+        state = self._screen_state()
+        if state == self._remembered:
+            return
+        if screen_memory.write_screen(state):
+            self._remembered = state
+            self._remember_failed = False
+        elif not self._remember_failed:
+            # Said once, not at every press, until a write succeeds again.
+            self._remember_failed = True
+            self.log_message(
+                "Gauges and sampling not saved for the next start: the"
+                " settings folder could not be written"
+            )
+
+    @contextlib.contextmanager
+    def _moving_selectors(self, who):
+        """The program, not a person, moves the screen's selectors inside."""
+        previous = self._selector_mover
+        self._selector_mover = who
+        try:
+            yield
+        finally:
+            self._selector_mover = previous
 
     # MARK: Web status
     # Unit per conversion function, for the web view's readouts. A channel
@@ -275,10 +417,10 @@ class MainApp(QtCore.QObject, UIWindow):
         # channel name to the updater, so the worker hears which gauge moved.
         for gauge, (mode_box, range_box) in self.control_dock.gauges.items():
             mode_box.currentIndexChanged.connect(
-                lambda _index, gauge=gauge: self.update_ig_mode(gauge)
+                lambda _index, gauge=gauge: self._gauge_selector_moved(gauge, "mode")
             )
             range_box.valueChanged.connect(
-                lambda _value, gauge=gauge: self.update_ig_range(gauge)
+                lambda _value, gauge=gauge: self._gauge_selector_moved(gauge, "range")
             )
         self.control_dock.FullNormSW.clicked.connect(self.fulltonormal)
         self.control_dock.OnOffSW.clicked.connect(self.__onoff)
@@ -374,9 +516,15 @@ class MainApp(QtCore.QObject, UIWindow):
             web_commands.release(self, "Remote switch off")
 
     def _drain_web_commands(self):
-        """Run what a browser queued, here on the thread that owns the workers."""
+        """Run what a browser queued, here on the thread that owns the workers.
+
+        A browser's gauge command moves the dock's selector to match, and its
+        own "Remote: …" line already says what was set and by whom; the line
+        `_gauge_selector_moved` writes is for a hand on the dock alone.
+        """
         try:
-            web_commands.drain(self)
+            with self._moving_selectors("web"):
+                web_commands.drain(self)
         except Exception as error:
             print(f"{RED}web command:{RESET} {error}")
 
@@ -452,6 +600,7 @@ class MainApp(QtCore.QObject, UIWindow):
         # "lost" on the strength of the previous run's last sample.
         self._last_sample_at = time.monotonic()
         self._reader_lost_since = None
+        self._sampling_before_change = None
         self.pi = pigpio.pi()
         self.define_devices()
         now = datetime.datetime.now()
@@ -634,6 +783,8 @@ class MainApp(QtCore.QObject, UIWindow):
         self.workers["ADC"]["worker"].set_sampling_time(seconds)
         self.web_status.describe_run(len(self.config["ADC Signal Names"]), seconds)
         self.log_message(f"Started with sampling {seconds:g} s")
+        # What this run uses is what the next program start puts back.
+        self._remember_screen()
 
     def _screen_sampling(self):
         """The sampling time the Settings dock's combo shows, in seconds."""
@@ -722,6 +873,7 @@ class MainApp(QtCore.QObject, UIWindow):
         self.terminate_existing_threads()
         self._last_sample_at = None
         self._reader_lost_since = None
+        self._sampling_before_change = None
         self.web_status.set_acquiring(False)
         # Nobody is left holding control of a rig that is not listening. The
         # Remote switch itself stays as the person at the rig set it: it is
@@ -952,9 +1104,9 @@ class MainApp(QtCore.QObject, UIWindow):
     def _adc_step(self, result):
         received = time.monotonic()
         device_name = result[-1]
-        self._note_sample_arrived()
         #  self.data_ready.emit([newdata, self.device_name])
         batch = result[0]
+        self._note_sample_arrived(batch.attrs.get('adc_period'))
         self.newdata[device_name] = batch
         emitted = batch.attrs.get('adc_emitted_at', received)
         period = batch.attrs.get('adc_period', 0.1)
@@ -1026,9 +1178,23 @@ class MainApp(QtCore.QObject, UIWindow):
         self.update_plots(device_name)
 
     # MARK: reader watchdog
-    def _note_sample_arrived(self):
+    def _note_sample_arrived(self, period=None):
         """A sample landed: the reader is alive, and if it had been given up
-        on, say it is back and how long the gap in the file is."""
+        on, say it is back and how long the gap in the file is.
+
+        `period` is the sampling time the reader took the delivery at (the
+        batch's `adc_period`). The allowance a sampling change bought ends
+        with the first delivery taken at the new time, not merely the first
+        to arrive: one the reader handed over just before the change, and
+        this thread reads just after it, says nothing about how long the
+        reader will now take. Unknown counts as the new time.
+        """
+        try:
+            taken_at_new = period is None or abs(float(period) - float(self.sampling)) < 1e-9
+        except (TypeError, ValueError):  # nothing here may keep a row from the file
+            taken_at_new = True
+        if taken_at_new:
+            self._sampling_before_change = None
         now = time.monotonic()
         if self._reader_lost_since is not None:
             gap = now - self._reader_lost_since
@@ -1054,7 +1220,24 @@ class MainApp(QtCore.QObject, UIWindow):
         if self._reader_lost_since is not None:
             return
         age = time.monotonic() - self._last_sample_at
-        if age <= reader_lost_after(self.sampling):
+        # Judged by the longer of the old and the new sampling time until a
+        # sample taken at the new one arrives. The reader takes a new time
+        # only when the period it is in has ended, and an averaged period
+        # runs to its end, so from 10 s to 0.1 s the next row can still be
+        # ten seconds away. Judged at once by the new, short line, a reader
+        # sleeping out its old period was called lost: 2026-10-23 15:48:51,
+        # "Reader lost: no sample for 7 s", while cu_20261023_154824.csv
+        # went from 15:48:44.31 to 15:48:54.31 without a gap. Resetting the
+        # clock at the change would not do: a change made just after a
+        # sample still leaves ten seconds to the next one, twice the short
+        # line, and a reader that had already stopped would be given a
+        # fresh start it never earned. Counted from the last sample, a
+        # reader silent through the change is still called lost, by the
+        # longer line.
+        judged_by = self.sampling
+        if self._sampling_before_change is not None:
+            judged_by = max(judged_by, self._sampling_before_change)
+        if age <= reader_lost_after(judged_by):
             return
         self._reader_lost_since = self._last_sample_at
         self.log_message(
@@ -1353,6 +1536,43 @@ class MainApp(QtCore.QObject, UIWindow):
             return
         self.workers["ADC"]["worker"].set_ig_range_signal.emit(gauge, value)
 
+    def _gauge_selector_moved(self, gauge, what):
+        """One of the dock's gauge selectors moved: tell the worker and, when
+        it was a person's hand on the dock, say so in the Log.
+
+        A press on the rig's own screen used to leave no line at all; only a
+        browser's did ("Remote: … Pd range -7"). The presses of 2026-11-02
+        16:36:44 and 16:37:04, and of 2026-11-11 16:44:19, 16:45:59, 16:46:09
+        and 16:49:09, are seen only in the file's IGmode and IGscale columns.
+        The line uses the browser's own words for the same setting, without
+        its "Remote: who:", as the dock's other lines do.
+
+        Not when the program moved the selector itself: putting the last
+        run's settings back at launch, or carrying out a browser's command,
+        which logs its own line. Start's push into fresh workers
+        (`_apply_screen_settings`) calls the updaters directly and never
+        comes through here.
+
+        Whoever moved it, the screen is remembered for the next start
+        (`_remember_screen`), except while it is being put back.
+        """
+        if what == "mode":
+            self.update_ig_mode(gauge)
+        else:
+            self.update_ig_range(gauge)
+        # A browser's command moves the selector too, so this one write
+        # covers both; a value set to what it already was moves nothing.
+        self._remember_screen()
+        if self._selector_mover is not None:
+            return
+        mode_box, range_box = self.control_dock.gauges[gauge]
+        value = {"gauge": gauge}
+        if what == "mode":
+            value["mode"] = mode_box.currentText()
+        else:
+            value["range"] = range_box.value()
+        self.log_message(web_commands.summarise("gauge", value))
+
     @QtCore.pyqtSlot()
     def __set_gain(self):
         """
@@ -1393,11 +1613,19 @@ class MainApp(QtCore.QObject, UIWindow):
         index = self.settings_dock.samplingCb.findText(f"{value:g} s")
         if index >= 0:
             self.settings_dock.samplingCb.setCurrentIndex(index)
+        previous = float(self.sampling)
         self.sampling = value
+        if value != previous:
+            # The watchdog keeps the longest time in force since the last
+            # sample taken at the current one (`_check_reader`).
+            self._sampling_before_change = max(
+                previous, self._sampling_before_change or 0.0
+            )
         self.update_plot_timewindow()
         self.workers["ADC"]["worker"].set_sampling_time(value)
         self.web_status.describe_run(len(self.config["ADC Signal Names"]), value)
         self.log_message(f"ADC sampling set to {value}")
+        self._remember_screen()
 
     @QtCore.pyqtSlot()
     def set_cathode_drive(self):
