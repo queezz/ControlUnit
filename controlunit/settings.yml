@@ -1,4 +1,4 @@
-Settings Version: 1.7
+Settings Version: 1.8
 # Define your local settings in
 # localsettings = os.path.join(os.path.expanduser('~'),'.controlunit', 'settings.yml')
 # ~/.controlunit/settings.yml
@@ -87,6 +87,15 @@ Temperature Columns:
 # and a new one read the same. An "Ionization Gauge" channel may also carry
 # a Place, the word for where it sits (e.g. "upstream", "downstream"), shown
 # beside its short name on the Control dock and the web Gauges card.
+#
+# An "Ionization Gauge" channel may also name its Diagram Element, the id the
+# PIHTI Diagram (the vacuum diagram on the same Pi) gives that gauge. Its mode
+# then follows what operators record there: switched off in the Diagram, the
+# gauge is declared Off here; switched on, it goes back to Torr or Pa. Only a
+# change in the Diagram moves it, so a press on the dock or in a browser holds
+# until the Diagram changes again. A gauge without the key is not followed.
+# (queezz, 2026-11-13: "Gauge left off, maybe we sync from the journal? Why
+# should we turn that off twice??")
 
 ADC Channels:
   Ip:
@@ -123,6 +132,7 @@ ADC Channels:
     Mode Column: "IGmode"
     Scale Column: "IGscale"
     Place: "downstream"
+    Diagram Element: "downstream-ionization-gauge"
   Pu2:
     Channel: 16
     Gain: 10
@@ -131,6 +141,8 @@ ADC Channels:
     Mode Column: "IGmode_Pu2"
     Scale Column: "IGscale_Pu2"
     Place: "upstream"
+    # The Diagram labels this id "Upstream ionization gauge".
+    Diagram Element: "bypass-ionization-gauge"
   Bu:
     Channel: 20
     Gain: 1

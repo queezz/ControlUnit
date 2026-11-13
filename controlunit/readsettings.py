@@ -127,6 +127,24 @@ def ion_gauge_places(config):
     }
 
 
+def gauge_diagram_elements(config):
+    """The ionization gauges the PIHTI Diagram's on/off is followed for,
+    name -> the Diagram's element id, in settings order.
+
+    Works on the raw settings as well as the initialised configuration, like
+    `ion_gauge_places`. A gauge with no `Diagram Element`, or one that is not
+    a word, is left out: it is not followed.
+    """
+    elements = {}
+    for name, channel in config["ADC Channels"].items():
+        if channel["Conversion Function"] != "Ionization Gauge":
+            continue
+        element = channel.get("Diagram Element")
+        if isinstance(element, str) and element.strip():
+            elements[name] = element.strip()
+    return elements
+
+
 def check_logfile(config):
     folder = config["Data Folder"]
     logname = config["Log File"]

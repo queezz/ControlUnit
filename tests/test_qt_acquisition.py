@@ -722,3 +722,371 @@ def test_hold_hands_the_cathode_to_the_hand_at_the_loop_s_drive(qt_app, home):
         assert "Cathode drive set to 2211 mV, PID off" in widget.web_status.log_since(0)["lines"][-1]["text"]
     finally:
         widget.abort_all_threads()
+
+
+# -- the gauges follow the PIHTI Diagram (queezz, 2026-11-13) ----------------
+#
+# "Gauge left off, maybe we sync from the journal? Why should we turn that
+# off twice??" These drive `_follow_diagram` with answers already fetched,
+# as the follower's timer slot does; the asking itself, on its own thread,
+# is in test_diagram_follower.py, and one test below runs it end to end
+# against a stand-in Diagram on this machine's loopback.
+
+DIAGRAM_PD = "downstream-ionization-gauge"
+DIAGRAM_PU2 = "bypass-ionization-gauge"
+
+
+def _diagram(pd="active", pu2="active"):
+    return {DIAGRAM_PD: pd, DIAGRAM_PU2: pu2, "turbo-pump": "active"}
+
+
+def _count(widget, text):
+    return sum(1 for line in _log_of(widget) if text in line)
+
+
+def test_a_gauge_follows_the_diagram_off_and_back_to_the_mode_it_had(qt_app, home):
+    from controlunit import screen_memory
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        pu2_mode, _ = widget.control_dock.gauges["Pu2"]
+        pd_mode, _ = widget.control_dock.gauges["Pd"]
+        pu2_mode.setCurrentIndex(1)  # Pa, by hand on the dock
+        lines = len(_log_of(widget))
+
+        # The first answer: both on, both already reading; nothing to do.
+        widget._follow_diagram(_diagram())
+        assert len(_log_of(widget)) == lines
+
+        widget._follow_diagram(_diagram(pu2="inactive"))
+        assert pu2_mode.currentText() == "Off"
+        assert pd_mode.currentText() == "Torr"
+        off = "Pu2 declared off: the Diagram shows the upstream ion gauge off"
+        assert _log_of(widget)[-1] == off
+        # One line, the Diagram's: not also the dock-press line.
+        assert _count(widget, "Pu2 declared off") == 1
+        assert widget.web_status.read()["setpoints"]["gauges"]["Pu2"]["mode"] == "Off"
+        assert screen_memory.read_screen()[0]["gauges"]["Pu2"]["mode"] == "Off"
+
+        # Polls that say the same say nothing.
+        for _ in range(3):
+            widget._follow_diagram(_diagram(pu2="inactive"))
+        assert _count(widget, "Pu2 declared off") == 1
+
+        widget._follow_diagram(_diagram())
+        assert pu2_mode.currentText() == "Pa"
+        assert _log_of(widget)[-1] == (
+            "Pu2 in Pa: the Diagram shows the upstream ion gauge on")
+        assert widget.web_status.read()["setpoints"]["gauges"]["Pu2"]["mode"] == "Pa"
+        assert screen_memory.read_screen()[0]["gauges"]["Pu2"]["mode"] == "Pa"
+
+        # A gauge never seen reading in anything else comes back in Torr.
+        widget._follow_diagram(_diagram(pd="inactive"))
+        widget._follow_diagram(_diagram())
+        assert pd_mode.currentText() == "Torr"
+        assert _log_of(widget)[-1] == (
+            "Pd in Torr: the Diagram shows the downstream ion gauge on")
+    finally:
+        widget.abort_all_threads()
+
+
+def test_the_first_answer_after_launch_takes_the_diagram_s_word(qt_app, home):
+    """A gauge switched off while the program was down comes back declared
+    off, whatever the remembered screen said."""
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        widget._follow_diagram(_diagram(pd="inactive"))
+        assert widget.control_dock.gauges["Pd"][0].currentText() == "Off"
+        assert widget.control_dock.gauges["Pu2"][0].currentText() == "Torr"
+        # Start carries the Diagram's word into the worker.
+        widget.start_acquisition()
+        assert widget.workers["ADC"]["worker"]._gauge_settings["Pd"]["mode"] == 2
+    finally:
+        widget.abort_all_threads()
+
+
+def test_a_press_after_the_diagram_s_change_holds_until_it_changes_again(qt_app, home):
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        pd_mode, _ = widget.control_dock.gauges["Pd"]
+        widget._follow_diagram(_diagram(pd="inactive"))
+        assert pd_mode.currentText() == "Off"
+
+        pd_mode.setCurrentIndex(0)  # a hand on the dock: Torr
+        assert _log_of(widget)[-1] == "Pd in Torr"
+        for _ in range(3):
+            widget._follow_diagram(_diagram(pd="inactive"))
+        assert pd_mode.currentText() == "Torr"
+
+        # The Diagram turns it on: it already reads, so nothing moves.
+        lines = len(_log_of(widget))
+        widget._follow_diagram(_diagram())
+        assert pd_mode.currentText() == "Torr"
+        assert len(_log_of(widget)) == lines
+
+        # And off again is a change again.
+        widget._follow_diagram(_diagram(pd="inactive"))
+        assert pd_mode.currentText() == "Off"
+    finally:
+        widget.abort_all_threads()
+
+
+def test_an_unreachable_or_unreadable_diagram_changes_nothing_and_says_so_once(qt_app, home):
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        pd_mode, _ = widget.control_dock.gauges["Pd"]
+        widget._follow_diagram(_diagram())
+        for _ in range(4):
+            widget._follow_diagram(None, "no answer within two seconds")
+        assert pd_mode.currentText() == "Torr"
+        assert _count(widget, "Gauges not following the Diagram") == 1
+        assert _log_of(widget)[-1] == (
+            "Gauges not following the Diagram: no answer within two seconds;"
+            " gauge modes left as they are")
+
+        widget._follow_diagram(_diagram(pd="inactive"))
+        assert _count(widget, "Gauges following the Diagram again") == 1
+        assert pd_mode.currentText() == "Off"
+
+        # Malformed: not the states at all. Nothing moves; one line.
+        widget._follow_diagram(["downstream-ionization-gauge"])
+        widget._follow_diagram("<html>")
+        assert pd_mode.currentText() == "Off"
+        assert _count(widget, "Gauges not following the Diagram") == 2
+    finally:
+        widget.abort_all_threads()
+
+
+def test_an_unmapped_gauge_is_not_followed(qt_app, home):
+    from controlunit import diagram_follower
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        # As a rig whose settings give Pu2 no Diagram Element.
+        widget._gauge_following = diagram_follower.GaugeFollowing({"Pd": DIAGRAM_PD})
+        widget._follow_diagram(_diagram(pd="inactive", pu2="inactive"))
+        assert widget.control_dock.gauges["Pd"][0].currentText() == "Off"
+        assert widget.control_dock.gauges["Pu2"][0].currentText() == "Torr"
+    finally:
+        widget.abort_all_threads()
+
+
+def test_no_address_means_no_follower_and_one_line(qt_app, home):
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        assert widget._diagram_follower is None
+        assert _count(widget, "Gauges do not follow the Diagram: this machine has"
+                              " no address for pihti-diagram") == 1
+        assert widget._stop_diagram_follower() is True
+    finally:
+        widget.abort_all_threads()
+
+
+def test_dummy_hardware_never_asks_the_rig_s_diagram(qt_app, home):
+    from controlunit.main import MainApp
+
+    folder = home / ".controlunit"
+    folder.mkdir()
+    (folder / "neighbours.yml").write_text(
+        "pihti-diagram:\n  url: http://pihti:5000\n", encoding="utf-8")
+    widget = MainApp(qt_app)
+    try:
+        assert widget._diagram_follower is None
+        assert _count(widget, "dummy hardware never asks a Diagram on another"
+                              " machine (http://pihti:5000)") == 1
+    finally:
+        widget.abort_all_threads()
+
+
+def test_the_follower_runs_end_to_end_off_the_main_thread_and_stops(qt_app, home, monkeypatch):
+    """neighbours.yml -> the follower's thread -> a stand-in Diagram on
+    loopback -> the main thread's timer -> the dock's selector."""
+    import http.server
+    import json
+    import threading
+    import time
+
+    from controlunit import diagram_follower
+    from controlunit.main import MainApp
+
+    body = {"answer": json.dumps(_diagram(pd="inactive")).encode()}
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802 -- http.server's own name
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(body["answer"])
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(
+        target=server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True
+    ).start()
+    url = "http://127.0.0.1:{}".format(server.server_address[1])
+    folder = home / ".controlunit"
+    folder.mkdir()
+    (folder / "neighbours.yml").write_text(
+        "pihti-diagram:\n  url: {}\n".format(url), encoding="utf-8")
+
+    asked_from = []
+    real_fetch = diagram_follower.fetch_elements_state
+
+    def recording_fetch(address, timeout=diagram_follower.TIMEOUT_SECONDS):
+        asked_from.append(threading.current_thread())
+        return real_fetch(address, timeout)
+
+    monkeypatch.setattr(diagram_follower, "fetch_elements_state", recording_fetch)
+    monkeypatch.setattr(diagram_follower, "POLL_SECONDS", 0.05)
+    monkeypatch.setattr("controlunit.main.DIAGRAM_CHECK_MS", 20)
+
+    def settle(predicate, seconds=5):
+        deadline = time.monotonic() + seconds
+        while time.monotonic() < deadline:
+            qt_app.processEvents()
+            if predicate():
+                return True
+            time.sleep(0.01)
+        return False
+
+    widget = MainApp(qt_app)
+    pd_mode, _ = widget.control_dock.gauges["Pd"]
+    try:
+        follower = widget._diagram_follower
+        assert follower is not None and follower.thread.is_alive()
+        assert _count(widget, "Gauges follow the Diagram's on and off at " + url) == 1
+        assert settle(lambda: pd_mode.currentText() == "Off")
+        body["answer"] = json.dumps(_diagram()).encode()
+        assert settle(lambda: pd_mode.currentText() == "Torr")
+        assert _count(widget, "Pd declared off: the Diagram shows") == 1
+        assert _count(widget, "Pd in Torr: the Diagram shows") == 1
+    finally:
+        stopped = widget._stop_diagram_follower()
+        widget.abort_all_threads()
+        server.shutdown()
+        server.server_close()
+    assert stopped
+    assert not widget._diagram_follower.thread.is_alive()
+    assert not widget.diagram_timer.isActive()
+    assert asked_from
+    assert threading.main_thread() not in asked_from
+
+
+# -- a recorded switch held against the gauge's own volts ---------------------
+
+
+def _history_around(edge, pd_volts, seconds=(-60, 120)):
+    """A run history of one row a second around `edge`, as the window keeps
+    it, with Pd's raw volts from `pd_volts(t)` and a live Pu2."""
+    import datetime
+
+    import pandas as pd
+
+    from controlunit.history import RunHistory
+
+    offsets = range(seconds[0], seconds[1] + 1)
+    history = RunHistory()
+    history.append(pd.DataFrame({
+        "date": pd.to_datetime([edge + datetime.timedelta(seconds=t) for t in offsets]),
+        "Pd": [pd_volts(t) for t in offsets],
+        "Pu2": [2.0 for _ in offsets],
+    }))
+    return history
+
+
+def test_a_recorded_off_the_signal_does_not_show_leaves_one_red_line(qt_app, home):
+    """queezz, 2026-11-13: "When the diagram says the gauge is off, but the
+    signal doesn't change, we should warn." The Diagram's edge is the
+    trigger, the raw column the check, and the gauge keeps the Diagram's
+    word either way."""
+    import datetime
+
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        widget.start_acquisition()
+        # An hour ago, so the dummy's own rows could not fall in the window
+        # even if one were delivered (none is: no events are processed).
+        edge = datetime.datetime.now() - datetime.timedelta(hours=1)
+        widget.datadict["ADC"] = _history_around(edge, lambda t: 1.53)
+        widget._follow_diagram(_diagram(pd="inactive"), at=edge)
+        assert widget.control_dock.gauges["Pd"][0].currentText() == "Off"
+        assert set(widget._switch_checks) == {"Pd", "Pu2"}
+
+        widget._check_gauge_switches(now=edge + datetime.timedelta(seconds=30))
+        # Pu2's first "on" is confirmed by its live 2 V and dropped in
+        # silence; Pd's "off" waits for the end of its window.
+        assert set(widget._switch_checks) == {"Pd"}
+        widget._check_gauge_switches(now=edge + datetime.timedelta(seconds=91))
+        warning = (
+            "Pd: the Diagram shows the downstream ion gauge off, but Pd still"
+            " reads 1.53 V, a live gauge's signal; is its controller still on,"
+            " or was another gauge recorded?")
+        assert _log_of(widget)[-1] == warning
+        widget._check_gauge_switches(now=edge + datetime.timedelta(seconds=200))
+        assert _count(widget, warning) == 1
+        assert widget._switch_checks == {}
+        assert widget.control_dock.gauges["Pd"][0].currentText() == "Off"
+    finally:
+        widget.abort_all_threads()
+
+
+def test_a_recorded_off_the_signal_shows_says_nothing(qt_app, home):
+    import datetime
+
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        widget._follow_diagram(_diagram())
+        widget.start_acquisition()
+        edge = datetime.datetime.now() - datetime.timedelta(hours=1)
+        # Switched off at the controller 50 s before it was recorded.
+        widget.datadict["ADC"] = _history_around(edge, lambda t: 1.5 if t < -50 else 0.002)
+        widget._follow_diagram(_diagram(pd="inactive"), at=edge)
+        lines = len(_log_of(widget))
+        widget._check_gauge_switches(now=edge + datetime.timedelta(seconds=5))
+        assert widget._switch_checks == {}
+        widget._check_gauge_switches(now=edge + datetime.timedelta(seconds=91))
+        assert len(_log_of(widget)) == lines
+    finally:
+        widget.abort_all_threads()
+
+
+def test_a_switch_is_checked_only_while_a_run_records_and_ends_with_it(qt_app, home):
+    import datetime
+
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        # Not recording: nothing to check, and nothing is held.
+        widget._follow_diagram(_diagram(pd="inactive"))
+        assert widget._switch_checks == {}
+
+        widget.start_acquisition()
+        edge = datetime.datetime.now() - datetime.timedelta(hours=1)
+        widget.datadict["ADC"] = _history_around(edge, lambda t: 0.002)
+        widget._follow_diagram(_diagram(), at=edge)
+        assert set(widget._switch_checks) == {"Pd"}
+        # Stop drops it: the run that would have answered it is over.
+        widget.stop_acquisition()
+        assert widget._switch_checks == {}
+        widget.start_acquisition()
+        widget._check_gauge_switches(now=edge + datetime.timedelta(seconds=91))
+        assert _count(widget, "the Diagram shows the downstream ion gauge on, but") == 0
+    finally:
+        widget.abort_all_threads()

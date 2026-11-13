@@ -35,6 +35,9 @@ class AdcChannelProps:
         # Where an ionization gauge sits, e.g. "upstream"; None when the
         # settings give it none.
         self.place = kws.get("Place", None)
+        # The PIHTI Diagram's id for an ionization gauge, whose on and off
+        # its mode follows; None for a gauge that is not followed.
+        self.diagram_element = kws.get("Diagram Element", None)
         self.set_conversion_function()
         self.gain = None
 

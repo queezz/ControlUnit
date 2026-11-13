@@ -88,8 +88,31 @@ lost its "declared off". Outputs are never kept there.
 
 A gauge press on the rig's own dock is logged in the browser's words for
 the same setting ("Pd range -7", "Pu2 declared off"); restoring at launch,
-the Start-time push and a browser's command (which logs its own "Remote: …"
-line) are not.
+the Start-time push, a browser's command (which logs its own "Remote: …"
+line) and the Diagram's word (below, which logs its own) are not.
+
+The ion gauges follow the PIHTI Diagram's on and off
+(`controlunit/diagram_follower.py`; queezz, 2026-11-13: "Why should we turn
+that off twice??"). The asking runs on a Python daemon thread of its own,
+`diagram-follower`, started at the end of `MainApp.__init__` when a gauge in
+`settings.yml` names a `Diagram Element` and the neighbours file gives the
+Diagram an address. Every 10 s it asks the Diagram's `/elements-state` with
+a 2 s timeout and keeps only the newest answer behind a lock; it never
+touches Qt, a worker or the ADC, and the reader never waits on it. The main
+thread takes that answer on `diagram_timer`, a 3 s `QTimer`, and acts only
+on a gauge whose word changed since the last answer: it moves the dock's
+mode selector inside `_moving_selectors("diagram")`, so the selector's own
+signal tells the worker, the web status and `screen.json`, exactly as a
+browser's gauge command does. Silence or an answer that is not the states
+changes nothing, with one Log line when following stops and one when it
+resumes. Dummy hardware asks only a Diagram on its own loopback.
+
+The same timer settles the checks of a recorded switch against the gauge's
+own raw volts ("When the diagram says the gauge is off, but the signal
+doesn't change, we should warn"). They read the raw column of the window's
+own `RunHistory` (`self.datadict["ADC"]`) on the main thread, never the
+ADC; a switch is held only while a run records, and Stop drops a pending
+one with the run that would have answered it.
 
 ```mermaid
 flowchart LR
@@ -208,6 +231,15 @@ sequenceDiagram
 This sequence is the product of being bitten: `_mfc_presets` is zeroed in
 multiple places, and `turn_off_voltages` is callable any time including before
 workers are started. The hardware stop always precedes the software stop.
+
+The Diagram follower is the program's, not a run's: Stop and Start leave it
+asking. It stops on `QApplication.aboutToQuit` (`_stop_diagram_follower`),
+which stops `diagram_timer`, sets the follower's stop event and joins its
+thread for at most half a second. By then any Stop has already zeroed the
+outputs (Quit is disabled while acquiring), and the follower holds no
+device, file or open socket between asks, so nothing in the hardware-first
+order waits on it; a thread still inside its one request is a daemon and
+ends with the interpreter.
 
 `thread.wait()` lasts as long as the worker takes to notice its abort flag.
 The ADC and thermocouple loops used to sleep one whole sampling period

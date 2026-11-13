@@ -20,8 +20,8 @@ Do not expect hardware build notes here.
 | `Ip` | Plasma current | Hall-effect sensor on channel 0, on the preanode supply's wire (owner statement 2026-10-07: "plasma current IS preanode current presently"): `25 * (Ip / Vhall - 0.4961) A`; supply-corrected since 4.22.0, with the existing provisional 5 A/V sensitivity at 5 V. Against that supply's panel it reads about 0.70 (0.60 A for 0.9 A on 2026-10-02, 1.54 for 2.2 A on 2026-10-05, a flat 3.53 A where the supply limited at 5 A on 2026-10-06), so the true sensitivity is nearer 7 A/V until the known-current calibration says the number. The resting ratio was the ideal 0.5 until 4.22.2 (files up to 2026-10-02 read 0.098 A low); each file's header carries the formula it was written with. |
 | `Vhall` | Hall supply reference | Channel 1, read immediately after `Ip`, 10 V range (the 5 V range clips at 5.0176 V). Raw volts retained for diagnosis; no additional display or curve. |
 | `Pu` | Upstream pressure | Pfeiffer single gauge PKR251 (currently operating in Pirani mode — cold-cathode discharge not igniting) |
-| `Pd` | Downstream pressure | Ionization gauge, with `Place: "downstream"` in the settings for the Control dock and the web Gauges card to show beside its short name. Its controller's mode (0 Torr linear, 1 Pa log, or 2 off — the gauge switched off at its controller and declared so on the Control dock or the web Ion gauges card, when the raw volts are kept and `Pd_c` is NaN) and exponent are recorded per row as `IGmode` and `IGscale`, the columns the file has always had. |
-| `Pu2` | Upstream pressure | Second ionization gauge, wired to channel 16 on 2026-09-15, with its own selector on the Control dock and the web Control tab, and `Place: "upstream"` in the settings for both to show beside its short name. Its mode (the same three codes as `Pd`'s) and exponent are recorded per row as `IGmode_Pu2` and `IGscale_Pu2`, appended after the original columns so nothing an old reader counts on moves. |
+| `Pd` | Downstream pressure | Ionization gauge, with `Place: "downstream"` in the settings for the Control dock and the web Gauges card to show beside its short name. Its controller's mode (0 Torr linear, 1 Pa log, or 2 off — the gauge switched off at its controller and declared so on the Control dock or the web Ion gauges card, when the raw volts are kept and `Pd_c` is NaN) and exponent are recorded per row as `IGmode` and `IGscale`, the columns the file has always had. Its on and off follow the PIHTI Diagram's `downstream-ionization-gauge` (`Diagram Element` in the settings; see [below](#gauges-follow-the-diagram)). |
+| `Pu2` | Upstream pressure | Second ionization gauge, wired to channel 16 on 2026-09-15, with its own selector on the Control dock and the web Control tab, and `Place: "upstream"` in the settings for both to show beside its short name. Its mode (the same three codes as `Pd`'s) and exponent are recorded per row as `IGmode_Pu2` and `IGscale_Pu2`, appended after the original columns so nothing an old reader counts on moves. Its on and off follow the PIHTI Diagram's `bypass-ionization-gauge`, which the Diagram labels "Upstream ionization gauge". |
 | `Bu` | Upstream Baratron | MKS 627, FS = 1 Torr |
 | `Bd` | Downstream Baratron | MKS 628B, FS = 0.1 Torr |
 | `MFC1` | H₂ flow | 20 SCCM range |
@@ -30,6 +30,53 @@ Do not expect hardware build notes here.
 | `Cv` | Cathode voltage | Same as `Ci` — prepared but not deployed |
 | `T` | Membrane temperature | Now read off-Pi (NI on Windows). Channel definition remains. |
 | `QMS_signal` | Sync trigger state | Boolean — logs whether GPIO sync is active during each row |
+
+## Gauges follow the Diagram
+
+queezz, 2026-11-13: "Gauge left off, maybe we sync from the journal? Why
+should we turn that off twice??" The audit of the student runs of
+2026-10-22 to 11-13 found `Pd` switched off at its controller for 224 h and
+`Pu2` for 132 h without being declared off here, so the file kept the
+floor's noise as pressure; every one of those switches had been recorded
+in the PIHTI Diagram, the vacuum diagram on the same Pi.
+
+An ion gauge with a `Diagram Element` in `settings.yml` (Settings Version
+1.8) follows that element's on and off as operators record it there. The
+program asks the Diagram's `/elements-state` every 10 s, at the
+`pihti-diagram` address of the machine's neighbours file, the one the Lab
+board probes:
+
+- **Off in the Diagram**: the gauge is declared Off (mode 2, raw volts
+  kept, converted value NaN), with a Log line such as "Pd declared off: the
+  Diagram shows the downstream ion gauge off".
+- **On in the Diagram**: a gauge that is Off goes back to the mode it read
+  in before (Torr when the program never saw it read), "Pd in Torr: the
+  Diagram shows the downstream ion gauge on". One already in Torr or Pa is
+  left as it is.
+- **Only a change moves it.** The first answer after a launch counts as one,
+  so the program starts with the Diagram's word; after that a press on the
+  dock or in a browser holds until the Diagram itself changes again.
+- **No answer changes nothing.** One Log line says the gauges are not
+  following the Diagram, and why; one more says when they follow again. A
+  mapped element missing from an answer is not read as off (the Diagram
+  itself would read it so): a renamed id there must not declare a working
+  gauge off here.
+- **The signal is the check.** queezz, the same day: "When the diagram says
+  the gauge is off, but the signal doesn't change, we should warn." While a
+  run records, each recorded switch is held against the gauge's raw volts:
+  off is confirmed when they sit within 10 mV of zero for 5 s, on when they
+  stay above that as long, anywhere from 60 s before the switch was seen to
+  90 s after it (operators record a switch up to about a minute either side
+  of flipping it; a controller losing power swung to -1.56 V and took about
+  15 s to settle on 2026-10-07). A switch the signal does not show leaves
+  one red line, "Pd: the Diagram shows the downstream ion gauge off, but Pd
+  still reads 1.53 V, a live gauge's signal; is its controller still on, or
+  was another gauge recorded?", and the gauge keeps the Diagram's word. The
+  signal is never used to decide on or off by itself.
+
+The dummy hardware asks only a Diagram on its own machine (`127.0.0.1`,
+`localhost`), never the rig's. See the
+[threading notes](../architecture/qt-threading.md) for where the asking runs.
 
 ## Hall supply correction (4.22.0)
 

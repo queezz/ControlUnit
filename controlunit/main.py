@@ -42,9 +42,16 @@ from controlunit.web import commands as web_commands
 # The gauges and the sampling time, as the screen last showed them; the
 # same plain standard library, kept in this machine's settings folder.
 from controlunit import screen_memory
+# The ion gauges' on and off, as operators record it in the PIHTI Diagram.
+from controlunit import diagram_follower
 
 #: How often the main thread looks at when the last sample arrived.
 READER_CHECK_MS = 2000
+
+#: How often the main thread takes the Diagram's newest answer and looks at
+#: the switches it is checking. The Diagram is asked every ten seconds on a
+#: thread of its own (`diagram_follower.POLL_SECONDS`); this only picks up.
+DIAGRAM_CHECK_MS = 3000
 
 
 def reader_lost_after(sampling):
@@ -79,10 +86,19 @@ class MainApp(QtCore.QObject, UIWindow):
     zero_adjustment = {"Ip": 0, "Bu": 0, "Bd": 0}
     # Who is moving the screen's selectors when it is not a person: None
     # for a hand on the dock, "restore" while the last run's settings are
-    # put back at launch, "web" while a browser's command is carried out.
+    # put back at launch, "web" while a browser's command is carried out,
+    # "diagram" while a gauge follows the PIHTI Diagram's on or off.
     # Class-level, because the selectors are connected before `__init__`
     # gets this far.
     _selector_mover = None
+    # Each gauge's last mode that read pressure (Torr or Pa), so a gauge the
+    # Diagram turns back on reads as it did before it was off. Built on the
+    # first move, for the same reason as the mover.
+    _reading_modes = None
+    # The Diagram's follower and the main thread's memory of its word; both
+    # stay None on a machine that does not follow it.
+    _diagram_follower = None
+    _gauge_following = None
     # What `screen_memory` last wrote, or found on disk at launch, so an
     # unchanged screen costs no write.
     _remembered = None
@@ -173,6 +189,16 @@ class MainApp(QtCore.QObject, UIWindow):
         # what they showed when the program last ran, and the first Start's
         # `_apply_screen_settings` carries that into the new workers.
         self._restore_screen()
+        # The Diagram's recorded switches still being held against each
+        # gauge's own volts: gauge -> `diagram_follower.SwitchCheck`.
+        self._switch_checks = {}
+        # Then the Diagram's word, which outranks the remembered screen: its
+        # first answer is a change from not knowing, so a gauge an operator
+        # switched off while the program was down comes back declared off.
+        self._start_diagram_follower()
+        # The follower is the program's, not a run's: it lives across Stop
+        # and Start, and ends with the program, after anything a Stop did.
+        self.__app.aboutToQuit.connect(self._stop_diagram_follower)
 
     # MARK: Remembered screen
     def _restore_screen(self):
@@ -293,6 +319,200 @@ class MainApp(QtCore.QObject, UIWindow):
             yield
         finally:
             self._selector_mover = previous
+
+    # MARK: The Diagram's gauges
+    def _start_diagram_follower(self):
+        """Follow the PIHTI Diagram's on and off for the mapped gauges.
+
+        The audit of the student runs of 2026-10-22 to 11-13 found Pd off
+        at its controller for 224 h and Pu2 for 132 h without being declared
+        off here, so the file kept the floor's noise as pressure, while
+        every one of those switches was recorded in the Diagram. queezz,
+        2026-11-13: "Why should we turn that off twice??"
+
+        Which gauge is which element is settings.yml's `Diagram Element`;
+        where the Diagram answers is this machine's neighbours file, the
+        address the Lab board already asks. The asking happens on the
+        follower's own daemon thread (`diagram_follower`), never here and
+        never in the reader; this thread picks the newest answer up on a
+        timer. One line says whether the gauges follow, and why not.
+
+        Dummy hardware asks only a Diagram on this machine itself: a laptop
+        checking the view must never read, and so never act on, the rig's.
+        """
+        elements = {
+            gauge: element
+            for gauge, element in readsettings.gauge_diagram_elements(self.config).items()
+            if gauge in self.control_dock.gauges
+        }
+        self._gauge_following = diagram_follower.GaugeFollowing(elements)
+        if not elements:
+            return
+        url = diagram_follower.diagram_url()
+        if url is None:
+            self.log_message(
+                "Gauges do not follow the Diagram: this machine has no address"
+                " for {} in its neighbours file".format(diagram_follower.DIAGRAM_ALIAS)
+            )
+            return
+        if dummy_hardware_loaded() and not diagram_follower.is_loopback(url):
+            self.log_message(
+                "Gauges do not follow the Diagram: dummy hardware never asks"
+                " a Diagram on another machine ({})".format(url)
+            )
+            return
+        follower = diagram_follower.DiagramFollower(url)
+        follower.start()
+        self._diagram_follower = follower
+        self.diagram_timer = QtCore.QTimer(self)
+        self.diagram_timer.timeout.connect(self._check_diagram)
+        self.diagram_timer.start(DIAGRAM_CHECK_MS)
+        self.log_message(
+            "Gauges follow the Diagram's on and off at {}: {}".format(
+                url,
+                ", ".join(
+                    "{} ({})".format(gauge, element) for gauge, element in elements.items()
+                ),
+            )
+        )
+
+    def _stop_diagram_follower(self):
+        """End the follower with the program; True once its thread is gone.
+
+        It holds no device and no file, so nothing about the hardware-first
+        order waits on it: by the time the program quits, a Stop has already
+        zeroed the outputs (Quit is disabled while acquiring). Its stop waits
+        at most `diagram_follower.STOP_WAIT_SECONDS`, and a thread still in
+        its one request then is a daemon the interpreter ends.
+        """
+        timer = getattr(self, "diagram_timer", None)
+        if timer is not None:
+            timer.stop()
+        follower = self._diagram_follower
+        if follower is None:
+            return True
+        return follower.stop()
+
+    def _check_diagram(self):
+        """The timer's slot: the Diagram's newest answer, then the checks.
+
+        Nothing raised here may reach Qt, which would end the program.
+        """
+        try:
+            follower = self._diagram_follower
+            answer = follower.take() if follower is not None else None
+            if answer is not None:
+                self._follow_diagram(answer.states, answer.reason, answer.at)
+            self._check_gauge_switches()
+        except Exception as error:  # noqa: BLE001 -- a convenience never stops the rig
+            print(f"{RED}diagram:{RESET} {error}")
+
+    def _follow_diagram(self, states, reason="", at=None):
+        """Take one answer the follower already fetched: the Diagram's
+        `{element: "active" | "inactive"}`, or None and why there was none.
+
+        Only a gauge whose word changed since the last answer is touched
+        (`GaugeFollowing`); an answer that is not usable changes nothing,
+        and says so once.
+        """
+        at = at if at is not None else datetime.datetime.now()
+        changes, notes = self._gauge_following.read(states, reason)
+        for note in notes:
+            self.log_message(note)
+        for gauge, status in changes:
+            self._apply_diagram_word(gauge, status)
+            self._await_switch(gauge, status, at)
+
+    def _gauge_words(self, gauge):
+        place = readsettings.ion_gauge_places(self.config).get(gauge)
+        return diagram_follower.gauge_words(place if place != gauge else "")
+
+    def _reading_mode(self, gauge):
+        """The mode a gauge read pressure in before it was off; Torr when
+        this program never saw it read."""
+        return (self._reading_modes or {}).get(gauge, "Torr")
+
+    def _note_reading_mode(self, gauge):
+        mode = self.control_dock.gauges[gauge][0].currentText()
+        if mode != web_commands.GAUGE_OFF:
+            if self._reading_modes is None:
+                self._reading_modes = {}
+            self._reading_modes[gauge] = mode
+
+    def _apply_diagram_word(self, gauge, status):
+        """Move one gauge's mode selector to the Diagram's new word.
+
+        Off declares it off. On puts back the mode it read in before it was
+        off, and leaves a gauge already in Torr or Pa as it is. The move goes
+        through the selector, as a browser's command does: the selector's
+        own signal tells the worker, the web status and the remembered
+        screen. The mover is "diagram", so the dock-press line is not
+        written; this line says what moved it instead.
+        """
+        mode_box, _ = self.control_dock.gauges[gauge]
+        shown = mode_box.currentText()
+        if status == diagram_follower.INACTIVE:
+            if shown == web_commands.GAUGE_OFF:
+                return
+            self._note_reading_mode(gauge)
+            target = web_commands.GAUGE_OFF
+        else:
+            if shown != web_commands.GAUGE_OFF:
+                return
+            target = self._reading_mode(gauge)
+        with self._moving_selectors("diagram"):
+            mode_box.setCurrentIndex(web_commands.GAUGE_MODES.index(target))
+        self.log_message(
+            "{}: the Diagram shows the {} {}".format(
+                web_commands.summarise("gauge", {"gauge": gauge, "mode": target}),
+                self._gauge_words(gauge),
+                "off" if status == diagram_follower.INACTIVE else "on",
+            )
+        )
+
+    def _await_switch(self, gauge, status, at):
+        """Hold a switch the Diagram recorded against the gauge's own volts.
+
+        queezz, 2026-11-13: "When the diagram says the gauge is off, but
+        the signal doesn't change, we should warn." Only while a run is
+        recording: with no samples there is nothing to check. A newer
+        switch of the same gauge replaces the one before it.
+        """
+        if not self.workers:
+            return
+        self._switch_checks[gauge] = diagram_follower.SwitchCheck(
+            gauge, status, at, self._gauge_words(gauge)
+        )
+
+    def _check_gauge_switches(self, now=None):
+        """Settle the switches whose gauge's signal has had its say.
+
+        Reads the raw column the window already keeps (`self.datadict`),
+        never the ADC. A confirmed switch is dropped in silence; one the
+        signal does not show by the end of its window leaves one red line,
+        and the gauge keeps the Diagram's word: the raw volts are in the
+        file either way. Checks end with the run that would have answered
+        them.
+        """
+        checks = self._switch_checks
+        if not checks:
+            return
+        if not self.workers:
+            checks.clear()
+            return
+        now = now if now is not None else datetime.datetime.now()
+        history = getattr(self, "datadict", {}).get("ADC")
+        for gauge, check in list(checks.items()):
+            try:
+                times, volts = history.column("date"), history.column(gauge)
+            except (AttributeError, KeyError):
+                times = volts = None
+            verdict, line = check.verdict(times, volts, now)
+            if verdict == diagram_follower.PENDING:
+                continue
+            del checks[gauge]
+            if line:
+                self.log_message(line)
 
     # MARK: Web status
     # Unit per conversion function, for the web view's readouts. A channel
@@ -874,6 +1094,10 @@ class MainApp(QtCore.QObject, UIWindow):
         self._last_sample_at = None
         self._reader_lost_since = None
         self._sampling_before_change = None
+        # A recorded switch still being checked ends with the run whose
+        # samples would have answered it; the next Start begins a new
+        # history, and no check is carried into it.
+        self._switch_checks.clear()
         self.web_status.set_acquiring(False)
         # Nobody is left holding control of a rig that is not listening. The
         # Remote switch itself stays as the person at the rig set it: it is
@@ -1548,15 +1772,18 @@ class MainApp(QtCore.QObject, UIWindow):
         its "Remote: who:", as the dock's other lines do.
 
         Not when the program moved the selector itself: putting the last
-        run's settings back at launch, or carrying out a browser's command,
-        which logs its own line. Start's push into fresh workers
-        (`_apply_screen_settings`) calls the updaters directly and never
-        comes through here.
+        run's settings back at launch, carrying out a browser's command, or
+        following the Diagram, each of which logs its own line. Start's push
+        into fresh workers (`_apply_screen_settings`) calls the updaters
+        directly and never comes through here.
 
         Whoever moved it, the screen is remembered for the next start
-        (`_remember_screen`), except while it is being put back.
+        (`_remember_screen`), except while it is being put back, and a mode
+        that reads pressure is kept as the one a gauge the Diagram turns
+        back on returns to.
         """
         if what == "mode":
+            self._note_reading_mode(gauge)
             self.update_ig_mode(gauge)
         else:
             self.update_ig_range(gauge)
