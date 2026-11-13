@@ -70,7 +70,7 @@ synthetic zero output. Dummy hardware refuses real LAN configuration.
 
 Each run creates `kikusui_YYYYMMDD_HHMMSS.csv` beside its
 `cu_YYYYMMDD_HHMMSS.csv`. A header identifies the paired ADC file and schema
-`controlunit-kikusui/v1`. The columns are:
+`controlunit-kikusui/v2` (v1 before 4.30.0, without the last four columns). The columns are:
 
 | Column | Meaning |
 |---|---|
@@ -84,6 +84,20 @@ Each run creates `kikusui_YYYYMMDD_HHMMSS.csv` beside its
 | `status` | `ok`, `unavailable` or `dummy` for a poll; `output_on`, `output_off`, `output_on_failed` or `output_off_failed` for the row a press leaves |
 | `error` | Failure description for an unavailable poll |
 | `identity` | Supply identity on successful polls |
+| `voltage_setting_v`, `current_setting_a` | The supply's own voltage and current settings (`VOLT?`, `CURR?`); from v2 |
+| `oper_cond`, `ques_cond` | The OPERation and QUEStionable status condition words (`STAT:OPER:COND?`, `STAT:QUES:COND?`), recorded raw as integers; from v2 |
+
+The settings and the status words were added on the owner's word (2026-11-13,
+live: "Sure, read that") after the audit of the student runs: the 7.80 V
+setting of 2026-10-02 had been raised by 11-13 with no record of when. The
+Log says the settings once at the start of a run ("Kikusui settings: 10 V,
+15 A"), and again whenever one of them changes or the questionable word
+becomes nonzero or clears. Which OPERation bit means constant current and
+which constant voltage is not decoded: the PWR-01 interface manual could not
+be read when this was built, so the raw word is kept and its bits can be
+read off a run that shows the supply move between the two. A status query
+that fails leaves those four columns empty, says so once, and is not asked
+again that run; the measurements are unaffected.
 
 Every row is flushed. Existing telemetry files are never overwritten. A file
 write failure stops this recorder with an explicit application-log message;
@@ -156,8 +170,10 @@ and, the same day, *"Off and on. Why not? Then we have full cathode control
 when powered"*. The link may now send exactly two commands, `OUTP 0` and
 `OUTP 1`, and nothing else ever: no voltage or current setpoint, no `*RST`,
 no status clear. The allowlist in `ReadOnlyClient` is the whole of it —
-six words, four queries and these two — and a test holds it to those six and
-proves that `OUTP ON`, `VOLT`, `CURR` and `*RST` raise before a byte is sent.
+ten words since 2026-11-13, eight read-only queries and these two — and a
+test holds it to those ten, checks every query ends in `?`, and proves that
+`OUTP ON`, `VOLT 10`, `CURR 1`, `VOLT:PROT 12`, `STAT:OPER:ENAB 0` and `*RST`
+raise before a byte is sent.
 
 **The output is not the drive.** The cathode DAC feeds the supply's external
 current-control input; the output is the supply's own switch between it and
@@ -222,6 +238,10 @@ The recorder's complete wire command set is:
 MEAS:VOLT?  -> output voltage in volts
 MEAS:CURR?  -> output current in amperes
 OUTP?       -> output-enable state, 0 or 1
+VOLT?       -> the voltage setting in volts          (from 4.30.0)
+CURR?       -> the current setting in amperes        (from 4.30.0)
+STAT:OPER:COND? -> OPERation condition word          (from 4.30.0)
+STAT:QUES:COND? -> QUEStionable condition word       (from 4.30.0)
 OUTP 0      -> open the output   (a press, never the recorder's own doing)
 OUTP 1      -> close the output  (a press, gated; see The two writes)
 ```

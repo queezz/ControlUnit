@@ -64,7 +64,7 @@ def test_fragmented_replies_and_only_read_queries(monkeypatch):
         b"*IDN?\n", b"MEAS:VOLT?\n", b"MEAS:CURR?\n", b"OUTP?\n",
         b"MEAS:VOLT?\n", b"MEAS:CURR?\n", b"OUTP?\n",
     ]
-    with pytest.raises(ValueError, match="Only the four telemetry queries"):
+    with pytest.raises(ValueError, match="Only the eight telemetry queries"):
         client._query("OUTP ON", time.monotonic() + 1)
     client.close()
     assert sock.closed
@@ -73,17 +73,22 @@ def test_fragmented_replies_and_only_read_queries(monkeypatch):
 def test_the_allowlist_is_six_words_and_nothing_else_reaches_the_wire(monkeypatch):
     """The whole safety argument, in one assertion.
 
-    Six commands may be written: the four queries and the two output writes
-    the owner decided on 2026-09-15. Every other SCPI word — the one that
+    Ten commands may be written: the eight read-only queries (the four
+    telemetry ones, and from 2026-11-13 the settings and the two status
+    condition registers, queezz: "Sure, read that") and the two output
+    writes the owner decided on 2026-09-15. Every other SCPI word — the one that
     differs by a character, the one that sets a voltage, the one that resets
     the instrument — raises in `_send`, which is the only place a byte
     reaches the supply, and the socket is left with nothing sent.
     """
-    assert ReadOnlyClient.QUERIES == ("*IDN?", "MEAS:VOLT?", "MEAS:CURR?", "OUTP?")
-    assert ReadOnlyClient.WRITES == ("OUTP 0", "OUTP 1")
-    assert ReadOnlyClient.ALLOWED == (
-        "*IDN?", "MEAS:VOLT?", "MEAS:CURR?", "OUTP?", "OUTP 0", "OUTP 1",
+    assert ReadOnlyClient.QUERIES == (
+        "*IDN?", "MEAS:VOLT?", "MEAS:CURR?", "OUTP?",
+        "VOLT?", "CURR?", "STAT:OPER:COND?", "STAT:QUES:COND?",
     )
+    assert ReadOnlyClient.WRITES == ("OUTP 0", "OUTP 1")
+    assert ReadOnlyClient.ALLOWED == ReadOnlyClient.QUERIES + ("OUTP 0", "OUTP 1")
+    # Every read is a query: nothing in the list sets, resets or clears.
+    assert all(command.endswith("?") for command in ReadOnlyClient.QUERIES)
 
     client, sock = client_with(monkeypatch, [])
     client.sock = sock
@@ -91,14 +96,15 @@ def test_the_allowlist_is_six_words_and_nothing_else_reaches_the_wire(monkeypatc
     for command in (
         "OUTP ON", "OUTP OFF", "OUTP 2", "outp 0", "OUTP 0;OUTP 1",
         "VOLT 10", "CURR 1", "*RST", "*CLS", "SYST:COMM:RLST REM", "",
+        "VOLT 10;VOLT?", "STAT:OPER:ENAB 0", "VOLT:PROT 12", "volt?",
     ):
-        with pytest.raises(ValueError, match="Only the four telemetry queries"):
+        with pytest.raises(ValueError, match="Only the eight telemetry queries"):
             client._send(command, deadline)
-        with pytest.raises(ValueError, match="Only the four telemetry queries"):
+        with pytest.raises(ValueError, match="Only the eight telemetry queries"):
             client._query(command, deadline)
     # A write is never read back as a query either: it answers nothing.
     for write in ReadOnlyClient.WRITES:
-        with pytest.raises(ValueError, match="Only the four telemetry queries"):
+        with pytest.raises(ValueError, match="Only the eight telemetry queries"):
             client._query(write, deadline)
     assert sock.sent == [], "nothing refused may reach the wire"
 
@@ -345,6 +351,12 @@ class FakeSupply:
             return "12.000"
         if line == "OUTP?":
             return str(self.output_on)
+        if line == "VOLT?":
+            return "+1.000E+01"
+        if line == "CURR?":
+            return "+1.500E+01"
+        if line in ("STAT:OPER:COND?", "STAT:QUES:COND?"):
+            return "0"
         if line in ("OUTP 0", "OUTP 1"):
             if not self.stubborn:
                 self.output_on = 1 if line.endswith("1") else 0
@@ -385,16 +397,18 @@ class FakeSupply:
         """The conversation, parsed into whole polls and whole presses.
 
         Raises if anything interleaves: every exchange on this socket is
-        either a complete three-query poll or a complete write-and-readback,
+        either a complete poll (the three measurements, then from 2026-11-13
+        the two settings and two status words) or a complete write-and-readback,
         in order, with at most a poll cut short by the stop that ended the run.
         """
         stream = list(self.log)
         assert stream[:1] == ["*IDN?"]
         rest, polls, presses = stream[1:], 0, 0
-        poll = ["MEAS:VOLT?", "MEAS:CURR?", "OUTP?"]
+        poll = ["MEAS:VOLT?", "MEAS:CURR?", "OUTP?",
+                "VOLT?", "CURR?", "STAT:OPER:COND?", "STAT:QUES:COND?"]
         while rest:
-            if rest[:3] == poll:
-                rest, polls = rest[3:], polls + 1
+            if rest[:len(poll)] == poll:
+                rest, polls = rest[len(poll):], polls + 1
             elif rest[:2] in (["OUTP 0", "OUTP?"], ["OUTP 1", "OUTP?"]):
                 rest, presses = rest[2:], presses + 1
             elif rest == poll[: len(rest)]:
@@ -701,3 +715,72 @@ def test_snapshot_withholds_stale_failed_and_stopped_measurements(tmp_path, monk
     logger._publish({"status": "unavailable", "error": "timeout"}, clock[0])
     assert "voltage_v" not in logger.snapshot()
     assert logger.snapshot()["error"] == "timeout"
+
+
+class SettledClient:
+    """A supply whose settings change once, on its third poll."""
+    identity = "KIKUSUI,PWR401L,TEST,1"
+
+    def __init__(self, broken_status=False):
+        self.calls = 0
+        self.broken_status = broken_status
+        self.closed = 0
+
+    def sample(self):
+        self.calls += 1
+        return 7.8, 16.0, 1
+
+    def status(self):
+        if self.broken_status:
+            raise ValueError("Invalid SCPI status word")
+        volts = 7.8 if self.calls < 3 else 10.0
+        return volts, 15.0, 1024, 0
+
+    def close(self):
+        self.closed += 1
+
+
+def test_the_settings_are_recorded_and_a_change_is_said_once(tmp_path):
+    """queezz, 2026-11-13: "Sure, read that". The 7.80 V setting of 10-02
+    had become something else by 11-13, and no file said when."""
+    messages = []
+    client = SettledClient()
+    logger = KikusuiLogger(
+        KikusuiConfig(host="127.0.0.1", interval_s=0.1),
+        tmp_path / "cu_20261113_120000.csv", messages.append, client=client,
+    )
+    try:
+        logger.start()
+        wait_until(lambda: client.calls >= 5)
+    finally:
+        assert logger.stop()
+    rows = read_rows(logger.path)
+    assert rows[0]["voltage_setting_v"] == "7.8"
+    assert rows[0]["current_setting_a"] == "15.0"
+    assert rows[0]["oper_cond"] == "1024" and rows[0]["ques_cond"] == "0"
+    assert rows[-1]["voltage_setting_v"] == "10.0"
+    assert sum("Kikusui settings: 7.8 V, 15 A" in m for m in messages) == 1
+    assert sum("voltage setting changed from 7.8 V to 10 V" in m for m in messages) == 1
+    assert not any("current setting changed" in m for m in messages)
+    assert logger.path.read_text().startswith("# schema: controlunit-kikusui/v2")
+
+
+def test_unreadable_settings_never_cost_the_measurements(tmp_path):
+    messages = []
+    client = SettledClient(broken_status=True)
+    logger = KikusuiLogger(
+        KikusuiConfig(host="127.0.0.1", interval_s=0.1),
+        tmp_path / "cu_20261113_130000.csv", messages.append, client=client,
+    )
+    try:
+        logger.start()
+        wait_until(lambda: client.calls >= 4)
+        closed_while_running = client.closed
+    finally:
+        assert logger.stop()
+    rows = read_rows(logger.path)
+    assert all(row["status"] == "ok" for row in rows)
+    assert all(row["current_a"] == "16.0" for row in rows)
+    assert all(row["voltage_setting_v"] == "" for row in rows)
+    assert sum("settings not readable" in m for m in messages) == 1
+    assert closed_while_running == 1   # asked once, then left alone this run

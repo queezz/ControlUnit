@@ -84,7 +84,7 @@ def load_config(path=None):
 #: it refuses everything else in. Four queries and two writes; `VOLT`, `CURR`,
 #: `*RST`, `OUTP ON` and every other SCPI word are refused before a byte is
 #: sent, because a client that can only say these six cannot set a supply.
-PERMITTED = "Only the four telemetry queries and OUTP 0 / OUTP 1 are permitted"
+PERMITTED = "Only the eight telemetry queries and OUTP 0 / OUTP 1 are permitted"
 
 #: How long a press waits for the supply's own answer to agree with it, and
 #: how often it asks meanwhile.
@@ -95,7 +95,17 @@ OUTPUT_RECHECK_S = 0.05
 class ReadOnlyClient:
     """Read-only but for the output switch: it cannot set a voltage or current."""
 
-    QUERIES = ("*IDN?", "MEAS:VOLT?", "MEAS:CURR?", "OUTP?")
+    #: Read-only, every one: identity, the measurements, the output state,
+    #: and (owner decision 2026-11-13, live: "Sure, read that") the supply's
+    #: own voltage and current settings and its two status condition
+    #: registers. The 7.80 V setting of 2026-10-02 was raised by 11-13 with
+    #: no record of when; read each poll, a setting is in the file and a
+    #: change of it in the Log. All four answered on this PWR401L on
+    #: 2026-09-30 (vault note "Kikusui zero output investigation").
+    QUERIES = (
+        "*IDN?", "MEAS:VOLT?", "MEAS:CURR?", "OUTP?",
+        "VOLT?", "CURR?", "STAT:OPER:COND?", "STAT:QUES:COND?",
+    )
     #: The two writes, in the words the supply reads them in.
     WRITES = ("OUTP 0", "OUTP 1")
     ALLOWED = QUERIES + WRITES
@@ -221,6 +231,31 @@ class ReadOnlyClient:
             raise ValueError("Invalid SCPI output state")
         return voltage, current, int(output)
 
+    def status(self):
+        """The supply's settings and its status condition registers.
+
+        `(voltage_setting, current_setting, operation, questionable)`: the
+        two settings in volts and amperes, and the two registers' condition
+        words as integers, recorded raw. Which operation bit is CC and which
+        CV is not decoded here: the manual could not be read when this was
+        written, and a bit read from the wrong table would be a confident
+        lie. The file holds the words; the meaning can be read off them once
+        a run shows them flip.
+        """
+        deadline = time.monotonic() + self.config.timeout_s
+        self._connect(deadline)
+        voltage = float(self._query("VOLT?", deadline))
+        current = float(self._query("CURR?", deadline))
+        if not all(math.isfinite(v) and abs(v) < 1e30 for v in (voltage, current)):
+            raise ValueError("Invalid SCPI setting")
+        words = []
+        for query in ("STAT:OPER:COND?", "STAT:QUES:COND?"):
+            word = int(float(self._query(query, deadline)))
+            if not 0 <= word < 65536:
+                raise ValueError("Invalid SCPI status word")
+            words.append(word)
+        return voltage, current, words[0], words[1]
+
 
 class DummyClient:
     """Off-rig stand-in. It holds an output flag so a press has something to
@@ -234,6 +269,9 @@ class DummyClient:
 
     def sample(self):
         return 0.0, 0.0, self.output_on
+
+    def status(self):
+        return 0.0, 0.0, 0, 0
 
     def set_output(self, on):
         self.output_on = 1 if on else 0
@@ -348,6 +386,8 @@ class KikusuiLogger:
         "date", "logger_elapsed_s", "query_ms", "voltage_v", "current_a",
         "output_on", "commanded_cathode_mv", "plasma_target_a", "status",
         "error", "identity",
+        # Appended in v2 (2026-11-13), so no earlier column moves.
+        "voltage_setting_v", "current_setting_a", "oper_cond", "ques_cond",
     )
 
     def __init__(self, config, adc_path, message, context=dict, client=None):
@@ -481,15 +521,62 @@ class KikusuiLogger:
             self.message(output_failure(on, error, self.lost_since()))
         return row, self._stamp(row, before, started)
 
+    def _read_status(self, row):
+        """Add the supply's settings and status words to a measured row, and
+        say in the Log what a person would want to know of them.
+
+        The measurements stand whatever happens here: a status query that
+        fails leaves its four columns empty, closes the socket (a reply may
+        still be on its way) and is not asked again this run, said once,
+        rather than costing every later poll a reconnection.
+        """
+        read = getattr(self.client, "status", None)
+        if self._status_unreadable or read is None:
+            return
+        try:
+            setting = read()
+        except (OSError, ValueError, UnicodeError) as error:
+            self.client.close()
+            self._status_unreadable = True
+            self.message(
+                f"Kikusui settings not readable ({str(error)[:120]}); "
+                "measurements continue without them"
+            )
+            return
+        volts, amperes, operation, questionable = setting
+        row.update(voltage_setting_v=volts, current_setting_a=amperes,
+                   oper_cond=operation, ques_cond=questionable)
+        last, self._last_status = self._last_status, setting
+        if last is None:
+            self.message(
+                f"Kikusui settings: {volts:g} V, {amperes:g} A"
+                + (f"; questionable status {questionable}" if questionable else "")
+            )
+            return
+        if volts != last[0]:
+            self.message(f"Kikusui voltage setting changed from {last[0]:g} V to {volts:g} V")
+        if amperes != last[1]:
+            self.message(f"Kikusui current setting changed from {last[1]:g} A to {amperes:g} A")
+        if questionable != last[3]:
+            self.message(
+                f"Kikusui questionable status {questionable}: a protection or alarm"
+                " condition; see the supply's panel" if questionable
+                else "Kikusui questionable status cleared"
+            )
+
     def _run(self):
         started = time.monotonic()
         state = None
+        #: The last settings and status words read, and whether this run
+        #: has given up asking for them (see `_read_status`).
+        self._last_status = None
+        self._status_unreadable = False
         #: Polls missed in a row, and what the Log was last told.
         failures, said = 0, None
         try:
             # Never overwrite a previous telemetry file, even for a same-second restart.
             with self.path.open("x", newline="", encoding="utf-8") as target:
-                target.write("# schema: controlunit-kikusui/v1\n")
+                target.write("# schema: controlunit-kikusui/v2\n")
                 target.write(f"# software: ControlUnit {__version__}\n")
                 target.write(f"# adc_file: {self.adc_name}\n")
                 target.write(f"# interval_s: {self.config.interval_s}\n")
@@ -525,6 +612,7 @@ class KikusuiLogger:
                         row.update(voltage_v=voltage, current_a=current, output_on=output)
                         status = "dummy" if self.config.dummy else "ok"
                         row.update(status=status, identity=self.client.identity)
+                        self._read_status(row)
                     except (OSError, ValueError, UnicodeError) as error:
                         self.client.close()
                         status = "unavailable"

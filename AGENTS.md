@@ -247,3 +247,13 @@ see the supply, so nothing is ever closed onto a filament blind. Both are
 carried by the recorder's own thread on the socket it already owns, or by a
 short one-shot connection when nothing is recording. The recorder still never
 drives the supply of its own accord: every write is a press.
+
+**Reads widened (owner decision 2026-11-13, live).** Asked whether the link
+may also read the supply's own settings and its regulation state, queezz: "Sure,
+read that". The link reads, each poll, `VOLT?` and `CURR?` (the voltage and
+current settings) and `STAT:OPER:COND?` and `STAT:QUES:COND?` (the status
+condition words), beside the four telemetry queries; all four had answered
+on this PWR401L on 2026-09-30. Queries only: the writes are still exactly
+the two above. The audit of the student runs is why: the 7.80 V setting of
+2026-10-02 had been raised by 11-13 with no record of when, and on 11-13 the
+filament reached 24.5 A with nothing in the files saying what limited it.
