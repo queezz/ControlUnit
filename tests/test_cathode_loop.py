@@ -272,20 +272,54 @@ def test_an_arc_is_not_the_plasma_going_out(driven):
     assert min(worker.commands[-25:]) > 1990.0
 
 
-def test_a_plasma_that_goes_out_brings_the_drive_down_to_the_ceiling(driven):
+def test_a_plasma_that_goes_out_keeps_the_drive_it_was_lit_at(driven):
+    """2026-11-13, hydrogen at 1.50 A: three discharges went out at
+    2170–2230 mV, and the loop cut each to the 1900 mV ceiling, where
+    hydrogen does not light. queezz chose the fix: "PID keeps its drive"."""
     worker, clock = driven
-    worker.set_manual_drive.emit(2000.0)
+    worker.set_manual_drive.emit(2200.0)
+    hold(worker, 1.50)
+    worker.set_plasma_current.emit(1.50)
+    lit_at = run(worker, clock, 3.0, 1.50)
+    assert lit_at == pytest.approx(2200.0, abs=1.0)
+    run(worker, clock, 5.0, 0.0)               # gone for good
+    assert worker.commands[-1] == pytest.approx(lit_at, abs=0.01)
+    assert max(worker.commands) == pytest.approx(lit_at, abs=0.01)   # no wind-up
+    assert "discharge lost" in worker.messages[-1]
+    assert "holding the cathode at 2200 mV" in worker.messages[-1]
+    assert not any("ceiling" in line for line in worker.messages)
+    # It stays there, and when it lights again the loop regulates from there.
+    # (The proportional term answers the current appearing: 30 mV/A of it.)
+    run(worker, clock, 60.0, 0.0)
+    assert worker.commands[-1] == pytest.approx(lit_at, abs=0.01)
+    run(worker, clock, 0.31, 1.40)
+    assert "discharge lit at" in worker.messages[-1]
+    assert worker.commands[-1] == pytest.approx(lit_at - 30 * 1.40, abs=2.0)
+
+
+def test_the_seconds_a_discharge_reads_nothing_do_not_wind_the_drive_up(driven):
+    """The grace before a discharge is called out used to integrate an error
+    that said nothing: 2170 mV became 2342 mV in two seconds on 11-13."""
+    worker, clock = driven
+    worker.set_manual_drive.emit(2170.0)
+    hold(worker, 1.50)
+    worker.set_plasma_current.emit(1.50)
+    lit_at = run(worker, clock, 3.0, 1.50)
+    graced = run(worker, clock, 1.5, 0.0)        # inside the 2 s grace
+    assert graced == pytest.approx(lit_at, abs=0.01)
+
+
+def test_a_plasma_lit_below_the_ceiling_that_goes_out_walks_up_to_it(driven):
+    """Argon lights at 1800–1830 mV: a discharge lost below the ceiling is
+    walked up to the ceiling as an unlit source always was."""
+    worker, clock = driven
+    worker.set_manual_drive.emit(1800.0)
     hold(worker, 0.50)
     worker.set_plasma_current.emit(0.50)
     run(worker, clock, 3.0, 0.50)
-    run(worker, clock, 5.0, 0.0)               # gone for good
+    run(worker, clock, 30.0, 0.0)
     assert worker.commands[-1] == adc_module.UNLIT_CEILING_MV
     assert "no discharge at the 1900 mV ceiling" in worker.messages[-1]
-    # It comes back: the loop lights it from the ceiling and regulates again.
-    # (The proportional term answers the current appearing: 30 mV/A of it.)
-    run(worker, clock, 0.31, 0.45)
-    assert "discharge lit at" in worker.messages[-1]
-    assert worker.commands[-1] == pytest.approx(adc_module.UNLIT_CEILING_MV - 30 * 0.45, abs=2.0)
 
 
 def test_engaging_unlit_from_a_drive_above_the_ceiling_starts_at_the_ceiling(driven):

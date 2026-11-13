@@ -104,9 +104,10 @@
         });
     }
 
+    /* Resolves true once the rig has queued the command, false otherwise. */
     function send(path, body, what) {
         say("sending " + what + " …");
-        post(path, body).then(function (answer) {
+        return post(path, body).then(function (answer) {
             if (answer.ok) {
                 pending = answer.body.id || 0;
                 say("queued: " + (answer.body.value || what));
@@ -115,9 +116,11 @@
                 say("refused: " + (answer.body.reason || "the rig did not accept that"));
             }
             pollState();
+            return Boolean(answer.ok);
         }).catch(function () {
             pending = 0;
             say("the rig did not answer");
+            return false;
         });
     }
 
@@ -850,6 +853,16 @@
         });
         root.querySelector('[data-role="plasma-off"]').addEventListener("click", function () {
             send("/api/plasma-current", {off: true}, "the plasma PID off");
+        });
+        /* Hold hands the cathode to the hand at the loop's present drive, so
+           the card turns to Manual, where that drive is what it shows. */
+        root.querySelector('[data-role="plasma-hold"]').addEventListener("click", function () {
+            send("/api/plasma-current", {hold: true}, "the plasma PID off, drive held")
+                .then(function (queued) {
+                    if (!queued) return;
+                    saveCathodeMode("manual");
+                    showCathodeMode("manual");
+                });
         });
 
         setupFolds();

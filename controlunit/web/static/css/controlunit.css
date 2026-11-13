@@ -1683,6 +1683,12 @@ select.quick-select:disabled { cursor: not-allowed; }
 #sec-plasma [data-role="cathode-manual-row"] .row-actions { display: flex; gap: 5px; }
 #sec-plasma [data-role="cathode-manual-row"] .row-actions button { min-height: 38px; }
 .flow-draft-changed [data-role="cathode-set"] { border-color: var(--accent, #e2ad41); }
+/* The PID row takes the same shape, so its three presses (Set, Hold, Off,
+   since 2026-11-13) stand on the field's line rather than below it. */
+#sec-plasma [data-role="cathode-pid-row"] { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+#sec-plasma [data-role="cathode-pid-row"] .row-field { min-width: 0; }
+#sec-plasma [data-role="cathode-pid-row"] .setpoint { width: 100%; min-width: 0; }
+#sec-plasma [data-role="cathode-pid-row"] .row-actions { display: flex; gap: 5px; }
 
 /* -- a two-state switch, on its group's own heading line ----------------- */
 

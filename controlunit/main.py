@@ -1228,6 +1228,22 @@ class MainApp(QtCore.QObject, UIWindow):
         self.web_status.record_setpoints(plasma_a=0.0, cathode_mv=0.0)
         self.log_message("Plasma current PID turned off")
 
+    def hold_currentcontrol_voltage(self):
+        """Turn the PID off and keep the cathode at the drive it gives now.
+
+        The other way off. "PID off" drops the drive to zero, and on
+        2026-11-13 it put out two discharges the loop had just brought to
+        1.5 A (16:20:03, 16:38:45), under a button that said nothing about
+        the drive. This hands the cathode back to the hand, Manual, at the
+        loop's own last command, as the manual mode's Set would with that
+        number typed in.
+        """
+        if not self.workers:
+            return
+        drive = float(getattr(self.workers["ADC"]["worker"], "control_voltage", 0.0) or 0.0)
+        self.plasma_control_dock.cathode_spin_box.setValue(int(round(drive)))
+        self.set_cathode_drive()
+
     @QtCore.pyqtSlot(float)
     def _set_cathode_current(self, control_voltage):
         """

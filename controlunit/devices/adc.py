@@ -191,6 +191,9 @@ class ADC(DeviceThread):
         self.unlit_after = float(tuning.get("Unlit After s", UNLIT_AFTER_S))
         self._unlit_since = None
         self._loop_state = None
+        #: The drive this engagement last regulated a discharge at, or None
+        #: while it has not had one: what a discharge that goes out keeps.
+        self._lit_drive = None
         self.prep_pid()
         self._read_failures = 0
         self._failing_since = None
@@ -478,6 +481,7 @@ class ADC(DeviceThread):
         # rather than after the two seconds an arc is forgiven for.
         self._unlit_since = None if lit else self._pid_clock() - self.unlit_after
         self._loop_state = None
+        self._lit_drive = start if lit else None
         origin = "the drive already held" if held >= self.cold_start_mv else "a cold start"
         reading = "unavailable" if measured is None else f"{measured:.3f} A"
         self.send_message.emit(
@@ -518,6 +522,7 @@ class ADC(DeviceThread):
     def prep_pid(self):
         """A fresh loop: output is the cathode drive in mV."""
         self.pid = self._new_loop(self.plasma_current_setpopint)
+        self._lit_drive = None
 
     def set_sampling_time(self, sampling_time):
         """The loop steps once per delivery, so it follows the sampling."""
@@ -534,11 +539,29 @@ class ADC(DeviceThread):
             return  # Hold the command; never feed a missing reference to PID.
         measured = self.plasma_current_converted - self.zero_ip
         if self._discharge_lit(measured):
-            output = self.pid(measured)
+            if measured > self.lit_above:
+                output = self.pid(measured)
+                self._lit_drive = output
+            else:
+                # The grace an arc is forgiven for: nothing to regulate on.
+                output = self.pid.hold(measured)
             state = "lit"
         else:
-            output = self.pid.ramp(measured, self.unlit_ramp, self.unlit_ceiling)
-            state = "ceiling" if output >= self.unlit_ceiling else "unlit"
+            # A discharge that goes out keeps the drive it was lit at, never
+            # less than the ceiling an unlit filament may be walked up to
+            # (queezz, 2026-11-13, choosing the fix: "PID keeps its drive").
+            # The same day the loop cut three lost hydrogen discharges from
+            # 2170–2230 mV to the 1900 mV argon ceiling, below anything
+            # hydrogen lights at, and advised checking the gas and the anode
+            # supplies, which were fine.
+            ceiling = self.unlit_ceiling
+            if self._lit_drive is not None:
+                ceiling = max(ceiling, self._lit_drive)
+            output = self.pid.ramp(measured, self.unlit_ramp, ceiling)
+            if self._lit_drive is not None and self._lit_drive >= self.unlit_ceiling:
+                state = "lost"
+            else:
+                state = "ceiling" if output >= self.unlit_ceiling else "unlit"
         if not self.plasma_current_setpopint:
             return  # turned off while this step ran: the hand holds the DAC
         self._say_loop_state(state, output)
@@ -579,6 +602,12 @@ class ADC(DeviceThread):
                 f"Plasma current PID: no discharge; walking the drive up at"
                 f" {self.unlit_ramp:g} mV/s from {output:.0f} mV, ceiling"
                 f" {self.unlit_ceiling:.0f} mV"
+            )
+        elif state == "lost":
+            self.send_message.emit(
+                f"<font color='red'>Plasma current PID: discharge lost</font>;"
+                f" holding the cathode at {output:.0f} mV, the drive it was lit"
+                " at, until it lights again, or turn the PID off"
             )
         else:
             self.send_message.emit(

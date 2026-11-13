@@ -624,6 +624,9 @@ class FakeApp(object):
     def turn_off_currentcontrol_voltage(self):
         self.calls.append(("turn_off_currentcontrol_voltage",))
 
+    def hold_currentcontrol_voltage(self):
+        self.calls.append(("hold_currentcontrol_voltage",))
+
     def set_cathode_drive(self):
         self.calls.append(
             ("set_cathode_drive", self.plasma_control_dock.cathode_spin_box.value())
@@ -729,6 +732,18 @@ def test_plasma_off_takes_the_same_path_the_off_button_takes():
     app.web_commands.submit("plasma", {"off": True}, actor="queezz")
     commands.drain(app)
     assert app.calls == [("turn_off_currentcontrol_voltage",)]
+    assert commands.summarise("plasma", {"off": True}) == "plasma current PID off, drive 0"
+
+
+def test_plasma_hold_turns_the_pid_off_and_keeps_the_drive():
+    """2026-11-13: "PID off" put out two discharges the loop had just brought
+    to 1.5 A; Hold is the other way off, the drive kept."""
+    assert commands.validate_plasma({"hold": True}) == {"hold": True}
+    app = FakeApp()
+    app.web_commands.submit("plasma", {"hold": True}, actor="queezz")
+    commands.drain(app)
+    assert app.calls == [("hold_currentcontrol_voltage",)]
+    assert commands.summarise("plasma", {"hold": True}) == "plasma current PID off, drive held"
 
 
 def test_a_gauge_command_sets_the_widgets_and_the_worker():

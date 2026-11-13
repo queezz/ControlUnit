@@ -46,7 +46,9 @@ holds what is still undecided or unbuilt.
   for its 2 s grace and then cut the drive to 1900 mV at once, and the Log
   advised checking gas and the anode supplies, which were fine. The
   second half of the recommendation (a lit engagement keeps its drive as
-  the ceiling) is now the part that matters; see the build item below.
+  the ceiling) is built in 4.30.0 on queezz's word ("PID keeps its
+  drive", 2026-11-13). What stays open is only the number for an
+  engagement that has not yet lit: 1900 mV, or higher for hydrogen.
 
 ## Work only queezz can do
 
@@ -153,22 +155,12 @@ holds what is still undecided or unbuilt.
 - From the audit of the student runs, 2026-10-22 to 11-13 (2026-11-13;
   vault note "Student runs audit 2026-10-22 to 11-13" has the times and
   numbers). Software items, most costly first:
-  - **A lit discharge that goes out keeps its drive.** Today the loop
-    integrates for 2 s and `ramp()` then cuts the drive to the unlit
-    ceiling at once (`cathode_loop.py`). Hold the last lit drive instead,
-    and log "discharge lost at N mV" rather than advising a check of gas
-    and the anode supplies.
   - **Ip pinned near 2.38 A is not "lit".** On 11-13 Ip read a flat 2.38 A
     for 30 s with the cathode drive at 0 mV (15:25:27–15:25:54), and the
     loop called the plateau a lit discharge (15:25:05) and once engaged on
     it (16:38:30). Treat a flat reading at that plateau as "at a limit",
     neither lit nor regulable. The cause is hardware or measurement and is
     with queezz.
-  - **"PID off" also zeroes the cathode drive**
-    (`turn_off_currentcontrol_voltage`), under a button that says only
-    "PID off". Twice on 11-13 it put out a discharge the loop had just
-    brought to 1.5 A. Say so on the button, or add a press that hands back
-    to Manual at the loop's present drive.
   - **Gauge settings survive a restart, and the rig's own gauge presses
     are logged.** The 11-11 16:47 restart came back at Torr 1e-3 and lost
     Pu2's declared off; `update_ig_range` and `update_ig_mode` write no Log

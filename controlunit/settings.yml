@@ -20,8 +20,9 @@ Verbose.Plasma Current PID: false
 # and never passes Unlit Ceiling until the plasma lights; then it regulates
 # from the drive it has reached. A discharge is lit above Lit Above, and
 # unlit once the current has stayed below it for Unlit After seconds, so an
-# arc's short dropout is not taken for the plasma going out. The same
-# ceiling applies if the plasma goes out under the loop.
+# arc's short dropout is not taken for the plasma going out. A plasma that
+# goes out under the loop keeps the drive it was lit at, or is walked up to
+# this ceiling if it was lit below it (4.30.0).
 Plasma Current PID:
   Cold Start mV: 1000
   Unlit Ramp mV per s: 25

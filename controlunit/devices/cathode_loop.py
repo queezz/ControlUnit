@@ -78,8 +78,10 @@ class CathodeLoop:
 
         A drive already above the ceiling comes down to it at once: the
         ceiling is what an unlit filament may be given, however the loop
-        got here. Between sample times the last command is repeated, as in
-        a regulating step.
+        got here. The reader raises the ceiling to the drive a discharge
+        was last lit at, so a discharge that goes out keeps its drive.
+        Between sample times the last command is repeated, as in a
+        regulating step.
         """
         now = self._clock()
         elapsed = now - self._last_time
@@ -95,6 +97,24 @@ class CathodeLoop:
         self._last_output = drive
         self._last_measured = measured
         return drive
+
+    def hold(self, measured):
+        """One step that keeps the drive, and the integral, where they are.
+
+        For the seconds a lit discharge reads nothing: an arc, or the start
+        of the discharge going out. The current then says nothing about the
+        drive, so the loop neither integrates it nor answers it. On
+        2026-11-13 it did, and three hydrogen discharges that went out at
+        2170–2230 mV were wound up to 2342–2381 mV in the two seconds
+        before the loop gave up on them.
+        """
+        now = self._clock()
+        if self._last_output is not None and now - self._last_time < self.sample_time:
+            return self._last_output
+        self._last_time = now
+        self._last_output = self._drive
+        self._last_measured = float(measured)
+        return self._drive
 
     def __call__(self, measured):
         """One step. Between sample times the last command is repeated."""

@@ -692,3 +692,31 @@ def test_a_restart_drives_nothing(qt_app, home):
         assert setpoints["mfc1_v"] == 0 and setpoints["mfc2_v"] == 0
     finally:
         widget.abort_all_threads()
+
+
+def test_hold_hands_the_cathode_to_the_hand_at_the_loop_s_drive(qt_app, home):
+    """2026-11-13: "PID off" zeroed the drive and put out two discharges the
+    loop had just brought to 1.5 A. Hold turns the PID off and keeps the
+    drive the loop was giving, as Manual."""
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        widget.start_acquisition()
+        reader = widget.workers["ADC"]["worker"]
+        sent = []
+        widget.workers["PlasmaCurrent"]["worker"].output_voltage_signal.connect(sent.append)
+        reader.control_voltage = 2211.4          # the loop's last command
+        reader.plasma_current_setpopint = 1.5
+        widget.hold_currentcontrol_voltage()
+        qt_app.processEvents()
+        assert sent and sent[-1] == 2211
+        assert 0 not in sent
+        assert widget.plasma_control_dock.cathode_spin_box.value() == 2211
+        assert widget.plasma_control_dock.ampere_spin_box.value() == 0.0
+        setpoints = widget.web_status.read()["setpoints"]
+        assert setpoints["cathode_mv"] == 2211 and setpoints["plasma_a"] == 0
+        assert reader.plasma_current_setpopint == 0
+        assert "Cathode drive set to 2211 mV, PID off" in widget.web_status.log_since(0)["lines"][-1]["text"]
+    finally:
+        widget.abort_all_threads()

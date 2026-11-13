@@ -440,10 +440,13 @@ def validate_mfc(number, body):
 
 
 def validate_plasma(body):
-    """`{"a": 0..3}` sets the PID setpoint; `{"off": true}` turns it off."""
+    """`{"a": 0..3}` sets the PID setpoint; `{"off": true}` turns it off and
+    the drive with it; `{"hold": true}` turns it off and keeps the drive."""
     body = _body(body)
     if body.get("off"):
         return {"off": True}
+    if body.get("hold"):
+        return {"hold": True}
     if "a" not in body:
         raise Invalid("a plasma setpoint needs a value in amperes")
     try:
@@ -703,7 +706,9 @@ def summarise(kind, value):
         return "{} flow {} mV".format(_GAS.get(value.get("n"), "gas"), value.get("mv"))
     if kind == "plasma":
         if value.get("off"):
-            return "plasma current PID off"
+            return "plasma current PID off, drive 0"
+        if value.get("hold"):
+            return "plasma current PID off, drive held"
         return "plasma current {:.2f} A".format(float(value.get("a", 0.0)))
     if kind == "cathode":
         if value.get("off"):
@@ -817,6 +822,9 @@ def _apply_mfc(app, value):
 def _apply_plasma(app, value):
     if value.get("off"):
         app.turn_off_currentcontrol_voltage()
+        return APPLIED, ""
+    if value.get("hold"):
+        app.hold_currentcontrol_voltage()
         return APPLIED, ""
     app.plasma_control_dock.ampere_spin_box.setValue(float(value["a"]))
     app.set_currentcontrol_voltage()

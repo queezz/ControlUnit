@@ -506,6 +506,11 @@ def test_control_offers_every_command_the_slice_built(control):
         assert 'data-mfc="{}"'.format(number) in control
     assert 'data-role="plasma-set"' in control
     assert 'data-role="plasma-off"' in control
+    # Two ways off, each saying what happens to the drive (2026-11-13).
+    assert 'data-role="plasma-hold"' in control
+    assert ">PID off<" not in control
+    assert "the cathode drive goes to 0 mV" in control
+    assert "the cathode stays at the loop's present drive" in control
     assert 'data-role="gauge-mode"' in control
     assert 'data-role="gauge-range"' in control
     assert 'data-role="sync"' in control

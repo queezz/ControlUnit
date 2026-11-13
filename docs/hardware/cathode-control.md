@@ -36,7 +36,11 @@ enabled PSU with near-zero measured output as a webserver or supply fault.
 
 A plasma current in amperes (0–3 A). The plasma current PID, which runs
 inside the ADC reader thread, moves the DAC every sample to hold the
-measured `Ip` at the setpoint. "PID off" drops the DAC to zero.
+measured `Ip` at the setpoint. There are two ways off on the web's
+Cathode card (4.30.0): **Hold** turns the PID off and keeps the cathode at
+the loop's present drive, handing it to Manual; **Off** drops the DAC to
+zero, as "PID off" always did (its old label did not say so, and on
+2026-11-13 it put out two discharges the loop had just brought to 1.5 A).
 
 Because the loop runs in the reader, it stops moving when the reader
 stops. From 4.11.0 the reader retries a failed read instead of dying, and

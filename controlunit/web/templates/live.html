@@ -186,9 +186,18 @@
                                        aria-label="Plasma current setpoint, amperes">
                                 <span class="row-unit">A</span>
                             </label>
+                            {# Two ways off, said on the buttons (2026-11-13: "PID
+                               off" also zeroed the drive, and put out two
+                               discharges the loop had just brought to 1.5 A).
+                               Hold hands the cathode to Manual at the loop's
+                               present drive; Off drops it to 0 mV, the word
+                               the Manual row's own Off already means. #}
                             <span class="row-actions">
                                 <button type="button" data-role="plasma-set">Set</button>
-                                <button type="button" data-role="plasma-off">PID off</button>
+                                <button type="button" data-role="plasma-hold"
+                                        title="PID off; the cathode stays at the loop's present drive">Hold</button>
+                                <button type="button" data-role="plasma-off"
+                                        title="PID off; the cathode drive goes to 0 mV">Off</button>
                             </span>
                         </div>
                         <div class="frow" data-cathode data-role="cathode-manual-row" hidden>

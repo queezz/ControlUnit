@@ -1,3 +1,29 @@
+## 4.30.0 — 2026-11-13
+
+From the audit of three weeks of student runs (vault note "Student runs
+audit 2026-10-22 to 11-13"; queezz: "Just go through the list and fix the
+big obvious problems").
+
+- **A plasma that goes out under the PID keeps the drive it was lit at**
+  (queezz's choice: "PID keeps its drive"). On 11-13 three hydrogen
+  discharges went out at 2170–2230 mV; each time the loop integrated a
+  current that said nothing for its 2 s grace (to 2342–2381 mV), then cut
+  the drive to the 1900 mV unlit ceiling, below anything hydrogen lights
+  at, and advised checking the gas and the anode supplies. Now the grace
+  holds the drive and the integral, and a lost discharge is held at its
+  last lit drive ("discharge lost; holding the cathode at N mV") until it
+  lights again or the PID is turned off. One lost below the ceiling (argon,
+  1800–1830 mV) is walked up to the ceiling as before; an engagement that
+  never lit is unchanged.
+- **Two ways off on the Cathode card: Hold and Off.** "PID off" also
+  zeroed the drive and said nothing about it; twice on 11-13 it put out a
+  discharge the loop had just brought to 1.5 A. Hold turns the PID off
+  and keeps the loop's present drive as Manual (the card turns to Manual
+  once the rig accepts it); Off is the old press, drive to 0 mV, the word
+  the Manual row's Off already means. `POST /api/plasma-current
+  {"hold": true}`. The PID row now has the Manual row's shape, so its
+  three presses stand on the field's line.
+
 ## 4.29.2 — 2026-11-13
 
 - By gauge / By vessel can be pressed without control. The switch only

@@ -123,9 +123,18 @@ ADC worker.
   and nothing stopped it short of the supply's own voltage setting.
 - **An arc is not the plasma going out.** The loop counts the discharge
   unlit only after the current has stayed below 0.1 A for two seconds; the
-  0.2 to 0.3 s dropouts of an arc are regulated straight through. A plasma
-  that does go out under the loop brings the drive down to the ceiling,
-  from which the loop lights it again.
+  0.2 to 0.3 s dropouts of an arc are held through: for those two seconds
+  the loop keeps its drive and its integral, and neither integrates nor
+  answers a current that says nothing (4.30.0; before, the grace wound
+  lost hydrogen discharges up by about 170 mV).
+- **A plasma that goes out keeps the drive it was lit at** (4.30.0, queezz
+  2026-11-13: "PID keeps its drive"). The ceiling for that engagement
+  becomes the larger of `Unlit Ceiling mV` and the last drive it regulated
+  a discharge at, so a hydrogen discharge lost at 2200 mV is held at
+  2200 mV with "discharge lost; holding the cathode at 2200 mV" in the Log,
+  and one lost below the ceiling is walked up to it as before. Until then
+  every lost discharge was cut to the 1900 mV ceiling at once, below
+  anything hydrogen lights at (three times on 2026-11-13).
 - The five numbers are the `Plasma Current PID` block of `settings.yml`:
   `Cold Start mV`, `Unlit Ramp mV per s`, `Unlit Ceiling mV`, `Lit Above A`
   and `Unlit After s`.
