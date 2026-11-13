@@ -1109,9 +1109,12 @@ def test_a_recorded_off_the_signal_does_not_show_leaves_one_red_line(qt_app, hom
 
         widget._check_gauge_switches(now=edge + datetime.timedelta(seconds=30))
         # Pu2's first "on" is confirmed by its live 2 V and dropped in
-        # silence; Pd's "off" waits for the end of its window.
+        # silence; Pd's "off" waits for the end of its window, and for a
+        # hold begun at its very end to have had time to finish.
         assert set(widget._switch_checks) == {"Pd"}
         widget._check_gauge_switches(now=edge + datetime.timedelta(seconds=91))
+        assert set(widget._switch_checks) == {"Pd"}
+        widget._check_gauge_switches(now=edge + datetime.timedelta(seconds=100))
         warning = (
             "Pd: the Diagram shows the downstream ion gauge off, but Pd still"
             " reads 1.53 V, a live gauge's signal; is its controller still on,"
@@ -1187,8 +1190,9 @@ def test_a_recorded_switch_counts_from_the_diagram_s_own_time(qt_app, home):
     widget = MainApp(qt_app)
     try:
         widget.start_acquisition()
-        widget._follow_diagram(_diagram())
         noticed = dt.datetime.now()
+        # On was last seen in the answer before the press was recorded.
+        widget._follow_diagram(_diagram(), at=noticed - dt.timedelta(seconds=50))
         pressed = noticed - dt.timedelta(seconds=40)
         recorded = {DIAGRAM_PD: {"inactive": (pressed, "KAA")}}
         widget._follow_diagram(_diagram(pd="inactive"), at=noticed, recorded=recorded)
@@ -1204,4 +1208,191 @@ def test_a_recorded_switch_counts_from_the_diagram_s_own_time(qt_app, home):
         check = widget._switch_checks["Pd"]
         assert check.start == _window_stamp(noticed - dt.timedelta(seconds=60))
     finally:
+        widget.abort_all_threads()
+
+
+# -- the review of 2026-11-13: the Diagram's word across a restart -----------
+
+
+def test_a_gauge_declared_off_by_hand_stays_off_across_a_restart(qt_app, home):
+    """The review's case A: the first answer after every launch was a
+    change from not knowing, and turned Pu2 back on although the Diagram
+    had said on all along and a person had declared it off since."""
+    from controlunit import screen_memory
+    from controlunit.main import MainApp
+
+    first = MainApp(qt_app)
+    try:
+        first._follow_diagram(_diagram())
+        first.control_dock.gauges["Pu2"][0].setCurrentIndex(2)   # a hand: Off
+        remembered = screen_memory.read_screen()[0]["gauges"]
+        assert remembered["Pu2"] == {"mode": "Off", "range": -3, "diagram": "active"}
+        assert remembered["Pd"]["diagram"] == "active"
+    finally:
+        first.abort_all_threads()
+
+    second = MainApp(qt_app)
+    try:
+        pu2_mode, _ = second.control_dock.gauges["Pu2"]
+        assert pu2_mode.currentText() == "Off"
+        second._follow_diagram(_diagram())
+        assert pu2_mode.currentText() == "Off"
+        assert _count(second, "Pu2 in Torr") == 0
+        # A word that did change while the program was down still applies.
+        second._follow_diagram(_diagram(pd="inactive"))
+        assert second.control_dock.gauges["Pd"][0].currentText() == "Off"
+    finally:
+        second.abort_all_threads()
+
+
+def test_a_word_that_changed_while_the_program_was_down_applies_at_launch(qt_app, home):
+    from controlunit.main import MainApp
+
+    first = MainApp(qt_app)
+    try:
+        first._follow_diagram(_diagram())
+    finally:
+        first.abort_all_threads()
+    second = MainApp(qt_app)
+    try:
+        second._follow_diagram(_diagram(pu2="inactive"))
+        assert second.control_dock.gauges["Pu2"][0].currentText() == "Off"
+        assert _count(second, "Pu2 declared off: the Diagram shows") == 1
+    finally:
+        second.abort_all_threads()
+
+
+def test_a_gauge_read_in_pa_comes_back_in_pa_after_a_restart_while_off(qt_app, home):
+    """The review's case B: the mode a gauge read in before the Diagram
+    turned it off lived only in the program, so a restart brought it back
+    on in Torr."""
+    from controlunit import screen_memory
+    from controlunit.main import MainApp
+
+    first = MainApp(qt_app)
+    try:
+        pd_mode, _ = first.control_dock.gauges["Pd"]
+        first._follow_diagram(_diagram())
+        pd_mode.setCurrentIndex(1)                                 # Pa
+        first._follow_diagram(_diagram(pd="inactive"))
+        assert pd_mode.currentText() == "Off"
+        assert screen_memory.read_screen()[0]["gauges"]["Pd"] == {
+            "mode": "Off", "range": -3, "reading": "Pa", "diagram": "inactive"}
+    finally:
+        first.abort_all_threads()
+
+    second = MainApp(qt_app)
+    try:
+        pd_mode, _ = second.control_dock.gauges["Pd"]
+        second._follow_diagram(_diagram(pd="inactive"))
+        assert pd_mode.currentText() == "Off"
+        second._follow_diagram(_diagram())
+        assert pd_mode.currentText() == "Pa"
+        assert _log_of(second)[-1] == (
+            "Pd in Pa: the Diagram shows the downstream ion gauge on")
+    finally:
+        second.abort_all_threads()
+
+
+def test_one_gauge_that_fails_never_keeps_the_others_in_the_answer_from_theirs(
+    qt_app, home
+):
+    """The review's case F: two changes in one answer, the first one's Log
+    line raising. The second was never applied, and, marked seen, never
+    would be."""
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        widget._follow_diagram(_diagram())
+        real = widget.log_message
+        failures = []
+
+        def flaky(message, *args, **kwargs):
+            if "Pd declared off" in message and not failures:
+                failures.append(message)
+                raise OSError(28, "No space left on device")
+            return real(message, *args, **kwargs)
+
+        widget.log_message = flaky
+        widget._follow_diagram(_diagram(pd="inactive", pu2="inactive"))
+        assert failures
+        assert widget.control_dock.gauges["Pu2"][0].currentText() == "Off"
+        assert widget.control_dock.gauges["Pd"][0].currentText() == "Off"
+        # Pd's word was not marked: the next answer finishes it.
+        assert widget._gauge_following.words()["Pd"] == "active"
+        widget._follow_diagram(_diagram(pd="inactive", pu2="inactive"))
+        assert widget._gauge_following.words() == {"Pd": "inactive", "Pu2": "inactive"}
+    finally:
+        widget.abort_all_threads()
+
+
+def test_a_recorded_time_older_than_the_last_answer_is_not_this_switch(qt_app, home):
+    """A history that has not caught up gives the element's previous switch
+    to the same state; it happened before the answer that still said on."""
+    import datetime as dt
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        widget.start_acquisition()
+        noticed = dt.datetime.now()
+        widget._follow_diagram(_diagram(), at=noticed - dt.timedelta(seconds=10))
+        stale = {DIAGRAM_PD: {"inactive": (noticed - dt.timedelta(hours=3), "KR")}}
+        widget._follow_diagram(_diagram(pd="inactive"), at=noticed, recorded=stale)
+        assert _log_of(widget)[-1] == (
+            "Pd declared off: the Diagram shows the downstream ion gauge off")
+        check = widget._switch_checks["Pd"]
+        assert check.start == _window_stamp(noticed - dt.timedelta(seconds=60))
+    finally:
+        widget.abort_all_threads()
+
+
+def test_the_initials_from_the_diagram_are_escaped_before_the_log_panel(qt_app, home):
+    """The Log panel renders HTML, and the initials are whatever was typed
+    into the Diagram."""
+    import datetime as dt
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        noticed = dt.datetime.now()
+        widget._follow_diagram(_diagram(), at=noticed - dt.timedelta(seconds=50))
+        pressed = noticed - dt.timedelta(seconds=40)
+        recorded = {DIAGRAM_PD: {"inactive": (pressed, "<b>KAA</b>")}}
+        widget._follow_diagram(_diagram(pd="inactive"), at=noticed, recorded=recorded)
+        # The web Log shows the text a person typed, tags and all; the
+        # panel was handed it escaped.
+        assert _log_of(widget)[-1].endswith("by <b>KAA</b>)")
+        assert "&lt;b&gt;KAA&lt;/b&gt;" in widget.logDock.log.toHtml()
+    finally:
+        widget.abort_all_threads()
+
+
+def test_the_diagram_timer_never_raises_with_its_terminal_gone(qt_app, home, monkeypatch):
+    """After SIGHUP every print raises; the timer slot's own complaint must
+    not take the slot with it (it printed with a bare `print`)."""
+    import sys
+
+    from controlunit.main import MainApp
+
+    class Gone:
+        def write(self, text):
+            raise OSError(5, "Input/output error")
+
+        def flush(self):
+            raise OSError(5, "Input/output error")
+
+    class Broken:
+        def take(self):
+            raise RuntimeError("the follower is gone")
+
+    widget = MainApp(qt_app)
+    try:
+        widget._diagram_follower = Broken()
+        monkeypatch.setattr(sys, "stdout", Gone())
+        widget._check_diagram()
+        widget._drain_web_commands()
+    finally:
+        widget._diagram_follower = None
         widget.abort_all_threads()

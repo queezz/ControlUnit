@@ -116,6 +116,17 @@ def _quiet_print(text):
         pass
 
 
+def _epoch(stamp):
+    """Seconds since the epoch for a delivered row's `date`.
+
+    The rows are stamped with the naive local `datetime.now()`, and pandas
+    hands them back as `Timestamp`s, whose own `.timestamp()` reads a naive
+    stamp as UTC: nine hours out on the rig's JST clock. Through the plain
+    `datetime` it is read as local time, as it was written.
+    """
+    return getattr(stamp, "to_pydatetime", lambda: stamp)().timestamp()
+
+
 def _thread_name():
     """What a Log line calls the thread it is on: the worker's own name for
     a hardware thread (`ADC`, `MFCs`, `PlasmaCurrent`, set in `prep_worker`),
@@ -243,9 +254,11 @@ class MainApp(QtCore.QObject, UIWindow):
     # first move, for the same reason as the mover.
     _reading_modes = None
     # The Diagram's follower and the main thread's memory of its word; both
-    # stay None on a machine that does not follow it.
+    # stay None on a machine that does not follow it. And the words the last
+    # run had applied, from `screen.json`, until the memory takes them over.
     _diagram_follower = None
     _gauge_following = None
+    _remembered_diagram = None
     # What `screen_memory` last wrote, or found on disk at launch, so an
     # unchanged screen costs no write.
     _remembered = None
@@ -361,9 +374,11 @@ class MainApp(QtCore.QObject, UIWindow):
         # The Diagram's recorded switches still being held against each
         # gauge's own volts: gauge -> `diagram_follower.SwitchCheck`.
         self._switch_checks = {}
-        # Then the Diagram's word, which outranks the remembered screen: its
-        # first answer is a change from not knowing, so a gauge an operator
-        # switched off while the program was down comes back declared off.
+        # Then the Diagram's word, which outranks the remembered screen where
+        # it changed: a gauge an operator switched off in the Diagram while
+        # the program was down comes back declared off, and a word the last
+        # run already applied (kept in screen.json) is not applied again, so
+        # a press on the dock since then stands.
         self._start_diagram_follower()
         # The follower is the program's, not a run's: it lives across Stop
         # and Start, and ends with the program, after the hardware: `_closing`
@@ -412,6 +427,19 @@ class MainApp(QtCore.QObject, UIWindow):
                     mode_box.setCurrentIndex(index)
                     range_box.setValue(entry["range"])
                     applied["gauges"][gauge] = entry
+                    # What it read in before it was declared off, so the
+                    # Diagram turning it back on finds Pa where Pa was; and
+                    # the Diagram's word this program last applied, so the
+                    # first answer after the launch changes only what
+                    # changed while the program was down.
+                    if entry.get("reading"):
+                        if self._reading_modes is None:
+                            self._reading_modes = {}
+                        self._reading_modes[gauge] = entry["reading"]
+                    if entry.get("diagram"):
+                        if self._remembered_diagram is None:
+                            self._remembered_diagram = {}
+                        self._remembered_diagram[gauge] = entry["diagram"]
                 if "sampling_s" in state:
                     combo = self.settings_dock.samplingCb
                     index = combo.findText(
@@ -451,13 +479,26 @@ class MainApp(QtCore.QObject, UIWindow):
         The sampling is the one the program runs with, not whatever the
         combo shows: a choice in the combo that was never Set is not what
         the run used.
+
+        Beside a gauge's mode and range: for one declared off, the mode it
+        read in before (`reading`), so Pa survives a restart while it is
+        off; and the Diagram's word last applied to it (`diagram`), so the
+        next launch's first answer is not a change from not knowing.
         """
-        state = {
-            "gauges": {
-                gauge: {"mode": mode_box.currentText(), "range": range_box.value()}
-                for gauge, (mode_box, range_box) in self.control_dock.gauges.items()
-            }
-        }
+        words = (
+            self._gauge_following.words()
+            if self._gauge_following is not None
+            else dict(self._remembered_diagram or {})
+        )
+        state = {"gauges": {}}
+        for gauge, (mode_box, range_box) in self.control_dock.gauges.items():
+            entry = {"mode": mode_box.currentText(), "range": range_box.value()}
+            reading = (self._reading_modes or {}).get(gauge)
+            if entry["mode"] == web_commands.GAUGE_OFF and reading:
+                entry["reading"] = reading
+            if words.get(gauge):
+                entry["diagram"] = words[gauge]
+            state["gauges"][gauge] = entry
         sampling = getattr(self, "sampling", None)
         if sampling is not None:
             state["sampling_s"] = float(sampling)
@@ -518,7 +559,11 @@ class MainApp(QtCore.QObject, UIWindow):
             for gauge, element in readsettings.gauge_diagram_elements(self.config).items()
             if gauge in self.control_dock.gauges
         }
-        self._gauge_following = diagram_follower.GaugeFollowing(elements)
+        # Seeded with the words the last run applied: only a word that
+        # changed while the program was down is a change.
+        self._gauge_following = diagram_follower.GaugeFollowing(
+            elements, seen=self._remembered_diagram
+        )
         if not elements:
             return
         url = diagram_follower.diagram_url()
@@ -624,33 +669,53 @@ class MainApp(QtCore.QObject, UIWindow):
                 )
             self._check_gauge_switches()
         except Exception as error:  # noqa: BLE001 -- a convenience never stops the rig
-            print(f"{RED}diagram:{RESET} {error}")
+            _quiet_print(f"diagram: {error}")
 
     def _follow_diagram(self, states, reason="", at=None, recorded=None):
         """Take one answer the follower already fetched: the Diagram's
         `{element: "active" | "inactive"}`, or None and why there was none.
 
-        Only a gauge whose word changed since the last answer is touched
+        Only a gauge whose word differs from the one last applied is touched
         (`GaugeFollowing`); an answer that is not usable changes nothing,
-        and says so once.
+        and says so once. Each gauge is applied on its own, and marked as
+        applied only once it was, so one that fails (its Log line raising,
+        say) neither keeps the others in the same answer from theirs nor is
+        forgotten: it is a change again at the next answer. Before, the
+        whole answer was marked seen first, and a failure on the first gauge
+        left the second never applied (the review of 2026-11-13). The word
+        applied is remembered in `screen.json`, so the next launch takes
+        only what changed while the program was down.
 
         `recorded` is the Diagram's history of each element's latest switch
         (`diagram_follower.recorded_switches`). Where it has this switch, the
         signal check counts from the time the operator recorded it and the
         Log line says when and who; otherwise from when it was noticed here.
-        A recorded time later than the notice is not believed.
+        A recorded time later than the notice is not believed, nor one
+        earlier than the last answer that still carried the word before:
+        that is an older switch (`diagram_follower.recorded_time_believed`).
         """
         at = at if at is not None else datetime.datetime.now()
-        changes, notes = self._gauge_following.read(states, reason)
+        following = self._gauge_following
+        changes, notes = following.read(states, reason, at)
         for note in notes:
-            self.log_message(note)
+            try:
+                self.log_message(note)
+            except Exception as error:  # noqa: BLE001 -- the gauges still follow
+                _quiet_print(f"diagram: {error}")
         for gauge, status in changes:
-            element = self._gauge_following.elements.get(gauge)
-            entry = ((recorded or {}).get(element) or {}).get(status)
-            if entry is not None and entry[0] > at:
-                entry = None
-            self._apply_diagram_word(gauge, status, entry)
-            self._await_switch(gauge, status, entry[0] if entry else at)
+            try:
+                element = following.elements.get(gauge)
+                entry = ((recorded or {}).get(element) or {}).get(status)
+                if entry is not None and not diagram_follower.recorded_time_believed(
+                    entry[0], at, following.last_seen(gauge)
+                ):
+                    entry = None
+                self._apply_diagram_word(gauge, status, entry)
+                following.applied(gauge, status, at)
+                self._remember_screen()
+                self._await_switch(gauge, status, entry[0] if entry else at)
+            except Exception as error:  # noqa: BLE001 -- one gauge never stops the rest
+                _quiet_print(f"diagram: {gauge}: {error}")
 
     def _gauge_words(self, gauge):
         place = readsettings.ion_gauge_places(self.config).get(gauge)
@@ -695,8 +760,10 @@ class MainApp(QtCore.QObject, UIWindow):
         if recorded is not None:
             moment, user = recorded
             stamp = "%H:%M:%S" if moment.date() == datetime.date.today() else "%Y-%m-%d %H:%M:%S"
+            # The initials are typed into the Diagram by whoever records the
+            # switch, and the Log panel renders HTML.
             when = " (recorded {}{})".format(
-                moment.strftime(stamp), " by " + user if user else ""
+                moment.strftime(stamp), " by " + html.escape(user) if user else ""
             )
         self.log_message(
             "{}: the Diagram shows the {} {}{}".format(
@@ -717,8 +784,12 @@ class MainApp(QtCore.QObject, UIWindow):
         """
         if not self.workers:
             return
+        # The check waits for its window's rows to be delivered, and for a
+        # reader that delivers none no longer than it takes to call it lost.
+        sampling = float(getattr(self, "sampling", 0.0) or 0.0)
         self._switch_checks[gauge] = diagram_follower.SwitchCheck(
-            gauge, status, at, self._gauge_words(gauge)
+            gauge, status, at, self._gauge_words(gauge),
+            period=sampling, patience=reader_lost_after(sampling),
         )
 
     def _check_gauge_switches(self, now=None):
@@ -792,10 +863,7 @@ class MainApp(QtCore.QObject, UIWindow):
         here is printed and swallowed.
         """
         try:
-            times = [
-                getattr(stamp, "to_pydatetime", lambda: stamp)().timestamp()
-                for stamp in newdata["date"]
-            ]
+            times = [_epoch(stamp) for stamp in newdata["date"]]
             values = {}
             zeros = getattr(self, "zero_adjustment", {})
             for name, column in zip(
@@ -1064,12 +1132,13 @@ class MainApp(QtCore.QObject, UIWindow):
         device; and last the line that says why, so it is the last line.
         """
         _keep_streams_writable()
-        try:
-            self._stop_run_to_close()
-        except Exception as error:  # noqa: BLE001 -- the rest must still run
-            _quiet_print("closing: {}".format(error))
-        self._stop_diagram_follower()
-        self._stop_pi_health()
+        # Each step guarded: whatever fails, the next still runs and the
+        # last line is still written.
+        for step in (self._stop_run_to_close, self._stop_diagram_follower, self._stop_pi_health):
+            try:
+                step()
+            except Exception as error:  # noqa: BLE001 -- the rest must still run
+                _quiet_print("closing: {}".format(error))
         reason = self._stop_reason or (
             "no reason recorded; the event loop was ended from elsewhere"
         )
@@ -1150,8 +1219,8 @@ class MainApp(QtCore.QObject, UIWindow):
         try:
             with self._moving_selectors("web"):
                 web_commands.drain(self)
-        except Exception as error:
-            print(f"{RED}web command:{RESET} {error}")
+        except Exception as error:  # noqa: BLE001 -- a browser never stops the rig
+            _quiet_print(f"web command: {error}")
 
     def _toggle_led_status(self):
         if not self.control_dock.OnOffSW.isChecked():
@@ -1502,11 +1571,8 @@ class MainApp(QtCore.QObject, UIWindow):
         self._last_sample_at = None
         self._reader_lost_since = None
         self._sampling_before_change = None
-        # A warning about Ip with the filament off ends with the run, and
-        # says so if it was standing.
+        # A warning about Ip with the filament off ends with the run.
         watch, self._filament_watch = self._filament_watch, None
-        if watch is not None:
-            self._say_filament(watch.close(time.time()))
         # A recorded switch still being checked ends with the run whose
         # samples would have answered it; the next Start begins a new
         # history, and no check is carried into it.
@@ -1517,6 +1583,13 @@ class MainApp(QtCore.QObject, UIWindow):
         # theirs, and a browser that has just stopped a run must still be
         # able to start one.
         web_commands.release(self, "acquisition stopped")
+        # Last, and guarded: the warning's end line, if one was standing. A
+        # Log line that fails must not leave the run's state behind it.
+        if watch is not None:
+            try:
+                self._say_filament(watch.close(time.time()))
+            except Exception as error:  # noqa: BLE001 -- a warning never holds a stop
+                _quiet_print(f"filament-off watch: {error}")
 
     # MARK: logging
     def generate_time_stamp(self):
@@ -1840,7 +1913,9 @@ class MainApp(QtCore.QObject, UIWindow):
                     ip = float(current) - zero
                 except (TypeError, ValueError):
                     ip = float("nan")
-                self._say_filament(watch.observe(stamp.timestamp(), ip, off, why))
+                # The rows' own clock, read as the local time it was
+                # written in: `close` compares it with `time.time()`.
+                self._say_filament(watch.observe(_epoch(stamp), ip, off, why))
         except Exception as error:  # noqa: BLE001 -- a warning never stops a run
             _quiet_print(f"filament-off watch: {error}")
 

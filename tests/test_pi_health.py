@@ -164,6 +164,43 @@ def test_the_disk_falling_under_2_gb_is_said_once():
     assert judge.see(reading(free=3.0e9)) == [("Pi: 3.0 GB free under the data folder again", False)]
 
 
+def test_a_disk_sitting_at_the_line_is_said_once_until_it_has_room_again():
+    """The review of 2026-11-13: 1.99, 2.01, 1.99, 2.01 GB was a line at
+    every reading. Under 2 GB sets it; only back over 2.5 GB clears it."""
+    judge = PiHealthJudge()
+    judge.see(reading(free=2.1e9))
+    assert judge.see(reading(free=1.99e9)) == [
+        ("Pi: 2.0 GB free under the data folder, less than 2.0 GB", True)
+    ]
+    for free in (2.01e9, 1.99e9, 2.4e9, 1.99e9, 2.49e9):
+        assert judge.see(reading(free=free)) == []
+    assert judge.see(reading(free=2.5e9)) == [
+        ("Pi: 2.5 GB free under the data folder again", False)
+    ]
+
+
+def test_a_start_with_no_power_word_holds_the_first_one_against_nothing_set():
+    """The review of 2026-11-13: `vcgencmd` failing at the start made the
+    next readable word, under-voltage and all, the baseline in silence."""
+    judge = PiHealthJudge()
+    judge.see(reading(throttled=None))
+    assert judge.see(reading(throttled=0x50005)) == [
+        ("Pi: under-voltage, throttled now (get_throttled 0x50005)", True)
+    ]
+    assert judge.see(reading(throttled=0x50005)) == []
+    # A since-boot bit on that first word is said as since boot, not as
+    # something that came and went since a check that never read it.
+    judge = PiHealthJudge()
+    judge.see(reading(throttled=None))
+    assert judge.see(reading(throttled=0x10000)) == [
+        ("Pi: under-voltage occurred since boot (get_throttled 0x10000)", True)
+    ]
+    # A clean first word says nothing.
+    judge = PiHealthJudge()
+    judge.see(reading(throttled=None))
+    assert judge.see(reading(throttled=0x0)) == []
+
+
 def test_a_reading_in_the_health_report_s_shape():
     body = pi_health.as_json(reading(throttled=0x50001, temperature=52.14, free=41.26e9, at=7.5))
     assert body == {

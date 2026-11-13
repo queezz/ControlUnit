@@ -95,13 +95,17 @@ The program now says so in the Log when it happens
 delivered batch):
 
 - **Filament off** is the Kikusui's own measurement while its telemetry is
-  fresh: under 1 A, or its output off. Without fresh telemetry it is the
-  row's own cathode drive at 0 mV. A drive of 0 mV with the supply
+  fresh: under 1 A, or its output off. A drive of 0 mV with the supply
   measuring 18 A is the filament run on the supply's own knob (CF10 off,
-  below), and its plasma current is plasma current: no warning.
-- **Ip** is as the PID sees it, after the Ip zero; a NaN never counts. It
-  counts above the PID's own lit threshold, `Lit Above A` in settings.yml
-  (0.1 A).
+  below), and its plasma current is plasma current: no warning. With a link
+  configured but not fresh (the LAN lost, stale, still connecting) the
+  filament is unknown, and nothing is said: the drive cannot tell a knob-run
+  filament from none. Only on a rig with no `kikusui.yml` at all is the
+  row's own cathode drive at 0 mV the filament off.
+- **Ip** is as the PID sees it, after the Ip zero. A row whose Ip is NaN is
+  passed over: it neither counts as current nor ends a stretch or a
+  standing warning. It counts above the PID's own lit threshold, `Lit
+  Above A` in settings.yml (0.1 A).
 - **Three seconds** on the rows' own clock, continuously: a discharge whose
   drive went to zero is gone within a second or two, and is not warned
   about. At 10 s sampling two rows in a row are enough.
@@ -119,6 +123,9 @@ when it ends — "Ip no longer reads current with the filament off, after
 27 s at up to 2.38 A" — or, if the run is stopped first, "Acquisition
 stopped while Ip still read current with the filament off, …". Nothing is
 zeroed or driven: Zero Ip is a person's press, made with everything off.
+The rows' times are their own local stamps; until the review of 2026-11-13
+they were read as UTC, nine hours ahead on the rig's clock, and the line
+after a Stop said "after 0 s".
 
 ## The supply's own knob
 

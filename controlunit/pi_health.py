@@ -67,6 +67,12 @@ COOL_C = 65.0
 #: that, and enough warning to move files off before a write fails.
 LOW_DISK_BYTES = 2e9
 
+#: And back above which it says the space is there again. The gap is the
+#: temperature's: a disk sitting at the line, filled by the run and freed
+#: by a log rotation, wrote a line at every reading either way (the review
+#: of 2026-11-13).
+LOW_DISK_CLEAR_BYTES = 2.5e9
+
 #: The four conditions of `get_throttled`, by bit, in the Pi's own words.
 FLAGS = (
     (0, "under-voltage"),
@@ -235,10 +241,12 @@ class PiHealthJudge:
     not a Pi in trouble.
     """
 
-    def __init__(self, hot_c=HOT_C, cool_c=COOL_C, low_bytes=LOW_DISK_BYTES):
+    def __init__(self, hot_c=HOT_C, cool_c=COOL_C, low_bytes=LOW_DISK_BYTES,
+                 clear_bytes=LOW_DISK_CLEAR_BYTES):
         self._hot_c = hot_c
         self._cool_c = cool_c
         self._low_bytes = low_bytes
+        self._clear_bytes = max(clear_bytes, low_bytes)
         self._started = False
         self._word = None
         self._hot = False
@@ -265,8 +273,14 @@ class PiHealthJudge:
         if word is None:
             return []
         before, self._word = self._word, word
-        if before is None:
-            return []
+        # The first word that could be read after a start that could not
+        # read one is held against nothing set: an under-voltage present on
+        # it is said, where it used to pass as the baseline in silence (the
+        # review of 2026-11-13: `vcgencmd` failing once at start hid a sag
+        # the next reading showed).
+        unread = before is None
+        if unread:
+            before = 0
         now, was = set(flags(word)), set(flags(before))
         since = set(flags(word, SINCE_BOOT_SHIFT)) - set(flags(before, SINCE_BOOT_SHIFT))
         named = "get_throttled 0x{:x}".format(word)
@@ -279,9 +293,9 @@ class PiHealthJudge:
         if began:
             lines.append(("Pi: {} now ({})".format(", ".join(began), named), True))
         if between:
+            when = "occurred since boot" if unread else "came and went since the last check"
             lines.append((
-                "Pi: {} came and went since the last check ({})".format(
-                    ", ".join(between), named),
+                "Pi: {} {} ({})".format(", ".join(between), when, named),
                 True,
             ))
         if ended:
@@ -307,7 +321,7 @@ class PiHealthJudge:
             self._low = True
             return [("Pi: {} free under the data folder, less than {}".format(
                 gigabytes(free_bytes), limit), True)]
-        if self._low and free_bytes >= self._low_bytes:
+        if self._low and free_bytes >= self._clear_bytes:
             self._low = False
             return [("Pi: {} free under the data folder again".format(
                 gigabytes(free_bytes)), False)]

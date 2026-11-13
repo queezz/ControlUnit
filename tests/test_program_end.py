@@ -397,3 +397,20 @@ def test_closing_ends_the_program_s_helpers_before_the_last_line(qt_app, home):
         assert _log(widget)[-1].startswith("Program closing: ")
     finally:
         widget.abort_all_threads()
+
+
+def test_closing_writes_its_line_whatever_a_helper_s_stop_raises(qt_app, home):
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        def broken():
+            raise RuntimeError("the helper would not stop")
+
+        widget._stop_diagram_follower = broken
+        widget._stop_pi_health = broken
+        widget._window_closed()
+        widget._closing()
+        assert _log(widget)[-1] == "Program closing: the window was closed"
+    finally:
+        widget.abort_all_threads()

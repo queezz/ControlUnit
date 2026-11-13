@@ -52,10 +52,18 @@ board probes:
 - **On in the Diagram**: a gauge that is Off goes back to the mode it read
   in before (Torr when the program never saw it read), "Pd in Torr: the
   Diagram shows the downstream ion gauge on". One already in Torr or Pa is
-  left as it is.
-- **Only a change moves it.** The first answer after a launch counts as one,
-  so the program starts with the Diagram's word; after that a press on the
-  dock or in a browser holds until the Diagram itself changes again.
+  left as it is. The mode it read in is kept in `screen.json` while it is
+  off, so Pa is Pa again after a restart.
+- **Only a change moves it.** The Diagram's word each gauge was last given
+  is kept in `screen.json` (beside its mode and range, as `diagram`), and
+  the first answer after a launch changes only a gauge whose word changed
+  while the program was down. Before the review of 2026-11-13 that first
+  answer counted as a change from not knowing, and turned back on a gauge a
+  person had declared off by hand while the Diagram still said on. A gauge
+  with nothing remembered takes the Diagram's word at launch. After that a
+  press on the dock or in a browser holds until the Diagram itself changes
+  again. Each gauge in an answer is applied on its own and marked only once
+  it was, so one that fails neither stops the others nor is forgotten.
 - **No answer changes nothing.** One Log line says the gauges are not
   following the Diagram, and why; one more says when they follow again. A
   mapped element missing from an answer is not read as off (the Diagram
@@ -65,14 +73,22 @@ board probes:
   the gauge is off, but the signal doesn't change, we should warn." While a
   run records, each recorded switch is held against the gauge's raw volts:
   off is confirmed when they sit within 10 mV of zero for 5 s, on when they
-  stay above that as long, anywhere from 60 s before the switch was seen to
-  90 s after it (operators record a switch up to about a minute either side
-  of flipping it; a controller losing power swung to -1.56 V and took about
-  15 s to settle on 2026-10-07). A switch the signal does not show leaves
-  one red line, "Pd: the Diagram shows the downstream ion gauge off, but Pd
-  still reads 1.53 V, a live gauge's signal; is its controller still on, or
-  was another gauge recorded?", and the gauge keeps the Diagram's word. The
-  signal is never used to decide on or off by itself.
+  stay above that as long, in a stretch that begins anywhere from 60 s
+  before the switch was seen to 90 s after it (operators record a switch up
+  to about a minute either side of flipping it; a controller losing power
+  swung to -1.56 V and took about 15 s to settle on 2026-10-07). A stretch
+  begun near the end may finish up to 5 s and one sampling period after
+  it. A switch the signal does not show leaves one red line, "Pd: the
+  Diagram shows the downstream ion gauge off, but Pd still reads 1.53 V, a
+  live gauge's signal; is its controller still on, or was another gauge
+  recorded?", and the gauge keeps the Diagram's word. The line waits until
+  the rows up to that late edge have been delivered (the screen can be
+  behind the reader), or, if none come, until the reader would be called
+  lost; and it is never written when the newest reading already agrees
+  with the Diagram, nor when the window holds fewer than two rows. The
+  review of 2026-11-13 found it written for a gauge that reached its floor
+  86 s after the record, and for one whose rows were still on their way.
+  The signal is never used to decide on or off by itself.
 - **The Diagram's own time.** `/elements-state` carries no time, but the
   Diagram's history does (queezz: "The diagram has no timestamp? But it has
   history. So it has time..."). When the states change, the follower also
@@ -80,8 +96,12 @@ board probes:
   switch: the check's window then counts from the time the operator
   recorded it, and the Log line names it, "Pd declared off: the Diagram
   shows the downstream ion gauge off (recorded 14:43:20 by KAA)". Without
-  a history, or with a recorded time later than the notice, it counts from
-  when the change was seen here.
+  a history, or with a recorded time later than the notice, or earlier than
+  the last answer that still carried the word before (an older switch, from
+  a history that has not caught up), it counts from when the change was
+  seen here. A history fetched with a change whose answer the main thread
+  had not yet taken rides on the next answer rather than being lost. The
+  initials are escaped before they reach the Log panel, which renders HTML.
 
 The dummy hardware asks only a Diagram on its own machine (`127.0.0.1`,
 `localhost`), never the rig's. See the

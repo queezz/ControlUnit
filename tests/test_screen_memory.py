@@ -127,6 +127,38 @@ def test_a_value_the_dock_does_not_offer_is_passed_over_alone(tmp_path):
     assert notes == ["Pu2", "Pu3", "Pu4", "sampling"]
 
 
+def test_a_gauge_keeps_its_reading_mode_and_the_diagram_s_word(tmp_path):
+    """Since the review of 2026-11-13, beside mode and range: the mode a
+    gauge declared off read in before, and the Diagram's word last applied.
+    Both optional; a file from before them reads as it always did, and an
+    unusable one is passed over alone, the gauge kept."""
+    from controlunit import diagram_follower
+
+    assert screen_memory.DIAGRAM_WORDS == (diagram_follower.ACTIVE, diagram_follower.INACTIVE)
+    body = {
+        "schema": screen_memory.SCHEMA,
+        "gauges": {
+            "Pd": {"mode": "Off", "range": -7, "reading": "Pa", "diagram": "inactive"},
+            "Pu2": {"mode": "Torr", "range": -3, "diagram": "active"},
+            "Pu3": {"mode": "Off", "range": -3, "reading": "Off", "diagram": "on"},
+            "Pu4": {"mode": "Off", "range": -3, "reading": 1, "diagram": None},
+        },
+    }
+    (tmp_path / "screen.json").write_text(json.dumps(body), encoding="utf-8")
+    state, notes = screen_memory.read_screen(home=tmp_path)
+    assert state == {"gauges": {
+        "Pd": {"mode": "Off", "range": -7, "reading": "Pa", "diagram": "inactive"},
+        "Pu2": {"mode": "Torr", "range": -3, "diagram": "active"},
+        "Pu3": {"mode": "Off", "range": -3},
+        "Pu4": {"mode": "Off", "range": -3},
+    }}
+    assert notes == []
+    assert screen_memory.describe(state) == "Pd off, Pu2 Torr 1e-3, Pu3 off, Pu4 off"
+    # Written back as read.
+    assert screen_memory.write_screen(state, home=tmp_path)
+    assert screen_memory.read_screen(home=tmp_path) == (state, [])
+
+
 # MARK: the program
 
 

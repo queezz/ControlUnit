@@ -137,8 +137,13 @@ Refused from 10.249.254.8 (Kawabata Rei): QMS sync on - wrong lab word
 The browser is told what it always was (the holder line, for the lock);
 the Log names both people instead. The lab's word is written as `lab word
 not typed` or `wrong lab word`, never the word or what was typed. The same
-refusal — same address, same kind, same reason — is written once a minute;
-the next line after the minute ends `; N more like it since HH:MM:SS`. A
+refusal — same address, same kind of command, same kind of reason (the
+Remote switch off, not the holder, the lab's word, no run, already
+running, the supply, too many waiting) — is written once a minute; the
+next line after the minute ends `; N more like it since HH:MM:SS`. The
+kind, not the reason's text: the lock's text carries the name a browser
+sends, and a name changed at every press was a line at every press (the
+review of 2026-11-13: fifty names, fifty lines). A
 body the rig does not accept (`400`) is a page's mistake, not a person
 turned away, and is not logged; nor is a wrong word typed at `POST
 /api/fence` (below).
@@ -534,7 +539,9 @@ measured, and a readout with a baseline held says `zeroed` beside its name.
   carries every press the web refused (`Refused from …`, above), the Pi's
   own health (`Pi health: 52.1 °C, power fine, 41 GB free` at start, then a
   line only when a supply flag sets or clears, the core passes 70 °C or comes
-  back under 65 °C, or the data folder's disk falls under 2 GB), Ip read
+  back under 65 °C, or the data folder's disk falls under 2 GB and later
+  has more than 2.5 GB again; a supply flag already set on the first word
+  read after a start that could not read one is said too), Ip read
   with the filament off, and, last, why the program ended (`Program
   closing: …`; see [Qt threading](qt-threading.md#how-the-program-ends-and-says-why)).
 - **Lab** — the lab ensemble's own board, built in the PIHTI diagram's shape

@@ -17,9 +17,13 @@ person reading the plot as if it were is misled.
 A discharge outlives its drive by a second or two at most, so a reading has
 to stay up for `HOLD_SECONDS` before it counts. "Up" is the PID's own
 "lit", `Lit Above A` in settings.yml (0.1 A), on Ip as the PID sees it,
-after the Ip zero. "Filament off" is the Kikusui's telemetry, while it is
-fresh, measuring under `SUPPLY_OFF_BELOW_A` or its output off; without
-fresh telemetry, the row's own cathode drive at 0 mV.
+after the Ip zero; a row whose Ip is not a number says nothing either way.
+"Filament off" is the Kikusui's telemetry, while it is fresh, measuring
+under `SUPPLY_OFF_BELOW_A` or its output off. A link that is configured but
+not fresh (lost, stale, still connecting) leaves the filament unknown, and
+unknown is never off: the drive says nothing about a filament the supply's
+own knob may be running. Only on a rig with no link configured at all is the
+row's own cathode drive at 0 mV the filament off.
 
 Nothing is zeroed or driven from here, and nothing is inferred: the Log says
 what is seen and where to look, once when it starts and once when it ends.
@@ -56,6 +60,15 @@ def _number(value):
     return number if math.isfinite(number) else None
 
 
+#: The telemetry states that carry a measurement of the supply.
+FRESH = ("ok", "dummy")
+
+#: The telemetry state of a rig with no link to the supply configured
+#: (no `kikusui.yml`: `MainApp._start_kikusui_logging`). No snapshot at all
+#: is read the same way.
+NO_LINK = ("disabled", None)
+
+
 def filament_off(drive_mv, supply=None):
     """Whether the filament is off for one row, and the words that say how
     that is known; `(False, "")` when it is on or not known to be off.
@@ -65,20 +78,23 @@ def filament_off(drive_mv, supply=None):
     is the filament's power, which is what the warning is about. A drive of
     0 mV with the supply measuring 18 A is the filament run on the supply's
     own knob (CF10 off, `docs/hardware/cathode-control.md`), and its plasma
-    current is plasma current. Without fresh telemetry, the row's own
-    `PresetV_cathode` at 0 mV is the filament off; a stale or lost link
-    never says off by itself.
+    current is plasma current. A link that is configured but not fresh
+    (lost, stale, connecting, refused) knows nothing of the filament, and
+    neither does the drive, so nothing is said: 4.30.0 fell back on the
+    drive there, and would have warned of a discharge run on the knob while
+    the LAN was down. Only with no link configured is the row's own
+    `PresetV_cathode` at 0 mV the filament off.
     """
     supply = supply or {}
-    if supply.get("status") in ("ok", "dummy"):
+    status = supply.get("status")
+    if status in FRESH:
         if supply.get("output_on") == 0:
             return True, "the supply's output off"
         current = _number(supply.get("current_a"))
-        if current is not None:
-            if current < SUPPLY_OFF_BELOW_A:
-                return True, "the supply at {:.2f} A".format(current)
-            return False, ""
-    if _number(drive_mv) == 0:
+        if current is not None and current < SUPPLY_OFF_BELOW_A:
+            return True, "the supply at {:.2f} A".format(current)
+        return False, ""
+    if status in NO_LINK and _number(drive_mv) == 0:
         return True, "cathode drive 0 mV"
     return False, ""
 
@@ -90,7 +106,10 @@ class FilamentOffCurrent:
     in seconds, Ip as the PID sees it (zero subtracted), and what
     `filament_off` said. It returns `(head, rest, alarm)` when the Log
     should say something, the head being the words a red line colours, and
-    None otherwise. A NaN never counts as current.
+    None otherwise. A row whose Ip is not a number (the Hall supply out of
+    range) is passed over: it neither counts as current nor ends a stretch
+    or a warning, which 4.30.0 let it do, so one NaN row ended a standing
+    warning and the next row began it again.
     """
 
     def __init__(self, lit_above, hold_seconds=HOLD_SECONDS):
@@ -107,7 +126,9 @@ class FilamentOffCurrent:
 
     def observe(self, at, ip, off, why=""):
         current = _number(ip)
-        if not (off and current is not None and current > self.lit_above):
+        if current is None:
+            return None
+        if not (off and current > self.lit_above):
             return self._end(at)
         if self._since is None:
             self._since, self._peak = at, current

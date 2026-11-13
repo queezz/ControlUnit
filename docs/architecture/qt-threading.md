@@ -71,7 +71,9 @@ range, and the Settings dock's sampling time. Outputs are not carried over:
 gas, the cathode drive, the PID and the supply's output start at zero and off.
 
 The same three settings also outlive the program. Each gauge's mode (Torr,
-Pa or Off) and range, and the sampling time the run uses, are written to
+Pa or Off) and range (with, beside them, the mode a gauge declared off read
+in before, and the Diagram's word last applied to it), and the sampling
+time the run uses, are written to
 `~/.controlunit/screen.json` (`controlunit/screen_memory.py`; the folder is
 `settings_home()`, beside `operators.json` and `fence.txt`, never in git)
 whenever one of them changes, from the dock or a browser, and at every
@@ -100,19 +102,25 @@ Diagram an address. Every 10 s it asks the Diagram's `/elements-state` with
 a 2 s timeout and keeps only the newest answer behind a lock; it never
 touches Qt, a worker or the ADC, and the reader never waits on it. The main
 thread takes that answer on `diagram_timer`, a 3 s `QTimer`, and acts only
-on a gauge whose word changed since the last answer: it moves the dock's
-mode selector inside `_moving_selectors("diagram")`, so the selector's own
-signal tells the worker, the web status and `screen.json`, exactly as a
-browser's gauge command does. Silence or an answer that is not the states
-changes nothing, with one Log line when following stops and one when it
-resumes. Dummy hardware asks only a Diagram on its own loopback.
+on a gauge whose word differs from the one it last applied: it moves the
+dock's mode selector inside `_moving_selectors("diagram")`, so the
+selector's own signal tells the worker, the web status and `screen.json`,
+exactly as a browser's gauge command does. Each gauge is applied on its own
+and marked only once it was, and the word applied is kept in `screen.json`
+too, which seeds the next launch's memory, so its first answer changes only
+what changed while the program was down. Silence or an answer that is not
+the states changes nothing, with one Log line when following stops and one
+when it resumes. Dummy hardware asks only a Diagram on its own loopback.
 
 The same timer settles the checks of a recorded switch against the gauge's
 own raw volts ("When the diagram says the gauge is off, but the signal
 doesn't change, we should warn"). They read the raw column of the window's
 own `RunHistory` (`self.datadict["ADC"]`) on the main thread, never the
 ADC; a switch is held only while a run records, and Stop drops a pending
-one with the run that would have answered it.
+one with the run that would have answered it. A check decides only once the
+history holds rows past its window's late edge, since this thread can be
+behind the reader, or once the reader would be called lost
+(`reader_lost_after`) if no such rows come.
 
 The Raspberry Pi's own health is read on a third Python daemon thread,
 `pi-health` (`controlunit/pi_health.py`, 2026-11-13): every five minutes
@@ -262,7 +270,9 @@ slot on `QApplication.aboutToQuit`, after the hardware: `_closing` first
 stops a run still going (Stop's own `stop_acquisition`, so the outputs are
 zeroed and the workers joined), then `_stop_diagram_follower` (stops
 `diagram_timer`, sets the follower's stop event, joins its thread for at
-most half a second) and `_stop_pi_health` (the same, for `pi-health`).
+most half a second) and `_stop_pi_health` (the same, for `pi-health`),
+each guarded so that one that raises neither keeps the next from running
+nor the last line from being written.
 Neither holds a device, file or open socket between asks, so nothing in the
 hardware-first order waits on them; a thread still inside its one request,
 or its one `vcgencmd`, is a daemon and ends with the interpreter. Last,

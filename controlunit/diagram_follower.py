@@ -16,11 +16,12 @@ Three parts, each on the thread it belongs to:
   `POLL_SECONDS` on a daemon thread of its own, with a `TIMEOUT_SECONDS`
   wait, and keeps only the newest answer. It never touches Qt, a worker or
   the ADC; nothing waits on it, and it holds nothing a shutdown must close.
-- `GaugeFollowing` is the main thread's memory of what the Diagram last
-  said for each mapped gauge. It turns an answer into the gauges whose word
-  *changed*, and into at most one Log sentence when following stops working
-  and one when it works again. Edges only: a press on the dock or in a
-  browser holds until the Diagram itself changes again, so the two never
+- `GaugeFollowing` is the main thread's memory of the Diagram's word last
+  applied to each mapped gauge, seeded at launch from `screen.json`. It
+  turns an answer into the gauges whose word *changed*, and into at most
+  one Log sentence when following stops working and one when it works
+  again. Edges only: a press on the dock or in a browser holds until the
+  Diagram itself changes again, across a restart too, so the two never
   fight and nothing is re-applied at every poll.
 - `SwitchCheck` holds one recorded switch against the gauge's own raw
   volts. queezz, the same day: "When the diagram says the gauge is off, but
@@ -120,8 +121,9 @@ HOLD_SECONDS = 5.0
 BEFORE_SECONDS = 60.0
 AFTER_SECONDS = 90.0
 
-#: A check's verdicts. `UNCHECKED` is a window with no sample in it at all:
-#: nothing to hold the Diagram's word against, and so nothing to say.
+#: A check's verdicts. `UNCHECKED` is a window with fewer than two samples
+#: in it, too few to show a hold: nothing to hold the Diagram's word
+#: against, and so nothing to say.
 PENDING = "pending"
 CONFIRMED = "confirmed"
 UNCONFIRMED = "unconfirmed"
@@ -150,9 +152,15 @@ def is_loopback(url):
     """True when `url` names this machine itself.
 
     The dummy hardware asks only such a Diagram: a laptop checking this
-    feature runs a Diagram of its own, and never reads the rig's.
+    feature runs a Diagram of its own, and never reads the rig's. A URL
+    that cannot be read (`http://[::1` raises in `urlsplit`) names no
+    machine, and so not this one; it never raises, because a neighbours
+    file is typed by hand and this runs while the window is being built.
     """
-    host = urllib.parse.urlsplit(str(url or "")).hostname or ""
+    try:
+        host = urllib.parse.urlsplit(str(url or "")).hostname or ""
+    except ValueError:
+        return False
     if host == "localhost" or host.endswith(".localhost"):
         return True
     try:
@@ -255,6 +263,11 @@ class DiagramFollower:
         self._clock = clock if clock is not None else datetime.datetime.now
         self._lock = threading.Lock()
         self._latest = None
+        #: The history fetched with a change whose answer the main thread
+        #: has not taken yet. The history is asked only when the states
+        #: change, so an answer replaced before it was taken would take its
+        #: recorded times with it; they ride on the next answer instead.
+        self._recorded_untaken = None
         self._stop = threading.Event()
         self._thread = None
 
@@ -292,14 +305,29 @@ class DiagramFollower:
             answer = self._ask()
             if self._stop.is_set():
                 break
-            with self._lock:
-                self._latest = answer
+            self._keep(answer)
             self._stop.wait(self._interval)
 
+    def _keep(self, answer):
+        """Make `answer` the newest, remembering a history it carried until
+        an answer with states is taken."""
+        with self._lock:
+            if answer.recorded is not None:
+                self._recorded_untaken = answer.recorded
+            self._latest = answer
+
     def take(self):
-        """The newest answer, once; None when nothing new has arrived."""
+        """The newest answer, once; None when nothing new has arrived.
+
+        An answer with states carries the history of a change it replaced
+        untaken, when it has none of its own.
+        """
         with self._lock:
             answer, self._latest = self._latest, None
+            if answer is not None and answer.states is not None:
+                if answer.recorded is None and self._recorded_untaken is not None:
+                    answer = answer._replace(recorded=self._recorded_untaken)
+                self._recorded_untaken = None
         return answer
 
     def stop(self, timeout=STOP_WAIT_SECONDS):
@@ -321,21 +349,48 @@ class GaugeFollowing:
     """What the Diagram last said for each mapped gauge, on the main thread.
 
     `read()` takes one answer and returns `(changes, notes)`: the gauges
-    whose word changed since the last answer, as `(gauge, status)`, and the
-    sentences the Log should carry about following itself. The first answer
-    is a change from not knowing, so at launch the gauges take the
-    Diagram's current word.
+    whose word differs from the one last applied, as `(gauge, status)`, and
+    the sentences the Log should carry about following itself. A change is
+    applied by the caller and then marked with `applied()`; one whose
+    applying failed is not marked, and is a change again at the next answer.
+
+    `seen` is each gauge's word as the program last applied it, kept in
+    `screen.json` across a restart. Without it the first answer after every
+    launch was a change from not knowing, and undid a gauge declared off by
+    hand while the Diagram still said on (the review of 2026-11-13). With
+    it, only a word that changed while the program was down is applied; a
+    gauge with nothing remembered still takes the Diagram's word at launch.
     """
 
-    def __init__(self, elements):
+    def __init__(self, elements, seen=None):
         #: gauge -> the Diagram's element id.
         self.elements = dict(elements)
-        self._seen = {}
+        self._seen = {
+            gauge: word
+            for gauge, word in (seen or {}).items()
+            if gauge in self.elements and word in (ACTIVE, INACTIVE)
+        }
+        #: gauge -> when its applied word was last seen in an answer; only
+        #: this program's own answers, never a remembered one.
+        self._seen_at = {}
         #: None before any answer, then whether the last ask was answered.
         self._answering = None
         self._unnamed = set()
 
-    def read(self, states, reason=""):
+    def words(self):
+        """Each gauge's applied word, for the remembered screen."""
+        return dict(self._seen)
+
+    def last_seen(self, gauge):
+        """When the gauge's applied word was last in an answer, or None."""
+        return self._seen_at.get(gauge)
+
+    def applied(self, gauge, status, at=None):
+        """The caller applied `status` to `gauge` from the answer of `at`."""
+        self._seen[gauge] = status
+        self._seen_at[gauge] = at
+
+    def read(self, states, reason="", at=None):
         notes = []
         if not isinstance(states, dict):
             # Said when following stops working, not at every poll after.
@@ -362,26 +417,46 @@ class GaugeFollowing:
                 continue
             self._unnamed.discard(gauge)
             if self._seen.get(gauge) == status:
+                if at is not None:
+                    self._seen_at[gauge] = at
                 continue
-            self._seen[gauge] = status
             changes.append((gauge, status))
         return changes, notes
+
+
+def recorded_time_believed(moment, noticed, previous_seen=None):
+    """Whether a time the Diagram's history gives can be this change's.
+
+    Not later than the change was noticed here. And not earlier than the
+    last answer that still carried the word before it: the change came
+    after that answer, so a recorded switch older than it is an earlier one
+    (a history that has not caught up yet, or the same word recorded twice).
+    The history's stamp is to the second, so the answer's time is too.
+    """
+    if moment > noticed:
+        return False
+    if previous_seen is not None and moment < previous_seen.replace(microsecond=0):
+        return False
+    return True
 
 
 def _stamp(moment):
     return np.datetime64(moment, "ns")
 
 
-def _held(times, volts, at_floor, start, end):
+def _held(times, volts, at_floor, start, end, late=None):
     """Whether the raw volts stayed on one side of the floor for
-    `HOLD_SECONDS` somewhere between `start` and `end`.
+    `HOLD_SECONDS`, in a stretch that began between `start` and `end`.
 
+    The stretch may run on past `end` up to `late`: a hold that begins
+    inside the window is the switch, however close to its end it began.
     `times` is ascending (the run history keeps its rows in order), so the
     window is found by bisection. A sample that is not a number breaks a
     stretch, as one on the other side of the floor does.
     """
+    late = end if late is None else late
     first = int(np.searchsorted(times, start, side="left"))
-    last = int(np.searchsorted(times, end, side="right"))
+    last = int(np.searchsorted(times, late, side="right"))
     hold = np.timedelta64(int(HOLD_SECONDS * 1e9), "ns")
     since = None
     for stamp, value in zip(times[first:last], volts[first:last]):
@@ -390,17 +465,17 @@ def _held(times, volts, at_floor, start, end):
             since = None
             continue
         if since is None:
+            if stamp > end:
+                return False  # begun after the window: not this switch
             since = stamp
         if stamp - since >= hold:
             return True
     return False
 
 
-def _last_reading(times, volts, start, end):
-    """The newest finite raw value between `start` and `end`, or None."""
-    first = int(np.searchsorted(times, start, side="left"))
-    last = int(np.searchsorted(times, end, side="right"))
-    for value in volts[first:last][::-1]:
+def _newest_reading(volts):
+    """The newest finite raw value delivered, or None."""
+    for value in volts[::-1]:
         value = float(value)
         if math.isfinite(value):
             return value
@@ -411,31 +486,58 @@ class SwitchCheck:
     """One switch the Diagram recorded, awaiting the gauge's own signal.
 
     Off is confirmed when the raw volts sit at the floor for `HOLD_SECONDS`
-    at any point from `BEFORE_SECONDS` before the edge to `AFTER_SECONDS`
-    after it; on is confirmed when they leave it as long. Confirmed early
-    when the signal has already said so; unconfirmed only once the whole
-    window has passed, so a slow decay is never warned about.
+    in a stretch that begins from `BEFORE_SECONDS` before the edge to
+    `AFTER_SECONDS` after it; on is confirmed when they leave it as long.
+    Confirmed early when the signal has already said so. The rest waits
+    until the window and a hold begun at its very end have had their rows
+    delivered (`late`): the main thread can be minutes behind the reader,
+    and a verdict on rows not yet delivered is no verdict. A reader that
+    has stopped delivering is waited for no longer than `patience` past
+    that. Then nothing is said when the newest reading already agrees with
+    the Diagram, or when the window holds too few rows to show a hold;
+    only a gauge whose signal still disagrees is warned about.
+
+    The review of 2026-11-13 found the red line written for a gauge that
+    reached its floor 86 s after the record (the hold ran past the window's
+    end), and for one whose rows had not been delivered yet.
     """
 
-    def __init__(self, gauge, status, at, words):
+    def __init__(self, gauge, status, at, words, period=0.0, patience=5.0):
         self.gauge = gauge
         self.status = status
         self.words = words
         self.start = _stamp(at - datetime.timedelta(seconds=BEFORE_SECONDS))
         self.end = _stamp(at + datetime.timedelta(seconds=AFTER_SECONDS))
+        period = max(0.0, float(period or 0.0))
+        #: A hold that begins at the window's end has finished by this.
+        self.late = _stamp(
+            at + datetime.timedelta(seconds=AFTER_SECONDS + HOLD_SECONDS + period)
+        )
+        self.patience = np.timedelta64(int(max(0.0, float(patience)) * 1e9), "ns")
 
     def verdict(self, times, volts, now):
         """`(verdict, Log line or "")` as of `now`, from the run's raw column."""
-        if times is not None and volts is not None and len(times):
-            if _held(times, volts, self.status == INACTIVE, self.start, self.end):
-                return CONFIRMED, ""
-        if _stamp(now) < self.end:
+        have = times is not None and volts is not None and len(times) > 0
+        at_floor = self.status == INACTIVE
+        if have and _held(times, volts, at_floor, self.start, self.end, self.late):
+            return CONFIRMED, ""
+        moment = _stamp(now)
+        if moment < self.late:
             return PENDING, ""
-        reading = None
-        if times is not None and volts is not None and len(times):
-            reading = _last_reading(times, volts, self.start, self.end)
+        delivered = have and times[-1] >= self.late
+        if not delivered and moment < self.late + self.patience:
+            return PENDING, ""
+        if not have:
+            return UNCHECKED, ""
+        first = int(np.searchsorted(times, self.start, side="left"))
+        last = int(np.searchsorted(times, self.late, side="right"))
+        if last - first < 2:
+            return UNCHECKED, ""
+        reading = _newest_reading(volts)
         if reading is None:
             return UNCHECKED, ""
+        if (abs(reading) < FLOOR_VOLTS) == at_floor:
+            return CONFIRMED, ""
         return UNCONFIRMED, self.warning(reading)
 
     def warning(self, reading):

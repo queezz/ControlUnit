@@ -204,6 +204,42 @@ REFUSAL_REPEAT_SECONDS = 60.0
 #: 200 ms; more than this waiting means it is not draining, and the oldest go.
 MAX_REFUSALS_WAITING = 64
 
+#: What kind of refusal a reason is, for holding back repeats. The lock's
+#: reasons ("Kawabata Rei does not hold control (Kuzmin Arseniy does)", or
+#: the holder line a page is shown) carry the name a browser sends, which
+#: is whatever the cookie says: keyed by the text, fifty presses under fifty
+#: names were fifty lines inside the minute (the review of 2026-11-13). Every
+#: reason that is not one of these fixed sentences is the lock's.
+REFUSAL_KINDS = {
+    NO_REMOTE: "remote off",
+    NO_FENCE_WORD: "fence",
+    WRONG_FENCE_WORD: "fence",
+    FENCE_NOT_TYPED: "fence",
+    FENCE_WRONG: "fence",
+    NO_ACQUISITION: "needs acquisition",
+    ALREADY_ACQUIRING: "already acquiring",
+    NO_SUPPLY_ANSWER: "supply",
+    NO_SUPPLY_LINK: "supply",
+    TOO_MANY: "too many",
+}
+NOT_HOLDER = "not holder"
+
+
+def refusal_kind(reason):
+    """The category a refusal's reason falls in (`REFUSAL_KINDS`)."""
+    return REFUSAL_KINDS.get(reason, NOT_HOLDER)
+
+
+def _quiet_print(text):
+    """Print, if there is still somewhere to print to: a program whose
+    terminal was closed under it (SIGHUP) has a stdout that raises, and an
+    exception branch that raises again takes the timer's slot with it.
+    The same as `main._quiet_print`, which this module cannot import."""
+    try:
+        print(text)
+    except Exception:  # noqa: BLE001
+        pass
+
 
 class Invalid(ValueError):
     """A body the web thread refuses to queue, with the reason to show."""
@@ -381,10 +417,13 @@ class RefusalLog(object):
     the line here, under this lock, and `drain` writes it on the main
     thread with the commands.
 
-    The same refusal, from the same address, for the same kind and the same
-    reason, is written once a minute (`REFUSAL_REPEAT_SECONDS`): a button
-    pressed ten times in frustration is one line, and the next line after
-    the minute says how many presses were held back meanwhile.
+    The same refusal, from the same address, for the same kind of command
+    and the same kind of reason (`refusal_kind`), is written once a minute
+    (`REFUSAL_REPEAT_SECONDS`): a button pressed ten times in frustration is
+    one line, and the next line after the minute says how many presses were
+    held back meanwhile. The reason's kind, not its text: the lock's text
+    carries the name the browser sends, and a name changed at every press
+    used to be a line at every press.
     """
 
     def __init__(self, clock=time.monotonic, wall=time.time, repeat=REFUSAL_REPEAT_SECONDS):
@@ -393,14 +432,14 @@ class RefusalLog(object):
         self._wall = wall
         self._repeat = float(repeat)
         self._waiting = collections.deque(maxlen=MAX_REFUSALS_WAITING)
-        # (origin, kind, reason) -> when its last line was written, on both
-        # clocks, and how many presses were held back since.
+        # (origin, kind, kind of reason) -> when its last line was written,
+        # on both clocks, and how many presses were held back since.
         self._last = {}
 
     def note(self, kind, value, actor, origin, reason):
         """Leave a refusal's line for the main thread; True if one was left,
         False if it was held back as a repeat inside the minute."""
-        key = (origin or "", kind, reason)
+        key = (origin or "", kind, refusal_kind(reason))
         now = self._clock()
         with self._lock:
             last = self._last.get(key)
@@ -1084,7 +1123,7 @@ def release(app, reason):
         try:
             app.log_message("Control released ({})".format(reason))
         except Exception as error:  # losing a log line never stops a shutdown
-            print("web control release: {}".format(error))
+            _quiet_print("web control release: {}".format(error))
     return previous
 
 
@@ -1105,17 +1144,17 @@ def drain(app):
             outcome, reason = apply(app, command)
         except Exception as error:  # a bad command never stops the rig
             outcome, reason = REFUSED, "the rig could not carry that out"
-            print("web command {}: {}".format(command.kind, error))
+            _quiet_print("web command {}: {}".format(command.kind, error))
         done += 1
         try:
             app.web_status.record_command(command.as_record(outcome, reason))
             app.log_message(describe(command, outcome, reason))
         except Exception as error:
-            print("web command log: {}".format(error))
+            _quiet_print("web command log: {}".format(error))
     refusals = getattr(waiting, "refusals", None)
     for line in refusals.take() if refusals is not None else ():
         try:
             app.log_message(line)
         except Exception as error:
-            print("web refusal log: {}".format(error))
+            _quiet_print("web refusal log: {}".format(error))
     return done

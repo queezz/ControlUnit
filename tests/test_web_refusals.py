@@ -136,15 +136,76 @@ def test_the_lab_s_word_is_never_written_only_whether_one_was_carried(tmp_path):
 
     assert press(client, "/api/sync", {"on": True}).status_code == 403
     client.set_cookie("fence", "plasmaboks")
-    assert press(client, "/api/sync", {"on": True}).status_code == 403
     assert press(client, "/api/take-over", {}).status_code == 403
+    # The same kind of reason for the same press inside the minute: held.
+    assert press(client, "/api/sync", {"on": True}).status_code == 403
     lines = desk.refusals.take()
     assert lines == [
         "Refused from 10.249.254.8 (Kawabata Rei): QMS sync on " + DASH + " lab word not typed",
-        "Refused from 10.249.254.8 (Kawabata Rei): QMS sync on " + DASH + " wrong lab word",
         "Refused from 10.249.254.8 (Kawabata Rei): take control " + DASH + " wrong lab word",
     ]
     assert not any("plasmabo" in line for line in lines)
+
+
+def test_a_name_changed_at_every_press_is_still_one_line_a_minute(tmp_path):
+    """The review of 2026-11-13: the lock's reason carries the name the
+    browser's cookie sends, and the repeat was keyed by that text, so fifty
+    presses under fifty names were fifty lines inside the minute."""
+    desk = commands.CommandQueue()
+    desk.control.take_over("Owner", OWNER)
+    client = client_for(rig(), tmp_path, desk)
+    for number in range(50):
+        assert press(client, "/api/plasma-current", {"a": 1.0},
+                     actor="x{}".format(number)).status_code == 403
+    for _ in range(50):
+        press(client, "/api/plasma-current", {"a": 1.0}, actor="same")
+    lines = desk.refusals.take()
+    assert lines == [
+        "Refused from 10.249.254.8 (x0): plasma current 1.00 A " + DASH
+        + " x0 does not hold control (Owner does)"
+    ]
+
+
+@pytest.mark.parametrize("reason, kind", [
+    (commands.NO_REMOTE, "remote off"),
+    (commands.FENCE_NOT_TYPED, "fence"),
+    (commands.FENCE_WRONG, "fence"),
+    (commands.NO_FENCE_WORD, "fence"),
+    (commands.NO_ACQUISITION, "needs acquisition"),
+    (commands.ALREADY_ACQUIRING, "already acquiring"),
+    (commands.NO_SUPPLY_ANSWER, "supply"),
+    (commands.TOO_MANY, "too many"),
+    ("Kawabata Rei does not hold control (Kuzmin Arseniy does)", "not holder"),
+    ("Kuzmin Arseniy has control since 16:20", "not holder"),
+])
+def test_each_reason_falls_in_one_kind(reason, kind):
+    assert commands.refusal_kind(reason) == kind
+
+
+def test_a_log_that_fails_with_its_terminal_gone_never_raises_out_of_the_drain(
+    tmp_path, monkeypatch
+):
+    """After SIGHUP every print raises; the drain's own complaint about a
+    Log line that failed must not take the timer's slot with it."""
+    import sys
+
+    class Gone:
+        def write(self, text):
+            raise OSError(5, "Input/output error")
+
+        def flush(self):
+            raise OSError(5, "Input/output error")
+
+    desk = commands.CommandQueue()
+    desk.refusals.note("plasma", {"a": 1.0}, "Kawabata Rei", STUDENT, commands.NO_REMOTE)
+    window = Window(desk)
+
+    def broken(message, htmltag="p"):
+        raise OSError(28, "No space left on device")
+
+    window.log_message = broken
+    monkeypatch.setattr(sys, "stdout", Gone())
+    assert commands.drain(window) == 0
 
 
 def test_a_body_the_rig_does_not_accept_is_not_a_refused_press(tmp_path):

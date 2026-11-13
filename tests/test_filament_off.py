@@ -115,9 +115,10 @@ def test_the_filament_on_the_supply_s_own_knob_never_warns():
     own measurement is the filament's power, and it is on."""
     _, said = run(stretch(0.0, 120.0, 0.0, 1.5), supply=SUPPLY_LIT)
     assert said == []
-    # Fresh, but with no current in it: the drive decides again.
+    # Fresh, but with no current in it: the link is there and says nothing
+    # of the filament, so neither does the drive.
     supply = {"status": "ok", "output_on": 1}
-    assert filament_off.filament_off(0.0, supply) == (True, "cathode drive 0 mV")
+    assert filament_off.filament_off(0.0, supply) == (False, "")
 
 
 def test_the_supply_can_say_the_filament_is_off_when_the_drive_does_not():
@@ -141,15 +142,41 @@ def test_a_stale_or_lost_supply_never_says_off():
     assert filament_off.filament_off(float("nan"), None) == (False, "")
 
 
+@pytest.mark.parametrize(
+    "status", ["stale", "unavailable", "connecting", "stopped", "idle", "error"])
+def test_a_link_that_is_configured_but_not_fresh_leaves_the_filament_unknown(status):
+    """The review of 2026-11-13: with the supply's LAN down, the drive at
+    0 mV was taken as the filament off, and a discharge run on the supply's
+    own knob would have been warned about. Unknown is never off."""
+    supply = {"status": status}
+    assert filament_off.filament_off(0.0, supply) == (False, "")
+    _, said = run(stretch(0.0, 30.0, 0.0, 2.38), supply=supply)
+    assert said == []
+
+
+def test_with_no_link_configured_the_drive_is_the_filament():
+    assert filament_off.filament_off(0.0, {"status": "disabled"}) == (
+        True, "cathode drive 0 mV")
+    assert filament_off.filament_off(0.0, None) == (True, "cathode drive 0 mV")
+    assert filament_off.filament_off(1800.0, {"status": "disabled"}) == (False, "")
+
+
 def test_a_nan_never_counts_as_current():
     _, said = run(stretch(0.0, 10.0, 0.0, float("nan")))
     assert said == []
-    # A NaN inside a stretch breaks it: three more seconds are needed.
-    rows = stretch(0.0, 2.0, 0.0, 2.38) + [(2.0, 0.0, float("nan"))] + stretch(
-        2.1, 2.5, 0.0, 2.38
-    )
-    _, said = run(rows)
-    assert said == []
+
+
+def test_a_nan_row_is_passed_over_not_taken_as_the_end():
+    """The review of 2026-11-13: a NaN row (the Hall supply out of range for
+    one sample) ended a standing warning, and the next row began it again,
+    a red line and a plain one for nothing. It says nothing either way."""
+    gap = [(5.0, 0.0, float("nan"))]
+    _, said = run(stretch(0.0, 5.0, 0.0, 2.38) + gap + stretch(5.1, 10.0, 0.0, 2.38))
+    assert [alarm for _, _, alarm in said] == [True]
+    # Nor does it break a stretch still counting its three seconds.
+    _, said = run(stretch(0.0, 2.0, 0.0, 2.38) + [(2.0, 0.0, float("nan"))]
+                  + stretch(2.1, 1.5, 0.0, 2.38))
+    assert [alarm for _, _, alarm in said] == [True]
 
 
 def test_a_stop_during_a_warning_says_the_run_ended_it():
@@ -248,5 +275,64 @@ def test_the_window_reads_the_batch_after_the_ip_zero(qt_app, home):
             _batch(start + datetime.timedelta(seconds=40), 30, 2200, 1.5)
         )
         assert len([line for line in _log(widget) if "filament off" in line]) == 2
+    finally:
+        widget.abort_all_threads()
+
+
+def test_a_stop_says_how_long_the_warning_stood_on_the_rows_own_clock(qt_app, home):
+    """The review of 2026-11-13: the end line after Stop said "after 0 s".
+    The rows' naive local stamps were read as UTC (pandas'
+    `Timestamp.timestamp()`), nine hours ahead of `time.time()` on a JST
+    clock; they are now read as local time, as the web view's are."""
+    import datetime
+    import re
+
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        widget.start_acquisition()
+        # No kikusui.yml in this home: no link, so the drive is the word.
+        assert widget._kikusui_snapshot["status"] == "disabled"
+        now = datetime.datetime.now()
+        widget._watch_filament_off_current(
+            _batch(now - datetime.timedelta(seconds=20), 21, 0, 2.38))
+        assert any(line.startswith("Ip reads 2.38 A") for line in _log(widget))
+        widget.abort_all_threads()
+        ended = [line for line in _log(widget)
+                 if line.startswith("Acquisition stopped while Ip")]
+        assert len(ended) == 1
+        seconds = int(re.search(r"after (\d+) s", ended[0]).group(1))
+        assert 18 <= seconds <= 30
+    finally:
+        widget.abort_all_threads()
+
+
+def test_a_warning_s_end_line_that_fails_never_leaves_the_run_behind(qt_app, home):
+    """The end line is the last thing a stop does, and a failure in it is
+    swallowed: before, it raised out of `abort_all_threads` before the
+    switch checks, the acquiring flag and the browser's control were let go."""
+    import datetime
+
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        widget.start_acquisition()
+        widget.web_commands.control.take_over("Owner", "10.0.0.5")
+        widget._watch_filament_off_current(
+            _batch(datetime.datetime.now() - datetime.timedelta(seconds=10), 10, 0, 2.38))
+        widget._switch_checks["Pd"] = object()
+
+        def broken(said):
+            raise OSError(28, "No space left on device")
+
+        widget._say_filament = broken
+        widget.abort_all_threads()
+        assert not widget.workers
+        assert widget._switch_checks == {}
+        assert widget.web_status.read()["acquiring"] is False
+        assert widget.web_commands.control.read()["holder"] == ""
+        assert widget._filament_watch is None
     finally:
         widget.abort_all_threads()

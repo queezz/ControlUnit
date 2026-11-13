@@ -15,6 +15,15 @@ and the sampling time the run used. Outputs are never kept here: gas, the
 cathode drive, the PID and the supply's output start at zero and off after
 a restart, as they always have.
 
+Two more for each gauge, both optional, since the review of 2026-11-13:
+`reading`, the mode a gauge declared off read in before (Torr or Pa), so
+the Diagram turning it back on after a restart finds Pa where Pa was; and
+`diagram`, the PIHTI Diagram's word the program last applied to it
+(`active` or `inactive`). Without that the first answer after every launch
+was a change from not knowing, and undid a gauge declared off by hand while
+the Diagram still said on. A file without them is read as before, and a
+program before them reads a file with them, passing the two over.
+
 The file is this machine's, beside the roster and the lab's word, and never
 in git: `~/.controlunit/screen.json` (or `$CONTROLUNIT_SETTINGS_HOME`)::
 
@@ -22,8 +31,9 @@ in git: `~/.controlunit/screen.json` (or `$CONTROLUNIT_SETTINGS_HOME`)::
       "schema": "controlunit-screen/v1",
       "sampling_s": 10.0,
       "gauges": {
-        "Pd": {"mode": "Torr", "range": -7},
-        "Pu2": {"mode": "Off", "range": -3}
+        "Pd": {"mode": "Torr", "range": -7, "diagram": "active"},
+        "Pu2": {"mode": "Off", "range": -3, "reading": "Pa",
+                "diagram": "inactive"}
       }
     }
 
@@ -53,6 +63,11 @@ from controlunit.web.neighbours import settings_home
 SCREEN_FILE = "screen.json"
 SCHEMA = "controlunit-screen/v1"
 
+#: The PIHTI Diagram's two words for an element, as `diagram_follower`
+#: reads them (`ACTIVE`, `INACTIVE`; a test holds them equal). Written out
+#: here so this module stays plain standard library.
+DIAGRAM_WORDS = ("active", "inactive")
+
 
 def screen_path(home=None):
     """Where this machine keeps what its screen was last set to."""
@@ -60,7 +75,9 @@ def screen_path(home=None):
 
 
 def _gauge_entry(entry):
-    """One gauge's `{"mode", "range"}` as the dock offers it, or None."""
+    """One gauge's `{"mode", "range"}` as the dock offers it, or None, with
+    `reading` and `diagram` beside them where the file has usable ones; an
+    unusable one of those two is passed over alone."""
     if not isinstance(entry, dict):
         return None
     mode, decade = entry.get("mode"), entry.get("range")
@@ -71,7 +88,13 @@ def _gauge_entry(entry):
         return None
     if not GAUGE_RANGE_LOW <= decade <= GAUGE_RANGE_HIGH:
         return None
-    return {"mode": mode, "range": decade}
+    kept = {"mode": mode, "range": decade}
+    reading = entry.get("reading")
+    if reading in GAUGE_MODES and reading != GAUGE_OFF:
+        kept["reading"] = reading
+    if entry.get("diagram") in DIAGRAM_WORDS:
+        kept["diagram"] = entry["diagram"]
+    return kept
 
 
 def _sampling(value):
@@ -89,8 +112,9 @@ def read_screen(home=None):
 
     `state` is None when nothing at all can be used, and `notes` then holds
     the one reason why. Otherwise `state` is `{"gauges": {name: {"mode",
-    "range"}}, "sampling_s": seconds}` holding only the values the dock
-    offers, `sampling_s` absent when it was not usable, and `notes` names
+    "range"[, "reading"][, "diagram"]}}, "sampling_s": seconds}` holding
+    only the values the dock offers, `sampling_s` absent when it was not
+    usable, and `notes` names
     whatever was passed over. Which gauges this rig has is the caller's to
     judge: the file may name one the settings no longer list.
     """
