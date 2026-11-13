@@ -7,6 +7,7 @@ import time
 
 import pytest
 
+from controlunit.devices import kikusui
 from controlunit.devices.kikusui import (
     DummyClient,
     KikusuiConfig,
@@ -70,7 +71,7 @@ def test_fragmented_replies_and_only_read_queries(monkeypatch):
     assert sock.closed
 
 
-def test_the_allowlist_is_six_words_and_nothing_else_reaches_the_wire(monkeypatch):
+def test_the_allowlist_is_ten_words_and_nothing_else_reaches_the_wire(monkeypatch):
     """The whole safety argument, in one assertion.
 
     Ten commands may be written: the eight read-only queries (the four
@@ -237,7 +238,7 @@ class FlakyClient:
         self.calls = 0
         self.missed = range(2, 2 + missed)
 
-    def sample(self):
+    def sample(self, deadline=None):
         self.calls += 1
         if self.calls in self.missed:
             raise TimeoutError("LAN unplugged")
@@ -572,7 +573,7 @@ def test_a_failed_press_writes_its_own_row_and_leaves_the_drive_alone(tmp_path):
     class Refusing:
         identity = "KIKUSUI,PWR401L,TEST,1"
 
-        def sample(self):
+        def sample(self, deadline=None):
             return 2.4, 12.0, 1
 
         def set_output(self, on):
@@ -637,7 +638,7 @@ def test_a_press_during_an_outage_says_since_when_the_lan_was_lost(tmp_path):
     class Silent:
         identity = ""
 
-        def sample(self):
+        def sample(self, deadline=None):
             raise socket.timeout("timed out")
 
         def set_output(self, on):
@@ -726,11 +727,11 @@ class SettledClient:
         self.broken_status = broken_status
         self.closed = 0
 
-    def sample(self):
+    def sample(self, deadline=None):
         self.calls += 1
         return 7.8, 16.0, 1
 
-    def status(self):
+    def status(self, deadline=None):
         if self.broken_status:
             raise ValueError("Invalid SCPI status word")
         volts = 7.8 if self.calls < 3 else 10.0
@@ -783,4 +784,155 @@ def test_unreadable_settings_never_cost_the_measurements(tmp_path):
     assert all(row["current_a"] == "16.0" for row in rows)
     assert all(row["voltage_setting_v"] == "" for row in rows)
     assert sum("settings not readable" in m for m in messages) == 1
-    assert closed_while_running == 1   # asked once, then left alone this run
+    # Asked until the supply had answered unreadably three polls running,
+    # then left alone this run.
+    assert closed_while_running == kikusui.STATUS_UNDERSTOOD_AFTER == 3
+
+
+# -- the review of 2026-11-13: the settings never cost the recorder ----------
+
+
+class StatusScript:
+    """A supply whose settings answer as `script` says, poll by poll: a
+    tuple is the settings, an exception is raised, and the last entry
+    repeats. `slow` seconds pass in each status read."""
+    identity = "KIKUSUI,PWR401L,TEST,1"
+
+    def __init__(self, script, slow=0.0):
+        self.script = list(script)
+        self.slow = slow
+        self.calls = 0
+        self.statuses = 0
+        self.closed = 0
+        self.deadlines = []
+
+    def sample(self, deadline=None):
+        self.calls += 1
+        self.deadlines.append(("sample", deadline))
+        return 7.8, 16.0, 1
+
+    def status(self, deadline=None):
+        self.deadlines.append(("status", deadline))
+        if self.slow:
+            time.sleep(self.slow)
+        step = self.script[min(self.statuses, len(self.script) - 1)]
+        self.statuses += 1
+        if isinstance(step, BaseException):
+            raise step
+        return step
+
+    def close(self):
+        self.closed += 1
+
+
+def _record(tmp_path, client, name, polls, interval_s=0.1):
+    messages = []
+    logger = KikusuiLogger(
+        KikusuiConfig(host="127.0.0.1", interval_s=interval_s),
+        tmp_path / name, messages.append, client=client,
+    )
+    try:
+        logger.start()
+        wait_until(lambda: client.calls >= polls, seconds=8)
+        alive = logger.thread.is_alive()
+    finally:
+        assert logger.stop()
+    return read_rows(logger.path), messages, alive
+
+
+SETTLED = (7.8, 15.0, 1024, 0)
+
+
+def test_a_status_word_that_overflows_is_an_unreadable_answer(monkeypatch):
+    """`int(float("9.9E+999"))` raised OverflowError, which nothing caught."""
+    client, sock = client_with(monkeypatch, [
+        b"KIKUSUI,PWR401L,TEST,1\n", b"7.8\n", b"15\n", b"9.9E+999\n",
+    ])
+    with pytest.raises(ValueError, match="Invalid SCPI status word"):
+        client.status()
+    client.close()
+
+
+def test_an_overflowing_answer_never_stops_the_recorder(tmp_path):
+    client = StatusScript([OverflowError("cannot convert float infinity to integer")])
+    rows, messages, alive = _record(tmp_path, client, "cu_20261113_140000.csv", 5)
+    assert alive
+    assert not any("recording STOPPED" in m for m in messages)
+    assert all(row["status"] == "ok" for row in rows)
+    assert sum("settings not readable" in m for m in messages) == 1
+
+
+def test_a_lan_failure_while_reading_the_settings_is_asked_again_next_poll(tmp_path):
+    client = StatusScript([TimeoutError("timed out"), SETTLED])
+    rows, messages, _ = _record(tmp_path, client, "cu_20261113_141000.csv", 4)
+    assert rows[0]["status"] == "ok" and rows[0]["voltage_setting_v"] == ""
+    assert rows[1]["voltage_setting_v"] == "7.8" and rows[-1]["oper_cond"] == "1024"
+    assert not any("not readable" in m for m in messages)
+    assert client.closed >= 1     # the reply that may still be on its way
+
+
+def test_the_settings_are_given_up_on_only_after_three_unreadable_answers_running(tmp_path):
+    garbled = ValueError("Unexpected extra SCPI reply")
+    client = StatusScript([garbled, garbled, SETTLED, garbled, garbled, SETTLED])
+    rows, messages, _ = _record(tmp_path, client, "cu_20261113_142000.csv", 8)
+    filled = [row["voltage_setting_v"] for row in rows[:6]]
+    assert filled == ["", "", "7.8", "", "", "7.8"]
+    assert not any("not readable" in m for m in messages)
+
+
+def test_a_stop_during_the_settings_read_is_not_reported_as_a_failure(tmp_path):
+    """A Stop closes the socket under a status query in flight; that is the
+    recorder ending, not the supply failing to answer."""
+    reached = threading.Event()
+    released = threading.Event()
+
+    class StoppedMidStatus(StatusScript):
+        def status(self, deadline=None):
+            if self.statuses == 2:
+                reached.set()
+                released.wait(5)
+            return super().status(deadline)
+
+        def close(self):
+            super().close()
+            if reached.is_set():         # Stop's close, under the query
+                released.set()
+
+    garbled = ValueError("Unexpected extra SCPI reply")
+    client = StoppedMidStatus([garbled])
+    messages = []
+    logger = KikusuiLogger(
+        KikusuiConfig(host="127.0.0.1", interval_s=0.1),
+        tmp_path / "cu_20261113_143000.csv", messages.append, client=client,
+    )
+    logger.start()
+    try:
+        assert reached.wait(5)
+    finally:
+        assert logger.stop()
+    assert client.statuses == 3            # the third unreadable answer came
+    assert not any("not readable" in m for m in messages)
+
+
+def test_a_poll_s_queries_share_one_deadline_and_its_row_is_the_measurement_s(tmp_path):
+    """The eight queries of a poll stay within `timeout_s` together, and the
+    row's `date` and `query_ms` are the measurement's, not the settings'."""
+    client = StatusScript([SETTLED], slow=0.3)
+    before = time.monotonic()
+    rows, _, _ = _record(tmp_path, client, "cu_20261113_144000.csv", 2, interval_s=0.5)
+    sample_deadline = client.deadlines[0]
+    status_deadline = client.deadlines[1]
+    assert sample_deadline[0] == "sample" and status_deadline[0] == "status"
+    assert sample_deadline[1] is not None
+    assert status_deadline[1] == sample_deadline[1]
+    assert before < sample_deadline[1] <= time.monotonic() + 1.0
+    assert float(rows[0]["query_ms"]) < 300
+
+
+def test_the_settings_read_alone_has_its_own_deadline_and_honours_a_passed_one(monkeypatch):
+    client, sock = client_with(monkeypatch, [])
+    client.sock = sock
+    with pytest.raises(TimeoutError, match="deadline"):
+        client.status(time.monotonic() - 1)
+    assert sock.sent == []
+    client.close()

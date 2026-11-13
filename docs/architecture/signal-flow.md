@@ -135,6 +135,16 @@ ADC worker.
   and one lost below the ceiling is walked up to it as before. Until then
   every lost discharge was cut to the 1900 mV ceiling at once, below
   anything hydrogen lights at (three times on 2026-11-13).
+- **Only a discharge substantially there sets the drive that is kept**
+  (after the review of 2026-11-13). A step counts when the current is at
+  least half the setpoint
+  (`KEEP_DRIVE_FROM_SETPOINT` in `devices/adc.py`), or the drive the loop
+  engaged lit at. A weak or flickering discharge is still regulated on, and
+  its wound-up drive is never kept: the review of 2026-11-13 had a
+  0.15 A flicker at a 1.5 A setpoint held at 4149 mV once it went out, and
+  a minute at 0.3 A held at 4887 mV, for as long as the PID stayed on.
+  Whether the loop should wind up at all while it regulates a weak
+  discharge is a separate question, with queezz.
 - The five numbers are the `Plasma Current PID` block of `settings.yml`:
   `Cold Start mV`, `Unlit Ramp mV per s`, `Unlit Ceiling mV`, `Lit Above A`
   and `Unlit After s`.

@@ -519,11 +519,18 @@ def validate_mfc(number, body):
 
 def validate_plasma(body):
     """`{"a": 0..3}` sets the PID setpoint; `{"off": true}` turns it off and
-    the drive with it; `{"hold": true}` turns it off and keeps the drive."""
+    the drive with it; `{"hold": true}` turns it off and keeps the drive.
+
+    Off and Hold are JSON `true` and nothing else. Read as any truthy value,
+    `{"hold": "false"}` held the drive and `{"off": 1}` dropped it, two
+    opposite things done to a discharge on a body that said neither (the
+    review of 2026-11-13). Anything else falls through to the setpoint,
+    which it does not carry, and is refused.
+    """
     body = _body(body)
-    if body.get("off"):
+    if body.get("off") is True:
         return {"off": True}
-    if body.get("hold"):
+    if body.get("hold") is True:
         return {"hold": True}
     if "a" not in body:
         raise Invalid("a plasma setpoint needs a value in amperes")

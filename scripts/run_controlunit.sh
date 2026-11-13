@@ -27,10 +27,13 @@ mkdir -p "$(dirname "$errors")"
 # And how it ended. On 2026-11-11 at 16:47 the program restarted with no
 # reason anywhere, so this shell now waits for the program instead of
 # becoming it (it used to `exec`), and writes its exit status after the
-# "started" line: 0 for Quit or the window closed, 1 for an uncaught error,
-# 128 + the signal for a signal the program handled (143 SIGTERM, 129
-# SIGHUP, 130 SIGINT), 137 for a kill it could not handle. The program's own
-# last Log line says the same in words.
+# "started" line: 0 for Quit or the window closed, 128 + the signal for a
+# signal the program handled (143 SIGTERM, 129 SIGHUP, 130 SIGINT), the same
+# numbers for a second SIGTERM or Ctrl+C that ended a shutdown at once, 137
+# for a kill it could not handle. An error no code caught no longer ends it
+# (its Log says so, and it carries on with the outputs held); 1 is Python
+# itself failing to start or to go on. The program's own last Log line says
+# the same in words.
 #
 # Closing the terminal this runs in sends SIGHUP to the program, this shell
 # and `tee` alike. The program stops through Stop's own path on it; the trap

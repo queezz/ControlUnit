@@ -724,6 +724,87 @@ def test_hold_hands_the_cathode_to_the_hand_at_the_loop_s_drive(qt_app, home):
         widget.abort_all_threads()
 
 
+# The review of 2026-11-13: a command the reader's loop had already decided
+# crosses to the main thread queued, and landed after the press that turned
+# the loop off. PID off ended with the DAC at 2200 mV; Hold at 2240 mV where
+# it held 2211.
+
+
+def _in_flight(reader, millivolts):
+    """A command the loop decided before the press, emitted from a thread of
+    its own, as the reader's is: queued to the main thread."""
+    import threading
+
+    sender = threading.Thread(target=reader.send_control_voltage.emit, args=(millivolts,))
+    sender.start()
+    sender.join()
+
+
+def _off(widget):
+    widget.turn_off_currentcontrol_voltage()
+    return 0
+
+
+def _hold(widget):
+    widget.hold_currentcontrol_voltage()
+    return widget.plasma_control_dock.cathode_spin_box.value()
+
+
+def _manual(widget):
+    widget.plasma_control_dock.cathode_spin_box.setValue(1700)
+    widget.set_cathode_drive()
+    return 1700
+
+
+def _stop_all(widget):
+    commands._apply_stop_all(widget)
+    return 0
+
+
+@pytest.mark.parametrize("press", [_off, _hold, _manual, _stop_all])
+def test_a_command_the_loop_sent_before_a_press_never_drives_after_it(qt_app, home, press):
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        widget.start_acquisition()
+        reader = widget.workers["ADC"]["worker"]
+        sent = []
+        widget.workers["PlasmaCurrent"]["worker"].output_voltage_signal.connect(sent.append)
+        widget.plasma_control_dock.ampere_spin_box.setValue(1.5)
+        widget.set_currentcontrol_voltage()          # the loop runs
+        _in_flight(reader, 2240.0)
+        held = press(widget)
+        qt_app.processEvents()
+        assert sent[-1] == held
+        assert widget.web_status.read()["setpoints"]["cathode_mv"] == held
+    finally:
+        widget.abort_all_threads()
+
+
+def test_the_loop_s_commands_still_drive_while_it_runs_and_a_zero_always_passes(qt_app, home):
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        widget.start_acquisition()
+        reader = widget.workers["ADC"]["worker"]
+        sent = []
+        widget.workers["PlasmaCurrent"]["worker"].output_voltage_signal.connect(sent.append)
+        widget.plasma_control_dock.ampere_spin_box.setValue(1.5)
+        widget.set_currentcontrol_voltage()
+        _in_flight(reader, 2240.0)
+        qt_app.processEvents()
+        assert 2240.0 in sent
+        widget.turn_off_currentcontrol_voltage()
+        sent.clear()
+        _in_flight(reader, 0.0)
+        qt_app.processEvents()
+        assert sent == [0.0]
+    finally:
+        widget.abort_all_threads()
+
+
 # -- the gauges follow the PIHTI Diagram (queezz, 2026-11-13) ----------------
 #
 # "Gauge left off, maybe we sync from the journal? Why should we turn that

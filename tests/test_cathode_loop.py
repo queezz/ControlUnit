@@ -339,3 +339,59 @@ def test_the_walk_is_set_in_the_settings_file(worker):
     assert worker.lit_above == pytest.approx(0.1)
     assert worker.unlit_after == pytest.approx(2.0)
 
+
+
+# MARK: only a discharge substantially there sets the drive that is kept
+#
+# The review of 2026-11-13 found the kept drive taken from every lit step,
+# so a weak or flickering discharge wound it up and a lost one was then held
+# there: 4149 mV after a flicker from 2100 mV, 4887 mV after a minute at
+# 0.3 A from 2000 mV, both at a 1.5 A setpoint, held for as long as the
+# PID stayed on.
+
+
+def test_a_flickering_discharge_never_raises_the_drive_a_lost_one_keeps(driven):
+    worker, clock = driven
+    worker.set_manual_drive.emit(2100.0)
+    hold(worker, 1.5)
+    worker.set_plasma_current.emit(1.50)
+    lit_at = run(worker, clock, 3.0, 1.5)
+    assert lit_at == pytest.approx(2100.0, abs=1.0)
+    for _ in range(60):                        # 0.15 A, then nothing, and again
+        run(worker, clock, 0.62, 0.15)
+        run(worker, clock, 0.62, 0.0)
+    assert max(worker.commands) > lit_at + 500  # regulating on it winds up
+    after = run(worker, clock, 120.0, 0.0)     # then gone
+    assert after == pytest.approx(lit_at, abs=0.01)
+    assert "holding the cathode at 2100 mV" in worker.messages[-1]
+
+
+def test_a_weak_discharge_never_raises_the_drive_a_lost_one_keeps(driven):
+    """Engaged lit at 2000 mV on 0.3 A with 1.5 A asked for: the minute of
+    weak discharge winds the drive up, and the lost discharge is held at
+    the drive the loop engaged at, not at the wound-up one."""
+    worker, clock = driven
+    worker.set_manual_drive.emit(2000.0)
+    hold(worker, 0.30)
+    worker.set_plasma_current.emit(1.50)
+    wound = run(worker, clock, 60.0, 0.30)
+    assert wound > 4000
+    after = run(worker, clock, 600.0, 0.0)     # ten minutes with nothing lit
+    assert after == pytest.approx(2000.0, abs=0.01)
+    assert worker._loop_state == "lost"
+
+
+@pytest.mark.parametrize("current, kept", [(0.74, False), (0.75, True), (1.2, True)])
+def test_half_the_setpoint_is_where_a_discharge_counts_as_there(driven, current, kept):
+    worker, clock = driven
+    worker.set_manual_drive.emit(2000.0)
+    hold(worker, 1.5)
+    worker.set_plasma_current.emit(1.50)
+    run(worker, clock, 3.0, 1.5)               # kept: about 2000 mV
+    wound = run(worker, clock, 30.0, current)  # below the setpoint: winds up
+    assert wound > 2300
+    after = run(worker, clock, 30.0, 0.0)
+    if kept:
+        assert after == pytest.approx(wound, abs=0.01)
+    else:
+        assert after == pytest.approx(2000.0, abs=1.0)

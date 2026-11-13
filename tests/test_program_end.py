@@ -1,8 +1,9 @@
 """Why the program stopped: the last Log line, and Stop's path on a signal.
 
 2026-11-11 16:47 the program restarted with no reason anywhere. Each way it
-ends now says which as its last line. A signal or an uncaught error ends it
-the way Stop then Quit would, hardware first.
+ends now says which as its last line. A signal ends it the way Stop then
+Quit would, hardware first. An uncaught error no longer ends it: the Log
+says what broke, the outputs are held, and the program carries on.
 
 No real signal is sent and no real hook is left installed: the handler and
 the hook are called the way Python would call them, and the event loop's
@@ -161,7 +162,19 @@ def test_a_shutdown_survives_a_terminal_that_is_gone(qt_app, home):
         widget.abort_all_threads()
 
 
-def test_an_uncaught_error_is_logged_then_printed_then_ends_the_program(qt_app, home):
+def _raised(function):
+    try:
+        function()
+    except Exception:  # noqa: BLE001 -- the error is the point
+        return sys.exc_info()
+    raise AssertionError("it did not raise")
+
+
+def test_an_uncaught_error_is_logged_then_printed_and_the_program_carries_on(qt_app, home):
+    """queezz's ruling for a dead reader, "Hold and alarm!" (2026-09-07),
+    for any error no code caught: a red line, the outputs where they were,
+    and no stop. 4.30.0 ended the program through Stop instead, which
+    zeroes a discharge somebody is running."""
     from controlunit.main import MainApp, install_stop_handlers
 
     printed = []
@@ -179,53 +192,145 @@ def test_an_uncaught_error_is_logged_then_printed_then_ends_the_program(qt_app, 
         assert len(handlers) == 2 + hasattr(signal, "SIGHUP")
         assert widget.stop_signal_timer.isActive()
         assert widget.stop_signal_timer.interval() == 250
+        cathode, gas = _running_with_outputs(widget)
 
         def _breaks():
             return 1 / 0
 
-        try:
-            _breaks()
-        except ZeroDivisionError:
-            kind, error, trace = sys.exc_info()
-        sys.excepthook(kind, error, trace)
+        sys.excepthook(*_raised(_breaks))
 
         line = _log(widget)[-1]
         assert line.startswith(
             "Uncaught error: ZeroDivisionError: division by zero (in _breaks,"
             " test_program_end.py line "
         )
+        assert line.endswith("; outputs held, the program carries on")
         # The hook that was there before still prints the traceback, after
         # the Log has the line.
         assert len(printed) == 1 and printed[0][0][0] is ZeroDivisionError
         assert printed[0][1] == line
 
+        # Nothing is stopped, zeroed or ended.
         widget._take_pending_stop()
-        assert exits == [1]
-        widget._closing()
-        assert _log(widget)[-1] == (
-            "Program closing: an uncaught error, " + line[len("Uncaught error: "):]
-        )
+        assert exits == [] and widget._stop_pending is None
+        assert widget.workers
+        assert cathode.calls == [] and gas.calls == []
+        assert widget.web_status.read()["setpoints"]["cathode_mv"] == 1500
     finally:
         widget.stop_signal_timer.stop()
         widget.abort_all_threads()
 
 
-def test_an_error_on_another_thread_is_left_to_that_thread(qt_app, home):
-    import threading
+def test_the_same_uncaught_error_is_said_once_a_minute(qt_app, home):
+    """A slot on a timer that raises every tick is one line and one
+    traceback a minute, the next line counting the rest."""
+    from controlunit import main
+    from controlunit.main import MainApp, install_stop_handlers
 
-    from controlunit.main import MainApp
-
+    printed = []
+    sys.excepthook = lambda *args: printed.append(args)
+    clock = [1000.0]
     widget = MainApp(qt_app)
+    widget._uncaught_repeats = main._Repeats(60.0, clock=lambda: clock[0])
     try:
-        before = list(_log(widget))
-        worker = threading.Thread(
-            target=widget.note_uncaught, args=(RuntimeError, RuntimeError("x"), None)
-        )
-        worker.start()
-        worker.join()
-        assert _log(widget) == before
-        assert widget._stop_pending is None
+        install_stop_handlers(widget, set_handler=lambda n, h: None)
+
+        def _breaks():
+            return 1 / 0
+
+        for _ in range(5):
+            sys.excepthook(*_raised(_breaks))
+            clock[0] += 1.0
+        assert sum("Uncaught error" in line for line in _log(widget)) == 1
+        assert len(printed) == 1
+        # Another error is its own line.
+        sys.excepthook(*_raised(lambda: {}["missing"]))
+        assert sum("Uncaught error" in line for line in _log(widget)) == 2
+        clock[0] += 60.0
+        sys.excepthook(*_raised(_breaks))
+        last = _log(widget)[-1]
+        assert "; outputs held, the program carries on; 4 more like it since " in last
+        assert sum("Uncaught error" in line for line in _log(widget)) == 3
+        assert len(printed) == 3
     finally:
+        widget.stop_signal_timer.stop()
+        widget.abort_all_threads()
+
+
+def test_an_error_on_a_worker_thread_reaches_the_log_and_stops_nothing(qt_app, home):
+    """A hardware worker's slot runs on its own `QThread`, and PyQt calls the
+    hook there. Before, the line went to stderr alone; now it crosses to the
+    main thread, which writes the Log."""
+    import threading
+    import time
+
+    from PyQt5 import QtCore
+
+    from controlunit.main import MainApp, install_stop_handlers
+
+    printed = []
+    sys.excepthook = lambda *args: printed.append(args)
+    widget = MainApp(qt_app)
+    exits = []
+    widget._exit_program = exits.append
+
+    class Breaking(QtCore.QObject):
+        @QtCore.pyqtSlot()
+        def run(self):
+            self.thread_seen = threading.current_thread()
+            raise RuntimeError("the board said no")
+
+    thread = QtCore.QThread()
+    thread.setObjectName("ADC")
+    breaking = Breaking()
+    breaking.moveToThread(thread)
+    thread.started.connect(breaking.run)
+    try:
+        install_stop_handlers(widget, set_handler=lambda n, h: None)
+        thread.start()
+        deadline = time.monotonic() + 5
+        while not printed and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert printed and printed[0][0] is RuntimeError
+        qt_app.processEvents()
+        line = _log(widget)[-1]
+        assert line.startswith(
+            "Uncaught error on ADC: RuntimeError: the board said no (in run,"
+            " test_program_end.py line ")
+        assert line.endswith("; outputs held")
+        assert breaking.thread_seen is not threading.main_thread()
+        widget._take_pending_stop()
+        assert exits == [] and widget._stop_pending is None
+    finally:
+        thread.quit()
+        thread.wait(5000)
+        widget.stop_signal_timer.stop()
+        widget.abort_all_threads()
+
+
+def test_once_ending_has_begun_sigterm_and_sigint_end_it_at_once(qt_app, home):
+    """A shutdown that hangs runs no event loop, so a noted signal would be
+    the last thing that happened: SIGTERM and SIGINT get their default back.
+    SIGHUP keeps its handler, for a terminal that closes twice."""
+    from controlunit.main import MainApp, install_stop_handlers
+
+    handlers = {}
+    widget = MainApp(qt_app)
+    exits = []
+    widget._exit_program = exits.append
+    try:
+        install_stop_handlers(widget, set_handler=lambda n, h: handlers.__setitem__(n, h))
+        widget.start_acquisition()
+        assert handlers[signal.SIGTERM] == widget._signal_received
+        widget._signal_received(signal.SIGTERM, None)
+        widget._take_pending_stop()
+        assert exits == [128 + signal.SIGTERM]
+        assert handlers[signal.SIGTERM] == signal.SIG_DFL
+        assert handlers[signal.SIGINT] == signal.SIG_DFL
+        if hasattr(signal, "SIGHUP"):
+            assert handlers[signal.SIGHUP] == widget._signal_received
+    finally:
+        widget.stop_signal_timer.stop()
         widget.abort_all_threads()
 
 

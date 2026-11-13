@@ -42,6 +42,20 @@ the loop's present drive, handing it to Manual; **Off** drops the DAC to
 zero, as "PID off" always did (its old label did not say so, and on
 2026-11-13 it put out two discharges the loop had just brought to 1.5 A).
 
+A discharge that goes out with the PID on is held at the last drive that
+regulated a discharge substantially there, at least half the setpoint, or
+at the drive the loop engaged lit at; one lost below the 1900 mV unlit
+ceiling is walked up to it ([Signal flow](../architecture/signal-flow.md)).
+A weak or flickering discharge never raises that drive: the review of
+2026-11-13 found one flickering at 0.15 A under a 1.5 A setpoint held at
+4149 mV once it went out.
+
+Off, Hold, a manual Set and Stop all outputs each have the last word on the
+DAC. The loop's commands cross from the reader to the main thread queued,
+and one the loop decided just before the press used to land just after it
+(the same review: Off ending at 2200 mV, Hold at 2240 mV where it held
+2211). A nonzero command that arrives once the loop is off is dropped.
+
 Because the loop runs in the reader, it stops moving when the reader
 stops. From 4.11.0 the reader retries a failed read instead of dying, and
 the main thread writes "Reader lost" to the log if samples stop anyway;

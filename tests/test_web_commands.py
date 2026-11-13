@@ -62,6 +62,22 @@ def test_a_bad_plasma_setpoint_is_refused(body):
         commands.validate_plasma(body)
 
 
+@pytest.mark.parametrize(
+    "body",
+    [{"hold": "false"}, {"hold": 1}, {"hold": "yes"}, {"off": "false"}, {"off": 1},
+     {"off": [0]}, {"hold": {"x": 1}}],
+)
+def test_off_and_hold_are_json_true_and_nothing_else(body):
+    """The review of 2026-11-13: any truthy value was Off or Hold, so a body
+    saying `"hold": "false"` held the drive and `"off": 1` dropped it."""
+    with pytest.raises(commands.Invalid):
+        commands.validate_plasma(body)
+    assert commands.validate_plasma({"hold": True}) == {"hold": True}
+    assert commands.validate_plasma({"off": True, "a": 2.0}) == {"off": True}
+    # A false one says nothing, and the setpoint beside it is what counts.
+    assert commands.validate_plasma(dict(body, a=1.0)) == {"a": 1.0}
+
+
 def test_a_cathode_drive_is_whole_millivolts_or_the_word_off():
     assert commands.validate_cathode({"mv": 1900}) == {"mv": 1900}
     assert commands.validate_cathode({"mv": "250"}) == {"mv": 250}

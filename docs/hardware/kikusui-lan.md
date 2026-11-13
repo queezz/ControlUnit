@@ -76,7 +76,7 @@ Each run creates `kikusui_YYYYMMDD_HHMMSS.csv` beside its
 |---|---|
 | `date` | Receipt time in ISO format with the local UTC offset |
 | `logger_elapsed_s` | Monotonic time since this recorder started |
-| `query_ms` | Time for the poll, including reconnect/identity when needed |
+| `query_ms` | Time for the poll's measurements, including reconnect/identity when needed; the settings are read after the row is stamped |
 | `voltage_v`, `current_a` | Supply's measured output in volts and amperes |
 | `output_on` | Queried output-enable state, 0 or 1; not proof of delivered power |
 | `commanded_cathode_mv` | Software's requested DAC command, captured before the poll; not measured DAC voltage |
@@ -96,8 +96,16 @@ becomes nonzero or clears. Which OPERation bit means constant current and
 which constant voltage is not decoded: the PWR-01 interface manual could not
 be read when this was built, so the raw word is kept and its bits can be
 read off a run that shows the supply move between the two. A status query
-that fails leaves those four columns empty, says so once, and is not asked
-again that run; the measurements are unaffected.
+that fails leaves those four columns empty for that poll; the measurements
+are unaffected. A link that failed (a timeout, a closed connection) is the
+LAN, and the next poll asks again. An answer that could not be read (not a
+number, out of range, or an infinity such as `9.9E+999`) is the supply:
+after three of those in a row the settings are not asked for again that
+run, said once ("Kikusui settings not readable …"). A Stop that closes the
+socket under a status query is never reported as a failure. Until the
+review of 2026-11-13 the first failure of either kind gave up for the run,
+a Stop mid-query was logged as one, and an infinite status word raised an
+error nothing caught, which stopped the whole recorder.
 
 Every row is flushed. Existing telemetry files are never overwritten. A file
 write failure stops this recorder with an explicit application-log message;
@@ -249,8 +257,11 @@ OUTP 1      -> close the output  (a press, gated; see The two writes)
 The recorder maintains one socket, sends one query at a time and reads a
 complete newline-terminated reply before sending another. A single `recv`
 is not guaranteed to contain even one complete reply. One timeout bounds the
-whole poll, including fragmented responses; invalid numbers, output states
-or identity are failures rather than plausible-looking measurements.
+whole poll, the four settings queries included, and fragmented responses;
+invalid numbers, output states or identity are failures rather than
+plausible-looking measurements. The row's `date` and `query_ms` are taken
+after the measurements and before the settings, so they say when the volts
+and amperes were read.
 
 It does not send `SYST:COMM:RLST REM`, any voltage or current setpoint, reset
 or clear-status command. Reading must not take over the front panel or clear

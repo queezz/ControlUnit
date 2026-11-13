@@ -78,6 +78,18 @@ UNLIT_CEILING_MV = 1900.0
 LIT_ABOVE_A = 0.1
 UNLIT_AFTER_S = 2.0
 
+#: How much of the setpoint a discharge must carry before its drive is the
+#: one a lost discharge is held at. Lit (above `LIT_ABOVE_A`) is enough to
+#: regulate on, and not enough to keep: the review of 2026-11-13 drove the
+#: loop through a discharge flickering between 0.15 A and nothing at a
+#: 1.5 A setpoint from 2100 mV, and every lit step had raised the kept
+#: drive, so the lost discharge was held at 4149 mV for good; 0.3 A for a
+#: minute from 2000 mV left it held at 4887 mV. Half the setpoint is a
+#: discharge that is substantially there. A weak or flickering one never
+#: raises the drive that is kept; whether the loop should wind up while it
+#: regulates one is a separate question, left with queezz.
+KEEP_DRIVE_FROM_SETPOINT = 0.5
+
 
 def mean_of_readings(readings):
     """The per-channel mean of one period's raw voltage readings.
@@ -191,8 +203,10 @@ class ADC(DeviceThread):
         self.unlit_after = float(tuning.get("Unlit After s", UNLIT_AFTER_S))
         self._unlit_since = None
         self._loop_state = None
-        #: The drive this engagement last regulated a discharge at, or None
-        #: while it has not had one: what a discharge that goes out keeps.
+        #: The drive this engagement last regulated a discharge at that was
+        #: substantially there (`KEEP_DRIVE_FROM_SETPOINT`), or the drive it
+        #: engaged lit at; None while it has had neither. What a discharge
+        #: that goes out keeps.
         self._lit_drive = None
         self.prep_pid()
         self._read_failures = 0
@@ -541,7 +555,11 @@ class ADC(DeviceThread):
         if self._discharge_lit(measured):
             if measured > self.lit_above:
                 output = self.pid(measured)
-                self._lit_drive = output
+                # Only a discharge substantially there sets the drive a
+                # lost one is held at: a weak or flickering one is still
+                # regulated on, but the drive it winds to is never kept.
+                if measured >= KEEP_DRIVE_FROM_SETPOINT * self.pid.setpoint:
+                    self._lit_drive = output
             else:
                 # The grace an arc is forgiven for: nothing to regulate on.
                 output = self.pid.hold(measured)
@@ -553,7 +571,9 @@ class ADC(DeviceThread):
             # The same day the loop cut three lost hydrogen discharges from
             # 2170–2230 mV to the 1900 mV argon ceiling, below anything
             # hydrogen lights at, and advised checking the gas and the anode
-            # supplies, which were fine.
+            # supplies, which were fine. "Lit at" is the last drive that
+            # regulated a discharge substantially there, never one a weak or
+            # flickering discharge wound up (`KEEP_DRIVE_FROM_SETPOINT`).
             ceiling = self.unlit_ceiling
             if self._lit_drive is not None:
                 ceiling = max(ceiling, self._lit_drive)

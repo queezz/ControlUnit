@@ -220,7 +220,7 @@ sequenceDiagram
     participant MFCs as DAC8532 Worker
     participant HW as Hardware DACs
 
-    User->>App: Stop, the window closed, a signal or an uncaught error
+    User->>App: Stop, the window closed, or a signal
     App->>App: stop_acquisition() → abort_all_threads()
 
     rect rgb(40, 30, 10)
@@ -282,7 +282,9 @@ run:
 | SIGTERM (`kill`, a service manager, a shutdown) | SIGTERM, asked to stop by another program (…) | 143 |
 | SIGHUP (the terminal it runs from closed) | SIGHUP, the terminal it ran from was closed, or its session ended | 129 |
 | SIGINT (Ctrl+C) | SIGINT, Ctrl+C in the terminal it ran from | 130 |
-| An exception no code caught | an uncaught error, `<its last line> (in <function>, <file> line <n>)` | 1 |
+
+An exception no code caught is not in the table: it no longer ends the
+program (below).
 
 The window's own close used to end the program with the workers running
 and the DACs holding, although the sequence above was drawn for it; it now
@@ -303,6 +305,15 @@ workers' own aborts zero every DAC before their threads are joined), then
 second signal while ending changes nothing. Before this, SIGTERM and SIGHUP
 killed the process where it stood, with the DACs holding whatever they held.
 
+Except that, once `shut_down` has begun, SIGTERM and SIGINT are given back
+their default disposition (`_let_a_signal_end_it`), so a second `kill` or
+Ctrl+C ends the process at once. A shutdown that hangs, a worker's
+`thread.wait()` behind an I²C call that never returns, runs no event loop,
+and a signal its handler only noted would never be acted on: only SIGKILL
+would end it. SIGHUP keeps its handler, because a closing terminal may send
+it again while the shutdown the first one started is still zeroing the
+outputs.
+
 Once it starts to end, the program's stdout and stderr lose what they
 cannot write instead of raising (`_LosingStream`). After SIGHUP every write
 to the closed terminal raises, and the DAC8532 worker prints each voltage
@@ -311,12 +322,24 @@ line 1 at zero and line 2 never reached.
 
 `sys.excepthook` is replaced in the same place. PyQt5 aborts the process
 (`qFatal`) on an exception that escapes a slot unless a hook is installed,
-and carries on as if nothing happened when one is; neither is wanted. The
-hook writes `Uncaught error: <the traceback's last line> (in <function>,
-<file> line <n>)` to the Log, hands the exception to the hook that was
-there before (which prints the whole traceback to stderr), and leaves the
-same pending stop a signal leaves, with status 1. An exception on another
-thread is left to `threading.excepthook`.
+and carries on when one is. An abort leaves the DACs holding what they held
+with nothing recording (the 2026-08-19 plasma); 4.30.0 ended the program
+through Stop instead, which zeroes a discharge somebody is running because
+some convenience broke. The hook now follows queezz's standing ruling for a
+dead reader, "Hold and alarm!" (owner decision 2026-09-07): the outputs stay
+where they were, the slot that raised has ended, the program carries on,
+and the Log says so. On the main thread it writes `Uncaught error: <the
+traceback's last line> (in <function>, <file> line <n>); outputs held, the
+program carries on`, red, and hands the exception to the hook that was
+there before, which prints the whole traceback to stderr. A hardware
+worker's slot runs on its own `QThread`, and PyQt calls the hook there,
+where the Log must not be written: the line, `Uncaught error on <thread>:
+…; outputs held`, crosses to the main thread on `uncaught_elsewhere`, a
+queued signal, as the Kikusui recorder's messages do. The same error from
+the same place is said, and printed, once a minute
+(`UNCAUGHT_REPEAT_SECONDS`), the next line counting the ones held back, so
+a timer's slot that raises at every tick is not a line every tick. An
+exception on a plain Python thread is left to `threading.excepthook`.
 
 `scripts/run_controlunit.sh` no longer `exec`s the program: it waits for it
 and appends `# <date> exited with status N` to the stderr file, after the

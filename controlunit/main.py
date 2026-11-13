@@ -77,6 +77,13 @@ STOP_SIGNALS = (
 #: signal; this timer's slot acts on it, inside the event loop.
 SIGNAL_CHECK_MS = 250
 
+#: How long the same uncaught error waits before the Log carries it again.
+#: An error no code catches no longer ends the program, so one raised by a
+#: timer's slot would otherwise be a line every tick for as long as it runs;
+#: the next line after the minute says how many were held back meanwhile,
+#: as a refused press's does (`web.commands.REFUSAL_REPEAT_SECONDS`).
+UNCAUGHT_REPEAT_SECONDS = 60.0
+
 
 def signal_reason(signum):
     """How a Log line names the signal that ended the program."""
@@ -107,6 +114,53 @@ def _quiet_print(text):
         print(text)
     except Exception:  # noqa: BLE001
         pass
+
+
+def _thread_name():
+    """What a Log line calls the thread it is on: the worker's own name for
+    a hardware thread (`ADC`, `MFCs`, `PlasmaCurrent`, set in `prep_worker`),
+    else Python's name for it."""
+    try:
+        name = QtCore.QThread.currentThread().objectName()
+    except Exception:  # noqa: BLE001 -- a name is never worth an error
+        name = ""
+    return name or threading.current_thread().name
+
+
+class _Repeats:
+    """The same thing said once a `seconds`, from any thread.
+
+    `note(key)` answers `(say, tail)`: whether to say it now, and the words
+    to end the line with when earlier repeats were held back.
+    """
+
+    #: Kept keys past which the expired ones are forgotten.
+    KEEP = 64
+
+    def __init__(self, seconds, clock=time.monotonic, wall=time.time):
+        self._seconds = float(seconds)
+        self._clock = clock
+        self._wall = wall
+        self._lock = threading.Lock()
+        self._last = {}
+
+    def note(self, key):
+        now = self._clock()
+        with self._lock:
+            last = self._last.get(key)
+            if last is not None and now - last["at"] < self._seconds:
+                last["held"] += 1
+                return False, ""
+            tail = ""
+            if last is not None and last["held"]:
+                tail = "; {} more like it since {}".format(
+                    last["held"], time.strftime("%H:%M:%S", time.localtime(last["wall"]))
+                )
+            self._last[key] = {"at": now, "wall": self._wall(), "held": 0}
+            if len(self._last) > self.KEEP:
+                for old in [k for k, v in self._last.items() if now - v["at"] >= self._seconds]:
+                    del self._last[old]
+            return True, tail
 
 
 class _LosingStream:
@@ -205,9 +259,8 @@ class MainApp(QtCore.QObject, UIWindow):
     # The Pi's own health monitor; None until `start_pi_health`.
     _pi_health = None
     # Why the program is ending, for its last Log line, and the status it
-    # exits with; a signal or an uncaught error waiting for the event loop
-    # (`_take_pending_stop`); and whether the end has begun, and stopped a
-    # run on its way.
+    # exits with; a signal waiting for the event loop (`_take_pending_stop`);
+    # and whether the end has begun, and stopped a run on its way.
     _stop_reason = None
     _exit_status = 0
     _stop_pending = None
@@ -216,6 +269,9 @@ class MainApp(QtCore.QObject, UIWindow):
 
     sigAbortWorkers = QtCore.pyqtSignal()
     kikusui_message = QtCore.pyqtSignal(str)
+    # An uncaught error's Log line, from a worker thread: queued, so the Log
+    # is written here, on the thread it belongs to (`note_uncaught`).
+    uncaught_elsewhere = QtCore.pyqtSignal(str)
     # A `pi_health.Report`, from the monitor's own thread: queued, as the
     # Kikusui recorder's messages are, so the Log is written here.
     pi_health_report = QtCore.pyqtSignal(object)
@@ -239,6 +295,8 @@ class MainApp(QtCore.QObject, UIWindow):
         self._kikusui_lost_since = None
         self.kikusui_message.connect(self._kikusui_said)
         self.pi_health_report.connect(self._pi_health_reported)
+        self._uncaught_repeats = _Repeats(UNCAUGHT_REPEAT_SECONDS)
+        self.uncaught_elsewhere.connect(self._uncaught_said)
         self.kikusui_display_timer = QtCore.QTimer(self)
         self.kikusui_display_timer.timeout.connect(self._refresh_kikusui_display)
         self.kikusui_display_timer.start(500)
@@ -886,29 +944,60 @@ class MainApp(QtCore.QObject, UIWindow):
             self.shut_down(*pending)
 
     def note_uncaught(self, kind, error, trace):
-        """An exception nothing caught (`sys.excepthook`): its last line in
-        the Log, then the program ends the way Stop and Quit end it.
+        """An exception nothing caught (`sys.excepthook`): one red Log line,
+        and the program carries on with the outputs where they were.
 
         PyQt5 ends the process (`qFatal`, an abort) on an exception that
         escapes a slot, unless a hook is installed, in which case it carries
-        on as if nothing happened. Neither is wanted: an abort leaves the
-        DACs holding what they held, the 2026-08-19 plasma with nothing
-        recording, and carrying on runs a program in a state nobody knows.
-        So the program still ends, with the outputs zeroed first and the
-        reason written down. Never raises.
+        on. An abort leaves the DACs holding what they held with nothing
+        recording, the 2026-08-19 plasma. Ending through Stop instead, as
+        4.30.0 did, zeroes a discharge somebody is running because a
+        convenience broke. queezz's standing ruling for a dead reader is
+        "Hold and alarm!" (owner decision 2026-09-07: the outputs stay where
+        they were and the Log says so), and an uncaught error is held the
+        same way: the slot that raised has ended, the program goes on, and
+        the line says what broke and where.
+
+        On the main thread the line is written here. A hardware worker's
+        slot (the ADC reader, a DAC worker) is a `QThread` of its own, and
+        PyQt calls the hook on that thread, where the Log must not be
+        written: its line crosses on `uncaught_elsewhere`, a queued signal,
+        as the Kikusui recorder's do. A plain Python thread's exception is
+        `threading.excepthook`'s, and never reaches here.
+
+        The same error from the same place is said once a minute
+        (`UNCAUGHT_REPEAT_SECONDS`). Returns whether this one was said, so
+        the hook prints the traceback only then. Never raises.
         """
-        if threading.current_thread() is not threading.main_thread():
-            return  # a thread's own end is `threading.excepthook`'s
         words = describe_exception(kind, error, trace)
-        try:
-            self.log_message(
-                "<font color='red'>Uncaught error</font>: " + html.escape(words),
-                htmltag="div",
+        on_main = threading.current_thread() is threading.main_thread()
+        where = "" if on_main else _thread_name()
+        repeats = getattr(self, "_uncaught_repeats", None)
+        said, tail = repeats.note((where, words)) if repeats is not None else (True, "")
+        if not said:
+            return False
+        if on_main:
+            self._uncaught_said(
+                "<font color='red'>Uncaught error</font>: " + html.escape(words)
+                + "; outputs held, the program carries on" + tail
             )
+        else:
+            try:
+                self.uncaught_elsewhere.emit(
+                    "<font color='red'>Uncaught error on {}</font>: {}; outputs"
+                    " held".format(html.escape(where), html.escape(words)) + tail
+                )
+            except Exception:  # noqa: BLE001 -- the traceback must still print
+                _quiet_print("Uncaught error on {}: {}".format(where, words))
+        return True
+
+    @QtCore.pyqtSlot(str)
+    def _uncaught_said(self, text):
+        """An uncaught error's line, in the Log, on the main thread."""
+        try:
+            self.log_message(text, htmltag="div")
         except Exception:  # noqa: BLE001 -- the log itself may be what failed
-            _quiet_print("Uncaught error: " + words)
-        if self._stop_pending is None and not self._shutting_down:
-            self._stop_pending = ("an uncaught error, " + words, 1)
+            _quiet_print(strip_tags(text))
 
     def shut_down(self, reason, status=0):
         """End the program as Stop and then Quit would: a run still going
@@ -920,10 +1009,35 @@ class MainApp(QtCore.QObject, UIWindow):
             return
         self._shutting_down = True
         _keep_streams_writable()
+        self._let_a_signal_end_it()
         try:
             self._stop_run_to_close()
         finally:
             self._exit_program(self._exit_status)
+
+    def _let_a_signal_end_it(self):
+        """Once the program has begun to end, SIGTERM and SIGINT end it at
+        once again, the way they would end any program.
+
+        Their handler only notes a signal for the event loop, and an ending
+        that hangs, a worker's `thread.wait()` behind an I²C call that never
+        returns, runs no event loop: a second Ctrl+C or `kill` would be
+        noted and nothing more, and only SIGKILL would end it. SIGHUP keeps
+        its handler: a terminal that closes sends it, and may send it again,
+        while the shutdown that the first one started is still zeroing the
+        outputs. Only where `install_stop_handlers` installed them.
+        """
+        setter = getattr(self, "_set_signal_handler", None)
+        if setter is None:
+            return
+        for name in ("SIGTERM", "SIGINT"):
+            number = getattr(signal, name, None)
+            if number is None:
+                continue
+            try:
+                setter(number, signal.SIG_DFL)
+            except (OSError, RuntimeError, ValueError):
+                continue
 
     def _exit_program(self, status):
         """End the event loop; `app.exec_()` returns `status`."""
@@ -2011,8 +2125,22 @@ class MainApp(QtCore.QObject, UIWindow):
         is the only place that knows what the cathode is actually being
         driven with while the loop is closed, and "is anything driven" is
         the question the rig's operating state answers.
+
+        A command the loop sent before it was turned off is dropped. The
+        reader steps the loop on its own thread and the command crosses here
+        queued, so one decided just before a press arrives just after it:
+        the review of 2026-11-13 had PID off end with the DAC at 2200 mV, and
+        Hold at 2240 mV where it held 2211. The loop's setpoint is written
+        only here, on the main thread (`set_plasma_current` and
+        `set_manual_drive` are direct connections), so a setpoint of zero
+        when the command lands means Off, Hold, a manual Set or Stop all
+        outputs came first, and the hand, not the loop, owns the DAC. A zero
+        still passes: it is what turning the loop off sends.
         """
         if not self.workers:
+            return
+        reader = self.workers["ADC"]["worker"]
+        if control_voltage and not getattr(reader, "plasma_current_setpopint", 0):
             return
         self.workers["PlasmaCurrent"]["worker"].output_voltage_signal.emit(
             control_voltage
@@ -2395,19 +2523,24 @@ def start_web_view(widget, arguments):
 
 
 def install_stop_handlers(widget, set_handler=signal.signal):
-    """End on a signal or an uncaught error the way Stop and Quit end, and
-    say why (`MainApp.shut_down`, `MainApp.note_uncaught`).
+    """End on a signal the way Stop and Quit end, and say why
+    (`MainApp.shut_down`); and hold on an uncaught error, and say what it
+    was (`MainApp.note_uncaught`).
 
     SIGTERM, SIGHUP and SIGINT each get a handler that only notes the
     signal; `SIGNAL_CHECK_MS`'s timer acts on it inside the event loop, so a
     signal never runs the shutdown halfway through some other slot. Before
     this a SIGTERM killed the process where it stood, with the DACs holding
     whatever they held, and a SIGHUP from a closed terminal did the same.
+    Once the shutdown has begun, SIGTERM and SIGINT are given back their
+    default (`MainApp._let_a_signal_end_it`), so a shutdown that hangs can
+    still be ended.
 
     `sys.excepthook` writes the error's last line to the Log, then hands the
     error to the hook that was there before, which prints the traceback to
-    stderr. Installed from `main` only, after the window exists, and never
-    by a test unless it asks: `set_handler` is a test's.
+    stderr; a repeat the Log holds back is not printed again either. The
+    program carries on. Installed from `main` only, after the window
+    exists, and never by a test unless it asks: `set_handler` is a test's.
     """
     for name, _words in STOP_SIGNALS:
         number = getattr(signal, name, None)
@@ -2417,6 +2550,7 @@ def install_stop_handlers(widget, set_handler=signal.signal):
             set_handler(number, widget._signal_received)
         except (OSError, RuntimeError, ValueError):
             continue
+    widget._set_signal_handler = set_handler
     timer = QtCore.QTimer(widget)
     timer.timeout.connect(widget._take_pending_stop)
     timer.start(SIGNAL_CHECK_MS)
@@ -2425,11 +2559,13 @@ def install_stop_handlers(widget, set_handler=signal.signal):
     before = sys.excepthook
 
     def hook(kind, error, trace):
+        said = True
         try:
-            widget.note_uncaught(kind, error, trace)
+            said = widget.note_uncaught(kind, error, trace) is not False
         except Exception:  # noqa: BLE001 -- the traceback must still print
             pass
-        before(kind, error, trace)
+        if said:
+            before(kind, error, trace)
 
     sys.excepthook = hook
     return hook

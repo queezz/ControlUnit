@@ -1,11 +1,13 @@
 """PWR401L telemetry in a separately timestamped CSV, and the two writes.
 
 The link is a measurement link with exactly two exceptions. Its wire
-commands are the four queries below plus `OUTP 0` and `OUTP 1` — the
-supply's output off and on (owner decision 2026-09-15, live: "Kikusui has
-LAN now, I want the one-off signal button in our control. Then we turn that
-one off no matter the dac voltage", and, the same day, "Off and on. Why not?
-Then we have full cathode control when powered"). There is no third write:
+commands are the eight queries below (identity, the three measurements, and
+from 2026-11-13 the two settings and the two status condition words) plus
+`OUTP 0` and `OUTP 1` — the supply's output off and on (owner decision
+2026-09-15, live: "Kikusui has LAN now, I want the one-off signal button in
+our control. Then we turn that one off no matter the dac voltage", and, the
+same day, "Off and on. Why not? Then we have full cathode control when
+powered"). There is no third write:
 no setpoint, no reset, no clear-status, nothing that could hand the supply a
 voltage or a current. The recorder still never drives the supply of its own
 accord; both writes happen only because a person pressed something.
@@ -81,10 +83,31 @@ def load_config(path=None):
 
 
 #: The whole of what this program may ever put on the wire, and the sentence
-#: it refuses everything else in. Four queries and two writes; `VOLT`, `CURR`,
-#: `*RST`, `OUTP ON` and every other SCPI word are refused before a byte is
-#: sent, because a client that can only say these six cannot set a supply.
+#: it refuses everything else in. Eight queries and two writes; `VOLT`,
+#: `CURR`, `*RST`, `OUTP ON` and every other SCPI word are refused before a
+#: byte is sent, because a client that can only say these ten cannot set a
+#: supply.
 PERMITTED = "Only the eight telemetry queries and OUTP 0 / OUTP 1 are permitted"
+
+#: Polls in a row whose settings or status words the supply answered with
+#: something unreadable before the recorder stops asking for them this run.
+#: Not understood three times running is a supply that does not speak these
+#: queries; once is a garbled answer. A link that fails (`OSError`) is not
+#: counted at all: it is the LAN, and the next poll asks again.
+STATUS_UNDERSTOOD_AFTER = 3
+
+
+def _number(text, what):
+    """A SCPI number as a finite float; an infinity or NaN is not one.
+
+    `9.9E+37` is SCPI's own "not a number" and `9.9E+999` overflows a float
+    to infinity; `int()` of that raised `OverflowError`, which nothing
+    caught, and the whole recorder stopped (the review of 2026-11-13).
+    """
+    value = float(text)
+    if not math.isfinite(value) or abs(value) >= 1e30:
+        raise ValueError("Invalid SCPI " + what)
+    return value
 
 #: How long a press waits for the supply's own answer to agree with it, and
 #: how often it asks meanwhile.
@@ -218,20 +241,23 @@ class ReadOnlyClient:
                 return int(state)
             time.sleep(OUTPUT_RECHECK_S)
 
-    def sample(self):
-        # One deadline for the entire transaction, even on a slow trickle of bytes.
-        deadline = time.monotonic() + self.config.timeout_s
+    def sample(self, deadline=None):
+        """The three measurements: volts, amperes and the output flag.
+
+        One deadline for the entire transaction, even on a slow trickle of
+        bytes; the recorder passes its poll's, which `status` shares.
+        """
+        if deadline is None:
+            deadline = time.monotonic() + self.config.timeout_s
         self._connect(deadline)
-        voltage = float(self._query("MEAS:VOLT?", deadline))
-        current = float(self._query("MEAS:CURR?", deadline))
+        voltage = _number(self._query("MEAS:VOLT?", deadline), "measurement")
+        current = _number(self._query("MEAS:CURR?", deadline), "measurement")
         output = self._query("OUTP?", deadline)
-        if not all(math.isfinite(v) and abs(v) < 1e30 for v in (voltage, current)):
-            raise ValueError("Invalid SCPI measurement")
         if output not in ("0", "1"):
             raise ValueError("Invalid SCPI output state")
         return voltage, current, int(output)
 
-    def status(self):
+    def status(self, deadline=None):
         """The supply's settings and its status condition registers.
 
         `(voltage_setting, current_setting, operation, questionable)`: the
@@ -241,19 +267,22 @@ class ReadOnlyClient:
         written, and a bit read from the wrong table would be a confident
         lie. The file holds the words; the meaning can be read off them once
         a run shows them flip.
+
+        `deadline` is the poll's, the one `sample` was given, so the eight
+        queries of a poll together stay within `timeout_s`; on its own, a
+        `timeout_s` of its own.
         """
-        deadline = time.monotonic() + self.config.timeout_s
+        if deadline is None:
+            deadline = time.monotonic() + self.config.timeout_s
         self._connect(deadline)
-        voltage = float(self._query("VOLT?", deadline))
-        current = float(self._query("CURR?", deadline))
-        if not all(math.isfinite(v) and abs(v) < 1e30 for v in (voltage, current)):
-            raise ValueError("Invalid SCPI setting")
+        voltage = _number(self._query("VOLT?", deadline), "setting")
+        current = _number(self._query("CURR?", deadline), "setting")
         words = []
         for query in ("STAT:OPER:COND?", "STAT:QUES:COND?"):
-            word = int(float(self._query(query, deadline)))
+            word = _number(self._query(query, deadline), "status word")
             if not 0 <= word < 65536:
                 raise ValueError("Invalid SCPI status word")
-            words.append(word)
+            words.append(int(word))
         return voltage, current, words[0], words[1]
 
 
@@ -267,10 +296,10 @@ class DummyClient:
     def __init__(self):
         self.output_on = 0
 
-    def sample(self):
+    def sample(self, deadline=None):
         return 0.0, 0.0, self.output_on
 
-    def status(self):
+    def status(self, deadline=None):
         return 0.0, 0.0, 0, 0
 
     def set_output(self, on):
@@ -521,28 +550,43 @@ class KikusuiLogger:
             self.message(output_failure(on, error, self.lost_since()))
         return row, self._stamp(row, before, started)
 
-    def _read_status(self, row):
+    def _read_status(self, row, deadline=None):
         """Add the supply's settings and status words to a measured row, and
         say in the Log what a person would want to know of them.
 
         The measurements stand whatever happens here: a status query that
-        fails leaves its four columns empty, closes the socket (a reply may
-        still be on its way) and is not asked again this run, said once,
-        rather than costing every later poll a reconnection.
+        fails leaves its four columns empty for this poll and closes the
+        socket, since a reply may still be on its way. A link that failed
+        (`OSError`, a timeout among them) is the LAN, and the next poll asks
+        again. An answer that could not be read is the supply; after
+        `STATUS_UNDERSTOOD_AFTER` of those in a row the settings are not
+        asked for again this run, said once, rather than costing every
+        later poll a reconnection. 4.30.0 gave up on the first failure of
+        either kind, and logged one that a Stop had caused.
+
+        `deadline` is the poll's, shared with `sample`.
         """
         read = getattr(self.client, "status", None)
         if self._status_unreadable or read is None:
             return
         try:
-            setting = read()
-        except (OSError, ValueError, UnicodeError) as error:
+            setting = read(deadline)
+        except OSError:
             self.client.close()
-            self._status_unreadable = True
-            self.message(
-                f"Kikusui settings not readable ({str(error)[:120]}); "
-                "measurements continue without them"
-            )
             return
+        except (ValueError, UnicodeError, OverflowError) as error:
+            self.client.close()
+            self._status_misread += 1
+            if self._status_misread < STATUS_UNDERSTOOD_AFTER:
+                return
+            self._status_unreadable = True
+            if not self.stopping.is_set():
+                self.message(
+                    f"Kikusui settings not readable ({str(error)[:120]}); "
+                    "measurements continue without them"
+                )
+            return
+        self._status_misread = 0
         volts, amperes, operation, questionable = setting
         row.update(voltage_setting_v=volts, current_setting_a=amperes,
                    oper_cond=operation, ques_cond=questionable)
@@ -567,9 +611,11 @@ class KikusuiLogger:
     def _run(self):
         started = time.monotonic()
         state = None
-        #: The last settings and status words read, and whether this run
-        #: has given up asking for them (see `_read_status`).
+        #: The last settings and status words read, how many polls in a row
+        #: answered them unreadably, and whether this run has given up
+        #: asking for them (see `_read_status`).
         self._last_status = None
+        self._status_misread = 0
         self._status_unreadable = False
         #: Polls missed in a row, and what the Log was last told.
         failures, said = 0, None
@@ -602,25 +648,32 @@ class KikusuiLogger:
                     if self.stopping.is_set():
                         break
                     before = time.monotonic()
+                    # One budget for the poll's eight queries, the settings'
+                    # four included: they share the measurements' deadline.
+                    deadline = before + self.config.timeout_s
                     context = self.context()
                     row = {
                         "commanded_cathode_mv": context.get("cathode_mv", ""),
                         "plasma_target_a": context.get("plasma_a", ""),
                     }
                     try:
-                        voltage, current, output = self.client.sample()
+                        voltage, current, output = self.client.sample(deadline)
                         row.update(voltage_v=voltage, current_a=current, output_on=output)
                         status = "dummy" if self.config.dummy else "ok"
                         row.update(status=status, identity=self.client.identity)
-                        self._read_status(row)
-                    except (OSError, ValueError, UnicodeError) as error:
+                    except (OSError, ValueError, UnicodeError, OverflowError) as error:
                         self.client.close()
                         status = "unavailable"
                         # No retained voltage/current/output flag is ever reused here.
                         row.update(status=status, error=str(error)[:240])
+                    # The row's time is the measurement's: stamped before the
+                    # settings are asked for, so `date` and `query_ms` say
+                    # when the volts and amperes were read, not the settings.
+                    now = self._stamp(row, before, started)
+                    if status != "unavailable":
+                        self._read_status(row, deadline)
                     if self.stopping.is_set():
                         break
-                    now = self._stamp(row, before, started)
                     # An outage is one row, its first: the supply is switched
                     # off whenever it is not in use, and a row every retry
                     # through a pump-down is a file of nothing (queezz,
