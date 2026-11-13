@@ -19,11 +19,22 @@ def dummy_hardware(monkeypatch):
     monkeypatch.setattr(status_module, "dummy_hardware_loaded", lambda: True)
 
 
-def test_health_has_exactly_the_agreed_keys(real_hardware):
+def test_health_has_exactly_the_agreed_keys_and_the_pi_s(real_hardware):
+    """The ensemble's four, unchanged, and this rig's own `pi` beside them:
+    every neighbour reads the four by name, so the fifth costs none of them
+    anything. Before the first reading, and off a Pi, `pi` is all None."""
     body = health_body(RigStatus(channels=9, sampling=0.1), __version__)
-    assert set(body) == {"service", "version", "status", "detail"}
+    assert set(body) == {"service", "version", "status", "detail", "pi"}
     assert body["service"] == "controlunit"
     assert body["version"] == __version__
+    assert body["pi"] == {
+        "temperature_c": None,
+        "throttled": None,
+        "now": [],
+        "since_boot": [],
+        "free_gb": None,
+        "checked_at": None,
+    }
 
 
 def test_acquiring_on_real_hardware_is_ok(real_hardware):
@@ -111,7 +122,9 @@ def test_health_route_answers_the_same_body(real_hardware):
     client = create_app(status=rig).test_client()
     response = client.get("/api/health")
     assert response.status_code == 200
-    assert response.get_json() == {
+    body = response.get_json()
+    assert body.pop("pi")["checked_at"] is None
+    assert body == {
         "service": "controlunit",
         "version": __version__,
         "status": "ok",

@@ -396,6 +396,36 @@ def create_app(
             return command_desk.NO_FENCE_WORD
         return ""
 
+    def refuse(kind, value, answer, code, logged=None):
+        """Answer a refused press, and leave its Log line for the main thread.
+
+        The browser is told `answer`. The Log is told `logged` when the two
+        differ: the lock names both people there, and the lab's word says
+        only whether one was carried, never what. Nothing here writes the
+        log; the line waits on the desk (`commands.RefusalLog`) for the main
+        thread's drain, and the same refusal from the same address is
+        written once a minute.
+        """
+        actor, origin = who_is_asking()
+        try:
+            desk.refusals.note(kind, value, actor, origin, logged or answer)
+        except Exception:  # noqa: BLE001 -- a Log line never changes an answer
+            pass
+        return jsonify({"reason": answer}), code
+
+    def gate_words(answer, actor, origin):
+        """The Log's words for a refusal `commands.refusal` gave: the switch
+        as the browser was told it, the lock with both people named."""
+        if answer == command_desk.NO_REMOTE:
+            return answer
+        return command_desk.not_holder(actor, origin, desk.control.read())
+
+    def fence_words():
+        """The Log's words for the lab's word: whether this browser carried
+        one, never what it carried."""
+        carried = str(request.cookies.get(FENCE_COOKIE) or "").strip()
+        return command_desk.FENCE_WRONG if carried else command_desk.FENCE_NOT_TYPED
+
     def page_state():
         return state_body(
             rig,
@@ -606,6 +636,9 @@ def create_app(
         except command_desk.Invalid as reason:
             return jsonify({"reason": str(reason)}), 400
 
+        # Every refusal from here on is a press a person made and was turned
+        # away from, and leaves a Log line (`refuse`); a body that says
+        # nothing the rig accepts, above, is a page's mistake and does not.
         refused = command_desk.refusal(
             kind,
             snapshot.get("remote"),
@@ -615,32 +648,33 @@ def create_app(
             value=value,
         )
         if refused:
-            return jsonify({"reason": refused}), 403
+            return refuse(kind, value, refused, 403, gate_words(refused, actor, origin))
         # The lab's word stands beside the switch, and behind it: a rig whose
         # switch is off says so first, because that is the fact a person can
         # do something about by walking to the machine.
         refused = fence_refusal(kind, value)
         if refused:
-            return jsonify({"reason": refused}), 403
+            return refuse(kind, value, refused, 403, fence_words())
         # Nothing is switched on that cannot be seen: closing the supply's
         # output needs a measurement of the supply to close it against, and a
         # rig whose telemetry is idle, stale or lost has none.
         if kind == "cathode_output" and value.get("on"):
             telemetry = snapshot.get("kikusui") or {}
             if telemetry.get("output_on") not in (0, 1):
-                return jsonify({"reason": command_desk.NO_SUPPLY_ANSWER}), 409
+                return refuse(kind, value, command_desk.NO_SUPPLY_ANSWER, 409)
         if command_desk.needs_acquisition(kind) and not snapshot.get("acquiring"):
-            return jsonify({"reason": command_desk.NO_ACQUISITION}), 409
+            return refuse(kind, value, command_desk.NO_ACQUISITION, 409)
         # Starting is the one command that means something only while idle,
         # so it is the one refused for the opposite fact.
         if command_desk.needs_idle(kind) and snapshot.get("acquiring"):
-            return jsonify({"reason": command_desk.ALREADY_ACQUIRING}), 409
+            return refuse(kind, value, command_desk.ALREADY_ACQUIRING, 409)
 
         try:
             queued = desk.submit(kind, value, actor=actor, origin=origin)
         except command_desk.Invalid as reason:
-            code = 409 if str(reason) == command_desk.TOO_MANY else 400
-            return jsonify({"reason": str(reason)}), code
+            if str(reason) == command_desk.TOO_MANY:
+                return refuse(kind, value, str(reason), 409)
+            return jsonify({"reason": str(reason)}), 400
 
         return jsonify({"id": queued.id, "value": queued.summary()}), 202
 
@@ -656,10 +690,10 @@ def create_app(
         actor, origin = who_is_asking()
         refused = command_desk.refusal("take_over", rig.read().get("remote"), actor)
         if refused:
-            return jsonify({"reason": refused}), 403
+            return refuse("take_over", {}, refused, 403)
         refused = fence_refusal("take_over")
         if refused:
-            return jsonify({"reason": refused}), 403
+            return refuse("take_over", {}, refused, 403, fence_words())
         changed, previous = desk.control.take_over(actor, origin)
         if changed:
             try:

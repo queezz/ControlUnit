@@ -1,14 +1,17 @@
 import argparse
 import contextlib
+import html
+import signal
 import sys, datetime, os
 import threading
 import time
+import traceback
 import numpy as np
 import pandas as pd
 from PyQt5 import QtCore, QtWidgets, QtGui
 
 from mainView import UIWindow
-from controlunit.devices.adc import ADC
+from controlunit.devices.adc import ADC, LIT_ABOVE_A
 from controlunit.history import RunHistory
 from controlunit.devices.timing import TimingDiagnostics
 from controlunit.devices.dac8532 import DAC8532
@@ -44,6 +47,10 @@ from controlunit.web import commands as web_commands
 from controlunit import screen_memory
 # The ion gauges' on and off, as operators record it in the PIHTI Diagram.
 from controlunit import diagram_follower
+# The Raspberry Pi's own supply flags, temperature and free disk, read on a
+# thread of its own; and Ip read with the filament off. Both plain library.
+from controlunit import pi_health
+from controlunit import filament_off
 
 #: How often the main thread looks at when the last sample arrived.
 READER_CHECK_MS = 2000
@@ -52,6 +59,92 @@ READER_CHECK_MS = 2000
 #: the switches it is checking. The Diagram is asked every ten seconds on a
 #: thread of its own (`diagram_follower.POLL_SECONDS`); this only picks up.
 DIAGRAM_CHECK_MS = 3000
+
+#: The signals that end the program through Stop's own path, and what each
+#: one means for a person reading why it ended. SIGHUP is what closing the
+#: terminal it runs from sends; SIGTERM is `kill`, a service manager or a
+#: shutdown; SIGINT is Ctrl+C. Windows has no SIGHUP and is passed over.
+STOP_SIGNALS = (
+    ("SIGTERM", "asked to stop by another program (kill, a service manager or a shutdown)"),
+    ("SIGHUP", "the terminal it ran from was closed, or its session ended"),
+    ("SIGINT", "Ctrl+C in the terminal it ran from"),
+)
+
+#: How often the main thread looks for a signal that has arrived. Python
+#: runs its own signal handlers only between its own bytecodes, and Qt's
+#: event loop is C++, so without this a SIGTERM to an idle window would wait
+#: for the next Python slot to run at all. The handler only notes the
+#: signal; this timer's slot acts on it, inside the event loop.
+SIGNAL_CHECK_MS = 250
+
+
+def signal_reason(signum):
+    """How a Log line names the signal that ended the program."""
+    for name, words in STOP_SIGNALS:
+        if getattr(signal, name, None) == signum:
+            return "{}, {}".format(name, words)
+    return "signal {}".format(signum)
+
+
+def describe_exception(kind, error, trace):
+    """The traceback's last line, and where it was raised: `ZeroDivisionError:
+    division by zero (in _adc_step, main.py line 1340)`. The whole traceback
+    goes to stderr, which the launcher keeps in a file beside the data."""
+    words = traceback.format_exception_only(kind, error)[-1].strip()
+    frames = traceback.extract_tb(trace) if trace is not None else []
+    if frames:
+        last = frames[-1]
+        words += " (in {}, {} line {})".format(
+            last.name, os.path.basename(last.filename), last.lineno
+        )
+    return words
+
+
+def _quiet_print(text):
+    """Print, if there is still somewhere to print to: a program whose
+    terminal was closed under it (SIGHUP) has a stdout that raises."""
+    try:
+        print(text)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+class _LosingStream:
+    """A stdout or stderr that loses what it cannot write instead of raising.
+
+    Closing the terminal the program runs from sends SIGHUP, and from then
+    on every write to that terminal raises. The DAC8532 worker prints each
+    voltage it sets, after setting it, so a shutdown on SIGHUP would stop at
+    its first line: gas line 1 at zero, gas line 2 never reached. The
+    program's streams are wrapped in this as soon as it starts to end.
+    """
+
+    def __init__(self, stream):
+        self._stream = stream
+
+    def write(self, text):
+        try:
+            return self._stream.write(text)
+        except Exception:  # noqa: BLE001
+            return len(text)
+
+    def flush(self):
+        try:
+            self._stream.flush()
+        except Exception:  # noqa: BLE001
+            pass
+
+    def __getattr__(self, name):
+        return getattr(self._stream, name)
+
+
+def _keep_streams_writable():
+    """Wrap stdout and stderr once (`_LosingStream`); a stream that is not
+    there (pythonw, a test's capture swapped out) is left alone."""
+    for name in ("stdout", "stderr"):
+        stream = getattr(sys, name, None)
+        if stream is not None and not isinstance(stream, _LosingStream):
+            setattr(sys, name, _LosingStream(stream))
 
 
 def reader_lost_after(sampling):
@@ -106,9 +199,26 @@ class MainApp(QtCore.QObject, UIWindow):
     # The longest sampling time since the last sample taken at the current
     # one; None when no change is pending (see `_check_reader`).
     _sampling_before_change = None
+    # Ip read with the filament off, watched over one run's rows; None while
+    # nothing runs (`filament_off.FilamentOffCurrent`).
+    _filament_watch = None
+    # The Pi's own health monitor; None until `start_pi_health`.
+    _pi_health = None
+    # Why the program is ending, for its last Log line, and the status it
+    # exits with; a signal or an uncaught error waiting for the event loop
+    # (`_take_pending_stop`); and whether the end has begun, and stopped a
+    # run on its way.
+    _stop_reason = None
+    _exit_status = 0
+    _stop_pending = None
+    _shutting_down = False
+    _stopped_run_to_close = False
 
     sigAbortWorkers = QtCore.pyqtSignal()
     kikusui_message = QtCore.pyqtSignal(str)
+    # A `pi_health.Report`, from the monitor's own thread: queued, as the
+    # Kikusui recorder's messages are, so the Log is written here.
+    pi_health_report = QtCore.pyqtSignal(object)
 
     # MARK: init
     def __init__(self, app: QtWidgets.QApplication):
@@ -128,6 +238,7 @@ class MainApp(QtCore.QObject, UIWindow):
         # recorder's end so a press with none running can still say it.
         self._kikusui_lost_since = None
         self.kikusui_message.connect(self._kikusui_said)
+        self.pi_health_report.connect(self._pi_health_reported)
         self.kikusui_display_timer = QtCore.QTimer(self)
         self.kikusui_display_timer.timeout.connect(self._refresh_kikusui_display)
         self.kikusui_display_timer.start(500)
@@ -197,8 +308,12 @@ class MainApp(QtCore.QObject, UIWindow):
         # switched off while the program was down comes back declared off.
         self._start_diagram_follower()
         # The follower is the program's, not a run's: it lives across Stop
-        # and Start, and ends with the program, after anything a Stop did.
-        self.__app.aboutToQuit.connect(self._stop_diagram_follower)
+        # and Start, and ends with the program, after the hardware: `_closing`
+        # stops a run still going first, then the helpers, then says why.
+        self.__app.aboutToQuit.connect(self._closing)
+        # A person closing the window ends the program (Qt quits on the last
+        # window), and the last Log line should say that is what happened.
+        self.__app.lastWindowClosed.connect(self._window_closed)
 
     # MARK: Remembered screen
     def _restore_screen(self):
@@ -392,6 +507,50 @@ class MainApp(QtCore.QObject, UIWindow):
         if follower is None:
             return True
         return follower.stop()
+
+    # MARK: The Pi's own health
+    def start_pi_health(self, read=None, interval=None):
+        """Read the Pi's supply flags, temperature and free disk every five
+        minutes, on a thread of its own (`pi_health`).
+
+        The I²C reads have failed during plasma, and a sagging Pi supply
+        would fail them the same way; the one look at it, on 2026-09-09,
+        was by hand. The thread never touches Qt, a worker or the ADC: it
+        hands each report to `pi_health_report`, queued to this thread, and
+        stops with the program in `_closing`. Started from `main` beside
+        the web view rather than here, so a test that builds a window starts
+        no thread it did not ask for. `read` and `interval` are a test's.
+        """
+        if self._pi_health is not None:
+            return
+        monitor = pi_health.PiHealthMonitor(
+            self.datapath, self.pi_health_report.emit, interval=interval, read=read
+        )
+        monitor.start()
+        self._pi_health = monitor
+
+    def _stop_pi_health(self):
+        """End the monitor with the program; True once its thread is gone.
+        It holds nothing a shutdown waits on, and a thread still inside its
+        one `vcgencmd` is a daemon the interpreter ends."""
+        monitor = self._pi_health
+        if monitor is None:
+            return True
+        return monitor.stop()
+
+    @QtCore.pyqtSlot(object)
+    def _pi_health_reported(self, report):
+        """One reading, on the main thread: into `/api/health`'s `pi`, and
+        its sentences into the Log, red when something went wrong."""
+        try:
+            self.web_status.record_pi(pi_health.as_json(report.reading))
+            for text, alarm in report.lines:
+                if alarm:
+                    self.log_message(f"<font color='red'>{text}</font>", htmltag="div")
+                else:
+                    self.log_message(text)
+        except Exception as error:  # noqa: BLE001 -- a convenience never stops the rig
+            _quiet_print(f"pi health: {error}")
 
     def _check_diagram(self):
         """The timer's slot: the Diagram's newest answer, then the checks.
@@ -673,7 +832,119 @@ class MainApp(QtCore.QObject, UIWindow):
 
     def __quit(self):
         """terminate app"""
+        self._note_stop_reason("the Quit button was pressed")
         self.__app.quit()
+
+    # MARK: Ending
+    # 2026-11-11 16:47 the program restarted with nothing anywhere saying
+    # why: not the Log, not the stderr file. Every way it ends now leaves its
+    # reason as the Log's last line ("Program closing: ..."), and the
+    # launcher adds the exit status to the stderr file.
+
+    def _note_stop_reason(self, reason, status=0):
+        """Keep the first reason the program was given to end."""
+        if self._stop_reason is None:
+            self._stop_reason = reason
+            self._exit_status = status
+
+    def _window_closed(self):
+        """The last window closed; Qt quits after this."""
+        self._note_stop_reason("the window was closed")
+
+    def _signal_received(self, signum, frame):
+        """The Python handler for SIGTERM, SIGHUP and SIGINT: note it, and
+        nothing else. It runs between two bytecodes of whatever Python was
+        running, perhaps halfway through a slot, so the stopping itself is
+        left to `_take_pending_stop`, which the event loop calls whole."""
+        if self._stop_pending is None:
+            self._stop_pending = (signal_reason(signum), 128 + int(signum))
+
+    def _take_pending_stop(self):
+        """The signal timer's slot: end the program if something asked."""
+        pending, self._stop_pending = self._stop_pending, None
+        if pending is not None:
+            self.shut_down(*pending)
+
+    def note_uncaught(self, kind, error, trace):
+        """An exception nothing caught (`sys.excepthook`): its last line in
+        the Log, then the program ends the way Stop and Quit end it.
+
+        PyQt5 ends the process (`qFatal`, an abort) on an exception that
+        escapes a slot, unless a hook is installed, in which case it carries
+        on as if nothing happened. Neither is wanted: an abort leaves the
+        DACs holding what they held, the 2026-08-19 plasma with nothing
+        recording, and carrying on runs a program in a state nobody knows.
+        So the program still ends, with the outputs zeroed first and the
+        reason written down. Never raises.
+        """
+        if threading.current_thread() is not threading.main_thread():
+            return  # a thread's own end is `threading.excepthook`'s
+        words = describe_exception(kind, error, trace)
+        try:
+            self.log_message(
+                "<font color='red'>Uncaught error</font>: " + html.escape(words),
+                htmltag="div",
+            )
+        except Exception:  # noqa: BLE001 -- the log itself may be what failed
+            _quiet_print("Uncaught error: " + words)
+        if self._stop_pending is None and not self._shutting_down:
+            self._stop_pending = ("an uncaught error, " + words, 1)
+
+    def shut_down(self, reason, status=0):
+        """End the program as Stop and then Quit would: a run still going
+        is stopped first, outputs to zero and workers joined, hardware first
+        (`docs/architecture/qt-threading.md`), and then the event loop ends
+        with `status`. A second call while ending changes nothing."""
+        self._note_stop_reason(reason, status)
+        if self._shutting_down:
+            return
+        self._shutting_down = True
+        _keep_streams_writable()
+        try:
+            self._stop_run_to_close()
+        finally:
+            self._exit_program(self._exit_status)
+
+    def _exit_program(self, status):
+        """End the event loop; `app.exec_()` returns `status`."""
+        self.__app.exit(status)
+
+    def _stop_run_to_close(self):
+        """Stop a run the program is ending under, exactly as Stop does;
+        True if there was one. The switch on the rig's screen is set to
+        match, as a browser's Stop sets it."""
+        if not self.workers:
+            return False
+        self.control_dock.OnOffSW.setChecked(False)
+        self.stop_acquisition()
+        self._stopped_run_to_close = True
+        return True
+
+    def _closing(self):
+        """`QApplication.aboutToQuit`: whatever ended the event loop.
+
+        The Quit button is disabled while a run records, but the window's
+        own close is not, and it used to end the program with the workers
+        running and the DACs holding. A run still going is stopped here
+        first, hardware first; then the program's helpers, which hold no
+        device; and last the line that says why, so it is the last line.
+        """
+        _keep_streams_writable()
+        try:
+            self._stop_run_to_close()
+        except Exception as error:  # noqa: BLE001 -- the rest must still run
+            _quiet_print("closing: {}".format(error))
+        self._stop_diagram_follower()
+        self._stop_pi_health()
+        reason = self._stop_reason or (
+            "no reason recorded; the event loop was ended from elsewhere"
+        )
+        if self._stopped_run_to_close:
+            reason += "; the run was stopped first, outputs to zero"
+        try:
+            self.log_message("Program closing: " + html.escape(reason))
+        except Exception:  # noqa: BLE001
+            _quiet_print("Program closing: " + reason)
 
     def __onoff(self):
         """
@@ -832,6 +1103,9 @@ class MainApp(QtCore.QObject, UIWindow):
 
         self.start_all_threads()
         self.start_cross_connections()
+        # Each run watches its own rows for Ip with the filament off, at the
+        # threshold its own reader calls a discharge lit.
+        self._filament_watch = filament_off.FilamentOffCurrent(self._lit_above())
         self.indicator_led = IndicatorLED(
             self.__app, self.pi, self.workers["ADC"]["worker"]
         )
@@ -1094,6 +1368,11 @@ class MainApp(QtCore.QObject, UIWindow):
         self._last_sample_at = None
         self._reader_lost_since = None
         self._sampling_before_change = None
+        # A warning about Ip with the filament off ends with the run, and
+        # says so if it was standing.
+        watch, self._filament_watch = self._filament_watch, None
+        if watch is not None:
+            self._say_filament(watch.close(time.time()))
         # A recorded switch still being checked ends with the run whose
         # samples would have answered it; the next Start begins a new
         # history, and no check is carried into it.
@@ -1351,6 +1630,7 @@ class MainApp(QtCore.QObject, UIWindow):
         if not self._note_backlog(lag):
             self.update_plots(device_name)
         self._publish_step(batch)
+        self._watch_filament_off_current(batch)
         finished = time.monotonic()
         if not hasattr(self, '_adc_delivery_timing'):
             self._adc_delivery_timing = TimingDiagnostics(
@@ -1389,6 +1669,56 @@ class MainApp(QtCore.QObject, UIWindow):
                 htmltag="div",
             )
         return behind
+
+    # MARK: Ip with the filament off
+    def _lit_above(self):
+        """The current above which the reader calls a discharge lit: its own
+        `lit_above` while one runs, else settings.yml's `Lit Above A`."""
+        worker = (self.workers.get("ADC") or {}).get("worker") if self.workers else None
+        value = getattr(worker, "lit_above", None)
+        if value is None:
+            tuning = self.config.get("Plasma Current PID") or {}
+            value = tuning.get("Lit Above A", LIT_ABOVE_A)
+        return float(value)
+
+    def _watch_filament_off_current(self, batch):
+        """Say when Ip reads current with the filament off (`filament_off`).
+
+        queezz, 2026-11-13: "if we see the current with the filament power
+        off, it's a SUS. So we should warn, really. Sometimes the current
+        sensor gets a wrong zero". Each delivered row is judged on its own
+        cathode drive and time, and on the supply's telemetry as this thread
+        last had it; Ip is taken as the PID sees it, after the Ip zero. One
+        red line when it has lasted three seconds, one plain line when it
+        ends. Nothing is zeroed or driven, and nothing here may keep a row
+        from the file, which is already written.
+        """
+        watch = self._filament_watch
+        if watch is None:
+            return
+        try:
+            zero = float(self.zero_adjustment.get("Ip", 0) or 0)
+            supply = getattr(self, "_kikusui_snapshot", None) or {}
+            rows = zip(batch["date"], batch["PresetV_cathode"], batch["Ip_c"])
+            for stamp, drive, current in rows:
+                off, why = filament_off.filament_off(drive, supply)
+                try:
+                    ip = float(current) - zero
+                except (TypeError, ValueError):
+                    ip = float("nan")
+                self._say_filament(watch.observe(stamp.timestamp(), ip, off, why))
+        except Exception as error:  # noqa: BLE001 -- a warning never stops a run
+            _quiet_print(f"filament-off watch: {error}")
+
+    def _say_filament(self, said):
+        """One of `FilamentOffCurrent`'s lines, the head red when it warns."""
+        if said is None:
+            return
+        head, rest, alarm = said
+        if alarm:
+            self.log_message(f"<font color='red'>{head}</font>{rest}", htmltag="div")
+        else:
+            self.log_message(head + rest)
 
     def _membrane_heater_step(self, result):
         device_name = result[-1]
@@ -2044,6 +2374,55 @@ def start_web_view(widget, arguments):
     return True
 
 
+def install_stop_handlers(widget, set_handler=signal.signal):
+    """End on a signal or an uncaught error the way Stop and Quit end, and
+    say why (`MainApp.shut_down`, `MainApp.note_uncaught`).
+
+    SIGTERM, SIGHUP and SIGINT each get a handler that only notes the
+    signal; `SIGNAL_CHECK_MS`'s timer acts on it inside the event loop, so a
+    signal never runs the shutdown halfway through some other slot. Before
+    this a SIGTERM killed the process where it stood, with the DACs holding
+    whatever they held, and a SIGHUP from a closed terminal did the same.
+
+    `sys.excepthook` writes the error's last line to the Log, then hands the
+    error to the hook that was there before, which prints the traceback to
+    stderr. Installed from `main` only, after the window exists, and never
+    by a test unless it asks: `set_handler` is a test's.
+    """
+    for name, _words in STOP_SIGNALS:
+        number = getattr(signal, name, None)
+        if number is None:
+            continue
+        try:
+            set_handler(number, widget._signal_received)
+        except (OSError, RuntimeError, ValueError):
+            continue
+    timer = QtCore.QTimer(widget)
+    timer.timeout.connect(widget._take_pending_stop)
+    timer.start(SIGNAL_CHECK_MS)
+    widget.stop_signal_timer = timer
+
+    before = sys.excepthook
+
+    def hook(kind, error, trace):
+        try:
+            widget.note_uncaught(kind, error, trace)
+        except Exception:  # noqa: BLE001 -- the traceback must still print
+            pass
+        before(kind, error, trace)
+
+    sys.excepthook = hook
+    return hook
+
+
+def start_beside(widget, arguments):
+    """What runs beside the window in a real start, and never in a test that
+    builds one: the web view, the Pi's health, and the ways to end."""
+    start_web_view(widget, arguments)
+    widget.start_pi_health()
+    install_stop_handlers(widget)
+
+
 # MARK: End
 def main():
     """
@@ -2052,7 +2431,7 @@ def main():
     arguments = parse_arguments()
     app = QtWidgets.QApplication([])
     widget = MainApp(app)
-    start_web_view(widget, arguments)
+    start_beside(widget, arguments)
     sys.exit(app.exec_())
 
 
@@ -2064,6 +2443,6 @@ if __name__ == "__main__":
     app = QtWidgets.QApplication([])
     app.setWindowIcon(QtGui.QIcon(pth))
     widget = MainApp(app)
-    start_web_view(widget, arguments)
+    start_beside(widget, arguments)
 
     sys.exit(app.exec_())

@@ -114,6 +114,30 @@ own `RunHistory` (`self.datadict["ADC"]`) on the main thread, never the
 ADC; a switch is held only while a run records, and Stop drops a pending
 one with the run that would have answered it.
 
+The Raspberry Pi's own health is read on a third Python daemon thread,
+`pi-health` (`controlunit/pi_health.py`, 2026-11-13): every five minutes
+`vcgencmd get_throttled` (the under-voltage, frequency-capped, throttled
+and soft-temperature-limit bits, now and since boot), the core temperature
+from `/sys/class/thermal/thermal_zone0/temp`, and `shutil.disk_usage` of
+the data folder. The I²C reads have failed during plasma, and a sagging Pi
+supply would fail them the same way; the one look at the supply, on
+2026-09-09, was by hand. Off the Pi there is no `vcgencmd` and no thermal
+zone, which reads as "not available" and is never a failure. The thread
+never touches Qt, a worker or the ADC: each reading and the Log sentences it
+makes cross to the main thread on `pi_health_report`, a queued Qt signal,
+as the Kikusui recorder's messages do, and the main thread writes the Log
+and the web record's `pi`. It is started from `main` beside the web view
+(`start_beside`), not from `MainApp.__init__`, so a test that builds a
+window starts no thread it did not ask for.
+
+`_adc_step` also watches each delivered batch for plasma current read with
+the filament off (`controlunit/filament_off.py`; queezz, 2026-11-13: "if we
+see the current with the filament power off, it's a SUS"), on the main
+thread, after the rows are written, from the batch's own `PresetV_cathode`,
+`Ip_c` and `date` columns and the Kikusui snapshot this thread already
+holds. It never reads the ADC and never drives anything; see
+[Cathode control](../hardware/cathode-control.md#ip-with-the-filament-off).
+
 ```mermaid
 flowchart LR
     subgraph ADC_LOOP["ADC.acquisition_loop  —  QThread"]
@@ -196,8 +220,8 @@ sequenceDiagram
     participant MFCs as DAC8532 Worker
     participant HW as Hardware DACs
 
-    User->>App: closeEvent() or stop button
-    App->>App: abort_all_threads()
+    User->>App: Stop, the window closed, a signal or an uncaught error
+    App->>App: stop_acquisition() → abort_all_threads()
 
     rect rgb(40, 30, 10)
         Note over App,HW: turn_off_voltages() — hardware first
@@ -232,14 +256,74 @@ This sequence is the product of being bitten: `_mfc_presets` is zeroed in
 multiple places, and `turn_off_voltages` is callable any time including before
 workers are started. The hardware stop always precedes the software stop.
 
-The Diagram follower is the program's, not a run's: Stop and Start leave it
-asking. It stops on `QApplication.aboutToQuit` (`_stop_diagram_follower`),
-which stops `diagram_timer`, sets the follower's stop event and joins its
-thread for at most half a second. By then any Stop has already zeroed the
-outputs (Quit is disabled while acquiring), and the follower holds no
-device, file or open socket between asks, so nothing in the hardware-first
-order waits on it; a thread still inside its one request is a daemon and
-ends with the interpreter.
+The Diagram follower and the Pi's health monitor are the program's, not a
+run's: Stop and Start leave them running. They stop in `_closing`, the one
+slot on `QApplication.aboutToQuit`, after the hardware: `_closing` first
+stops a run still going (Stop's own `stop_acquisition`, so the outputs are
+zeroed and the workers joined), then `_stop_diagram_follower` (stops
+`diagram_timer`, sets the follower's stop event, joins its thread for at
+most half a second) and `_stop_pi_health` (the same, for `pi-health`).
+Neither holds a device, file or open socket between asks, so nothing in the
+hardware-first order waits on them; a thread still inside its one request,
+or its one `vcgencmd`, is a daemon and ends with the interpreter. Last,
+`_closing` writes why the program is ending, so that is the Log's last line.
+
+### How the program ends, and says why
+
+On 2026-11-11 at 16:47 the program restarted with no reason anywhere. Every
+way it ends now writes `Program closing: <why>` as the Log's last line, with
+"; the run was stopped first, outputs to zero" when it was ending under a
+run:
+
+| What ended it | The reason in the line | Exit status |
+| --- | --- | --- |
+| The Quit button (disabled while a run records) | the Quit button was pressed | 0 |
+| The window closed (`lastWindowClosed`) | the window was closed | 0 |
+| SIGTERM (`kill`, a service manager, a shutdown) | SIGTERM, asked to stop by another program (…) | 143 |
+| SIGHUP (the terminal it runs from closed) | SIGHUP, the terminal it ran from was closed, or its session ended | 129 |
+| SIGINT (Ctrl+C) | SIGINT, Ctrl+C in the terminal it ran from | 130 |
+| An exception no code caught | an uncaught error, `<its last line> (in <function>, <file> line <n>)` | 1 |
+
+The window's own close used to end the program with the workers running
+and the DACs holding, although the sequence above was drawn for it; it now
+stops the run in `_closing` before anything else.
+
+A signal goes through Stop's path, hardware first, and never runs it inside
+the handler. Python runs a signal handler only between two of its own
+bytecodes, which may be halfway through any slot, and Qt's event loop is
+C++. So `install_stop_handlers` (called from `main` only) gives SIGTERM,
+SIGHUP and SIGINT a handler that only notes the signal
+(`MainApp._signal_received`), and a 250 ms `QTimer` whose slot,
+`_take_pending_stop`, acts on it inside the event loop and is also what
+lets the interpreter look at a signal at all while the window is idle. It
+calls `shut_down`: the run is stopped exactly as Stop stops it (the screen's
+switch set to match, `stop_acquisition`, so `turn_off_voltages` and the
+workers' own aborts zero every DAC before their threads are joined), then
+`app.exit(128 + signal)`, then `aboutToQuit` and `_closing` as above. A
+second signal while ending changes nothing. Before this, SIGTERM and SIGHUP
+killed the process where it stood, with the DACs holding whatever they held.
+
+Once it starts to end, the program's stdout and stderr lose what they
+cannot write instead of raising (`_LosingStream`). After SIGHUP every write
+to the closed terminal raises, and the DAC8532 worker prints each voltage
+after setting it: without this, the shutdown stopped at its first line, gas
+line 1 at zero and line 2 never reached.
+
+`sys.excepthook` is replaced in the same place. PyQt5 aborts the process
+(`qFatal`) on an exception that escapes a slot unless a hook is installed,
+and carries on as if nothing happened when one is; neither is wanted. The
+hook writes `Uncaught error: <the traceback's last line> (in <function>,
+<file> line <n>)` to the Log, hands the exception to the hook that was
+there before (which prints the whole traceback to stderr), and leaves the
+same pending stop a signal leaves, with status 1. An exception on another
+thread is left to `threading.excepthook`.
+
+`scripts/run_controlunit.sh` no longer `exec`s the program: it waits for it
+and appends `# <date> exited with status N` to the stderr file, after the
+`# <date> started` it always wrote. The launcher traps HUP, TERM and INT
+only so it outlives the program long enough to write that line (a trap is
+reset in the program, which handles its own), and its `tee` ignores them,
+so the program's last words still reach the file when the terminal closes.
 
 `thread.wait()` lasts as long as the worker takes to notice its abort flag.
 The ADC and thermocouple loops used to sleep one whole sampling period

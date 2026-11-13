@@ -21,6 +21,7 @@ on it; every value is checked in the web thread before it is queued, so the
 main thread is never asked to run a command it should have refused.
 """
 
+import collections
 import queue
 import re
 import threading
@@ -190,6 +191,19 @@ TOO_MANY = "too many commands are already waiting"
 #: What the holder line says when the lock is free.
 NOBODY = "Nobody has control"
 
+#: How a refused press names the lab's word in the Log: whether a word was
+#: carried at all, and never what it was.
+FENCE_NOT_TYPED = "lab word not typed"
+FENCE_WRONG = "wrong lab word"
+
+#: How long the same refusal from the same browser waits before the Log
+#: carries it again: one line a minute, however often the button is pressed.
+REFUSAL_REPEAT_SECONDS = 60.0
+
+#: How many refusal lines may wait for the main thread. It drains them every
+#: 200 ms; more than this waiting means it is not draining, and the oldest go.
+MAX_REFUSALS_WAITING = 64
+
 
 class Invalid(ValueError):
     """A body the web thread refuses to queue, with the reason to show."""
@@ -357,6 +371,68 @@ def holder_sentence(control):
     return " ".join(parts)
 
 
+class RefusalLog(object):
+    """The presses the web thread refused, waiting for the Log.
+
+    A refusal is answered in the web thread (`server.send`, `take_over`)
+    and used to leave no trace but the browser's own answer, so what a
+    student was refused, and why, could not be read afterwards. The log
+    belongs to the main thread, so the web thread writes nothing: it leaves
+    the line here, under this lock, and `drain` writes it on the main
+    thread with the commands.
+
+    The same refusal, from the same address, for the same kind and the same
+    reason, is written once a minute (`REFUSAL_REPEAT_SECONDS`): a button
+    pressed ten times in frustration is one line, and the next line after
+    the minute says how many presses were held back meanwhile.
+    """
+
+    def __init__(self, clock=time.monotonic, wall=time.time, repeat=REFUSAL_REPEAT_SECONDS):
+        self._lock = threading.Lock()
+        self._clock = clock
+        self._wall = wall
+        self._repeat = float(repeat)
+        self._waiting = collections.deque(maxlen=MAX_REFUSALS_WAITING)
+        # (origin, kind, reason) -> when its last line was written, on both
+        # clocks, and how many presses were held back since.
+        self._last = {}
+
+    def note(self, kind, value, actor, origin, reason):
+        """Leave a refusal's line for the main thread; True if one was left,
+        False if it was held back as a repeat inside the minute."""
+        key = (origin or "", kind, reason)
+        now = self._clock()
+        with self._lock:
+            last = self._last.get(key)
+            if last is not None and now - last["at"] < self._repeat:
+                last["held"] += 1
+                return False
+            line = refusal_line(kind, value, actor, origin, reason)
+            if last is not None and last["held"]:
+                line += "; {} more like it since {}".format(
+                    last["held"], time.strftime("%H:%M:%S", time.localtime(last["wall"]))
+                )
+            self._last[key] = {"at": now, "wall": self._wall(), "held": 0}
+            self._forget_older_than(now)
+            self._waiting.append(line)
+            return True
+
+    def _forget_older_than(self, now):
+        # A repeat is only held inside its minute, so an older entry carries
+        # nothing but its count, and is dropped with it once there are many.
+        if len(self._last) <= 4 * MAX_REFUSALS_WAITING:
+            return
+        for key in [k for k, v in self._last.items() if now - v["at"] >= self._repeat]:
+            del self._last[key]
+
+    def take(self):
+        """Every line waiting, oldest first. Only the main thread calls this."""
+        with self._lock:
+            lines = list(self._waiting)
+            self._waiting.clear()
+        return lines
+
+
 class CommandQueue(object):
     """The one crossing between the web thread and the Qt main thread."""
 
@@ -366,6 +442,8 @@ class CommandQueue(object):
         #: Who may set anything from a browser. It is decided in the web
         #: thread, where the commands arrive, and read from both threads.
         self.control = OperatorLock()
+        #: What the web thread refused, for the main thread's Log.
+        self.refusals = RefusalLog()
 
     def submit(self, kind, value, actor="", origin=""):
         """Queue a checked command and return it, or raise `Invalid`."""
@@ -667,6 +745,14 @@ def refusal(kind, remote, actor, origin="", control=None, value=None):
     return ""
 
 
+def not_holder(actor, origin, control):
+    """Why a press was refused for the lock, in the Log's words: "Kawabata
+    Rei does not hold control (Kuzmin Arseniy does)". The page is told the
+    holder line itself (`holder_sentence`); the Log names both people."""
+    holder = (control or {}).get("holder") or "somebody else"
+    return "{} does not hold control ({} does)".format(_identity(actor, origin), holder)
+
+
 def needs_acquisition(kind):
     """True when the command has no meaning without the workers running."""
     return kind in NEEDS_ACQUISITION
@@ -731,6 +817,38 @@ def summarise(kind, value):
     if kind == "zero":
         return "baseline of {} taken".format(value.get("channel"))
     return kind
+
+
+#: What a refused press asked for, where the applied summary is worded for
+#: something that happened ("acquisition started").
+_ASKED = {
+    "take_over": "take control",
+    "start": "start acquisition",
+    "stop": "stop acquisition",
+}
+
+
+def asked_for(kind, value):
+    """What a refused press asked for, in the same ASCII words as a summary."""
+    if kind in _ASKED:
+        return _ASKED[kind]
+    if kind == "zero":
+        return "baseline of {}".format((value or {}).get("channel"))
+    return summarise(kind, value)
+
+
+def refusal_line(kind, value, actor, origin, reason):
+    """The Log line of one refused press: "Refused from 10.249.254.8
+    (Kawabata Rei): plasma current 1.50 A - Kawabata Rei does not hold
+    control (Kuzmin Arseniy does)". The address leads, because it is the one
+    thing every press carries; the name follows when the browser has saved
+    one. ASCII, as `summarise` is: the log file is written in the platform's
+    own encoding, and a Japanese Windows code page has no em dash."""
+    who = clean_actor(actor)
+    head = "Refused from {}".format(origin or "an unknown address")
+    if who:
+        head += " ({})".format(who)
+    return "{}: {} - {}".format(head, asked_for(kind, value), reason)
 
 
 # -- the main thread's half ---------------------------------------------------
@@ -968,6 +1086,8 @@ def drain(app):
 
     One command failing is not allowed to stop the timer or the acquisition
     loop, so a failure is recorded as a refusal and the next command runs.
+    Then the presses the web thread refused are written to the Log, here,
+    where the log is written (`RefusalLog`).
     """
     waiting = getattr(app, "web_commands", None)
     if waiting is None:
@@ -985,4 +1105,10 @@ def drain(app):
             app.log_message(describe(command, outcome, reason))
         except Exception as error:
             print("web command log: {}".format(error))
+    refusals = getattr(waiting, "refusals", None)
+    for line in refusals.take() if refusals is not None else ():
+        try:
+            app.log_message(line)
+        except Exception as error:
+            print("web refusal log: {}".format(error))
     return done

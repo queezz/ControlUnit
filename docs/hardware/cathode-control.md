@@ -63,6 +63,49 @@ it is not zero.
 Until 4.11.0 this row was the Settings dock's "Output voltage" in volts,
 on the rig's screen only.
 
+## Ip with the filament off
+
+Plasma current needs a hot filament. queezz, 2026-11-13: "if we see the
+current with the filament power off, it's a SUS. So we should warn, really.
+Sometimes the current sensor gets a wrong zero". With the cathode drive at
+0 mV, `Ip_c` sits at −0.005 to −0.016 A from 2026-10-22 to 11-13, drifting
+slowly: that is the Hall sensor's zero. Exactly one stretch of more than
+3 s had the drive at 0 and Ip above 0.1 A: 15:25 on 2026-11-13, 27 s at a
+flat 2.38 A after the discharge had gone out, then −0.02 A. Its cause is
+not known — a sensor whose zero moved, or current through the preanode
+circuit — but it was not plasma current (vault note "Student runs audit
+2026-10-22 to 11-13").
+
+The program now says so in the Log when it happens
+(`controlunit/filament_off.py`, judged on the main thread from each
+delivered batch):
+
+- **Filament off** is the Kikusui's own measurement while its telemetry is
+  fresh: under 1 A, or its output off. Without fresh telemetry it is the
+  row's own cathode drive at 0 mV. A drive of 0 mV with the supply
+  measuring 18 A is the filament run on the supply's own knob (CF10 off,
+  below), and its plasma current is plasma current: no warning.
+- **Ip** is as the PID sees it, after the Ip zero; a NaN never counts. It
+  counts above the PID's own lit threshold, `Lit Above A` in settings.yml
+  (0.1 A).
+- **Three seconds** on the rows' own clock, continuously: a discharge whose
+  drive went to zero is gone within a second or two, and is not warned
+  about. At 10 s sampling two rows in a row are enough.
+
+Then one red line, once:
+
+> Ip reads 2.38 A with the filament off (cathode drive 0 mV): not plasma
+> current. If the preanode supply's panel shows no current, the sensor's
+> zero is off (Zero Ip with everything off); if it shows current, something
+> conducts with the filament off.
+
+The parenthesis says how the filament was known to be off (`cathode drive
+0 mV`, `the supply's output off`, `the supply at 0.40 A`). One plain line
+when it ends — "Ip no longer reads current with the filament off, after
+27 s at up to 2.38 A" — or, if the run is stopped first, "Acquisition
+stopped while Ip still read current with the filament off, …". Nothing is
+zeroed or driven: Zero Ip is a person's press, made with everything off.
+
 ## The supply's own knob
 
 The Kikusui obeys its external input only while its CONFIG parameter

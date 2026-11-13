@@ -25,6 +25,7 @@ import sys
 import threading
 import time
 
+from controlunit import pi_health
 from controlunit.web.commands import NOBODY
 
 #: How long after a browser's press a failure from the supply's link is
@@ -244,6 +245,9 @@ class RigStatus:
         self._kikusui = {"status": "idle"}
         self._kikusui_at = self._clock()
         self._behind = 0.0
+        # The Pi's own health, as its monitor last read it (`pi_health`):
+        # all None until the first reading.
+        self._pi = pi_health.as_json(None)
 
     # -- what the main thread writes -----------------------------------------
 
@@ -268,6 +272,12 @@ class RigStatus:
         # The browser needs the run filename, not the host's home directory.
         result["file"] = result.get("file", "").replace("\\", "/").rsplit("/", 1)[-1]
         return result
+
+    def record_pi(self, reading):
+        """Keep the Pi's newest health reading, in `pi_health.as_json`'s
+        shape, for `/api/health` to carry as `pi`."""
+        with self._lock:
+            self._pi = dict(reading or pi_health.as_json(None))
 
     def record_backlog(self, seconds):
         """How long the newest delivery waited for the main thread."""
@@ -530,6 +540,7 @@ class RigStatus:
                 "held_seconds": self._keep_seconds,
                 "age": age,
                 "behind": self._behind,
+                "pi": dict(self._pi),
                 "now": now,
             }
 
@@ -838,13 +849,23 @@ def health_status(snapshot):
 
 
 def health_body(status, version):
-    """The health report, exactly the shape the ensemble agreed on."""
+    """The health report, the shape the ensemble agreed on, and the Pi's.
+
+    The four agreed keys are unchanged, `detail` included; `pi` is this
+    rig's own addition and every neighbour reads the four by name. It is the
+    Raspberry Pi's newest health reading (`pi_health.as_json`): the core
+    temperature, the `get_throttled` word and the conditions it names now
+    and since boot, the free space under the data folder, and when it was
+    read; all None, and both lists empty, before the first reading and on a
+    machine that is not a Pi.
+    """
     snapshot = status.read()
     return {
         "service": SERVICE,
         "version": version,
         "status": health_status(snapshot),
         "detail": health_detail(snapshot),
+        "pi": snapshot.get("pi") or pi_health.as_json(None),
     }
 
 

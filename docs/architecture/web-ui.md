@@ -118,6 +118,31 @@ the log file and the Log tab. The origin address is the deliberate exception
 to "no response carries an address": a command that moved gas or cathode
 current says where it came from.
 
+**Every refused press is written there too** (2026-11-13). The `403` and
+`409` answers of `send()` and Take over — the Remote switch off, the lab's
+word not typed or wrong, someone else holding control, no acquisition
+running, acquisition already running, the supply not answering, too many
+commands waiting — used to reach the browser that pressed and nothing
+else, so what a student was refused, and why, could not be read
+afterwards. The web thread still writes no log: it leaves the line on the
+desk (`commands.RefusalLog`, behind its own lock), and the same 200 ms drain
+that runs the commands writes it on the main thread:
+
+```
+Refused from 10.249.254.8 (Kawabata Rei): plasma current 1.50 A - Kawabata Rei does not hold control (Kuzmin Arseniy does)
+Refused from 10.249.254.8: take control - the Remote switch on the rig's screen is off
+Refused from 10.249.254.8 (Kawabata Rei): QMS sync on - wrong lab word
+```
+
+The browser is told what it always was (the holder line, for the lock);
+the Log names both people instead. The lab's word is written as `lab word
+not typed` or `wrong lab word`, never the word or what was typed. The same
+refusal — same address, same kind, same reason — is written once a minute;
+the next line after the minute ends `; N more like it since HH:MM:SS`. A
+body the rig does not accept (`400`) is a page's mistake, not a person
+turned away, and is not logged; nor is a wrong word typed at `POST
+/api/fence` (below).
+
 ## The operator lock
 
 The switch answers *may anyone set from a browser*; the lock answers *which
@@ -195,7 +220,7 @@ a credential; the data file appears by name only.
 | `GET /control` | compatibility address for Live in Operate mode |
 | `GET /log` | the Log tab |
 | `GET /lab` | the Lab tab |
-| `GET /api/health` | `{service, version, status, detail}` — the ensemble's contract; `ok` whenever the rig is up, idle included, `degraded` only for something actually impaired. `detail` says what the rig is doing: `idle, not recording`, `acquiring 9 channels at 10 Hz`, and — whether or not anything is being recorded — `outputs live:` with the outputs named |
+| `GET /api/health` | `{service, version, status, detail, pi}` — the first four are the ensemble's contract; `ok` whenever the rig is up, idle included, `degraded` only for something actually impaired. `detail` says what the rig is doing: `idle, not recording`, `acquiring 9 channels at 10 Hz`, and — whether or not anything is being recorded — `outputs live:` with the outputs named. `pi` is this rig's own: the Raspberry Pi's newest health reading, `{temperature_c, throttled, now, since_boot, free_gb, checked_at}` — the core in °C, the `vcgencmd get_throttled` word (`"0x50000"`), the conditions it names now and since boot (`under-voltage`, `ARM frequency capped`, `throttled`, `soft temperature limit`), the free gigabytes under the data folder, and the reading's epoch time; read every five minutes, all `null` and both lists empty before the first reading and wherever a value cannot be read (off a Pi). It changes neither `status` nor `detail` |
 | `GET /api/neighbours` | `{services: [...], checked_at: "HH:MM:SS"\|null}` — this service and its two neighbours, each with a state, and when the last probe finished on this machine's clock; answers from what this machine already knows and asks the LAN behind the answer. Every row carries `alias`, `name`, `url` (where a browser opens), `probe_url` (where this rig asked), `opens_at`, `state`, `version`, `detail`, `where`, `start_how`, `start` and `here` — starting is two keys and not one, the plain words and the literal line |
 | `GET /api/neighbours?fresh=1` | the same, with the cached answer thrown away first: every row comes back `checking` and the probe runs behind the reply, so the press never waits for the LAN |
 | `GET /api/roster` | `{"names": [...]}` — the lab's operator names this machine holds a copy of, empty when it holds none |
@@ -505,7 +530,13 @@ measured, and a readout with a baseline held says `zeroed` beside its name.
     error.
 - **Log** — the same message log the Qt Log dock shows, newest first, with a
   Find and an order switch. It also carries the routine 30-second timing
-  summaries, which the dock leaves out (4.29.1).
+  summaries, which the dock leaves out (4.29.1). From 2026-11-13 it also
+  carries every press the web refused (`Refused from …`, above), the Pi's
+  own health (`Pi health: 52.1 °C, power fine, 41 GB free` at start, then a
+  line only when a supply flag sets or clears, the core passes 70 °C or comes
+  back under 65 °C, or the data folder's disk falls under 2 GB), Ip read
+  with the filament off, and, last, why the program ended (`Program
+  closing: …`; see [Qt threading](qt-threading.md#how-the-program-ends-and-says-why)).
 - **Lab** — the lab ensemble's own board, built in the PIHTI diagram's shape
   so the three surfaces read the same (owner decision 2026-09-07, "I like the
   pihti-diagram way for the services, and we need to sync that in all 3
@@ -905,6 +936,11 @@ some buttons" from becoming a gas line moving, and nothing more: it is
 compared as plain text, it is stored on the machine in the clear, the
 browser carries it in a cookie, and it is **never anybody's password** — do
 not put one there. Like the roster, the file itself never enters git.
+
+A setter refused for the word leaves `lab word not typed` or `wrong lab
+word` in the Log beside the address and name, never the word itself or what
+the browser carried. A wrong word typed at `POST /api/fence` is answered
+`403` and left out of the Log, as it always was.
 
 ## Off-rig development
 

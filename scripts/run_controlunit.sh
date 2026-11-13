@@ -24,4 +24,22 @@ errors="$HOME/work/cudata/controlunit.stderr.log"
 mkdir -p "$(dirname "$errors")"
 { echo; echo "# $(date '+%Y-%m-%d %H:%M:%S') started"; } >> "$errors"
 
-exec python -m controlunit.main --web "$@" 2> >(tee -a "$errors" >&2)
+# And how it ended. On 2026-11-11 at 16:47 the program restarted with no
+# reason anywhere, so this shell now waits for the program instead of
+# becoming it (it used to `exec`), and writes its exit status after the
+# "started" line: 0 for Quit or the window closed, 1 for an uncaught error,
+# 128 + the signal for a signal the program handled (143 SIGTERM, 129
+# SIGHUP, 130 SIGINT), 137 for a kill it could not handle. The program's own
+# last Log line says the same in words.
+#
+# Closing the terminal this runs in sends SIGHUP to the program, this shell
+# and `tee` alike. The program stops through Stop's own path on it; the trap
+# keeps this shell alive until the program has, to write the line (a trap
+# set here is reset in the program, which handles its own); and `tee`
+# ignores it, so the program's last words still reach the file.
+trap ':' HUP TERM INT
+status=0
+python -m controlunit.main --web "$@" 2> >(trap '' HUP TERM INT; tee -a "$errors" >&2) \
+    || status=$?
+echo "# $(date '+%Y-%m-%d %H:%M:%S') exited with status $status" >> "$errors"
+exit "$status"
