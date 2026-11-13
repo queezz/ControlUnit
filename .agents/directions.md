@@ -154,21 +154,25 @@ holds what is still undecided or unbuilt.
 
 - From the audit of the student runs, 2026-10-22 to 11-13 (2026-11-13;
   vault note "Student runs audit 2026-10-22 to 11-13" has the times and
-  numbers). Software items, most costly first (the PID's drive, Hold/Off,
-  the remembered gauges and sampling, and the false "Reader lost" shipped
-  in 4.30.0):
+  numbers). Software items still open. 4.30.0 shipped the PID's drive,
+  Hold/Off, the remembered gauges and sampling, the false "Reader lost",
+  the gauges following the Diagram with a signal check, the Ip warning
+  with the filament off, the Kikusui's settings, the Pi's health, the exit
+  reason and the logged refusals.
+  - **Read which status bit is CC and which CV.** The Kikusui's
+    `oper_cond` is recorded raw since 4.30.0 (the manual could not be
+    read). The first run where the supply holds its voltage setting (as at
+    7.797 V on 2026-10-02) shows the bit; then decode it in the sidecar and
+    the Log, and the loop can hold its integral while the supply is in CV.
+  - **Baratrons cannot be declared off.** Bd has been unplugged since
+    10-26 and records about −3e-6 Torr; the Diagram follower covers the
+    ion gauges only.
   - **Ip pinned near 2.38 A is not "lit".** On 11-13 Ip read a flat 2.38 A
     for 30 s with the cathode drive at 0 mV (15:25:27–15:25:54), and the
     loop called the plateau a lit discharge (15:25:05) and once engaged on
     it (16:38:30). Treat a flat reading at that plateau as "at a limit",
     neither lit nor regulable. The cause is hardware or measurement and is
     with queezz.
-  - **A gauge switched off is seen as off.** Pd sat at its floor for 224 h
-    and Pu2 for 132 h without being declared off, and Bd has been
-    unplugged since 10-26 (recorded as about −3e-6 Torr). The Diagram's
-    `logs.csv` records each ion-gauge switch-off; a "looks off" flag after
-    about a minute at the floor is the in-house alternative. Joins the
-    "declared off" item below.
   - **Readings at the ADC rail are marked.** Bu and Bd clip at ±1.254 V
     (`Gain: 1`): 8.1 h and 3.9 h in the period, recorded as readings.
     Whether to change the gain is queezz's.
@@ -176,8 +180,6 @@ holds what is still undecided or unbuilt.
     shared PC: on 11-11 one browser took control as one person and stopped
     as another 10 s later. Ask for the name again at Take over, or shorten
     the cookie.
-  - The web's refusals (403/409) are not logged, so what students were
-    refused cannot be read afterwards.
 
 - The Kikusui output-off press gives up after one second on a flapping
   LAN (2026-10-05 16:02, twice: "Kikusui output OFF FAILED: Telemetry

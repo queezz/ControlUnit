@@ -39,6 +39,55 @@ big obvious problems").
   watchdog judged at once by the short line while the reader slept out its
   old 10 s (10-23 15:48:51; the file had no gap). It now judges by the
   longer time until a sample taken at the new one arrives.
+- **The ion gauges follow the PIHTI Diagram's on and off** (queezz: "Why
+  should we turn that off twice??"). Students left Pd off for 224 h and Pu2
+  for 132 h without declaring it here, while every switch was recorded in
+  the Diagram. A daemon thread asks the Diagram's `/elements-state` every
+  10 s at the neighbours file's `pihti-diagram` address
+  (`controlunit/diagram_follower.py`, `Diagram Element` per gauge in
+  settings.yml, Settings Version 1.8); off declares the gauge Off, on puts
+  back its reading mode, only when the Diagram's word changes. On a change
+  the history (`/history/events`) is asked once, so the Log line says when
+  and who: "Pd declared off: the Diagram shows the downstream ion gauge off
+  (recorded 14:43:20 by KAA)". Silence changes nothing and is said once.
+- **A recorded switch is checked against the gauge's own volts** (queezz:
+  "When the diagram says the gauge is off, but the signal doesn't change,
+  we should warn"): from 60 s before to 90 s after the recorded time the
+  raw signal must sit at its 10 mV floor for 5 s (off) or above it (on), or
+  one red line says it does not. The signal never decides on or off alone.
+- **Ip with the filament off warns** (queezz: "it's a SUS"): Ip above Lit
+  Above (0.1 A) for 3 s while the filament is off (the Kikusui's fresh
+  reading under 1 A or its output off; the cathode drive at 0 mV when the
+  telemetry is not fresh, since running the filament on the supply's own
+  knob is a normal mode) gives one red line that tells a wrong zero from
+  real current by the preanode supply's panel, and one when it ends. In
+  three weeks of files it would have fired once: 11-13 15:25:27, 27 s at
+  2.38 A with the drive at zero.
+- **The Kikusui link reads the supply's settings and status words** (owner
+  decision in AGENTS.md: "Sure, read that"): `VOLT?`, `CURR?`,
+  `STAT:OPER:COND?` and `STAT:QUES:COND?` each poll, four new sidecar
+  columns (schema `controlunit-kikusui/v2`), and a Log line with the
+  settings at a run's start and whenever one changes. The status words are
+  kept raw: which bit is CC and which CV is still to be read off a run.
+  Writes are still only `OUTP 0` and `OUTP 1`.
+- **The Pi's own health in the Log** (`controlunit/pi_health.py`): every
+  5 min on its own thread, under-voltage and throttling flags, CPU
+  temperature and free disk; a line at start and on each change; the
+  latest in `/api/health` as `pi`.
+- **Why the program ended is the Log's last line**: the Quit button, the
+  window closed, SIGTERM, SIGHUP (the terminal closed), SIGINT, or an
+  uncaught error. Each signal, and an uncaught error, now stop the run
+  through Stop, outputs to zero, before the program ends (before, an
+  uncaught error in a slot aborted the process with the DACs holding).
+  Closing the window during a run stops the run first. The launcher no
+  longer `exec`s the program, outlives a terminal close, and writes
+  "# <date> exited with status N" to the stderr file.
+- **Refused web presses are logged** on the main thread, at most one line
+  a minute per kind: "Refused from 10.249.254.8 (Kawabata Rei): plasma
+  current 1.50 A - Kawabata Rei does not hold control (Kuzmin Arseniy
+  does)". The lab's word is never written.
+- The Hall-supply line names the PID only while the PID runs (on 11-11 it
+  said "PID output held" with no PID on and no plasma).
 
 ## 4.29.2 — 2026-11-13
 

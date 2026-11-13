@@ -437,3 +437,56 @@ def test_no_sample_in_the_window_is_nothing_to_say():
     assert check("inactive").verdict(empty, np.array([]), after(91)) == (
         follow.UNCHECKED, "")
     assert check("inactive").verdict(None, None, after(10)) == (follow.PENDING, "")
+
+
+# -- the Diagram's own time for a switch --------------------------------------
+#
+# queezz, 2026-11-13: "The diagram has no timestamp? But it has history. So
+# it has time..." `/elements-state` has none; `/history/events` has every
+# press with its time and initials, and is asked only when the states change.
+
+
+def test_the_history_gives_each_element_s_latest_switch_each_way():
+    events = [
+        {"ts": "2026-11-13 14:40:00", "user": "KR", "changes": [{"id": PD, "state": False}]},
+        {"ts": "2026-11-13 14:43:20", "user": "KAA", "changes": [{"id": PD, "state": False}]},
+        {"ts": "2026-11-13 15:00:00", "user": "KAA", "changes": [{"id": PD, "state": True}]},
+        {"ts": "not a time", "user": "X", "changes": [{"id": PD, "state": False}]},
+        {"ts": "2026-11-13 16:00:00", "user": "X", "changes": [{"id": PD, "state": "off"}]},
+        "not an event",
+    ]
+    found = follow.recorded_switches(events)
+    assert found[PD]["inactive"] == (datetime.datetime(2026, 11, 13, 14, 43, 20), "KAA")
+    assert found[PD]["active"] == (datetime.datetime(2026, 11, 13, 15, 0, 0), "KAA")
+    assert follow.recorded_switches({"not": "a list"}) == {}
+
+
+def test_the_history_is_asked_only_when_the_states_change():
+    answers = iter([{PD: "active"}, {PD: "active"}, {PD: "inactive"}, {PD: "inactive"}])
+    histories = []
+
+    def history():
+        histories.append(1)
+        return {PD: {"inactive": (datetime.datetime(2026, 11, 13, 14, 43, 20), "KAA")}}
+
+    follower = follow.DiagramFollower(
+        "http://127.0.0.1:9", fetch=lambda: next(answers), interval=60, history=history
+    )
+    first = follower._ask()
+    second = follower._ask()
+    third = follower._ask()
+    fourth = follower._ask()
+    assert len(histories) == 2                       # the first answer, and the change
+    assert first.recorded is not None and second.recorded is None
+    assert third.recorded[PD]["inactive"][1] == "KAA" and fourth.recorded is None
+
+
+def test_a_history_that_cannot_be_had_still_follows_the_states():
+    def history():
+        raise OSError("refused")
+
+    follower = follow.DiagramFollower(
+        "http://127.0.0.1:9", fetch=lambda: {PD: "inactive"}, interval=60, history=history
+    )
+    answer = follower._ask()
+    assert answer.states == {PD: "inactive"} and answer.recorded is None

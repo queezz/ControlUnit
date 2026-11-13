@@ -561,26 +561,38 @@ class MainApp(QtCore.QObject, UIWindow):
             follower = self._diagram_follower
             answer = follower.take() if follower is not None else None
             if answer is not None:
-                self._follow_diagram(answer.states, answer.reason, answer.at)
+                self._follow_diagram(
+                    answer.states, answer.reason, answer.at, answer.recorded
+                )
             self._check_gauge_switches()
         except Exception as error:  # noqa: BLE001 -- a convenience never stops the rig
             print(f"{RED}diagram:{RESET} {error}")
 
-    def _follow_diagram(self, states, reason="", at=None):
+    def _follow_diagram(self, states, reason="", at=None, recorded=None):
         """Take one answer the follower already fetched: the Diagram's
         `{element: "active" | "inactive"}`, or None and why there was none.
 
         Only a gauge whose word changed since the last answer is touched
         (`GaugeFollowing`); an answer that is not usable changes nothing,
         and says so once.
+
+        `recorded` is the Diagram's history of each element's latest switch
+        (`diagram_follower.recorded_switches`). Where it has this switch, the
+        signal check counts from the time the operator recorded it and the
+        Log line says when and who; otherwise from when it was noticed here.
+        A recorded time later than the notice is not believed.
         """
         at = at if at is not None else datetime.datetime.now()
         changes, notes = self._gauge_following.read(states, reason)
         for note in notes:
             self.log_message(note)
         for gauge, status in changes:
-            self._apply_diagram_word(gauge, status)
-            self._await_switch(gauge, status, at)
+            element = self._gauge_following.elements.get(gauge)
+            entry = ((recorded or {}).get(element) or {}).get(status)
+            if entry is not None and entry[0] > at:
+                entry = None
+            self._apply_diagram_word(gauge, status, entry)
+            self._await_switch(gauge, status, entry[0] if entry else at)
 
     def _gauge_words(self, gauge):
         place = readsettings.ion_gauge_places(self.config).get(gauge)
@@ -598,7 +610,7 @@ class MainApp(QtCore.QObject, UIWindow):
                 self._reading_modes = {}
             self._reading_modes[gauge] = mode
 
-    def _apply_diagram_word(self, gauge, status):
+    def _apply_diagram_word(self, gauge, status, recorded=None):
         """Move one gauge's mode selector to the Diagram's new word.
 
         Off declares it off. On puts back the mode it read in before it was
@@ -621,11 +633,19 @@ class MainApp(QtCore.QObject, UIWindow):
             target = self._reading_mode(gauge)
         with self._moving_selectors("diagram"):
             mode_box.setCurrentIndex(web_commands.GAUGE_MODES.index(target))
+        when = ""
+        if recorded is not None:
+            moment, user = recorded
+            stamp = "%H:%M:%S" if moment.date() == datetime.date.today() else "%Y-%m-%d %H:%M:%S"
+            when = " (recorded {}{})".format(
+                moment.strftime(stamp), " by " + user if user else ""
+            )
         self.log_message(
-            "{}: the Diagram shows the {} {}".format(
+            "{}: the Diagram shows the {} {}{}".format(
                 web_commands.summarise("gauge", {"gauge": gauge, "mode": target}),
                 self._gauge_words(gauge),
                 "off" if status == diagram_follower.INACTIVE else "on",
+                when,
             )
         )
 

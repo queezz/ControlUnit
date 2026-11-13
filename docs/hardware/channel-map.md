@@ -73,6 +73,15 @@ board probes:
   still reads 1.53 V, a live gauge's signal; is its controller still on, or
   was another gauge recorded?", and the gauge keeps the Diagram's word. The
   signal is never used to decide on or off by itself.
+- **The Diagram's own time.** `/elements-state` carries no time, but the
+  Diagram's history does (queezz: "The diagram has no timestamp? But it has
+  history. So it has time..."). When the states change, the follower also
+  asks `/history/events` once and takes each element's latest recorded
+  switch: the check's window then counts from the time the operator
+  recorded it, and the Log line names it, "Pd declared off: the Diagram
+  shows the downstream ion gauge off (recorded 14:43:20 by KAA)". Without
+  a history, or with a recorded time later than the notice, it counts from
+  when the change was seen here.
 
 The dummy hardware asks only a Diagram on its own machine (`127.0.0.1`,
 `localhost`), never the rig's. See the

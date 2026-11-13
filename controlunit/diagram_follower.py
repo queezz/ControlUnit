@@ -67,6 +67,20 @@ DIAGRAM_ALIAS = "pihti-diagram"
 #: own pages read.
 STATE_PATH = "/elements-state"
 
+#: The Diagram's history of every recorded switch, with its time and the
+#: operator's initials: `[{"ts": "YYYY-MM-DD HH:MM:SS", "user", "changes":
+#: [{"id", "state": bool}]}, ...]`. `/elements-state` carries no time, and
+#: the time a person recorded the switch is the one the signal check should
+#: count from, not the moment this program noticed it (queezz, 2026-11-13:
+#: "The diagram has no timestamp? But it has history. So it has time...").
+#: Asked only when the states changed: it is the whole history.
+HISTORY_PATH = "/history/events"
+#: The most of the history that is read; months of presses are well under.
+MAX_HISTORY_BYTES = 16 * 1024 * 1024
+#: The Diagram's own stamp format, local time on the machine it runs on: on
+#: the rig the same Pi, so the same clock as the ADC's rows.
+HISTORY_STAMP = "%Y-%m-%d %H:%M:%S"
+
 #: How often the Diagram is asked. A person flips a gauge and records it
 #: within about a minute either way (below), so ten seconds is quick enough
 #: to matter and slow enough to be nothing to a Pi serving both programs.
@@ -118,10 +132,12 @@ class DiagramUnanswered(Exception):
     """The Diagram could not be asked, or its answer was not usable."""
 
 
-Answer = collections.namedtuple("Answer", "states reason at")
+Answer = collections.namedtuple("Answer", "states reason at recorded", defaults=(None,))
 Answer.__doc__ = """One ask's outcome: the states, or None and why not, and
 when it was asked, on this machine's wall clock (the clock the ADC's rows
-are stamped with)."""
+are stamped with). `recorded`, when the states had changed, is what the
+Diagram's history says of each element's latest switch (`recorded_switches`),
+or None."""
 
 
 def diagram_url(home=None):
@@ -174,6 +190,46 @@ def fetch_elements_state(url, timeout=TIMEOUT_SECONDS):
     return body
 
 
+def recorded_switches(events):
+    """Each element's latest recorded switch to each state, from the
+    Diagram's history: `{element: {"active" | "inactive": (time, user)}}`.
+
+    Anything in the history that is not a well-formed press is skipped; a
+    history that is not a list is no history.
+    """
+    found = {}
+    if not isinstance(events, list):
+        return found
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        try:
+            moment = datetime.datetime.strptime(str(event.get("ts")), HISTORY_STAMP)
+        except ValueError:
+            continue
+        user = str(event.get("user") or "").strip()
+        for change in event.get("changes") or []:
+            if not isinstance(change, dict) or not isinstance(change.get("state"), bool):
+                continue
+            status = ACTIVE if change["state"] else INACTIVE
+            slot = found.setdefault(str(change.get("id")), {})
+            if status not in slot or moment >= slot[status][0]:
+                slot[status] = (moment, user)
+    return found
+
+
+def fetch_recorded(url, timeout=TIMEOUT_SECONDS):
+    """The Diagram's history as `recorded_switches` reads it; {} when it
+    cannot be had. The states are followed either way: a missing time only
+    means the check counts from when the change was noticed."""
+    try:
+        with urllib.request.urlopen(url.rstrip("/") + HISTORY_PATH, timeout=timeout) as response:
+            payload = response.read(MAX_HISTORY_BYTES)
+        return recorded_switches(json.loads(payload.decode("utf-8")))
+    except Exception:  # noqa: BLE001 -- a time is a refinement, never a stop
+        return {}
+
+
 class DiagramFollower:
     """Ask the Diagram on a thread of its own and keep the newest answer.
 
@@ -183,13 +239,18 @@ class DiagramFollower:
     queue of what it was.
     """
 
-    def __init__(self, url, fetch=None, interval=None, clock=None):
+    def __init__(self, url, fetch=None, interval=None, clock=None, history=None):
         self.url = url
         #: One ask: returns the states or raises. Injectable so a test can
         #: answer without a network.
         self._fetch = fetch if fetch is not None else (
             lambda: fetch_elements_state(url)
         )
+        #: The history, asked only when the states changed; injectable too.
+        self._history = history if history is not None else (
+            lambda: fetch_recorded(url)
+        )
+        self._last_states = None
         self._interval = POLL_SECONDS if interval is None else float(interval)
         self._clock = clock if clock is not None else datetime.datetime.now
         self._lock = threading.Lock()
@@ -212,11 +273,19 @@ class DiagramFollower:
     def _ask(self):
         at = self._clock()
         try:
-            return Answer(self._fetch(), "", at)
+            states = self._fetch()
         except DiagramUnanswered as error:
             return Answer(None, str(error), at)
         except Exception as error:  # noqa: BLE001 -- the thread outlives any ask
             return Answer(None, "the ask failed: {}".format(error), at)
+        recorded = None
+        if states != self._last_states:
+            try:
+                recorded = self._history()
+            except Exception:  # noqa: BLE001 -- a time is a refinement
+                recorded = None
+        self._last_states = states
+        return Answer(states, "", at, recorded)
 
     def _run(self):
         while not self._stop.is_set():

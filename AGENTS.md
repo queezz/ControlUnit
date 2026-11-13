@@ -86,7 +86,11 @@ dev asking you, why not?" Reading — `/api/state`, `/api/log`,
 still refuses while an output is live, and until the graceful stop
 exists (the SIGTERM path that zeroes the outputs first; see directions)
 it stops the program only when the outputs are already at zero, because
-a killed process leaves the DACs holding whatever they held. Asked to
+a killed process leaves the DACs holding whatever they held. (4.30.0 adds
+that path in code: SIGTERM, SIGHUP and SIGINT stop the run through Stop,
+outputs to zero, before the program ends, and the Log's last line says
+why. It has not yet been seen doing so on the rig; until it has, this
+rule stands as written.) Asked to
 set, the same gates as a browser apply: the Remote switch on the rig's
 screen must be on, and the name and the lab's word come from a
 machine-local file, never git.

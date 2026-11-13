@@ -86,3 +86,54 @@ own "stale" line still switches to the short threshold at once on a
 sampling change (left; it is the web status's, not the watchdog's).
 
 agent: claude
+
+## The rest of the evening: following the Diagram, and more eyes
+
+Queezz, live: "Gauge left off, maybe we sync from the journal? Why should
+we turn that off twice??"; "When the diagram says the gauge is off, but the
+signal doesn't change, we should warn"; "if we see the current with the
+filament power off, it's a SUS"; on more telemetry, "We use what's there
+already"; on the Kikusui's settings, "Sure, read that"; and "The diagram
+has no timestamp? But it has history."
+
+- `8c98dae` (Opus subagent): the Diagram follower and the signal check.
+  Reviewed here. On the rig there is no local settings.yml (so 1.7 → 1.8
+  changes nothing there) and `~/.controlunit/neighbours.yml` already names
+  `pihti-diagram: http://pihti:5000`. Live on the scratch instance against
+  a loopback stand-in Diagram: launch took the Diagram's word (Pu2 from
+  remembered Off to Torr); Pd off gave "Pd declared off: …"; the dummy's
+  4 V on Pd gave the "still reads 4.08 V, a live gauge's signal" line after
+  the window; Pd on gave Torr with no warning; the stand-in killed gave one
+  "not following" line.
+- `2657a23` (here): the Hall-supply line no longer says "PID output held"
+  without a PID. The audit, and this session, had read it as the loop
+  acting on 11-11, when nobody ran plasma (queezz: "No one run plasma on
+  that day, I believe"). The vault note is corrected.
+- `52f37a1` (here): the Kikusui's settings and status words; AGENTS.md
+  amended. The PWR-01 manual was unreachable (Kikusui's host did not
+  resolve; the mirror's PDF is password-protected), so CC/CV is recorded
+  raw, not decoded.
+- `711c2db` (Opus subagent): the Ip-with-filament-off warning, Pi health,
+  the exit reason (signals and uncaught errors stop through Stop first;
+  the launcher outlives a terminal close), and refused presses in the Log.
+  Live here: a press from a second loopback address logged "Refused from
+  127.0.0.2: plasma current 1.50 A - … does not hold control (Session Test
+  does)"; `/api/health` carries `pi`; off the Pi the start line reads "Pi
+  health: temperature not available, power flags not available, 246 GB
+  free".
+- This commit (here): on a change the follower asks `/history/events` once
+  and counts the check from the operator's recorded time, naming it in the
+  Log line. AGENTS.md notes that the graceful stop exists in code but has
+  not been seen on the rig, so the stop rule stands as written.
+
+Letters: `20261113-38b673eb-3a3957` to code/pihti-experiment-log (the
+wrong client clock of 10-26), `20261113-2924d3be-ae67d9` to
+code/pihti-vacuum-diagram (ControlUnit depends on `/elements-state` and the
+two gauge ids, and the Diagram, not ControlUnit, is now the source).
+
+Not checked on the Pi: real `vcgencmd`, a real terminal close, the size of
+the Diagram's real `/history/events`, and the Kikusui answering the four
+new queries during a run. All of it waits for the deployment, which waits
+for the student to finish.
+
+agent: claude

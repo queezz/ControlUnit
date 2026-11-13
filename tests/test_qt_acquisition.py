@@ -1090,3 +1090,37 @@ def test_a_switch_is_checked_only_while_a_run_records_and_ends_with_it(qt_app, h
         assert _count(widget, "the Diagram shows the downstream ion gauge on, but") == 0
     finally:
         widget.abort_all_threads()
+
+
+def _window_stamp(moment):
+    from controlunit import diagram_follower
+    return diagram_follower._stamp(moment)
+
+
+def test_a_recorded_switch_counts_from_the_diagram_s_own_time(qt_app, home):
+    """The check's window and the Log line take the time the operator
+    recorded the switch, from the Diagram's history, not the poll's."""
+    import datetime as dt
+    from controlunit.main import MainApp
+
+    widget = MainApp(qt_app)
+    try:
+        widget.start_acquisition()
+        widget._follow_diagram(_diagram())
+        noticed = dt.datetime.now()
+        pressed = noticed - dt.timedelta(seconds=40)
+        recorded = {DIAGRAM_PD: {"inactive": (pressed, "KAA")}}
+        widget._follow_diagram(_diagram(pd="inactive"), at=noticed, recorded=recorded)
+        assert _log_of(widget)[-1] == (
+            "Pd declared off: the Diagram shows the downstream ion gauge off"
+            " (recorded {} by KAA)".format(pressed.strftime("%H:%M:%S")))
+        check = widget._switch_checks["Pd"]
+        assert check.start == _window_stamp(pressed - dt.timedelta(seconds=60))
+        # A recorded time after the notice is not believed.
+        later = {DIAGRAM_PD: {"active": (noticed + dt.timedelta(seconds=30), "KAA")}}
+        widget._follow_diagram(_diagram(), at=noticed, recorded=later)
+        assert "recorded" not in _log_of(widget)[-1]
+        check = widget._switch_checks["Pd"]
+        assert check.start == _window_stamp(noticed - dt.timedelta(seconds=60))
+    finally:
+        widget.abort_all_threads()
