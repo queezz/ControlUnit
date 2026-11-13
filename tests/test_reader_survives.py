@@ -50,6 +50,8 @@ def home(tmp_path, monkeypatch):
         monkeypatch.setenv(name, str(place))
     monkeypatch.setenv("HOMEDRIVE", "")
     monkeypatch.setenv("HOMEPATH", "")
+    # The settings folder, where the screen is remembered, follows the home.
+    monkeypatch.delenv("CONTROLUNIT_SETTINGS_HOME", raising=False)
     assert os.path.expanduser("~") == str(place)
     return place
 
@@ -248,6 +250,96 @@ def test_the_main_thread_says_reader_lost_once_and_reader_back_once(qt_app, home
         assert len(lines) == 2
         assert "Reader back" in lines[1]
         assert widget._reader_lost_since is None
+    finally:
+        widget.workers = {}
+        widget.reader_watchdog.stop()
+
+
+class _QuietReader:
+    """Enough of an ADC worker for `set_sampling`: it takes a time and
+    delivers nothing, as a reader sleeping out its old period does."""
+
+    def __init__(self):
+        self.sampling_time = None
+
+    def set_sampling_time(self, seconds):
+        self.sampling_time = seconds
+
+
+def _reader_lines(widget, before):
+    lines = [entry["text"] for entry in widget.web_status.log_since(0)["lines"][before:]]
+    return [line for line in lines if "Reader lost" in line]
+
+
+def test_a_shorter_sampling_is_no_lost_reader_while_the_old_period_runs_out(qt_app, home):
+    """2026-10-23 15:48:51: "Reader lost: no sample for 7 s" a moment after
+    the sampling went from 10 s to 0.1 s, while cu_20261023_154824.csv went
+    from 15:48:44.31 to 15:48:54.31, the old ten seconds, without a gap. The
+    reader finishes the period it is in before it takes the new time."""
+    from controlunit.main import MainApp, reader_lost_after
+
+    widget = MainApp(qt_app)
+    try:
+        widget.workers = {"ADC": {"worker": _QuietReader()}}
+        widget.sampling = 10.0
+        widget._last_sample_at = time.monotonic() - 7.0  # as at 15:48:51
+        widget._reader_lost_since = None
+        before = len(widget.web_status.log_since(0)["lines"])
+
+        widget.set_sampling(0.1)
+        assert widget.workers["ADC"]["worker"].sampling_time == 0.1
+        assert 7.0 > reader_lost_after(0.1)  # the line it used to be judged by
+        widget._check_reader()
+        assert _reader_lines(widget, before) == []
+
+        # A delivery the reader took before the change arrives after it: it
+        # says nothing about how long the next one will take.
+        widget._note_sample_arrived(10.0)
+        widget._last_sample_at = time.monotonic() - 7.0
+        widget._check_reader()
+        assert _reader_lines(widget, before) == []
+
+        # The first delivery taken at 0.1 s: the short line holds again.
+        widget._note_sample_arrived(0.1)
+        widget._last_sample_at = time.monotonic() - 7.0
+        widget._check_reader()
+        assert len(_reader_lines(widget, before)) == 1
+    finally:
+        widget.workers = {}
+        widget.reader_watchdog.stop()
+
+
+def test_a_reader_silent_through_a_sampling_change_is_still_called_lost(qt_app, home):
+    """The allowance is the old period's, not a fresh start: a reader that
+    has stopped is called lost by the longer line, counted from its last
+    sample, as it would have been without the change."""
+    from controlunit.main import MainApp, reader_lost_after
+
+    widget = MainApp(qt_app)
+    try:
+        widget.workers = {"ADC": {"worker": _QuietReader()}}
+        widget.sampling = 10.0
+        widget._reader_lost_since = None
+        before = len(widget.web_status.log_since(0)["lines"])
+        longest = reader_lost_after(10.0)
+
+        widget._last_sample_at = time.monotonic() - (longest - 1.0)
+        widget.set_sampling(1.0)
+        widget.set_sampling(0.1)  # two changes before a sample: the longest holds
+        widget._check_reader()
+        assert _reader_lines(widget, before) == []
+
+        widget._last_sample_at = time.monotonic() - (longest + 1.0)
+        widget._check_reader()
+        widget._check_reader()  # said once
+        lost = _reader_lines(widget, before)
+        assert len(lost) == 1
+        assert "no sample for {:.0f} s".format(longest + 1.0) in lost[0]
+
+        # A stop never carries an allowance into the next run.
+        widget.workers = {}
+        widget.abort_all_threads()
+        assert widget._sampling_before_change is None
     finally:
         widget.workers = {}
         widget.reader_watchdog.stop()

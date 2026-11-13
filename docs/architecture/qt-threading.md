@@ -70,6 +70,27 @@ what the screen shows before their threads start: each gauge's mode and
 range, and the Settings dock's sampling time. Outputs are not carried over:
 gas, the cathode drive, the PID and the supply's output start at zero and off.
 
+The same three settings also outlive the program. Each gauge's mode (Torr,
+Pa or Off) and range, and the sampling time the run uses, are written to
+`~/.controlunit/screen.json` (`controlunit/screen_memory.py`; the folder is
+`settings_home()`, beside `operators.json` and `fence.txt`, never in git)
+whenever one of them changes, from the dock or a browser, and at every
+Start. At launch, once the window is built and before anybody can press
+Start, `_restore_screen` puts them back into the selectors and the combo,
+so the first Start's `_apply_screen_settings` carries them into the first
+run, and says once in the Log what it restored ("Restored from the last
+run: Pd Torr 1e-7, Pu2 off, sampling 10 s"). A missing, unreadable or
+invalid file leaves settings.yml's values, with one Log line saying so;
+nothing about it can keep the window from opening. Before the file, a
+restart came back at settings.yml's Torr, 1e-3 and 0.1 s: on 2026-11-11 Pd
+read 1.5e-3 Torr for 18 s when the vessel was at about 1.5e-7, and Pu2
+lost its "declared off". Outputs are never kept there.
+
+A gauge press on the rig's own dock is logged in the browser's words for
+the same setting ("Pd range -7", "Pu2 declared off"); restoring at launch,
+the Start-time push and a browser's command (which logs its own "Remote: …"
+line) are not.
+
 ```mermaid
 flowchart LR
     subgraph ADC_LOOP["ADC.acquisition_loop  —  QThread"]

@@ -46,6 +46,8 @@ def home(tmp_path, monkeypatch):
         monkeypatch.setenv(name, str(place))
     monkeypatch.setenv("HOMEDRIVE", "")
     monkeypatch.setenv("HOMEPATH", "")
+    # The settings folder, where the screen is remembered, follows the home.
+    monkeypatch.delenv("CONTROLUNIT_SETTINGS_HOME", raising=False)
     assert os.path.expanduser("~") == str(place)
     return place
 
