@@ -1142,6 +1142,55 @@ def test_the_name_and_the_word_are_outside_the_block_the_gate_shuts(control):
     assert ".page-main button" not in script
 
 
+#: The controls that change only what this browser draws. None may sit inside
+#: a `.sets` block, or the gate switches it off for anyone without control.
+VIEW_CONTROLS = (
+    "data-pressure-group", "data-scale-ig", "data-scale-bar", "data-scale-plasma",
+    "data-display", "data-drawer", "data-channel",
+)
+
+
+def _gated_view_controls(page):
+    """The view controls that stand inside a `.sets` block, as attributes."""
+    from html.parser import HTMLParser
+
+    void = {"input", "br", "img", "meta", "link", "hr", "source", "wbr"}
+
+    class Walk(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.stack, self.found = [], []
+
+        def handle_starttag(self, tag, attrs):
+            attrs = dict(attrs)
+            gated = any(self.stack) or "sets" in (attrs.get("class") or "").split()
+            if any(self.stack):
+                self.found += [name for name in VIEW_CONTROLS if name in attrs]
+            if tag not in void:
+                self.stack.append(gated)
+
+        def handle_endtag(self, tag):
+            if tag not in void and self.stack:
+                self.stack.pop()
+
+    walk = Walk()
+    walk.feed(page)
+    return walk.found
+
+
+def test_what_only_this_browser_draws_is_never_under_the_gate(live, control):
+    """queezz, watching a student's run without control (2026-11-13): "I
+    should be able to adjust what and how I see without taking over". The
+    By gauge / By vessel switch had stood inside `.sets` since 4.9.0."""
+    for page in (live, control):
+        assert 'data-pressure-group="vessel"' in page
+        assert _gated_view_controls(page) == []
+    # The walk does see a gated control when there is one.
+    assert _gated_view_controls(
+        '<div class="sets"><button data-pressure-group="gauge"></button></div>'
+    ) == ["data-pressure-group"]
+
+
 def test_the_one_always_allowed_press_is_out_of_the_hand_s_way(control):
     """queezz, 2026-09-14: Stop all outputs "is not a safety device (the
     physical switches are); it is the rare press that zeroes gas and cathode

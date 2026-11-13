@@ -152,7 +152,12 @@
            this page is read, so the legend does not print a second copy. #}
         {% for id, title, channels, height, span in panels %}
         {% if id == "chart-ig" %}
-        <div class="pressure-grouping sets" role="group" aria-label="Pressure plot grouping">
+        {# Not in `.sets`: grouping the plots changes only what this browser
+           draws, so the rig's gate must never switch it off. It was there
+           from 4.9.0 until queezz, watching a student's run without control
+           (2026-11-13): "I should be able to adjust what and how I see
+           without taking over". #}
+        <div class="pressure-grouping" role="group" aria-label="Pressure plot grouping">
             <span class="muted">Pressure plots</span>
             <button type="button" class="choice" data-pressure-group="gauge" aria-pressed="true">By gauge</button>
             <button type="button" class="choice" data-pressure-group="vessel" aria-pressed="false">By vessel</button>

@@ -345,10 +345,6 @@ holds what is still undecided or unbuilt.
   Ar let-in (owner request 2026-09-09). Operate still stacks readouts below
   the controls. The 4.12.2 mobile pass makes gas lines fold independently
   and removes the mode selector overlay; colocating Pu remains open.
-- Keep the pressure grouping display choice available when Remote is off.
-  Browser QA on 2026-09-10 found By gauge / By vessel disabled by the gate
-  although they change only the local plot arrangement. Setter gating must
-  remain intact.
 
 - The owner accepted the fused Control layout on 2026-09-09. The five
   follow-up corrections ship in 4.7.1 (see the dated log): aligned navigation,

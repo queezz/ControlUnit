@@ -1,3 +1,16 @@
+## 4.29.2 — 2026-11-13
+
+- By gauge / By vessel can be pressed without control. The switch only
+  regroups this browser's pressure plots, but it stood inside the setter
+  block since 4.9.0, so the gate switched it off for anyone watching a run
+  someone else holds (queezz, watching a student's run: "I should be able
+  to adjust what and how I see without taking over"). It was an open item
+  since a browser check on 2026-09-10. A test now holds every view-only
+  control (grouping, axis scales, plasma scale, readout size, drawers, curve
+  switches) outside `.sets`. The setters stay gated as before, the Zero
+  buttons among them: Ip's zero is subtracted from the current the PID
+  regulates.
+
 ## 4.29.1 — 2026-10-21
 
 Two fixes from the rig's own logs.
