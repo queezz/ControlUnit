@@ -46,6 +46,20 @@ def test_invalid_reference_is_recorded_and_never_sent_to_pid(worker, supply):
     assert "recovered" in messages[-1]
 
 
+@pytest.mark.parametrize("setpoint, says_pid", [(0, False), (1.5, True)])
+def test_a_lost_reference_names_the_pid_only_while_it_runs(worker, setpoint, says_pid):
+    """2026-11-11: "PID output held" with no PID on and no plasma (queezz:
+    "No one run plasma on that day")."""
+    messages = []
+    worker.send_message.connect(messages.append)
+    worker.plasma_current_setpopint = setpoint
+    values = dict.fromkeys(worker.adc_signals_columns, 0.1)
+    values.update(Ip=2.5, Vhall=0.0)
+    worker.hold_voltages(values)
+    assert messages[-1].startswith("Hall supply reference invalid: Ip unavailable")
+    assert ("PID output held" in messages[-1]) is says_pid
+
+
 def test_legacy_settings_keep_the_original_conversion():
     channel = AdcChannelProps("Ip", Channel=0, Gain=5, Description="Current",
                               **{"Conversion Function": "Hall Sensor"})

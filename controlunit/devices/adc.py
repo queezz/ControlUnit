@@ -732,8 +732,12 @@ class ADC(DeviceThread):
         self.plasma_current_converted = self.adc_channels["Ip"].convert_hall(voltages)
         invalid = not math.isfinite(self.plasma_current_converted)
         if invalid != self._hall_reference_invalid:
+            # The PID is named only while it runs: on 2026-11-11 the line
+            # said "PID output held" with no PID on and no plasma, and an
+            # audit read it as the loop having acted.
+            held = "; PID output held" if self.plasma_current_setpopint else ""
             self.send_message.emit(
-                "Hall supply reference invalid: Ip unavailable; PID output held"
+                "Hall supply reference invalid: Ip unavailable" + held
                 if invalid else "Hall supply reference recovered: Ip available"
             )
         self._hall_reference_invalid = invalid
