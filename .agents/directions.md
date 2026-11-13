@@ -39,6 +39,14 @@ holds what is still undecided or unbuilt.
   hydrogen plasma down to an argon number.
   Safe default: 1900 mV stands; hydrogen is lit by hand and the PID is
   engaged only after it is lit, as Kawabata did at 18:00.
+  New evidence, 2026-11-13 (audit of the student runs, vault note
+  "Student runs audit 2026-10-22 to 11-13"): hydrogen held at 1.50 A
+  needed 2168–2270 mV (18.3–20.0 A), so 2150 mV would also be too low.
+  Three times the discharge went out at 2170–2230 mV, the loop integrated
+  for its 2 s grace and then cut the drive to 1900 mV at once, and the Log
+  advised checking gas and the anode supplies, which were fine. The
+  second half of the recommendation (a lit engagement keeps its drive as
+  the ceiling) is now the part that matters; see the build item below.
 
 ## Work only queezz can do
 
@@ -113,6 +121,8 @@ holds what is still undecided or unbuilt.
   Done when: a run's Log shows "PID engaged at … (the drive already
   held)" and a cold start's "walking the drive up" and "discharge lit",
   and you have said whether the ceiling and the pace suit the source.
+  Half done, 2026-11-13: the takeover ran seven times and is smooth
+  (16:19:28, 0.16 → 1.5 A in about 12 s). The cold start was never used.
 - Add the Mac-reachable address to the Pi's neighbours file — owner work
   pending. On your Mac the Pi's bare name `pihti` does not resolve, while
   `pihti.local` and the numeric address do, so the diagram's Open link on
@@ -139,6 +149,51 @@ holds what is still undecided or unbuilt.
   than a text box, and its heading says "· PIHTI Log" with a time.
 
 ## Ready to build
+
+- From the audit of the student runs, 2026-10-22 to 11-13 (2026-11-13;
+  vault note "Student runs audit 2026-10-22 to 11-13" has the times and
+  numbers). Software items, most costly first:
+  - **A lit discharge that goes out keeps its drive.** Today the loop
+    integrates for 2 s and `ramp()` then cuts the drive to the unlit
+    ceiling at once (`cathode_loop.py`). Hold the last lit drive instead,
+    and log "discharge lost at N mV" rather than advising a check of gas
+    and the anode supplies.
+  - **Ip pinned near 2.38 A is not "lit".** On 11-13 Ip read a flat 2.38 A
+    for 30 s with the cathode drive at 0 mV (15:25:27–15:25:54), and the
+    loop called the plateau a lit discharge (15:25:05) and once engaged on
+    it (16:38:30). Treat a flat reading at that plateau as "at a limit",
+    neither lit nor regulable. The cause is hardware or measurement and is
+    with queezz.
+  - **"PID off" also zeroes the cathode drive**
+    (`turn_off_currentcontrol_voltage`), under a button that says only
+    "PID off". Twice on 11-13 it put out a discharge the loop had just
+    brought to 1.5 A. Say so on the button, or add a press that hands back
+    to Manual at the loop's present drive.
+  - **Gauge settings survive a restart, and the rig's own gauge presses
+    are logged.** The 11-11 16:47 restart came back at Torr 1e-3 and lost
+    Pu2's declared off; `update_ig_range` and `update_ig_mode` write no Log
+    line when pressed on the rig's dock. Keep the gauges' modes, ranges
+    and off flags (and the sampling) in `~/.controlunit/` and restore them
+    at launch.
+  - **A gauge switched off is seen as off.** Pd sat at its floor for 224 h
+    and Pu2 for 132 h without being declared off, and Bd has been
+    unplugged since 10-26 (recorded as about −3e-6 Torr). The Diagram's
+    `logs.csv` records each ion-gauge switch-off; a "looks off" flag after
+    about a minute at the floor is the in-house alternative. Joins the
+    "declared off" item below.
+  - **Readings at the ADC rail are marked.** Bu and Bd clip at ±1.254 V
+    (`Gain: 1`): 8.1 h and 3.9 h in the period, recorded as readings.
+    Whether to change the gain is queezz's.
+  - **No false "Reader lost" on a sampling change.** 10 s → 0.1 s at
+    10-23 15:48:51: the threshold changed at once while the reader slept
+    out its old 10 s; the file has no gap. Use the longer of the two until
+    the next sample, or wake the reader.
+  - **Names in the Log can be stale.** The name cookie lasts 30 days on a
+    shared PC: on 11-11 one browser took control as one person and stopped
+    as another 10 s later. Ask for the name again at Take over, or shorten
+    the cookie.
+  - The web's refusals (403/409) are not logged, so what students were
+    refused cannot be read afterwards.
 
 - The Kikusui output-off press gives up after one second on a flapping
   LAN (2026-10-05 16:02, twice: "Kikusui output OFF FAILED: Telemetry
@@ -197,6 +252,10 @@ holds what is still undecided or unbuilt.
     holding its integral while the supply reports CV. Raising the setting
     to 10 V is his at the panel; at 10 V a hot filament would take about
     20 A, 200 W against today's 115 W.
+    Out of date, 2026-11-13: the setting has been raised since (when and
+    by whom is in no file). On 11-13 hand pulses at 2800 mV drove the
+    filament to 24.5 A, 12.9 V, about 320 W, above 20 A for 249 s, so
+    nothing below the DAC's 5000 mV caps it now.
   - The recorder writes the file from the main thread still. 4.22.3 makes
     a delivery cheap and writes before it draws, so a slow window no
     longer delays the record; writing from the reader's own thread would
@@ -1038,4 +1097,4 @@ holds what is still undecided or unbuilt.
 - Diagnose and correct the ADC sampling cadence: the September 10 run requested 0.1 s but averaged 0.175640 s, with 46 intervals above 0.3 s and five above 0.4 s. The fast path waits a full period before doing acquisition work; slow successful reads also escape exception logging. Measure stage durations and overruns before attributing burst delays to hardware or GUI load. Evidence: docs/diagnostics/2026-09-10-plasma-reader.md, Timing follow-up.
 
 
-- ADC timing follow-up implemented locally in 4.13.0: deadline scheduling, typed batch buffers, vectorized plotting, elapsed ready polling and stage summaries. Off-device benchmark and fault tests pass; obtain comparable rig timing before declaring 10 Hz resolved. Remaining concern: queued tail/run identity at shutdown (the unbounded history was fixed in 4.22.3). See docs/diagnostics/2026-09-10-adc-timing-optimization.md.
+- ADC timing follow-up implemented locally in 4.13.0: deadline scheduling, typed batch buffers, vectorized plotting, elapsed ready polling and stage summaries. Off-device benchmark and fault tests pass; obtain comparable rig timing before declaring 10 Hz resolved. Rig timing obtained, 2026-10-22 to 11-13: mean interval 100.1 ms, 0.14 % above 150 ms, only I²C retries above 0.3 s, so the cadence is resolved on the rig. Remaining concern: queued tail/run identity at shutdown (the unbounded history was fixed in 4.22.3). See docs/diagnostics/2026-09-10-adc-timing-optimization.md.
