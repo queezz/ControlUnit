@@ -203,6 +203,18 @@ holds what is still undecided or unbuilt.
     as another 10 s later. Ask for the name again at Take over, or shorten
     the cookie.
 
+- Find the Kikusui by its name at each connection (2026-11-16). The supply
+  now takes its address by DHCP (`10.249.254.28`, name
+  `PWR401L-00874.local`), and a moved lease today means an edit to the
+  Pi's `~/.controlunit/kikusui.yml` and a Stop and Start. The link takes
+  only a numeric address so that a lookup can never stall a stop. Resolve
+  the name once, on the recorder's own thread, at each connect, with a
+  short deadline, and fall back to the last address that answered; the
+  output-off press keeps using that last address and never waits on a
+  lookup. Done when a moved lease is picked up at the next reconnect with
+  no edit on the Pi. See `2026-11-16-kikusui-address.md` and the "Its
+  address" section of `docs/hardware/kikusui-lan.md`.
+
 - The Kikusui output-off press gives up after one second on a flapping
   LAN (2026-10-05 16:02, twice: "Kikusui output OFF FAILED: Telemetry
   query deadline exceeded", in a two-hour stretch with 57 "telemetry

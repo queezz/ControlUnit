@@ -200,6 +200,9 @@ not, and had to withdraw a conclusion the same evening.
   caches in this Dropbox-synced repository.
 - Regenerate `docs/assets/graphviz/runtime_architecture.svg` from its DOT source
   with `scripts/build_graphviz.py` whenever the architecture diagram changes.
+- Text the program writes on the rig (the Log, its files, stdout) stays
+  ASCII. The Pi runs in a Latin-1 locale (`en_AU`), so a degree sign reached
+  the Log as byte 0xB0 in 4.30.0, unreadable as UTF-8; write `C`, `-`, `...`.
 
 Commit completed, validated work directly to `master` before handing back; do
 not wait for a separate commit request or leave a dirty tree for the next
