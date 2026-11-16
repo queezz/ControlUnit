@@ -58,11 +58,16 @@ holds what is still undecided or unbuilt.
   `10.249.254.10`, and the Pi saw that address held by an Intel network
   card that does not answer ping, a PC (queezz: "new laptops may have
   joined and occupied the .10 spot"). A browser used `.10` on 10-05 too, so
-  the clash likely explains every LAN flap since October. Reserve an
-  address in the router, or set a fixed one on the supply's LAN menu
-  outside the DHCP pool; a session then puts it in the Pi's
-  `~/.controlunit/kikusui.yml` (on your word), effective at the next Stop
-  and Start. Vault note "Kikusui LAN lost to an address clash 2026-11-16".
+  the clash likely explains every LAN flap since October. The network is
+  the university's Optical Lab VLAN, not the lab's to configure (queezz,
+  2026-11-16: "Network is KyoDai vlan, no control here"), so: a fixed
+  address assigned for the supply by whoever administers the VLAN, set by
+  hand on its CF61–CF66 menu; or a cable straight to the Pi (the supply's
+  LAN port on a second Pi network port, or its RS232C port on a USB serial
+  adapter, the second needing serial support in ControlUnit). A session
+  then puts the address in the Pi's `~/.controlunit/kikusui.yml` (on your
+  word), effective at the next Stop and Start. Vault note "Kikusui LAN lost
+  to an address clash 2026-11-16".
   Done when: a run's Log shows "Kikusui settings: … V, … A" at its start
   and no LOST while the supply is on.
 
