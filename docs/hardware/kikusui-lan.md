@@ -100,8 +100,13 @@ connected at 17:37:17 ("Kikusui telemetry connected (ok)") and answered
 2672 polls in a row, its first reading of the supply's own settings:
 **17 V, 18 A** (the voltage setting was 5 V on 2026-09-30 and 7.80 V on
 10-02). The output was off throughout (`oper_cond` 0). At 17:59:30 the
-questionable word read 4 and the link lost the supply 16 s later,
-consistent with the supply being switched off at the end.
+questionable word read 4 and the link lost the supply 16 s later: the
+student had switched the supply off after his discharges (queezz: "he must've
+turned that off just when I left him"); from the Pi, nothing answered at
+`.28` afterwards, not even ARP. So a questionable word of 4 (bit 2) was
+seen in the seconds a supply is switched off at its mains; what bit 2
+means is still to be read from the manual, and a 4 at any other time is a
+real alarm until it is.
 
 **If DHCP does not hold, a link of its own.** Nobody but the Pi talks to
 the supply (queezz, 2026-11-16: "No one goes to that PSU page directly but
