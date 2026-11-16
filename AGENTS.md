@@ -261,3 +261,16 @@ on this PWR401L on 2026-09-30. Queries only: the writes are still exactly
 the two above. The audit of the student runs is why: the 7.80 V setting of
 2026-10-02 had been raised by 11-13 with no record of when, and on 11-13 the
 filament reached 24.5 A with nothing in the files saying what limited it.
+
+**The supply's address is a DHCP lease (2026-11-16).** It was set by hand
+to `10.249.254.10` on 2026-09-14, inside the range the university VLAN's
+DHCP hands out; a laptop was given the same address, and every LAN flap
+from October on was that clash. The network is not the lab's to configure
+("Network is KyoDai vlan, no control here"). The supply now takes its
+address by DHCP (`10.249.254.28` on 2026-11-16, named in the Pi's
+`~/.controlunit/kikusui.yml`). When the link loses the supply while its
+panel shows it on and its LAN lamp is green, the lease may have moved:
+`getent hosts PWR401L-00874.local` on the Pi gives the address (its MAC is
+`00:0f:ce:04:68:81`), it goes in `kikusui.yml`, and a Stop and Start of
+acquisition picks it up. A red LAN lamp is a clash again. Steps and history:
+`docs/hardware/kikusui-lan.md`, "Its address".

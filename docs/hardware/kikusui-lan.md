@@ -94,7 +94,14 @@ and set CF61 to DHCP; its name `PWR401L-00874.local` resolved from the
 Pi to **`10.249.254.28`**, where the neighbour table showed its own MAC
 `00:0f:ce:04:68:81` and it answered ping (the laptop still held `.10`).
 The Pi's `~/.controlunit/kikusui.yml` now names `10.249.254.28`; the
-previous file is kept beside it as `kikusui.yml.bak-20261116`.
+previous file is kept beside it as `kikusui.yml.bak-20261116`. After a
+Stop and Start on the rig's screen (queezz: "That worked"), the link
+connected at 17:37:17 ("Kikusui telemetry connected (ok)") and answered
+2672 polls in a row, its first reading of the supply's own settings:
+**17 V, 18 A** (the voltage setting was 5 V on 2026-09-30 and 7.80 V on
+10-02). The output was off throughout (`oper_cond` 0). At 17:59:30 the
+questionable word read 4 and the link lost the supply 16 s later,
+consistent with the supply being switched off at the end.
 
 **If DHCP does not hold, a link of its own.** Nobody but the Pi talks to
 the supply (queezz, 2026-11-16: "No one goes to that PSU page directly but

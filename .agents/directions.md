@@ -52,25 +52,6 @@ holds what is still undecided or unbuilt.
 
 ## Work only queezz can do
 
-- Give the Kikusui a LAN address no laptop can be handed — owner work
-  pending. On 2026-11-16 the supply drove the filament through a whole
-  hydrogen run while its link never answered: ControlUnit asks
-  `10.249.254.10`, and the Pi saw that address held by an Intel network
-  card that does not answer ping, a PC (queezz: "new laptops may have
-  joined and occupied the .10 spot"). A browser used `.10` on 10-05 too, so
-  the clash likely explains every LAN flap since October. The network is
-  the university's Optical Lab VLAN, not the lab's to configure (queezz,
-  2026-11-16: "Network is KyoDai vlan, no control here"), so: a fixed
-  address assigned for the supply by whoever administers the VLAN, set by
-  hand on its CF61–CF66 menu; or a cable straight to the Pi (the supply's
-  LAN port on a second Pi network port, or its RS232C port on a USB serial
-  adapter, the second needing serial support in ControlUnit). A session
-  then puts the address in the Pi's `~/.controlunit/kikusui.yml` (on your
-  word), effective at the next Stop and Start. Vault note "Kikusui LAN lost
-  to an address clash 2026-11-16".
-  Done when: a run's Log shows "Kikusui settings: … V, … A" at its start
-  and no LOST while the supply is on.
-
 - Put a series resistor in each ion gauge line at the ADC input, so a
   controller switched off cannot drag the board's upper half with it —
   owner work pending. Read from `cu_20261007_170858.csv` (queezz,
@@ -282,7 +263,8 @@ holds what is still undecided or unbuilt.
     Out of date, 2026-11-13: the setting has been raised since (when and
     by whom is in no file). On 11-13 hand pulses at 2800 mV drove the
     filament to 24.5 A, 12.9 V, about 320 W, above 20 A for 249 s, so
-    nothing below the DAC's 5000 mV caps it now.
+    nothing below the DAC's 5000 mV caps it now. Read by the link on
+    2026-11-16 (17:37, its first reading of the settings): **17 V, 18 A**.
   - The recorder writes the file from the main thread still. 4.22.3 makes
     a delivery cheap and writes before it draws, so a slow window no
     longer delays the record; writing from the reader's own thread would
