@@ -183,6 +183,7 @@ not, and had to withdraw a conclusion the same evening.
 3. `../fleet/MAP.md` — sibling projects and hardware boundaries.
 4. [docs/Archaeology.md](docs/Archaeology.md) — codebase history and design record.
 5. [docs/architecture/qt-threading.md](docs/architecture/qt-threading.md) — runtime ownership and shutdown rules.
+6. [.agents/README.md](.agents/README.md) and [.agents/lessons.md](.agents/lessons.md) — how a session works here, and what earlier sessions learned the hard way.
 
 ## Invariants
 
