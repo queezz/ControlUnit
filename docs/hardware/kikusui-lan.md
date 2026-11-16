@@ -27,18 +27,82 @@ Kikusui's PWR-01 Interface Manual (IB035082, 2020) and the PWR-01 FAQ.
    CURRENT knob to **ON**.
 3. Choose how it gets an address: press CONFIG until **CF60** shows, turn
    the VOLTAGE knob to **CF61**, and set with the CURRENT knob:
-   `110` = DHCP on, Auto-IP on, manual off (the factory default; fine on
-   the lab VLAN if the router gives leases); `001` = manual, then enter
-   the four octets in **CF62** to **CF65** and the subnet mask as a bit
-   count in **CF66** (16 for 255.255.0.0, 24 for 255.255.255.0). The lab
-   VLAN's addresses have been static for years, so a manual address
-   beside the Pi's is the sensible choice.
+   `110` = DHCP on, Auto-IP on, manual off (the factory default); `001` =
+   manual, then enter the four octets in **CF62** to **CF65** and the
+   subnet mask as a bit count in **CF66** (16 for 255.255.0.0, 24 for
+   255.255.255.0). Use `110` unless the VLAN's administrators assigned the
+   supply an address: a manual address picked by hand on a VLAN the lab
+   does not run can be handed to a laptop by its DHCP, and was (see
+   [Its address](#its-address) below). This step used to recommend a
+   manual address beside the Pi's.
 4. Apply: **CF60: APPL** restarts the interface, or turn the POWER switch
    off and on. Changes to CF61–CF66 take effect only then.
 5. Open `http://<address>/` in a browser: the interface board serves a
    page with the instrument information, the network settings and a
    remote-control panel. Setting a password there is optional; **CF60:
    LCI** resets the interface if the password is forgotten.
+
+## Its address
+
+**The network is not the lab's.** The rig, the supply and the lab's PCs
+are on Kyoto University's Optical Lab VLAN, run by the university
+(queezz, 2026-11-16: "Network is KyoDai vlan, no control here"). Nothing
+here can reserve an address in its DHCP.
+
+**The supply's identity** (its own welcome page, 2026-09-14): model
+PWR401L, serial AV000874, MAC address `00:0f:ce:04:68:81`, mDNS name
+`PWR401L-00874.local`. The MAC and the name stay the same whatever its
+address is.
+
+**How it was set, and what went wrong.** On 2026-09-14 queezz entered
+`10.249.254.10`, mask `255.255.255.192`, on the panel by hand (CF61 =
+`001`; the welcome page showed default gateway `0.0.0.0`, which no DHCP
+lease gives). `.10` lay inside the range the VLAN's DHCP hands out, and a
+laptop was given it. From then on two machines answered for one address:
+the link answered 84 % of polls on 2026-10-05 (when a browser at `.10`
+also reached the web view), flapped LOST/BACK on 10-06 and 10-19, came
+back on 10-07 only after a power cycle (the LAN lamp red, then green), and
+on 2026-11-16 never answered a whole hydrogen run while the supply drove
+the filament (20.2 A on its panel). That evening the Pi saw `.10` at MAC
+`14:18:c3:e9:2f:46`, an Intel network card, not the supply, and the
+supply's own name did not resolve: an LXI instrument that sees its address
+taken lights its LAN lamp red and stops networking until it is restarted.
+Vault: "Kikusui LAN lost to an address clash 2026-11-16".
+
+**Signs of the same trouble again:** the Cathode card and the Log say the
+LAN is lost while the supply's panel shows it driving; the LAN lamp on the
+supply is red; the link flaps LOST/BACK while the supply is on.
+
+**Moving it to a new address** (no output live first: the drive at 0 and
+the supply's output off, or no run at all):
+
+1. Power the supply off and on (clears a LAN fault).
+2. CONFIG until **CF60**, VOLTAGE knob to **CF61**, CURRENT knob to
+   **110** (DHCP). A manual address only if the VLAN's administrators gave
+   one: then `001` and the octets in CF62–CF65, the mask bits in CF66.
+3. **CF60: APPL**, or power off and on again.
+4. After a minute, from the Pi: `getent hosts PWR401L-00874.local` gives
+   the address it was leased (a reading, nothing is sent to the supply).
+   The supply's welcome page at that address shows it too.
+5. Put the address in `~/.controlunit/kikusui.yml` on the Pi as `host:`
+   (numeric; the link does not resolve names), then Stop and Start
+   acquisition: the recorder reads the file when a run starts. The Log
+   should then say "Kikusui settings: … V, … A".
+
+**If DHCP does not hold, a link of its own.** Nobody but the Pi talks to
+the supply (queezz, 2026-11-16: "No one goes to that PSU page directly but
+pi"), so it need not be on the VLAN at all: a USB Ethernet adapter on the
+Pi, or a small switch or router serving only the two, with the supply on a
+private address (for example `192.168.50.2`, the Pi's second port
+`192.168.50.1`) entered once more on the panel. No laptop can then take
+its address. The costs: the adapter, the Pi's second port to configure
+(a session's work on his word), and the supply's own web page reachable
+only through the Pi. Not done yet: DHCP is tried first (2026-11-16).
+
+A DHCP lease may change over time; if the link loses the supply again with
+its LAN lamp green, repeat step 4 and 5. Looking the name up at each
+connection instead would make this automatic (the link takes only a
+numeric address today, so that a name lookup can never stall a stop).
 
 ## Read-only logging (4.15.0)
 
