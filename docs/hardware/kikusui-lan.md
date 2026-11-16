@@ -89,6 +89,13 @@ the supply's output off, or no run at all):
    acquisition: the recorder reads the file when a run starts. The Log
    should then say "Kikusui settings: … V, … A".
 
+**Where it is now.** 2026-11-16, 17:31: queezz power-cycled the supply
+and set CF61 to DHCP; its name `PWR401L-00874.local` resolved from the
+Pi to **`10.249.254.28`**, where the neighbour table showed its own MAC
+`00:0f:ce:04:68:81` and it answered ping (the laptop still held `.10`).
+The Pi's `~/.controlunit/kikusui.yml` now names `10.249.254.28`; the
+previous file is kept beside it as `kikusui.yml.bak-20261116`.
+
 **If DHCP does not hold, a link of its own.** Nobody but the Pi talks to
 the supply (queezz, 2026-11-16: "No one goes to that PSU page directly but
 pi"), so it need not be on the VLAN at all: a USB Ethernet adapter on the
