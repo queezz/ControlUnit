@@ -52,6 +52,20 @@ holds what is still undecided or unbuilt.
 
 ## Work only queezz can do
 
+- Give the Kikusui a LAN address no laptop can be handed — owner work
+  pending. On 2026-11-16 the supply drove the filament through a whole
+  hydrogen run while its link never answered: ControlUnit asks
+  `10.249.254.10`, and the Pi saw that address held by an Intel network
+  card that does not answer ping, a PC (queezz: "new laptops may have
+  joined and occupied the .10 spot"). A browser used `.10` on 10-05 too, so
+  the clash likely explains every LAN flap since October. Reserve an
+  address in the router, or set a fixed one on the supply's LAN menu
+  outside the DHCP pool; a session then puts it in the Pi's
+  `~/.controlunit/kikusui.yml` (on your word), effective at the next Stop
+  and Start. Vault note "Kikusui LAN lost to an address clash 2026-11-16".
+  Done when: a run's Log shows "Kikusui settings: … V, … A" at its start
+  and no LOST while the supply is on.
+
 - Put a series resistor in each ion gauge line at the ADC input, so a
   controller switched off cannot drag the board's upper half with it —
   owner work pending. Read from `cu_20261007_170858.csv` (queezz,
