@@ -537,7 +537,7 @@ measured, and a readout with a baseline held says `zeroed` beside its name.
   Find and an order switch. It also carries the routine 30-second timing
   summaries, which the dock leaves out (4.29.1). From 2026-11-13 it also
   carries every press the web refused (`Refused from …`, above), the Pi's
-  own health (`Pi health: 52.1 °C, power fine, 41 GB free` at start, then a
+  own health (`Pi health: 52.1 C, power fine, 41 GB free` at start, then a
   line only when a supply flag sets or clears, the core passes 70 °C or comes
   back under 65 °C, or the data folder's disk falls under 2 GB and later
   has more than 2.5 GB again; a supply flag already set on the first word

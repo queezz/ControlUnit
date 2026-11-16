@@ -1,3 +1,10 @@
+## 4.30.1 — 2026-11-16
+
+- The Pi-health Log lines are ASCII ("Pi health: 56.5 C, power fine, 77 GB
+  free"). The rig runs in a Latin-1 locale (en_AU), and 4.30.0's degree
+  sign reached `controlunit.log` on its first start as one byte no UTF-8
+  reader accepts.
+
 ## 4.30.0 — 2026-11-13
 
 From the audit of three weeks of student runs (vault note "Student runs

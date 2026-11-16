@@ -93,18 +93,18 @@ def test_a_reader_that_raises_reads_as_not_available():
 
 def test_the_start_line_on_a_pi_and_off_one():
     assert PiHealthJudge().see(reading()) == [
-        ("Pi health: 52.1 °C, power fine, 41 GB free", False)
+        ("Pi health: 52.1 C, power fine, 41 GB free", False)
     ]
     assert PiHealthJudge().see(reading(throttled=None, temperature=None, free=120.4e9)) == [
         ("Pi health: temperature not available, power flags not available, 120 GB free", False)
     ]
     assert PiHealthJudge().see(reading(throttled=0x50000)) == [
-        ("Pi health: 52.1 °C, power fine now (under-voltage, throttled since boot),"
+        ("Pi health: 52.1 C, power fine now (under-voltage, throttled since boot),"
          " 41 GB free", False)
     ]
     # Something wrong at the start is red at the start.
     assert PiHealthJudge().see(reading(throttled=0x50001, free=1.5e9)) == [
-        ("Pi health: 52.1 °C, under-voltage now, 1.5 GB free", True)
+        ("Pi health: 52.1 C, under-voltage now, 1.5 GB free", True)
     ]
 
 
@@ -148,10 +148,10 @@ def test_the_temperature_crosses_70_and_comes_back_under_65():
     judge = PiHealthJudge()
     judge.see(reading(temperature=60.0))
     assert judge.see(reading(temperature=69.9)) == []
-    assert judge.see(reading(temperature=70.0)) == [("Pi at 70.0 °C, above 70 °C", True)]
+    assert judge.see(reading(temperature=70.0)) == [("Pi at 70.0 C, above 70 C", True)]
     assert judge.see(reading(temperature=72.0)) == []
     assert judge.see(reading(temperature=66.0)) == []
-    assert judge.see(reading(temperature=64.9)) == [("Pi back to 64.9 °C, under 65 °C", False)]
+    assert judge.see(reading(temperature=64.9)) == [("Pi back to 64.9 C, under 65 C", False)]
 
 
 def test_the_disk_falling_under_2_gb_is_said_once():
@@ -246,7 +246,7 @@ def test_one_check_reads_judges_and_reports():
     monitor = pi_health.PiHealthMonitor("folder", reports.append, read=lambda: reading())
     report = monitor.check_once()
     assert reports == [report]
-    assert report.lines == [("Pi health: 52.1 °C, power fine, 41 GB free", False)]
+    assert report.lines == [("Pi health: 52.1 C, power fine, 41 GB free", False)]
     assert monitor.check_once().lines == []
 
 
@@ -369,3 +369,12 @@ def test_the_monitor_s_reports_cross_to_the_main_thread_and_it_stops(qt_app, hom
         widget.abort_all_threads()
     assert stopped
     assert not widget._pi_health.thread.is_alive()
+
+
+def test_every_line_is_ascii():
+    """The rig's locale is Latin-1: a degree sign reached controlunit.log as
+    a byte no UTF-8 reader accepts (2026-11-16)."""
+    judge = PiHealthJudge()
+    lines = judge.see(reading(temperature=52.1)) + judge.see(reading(temperature=70.0))
+    lines += judge.see(reading(temperature=64.9))
+    assert lines and all(text.isascii() for text, _ in lines)

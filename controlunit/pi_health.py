@@ -218,11 +218,16 @@ def _power_words(word):
 
 
 def describe(reading):
-    """The start line's words: `52.1 °C, power fine, 41 GB free`."""
+    """The start line's words: `52.1 C, power fine, 41 GB free`.
+
+    ASCII, like every Log line: the rig runs in a Latin-1 locale (en_AU),
+    and the first deployment wrote its degree sign into `controlunit.log`
+    as one byte no UTF-8 reader accepts (2026-11-16).
+    """
     temperature = (
         "temperature not available"
         if reading.temperature_c is None
-        else "{:.1f} °C".format(reading.temperature_c)
+        else "{:.1f} C".format(reading.temperature_c)
     )
     disk = (
         "free disk not available"
@@ -307,10 +312,10 @@ class PiHealthJudge:
             return []
         if not self._hot and celsius >= self._hot_c:
             self._hot = True
-            return [("Pi at {:.1f} °C, above {:.0f} °C".format(celsius, self._hot_c), True)]
+            return [("Pi at {:.1f} C, above {:.0f} C".format(celsius, self._hot_c), True)]
         if self._hot and celsius < self._cool_c:
             self._hot = False
-            return [("Pi back to {:.1f} °C, under {:.0f} °C".format(celsius, self._cool_c), False)]
+            return [("Pi back to {:.1f} C, under {:.0f} C".format(celsius, self._cool_c), False)]
         return []
 
     def _disk(self, free_bytes):
