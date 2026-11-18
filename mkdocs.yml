@@ -86,6 +86,7 @@ nav:
       - September 15 plasma run and noise: diagnostics/2026-09-15-plasma-run-and-noise.md
       - Hall sensor noise and its zero: diagnostics/2026-09-19-hall-sensor-noise.md
       - October 2 argon plasma and the PID: diagnostics/2026-10-02-ar-plasma-pid-run.md
+      - The rig doing nothing, November 16: diagnostics/2026-11-18-quiet-rig-noise.md
   - Architecture:
       - Qt Threading: architecture/qt-threading.md
       - Signal Flow: architecture/signal-flow.md

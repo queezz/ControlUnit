@@ -871,25 +871,6 @@ holds what is still undecided or unbuilt.
   jumping between tabs, which the house's rail law warns against). Both are
   worth queezz's eye before anyone builds them; neither is worth doing
   quietly.
-- A noise study of every channel with the rig doing nothing (queezz,
-  2026-09-15, looking at 33 minutes of quiet Ip and Bu at 10 Hz: "one of
-  these times one should look at our signals when doing nothing and
-  identify the noise. So we might filter it better. And know the noise
-  from signal"). Analysis, not code, first: take a quiet stretch of a real
-  10 Hz file (2026-09-15's `cu_20260915_170626.csv` has one: Ip at about
-  -0.33 A with roughly ±0.03 A of fast noise, Bu at 3e-4 Torr with a
-  visible band), and for each channel report the standard deviation, the
-  autocorrelation and the spectrum up to the 5 Hz Nyquist of 10 Hz
-  sampling, looking in particular for mains-related lines folded down by
-  the sampling and for anything the I²C reads share across channels; then
-  say per channel which filter separates the noise from the signal at
-  the least cost in delay (the browser's median, a running mean over the
-  period as the ≥1 s sampling already does, or a proper low-pass in the
-  worker), and what the noise floor is, which is the number the item
-  below has been waiting for. Result goes to the vault's Troubleshooting
-  folder and to docs/diagnostics/, with the numbers; any filter change is
-  a separate, versioned build afterwards, never a silent change to what
-  is recorded.
 - Findings of the 2026-09-15 evening analysis (docs/diagnostics/
   2026-09-15-plasma-run-and-noise.md; vault note "Plasma run and noise
   2026-09-15"), each with what it asks of the code:
@@ -970,6 +951,19 @@ holds what is still undecided or unbuilt.
   is not worth a panel — and the same question for any other channel with a
   meaningful floor. One number each, and the existing rule then covers both
   cases.
+  The numbers arrived on 2026-11-18 (docs/diagnostics/
+  2026-11-18-quiet-rig-noise.md, from the quiet 53 minutes of 11-16): one
+  10 Hz reading of Ip has 8.6 mA of noise, so under about 25 mA it cannot
+  be told from zero; a 1 s mean has about 3.5 mA (limit about 11 mA); a
+  7.5 s mean 1.7 mA. The pressures' noise is 0.01–0.1 % of their reading,
+  so only Ip has a floor that matters.
+  Recommendation: 25 mA for Ip, the curve stepping aside while every
+  reading in the window stays inside ±25 mA of the zero.
+  Safe default: no floor, as now.
+  Also open from the same page: whether to build the September notches
+  (3-sample mean and three notches at 7.5 s): since the 11-11 breakout they
+  would take a live reading from 8.6 to about 5 mA, against 22.9 to 9 in
+  September. Worth it for the PID's input, not for the display.
 - Sync the rig's data to the NAS (queezz, 2026-09-07: "we need later to
   build the sync to NAS feature. But not today"). The record is
   `~/work/cudata` on the Pi — one CSV per run, 1324 files today, plus
