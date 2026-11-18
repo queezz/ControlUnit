@@ -1688,6 +1688,7 @@ class MainApp(QtCore.QObject, UIWindow):
             # A new file is a new run for the web view: its ring empties and
             # its run facts start again. The name only, never the path.
             self.web_status.start_run(os.path.basename(self.savepaths[device_name]))
+            self._note_file_size(device_name)
 
         self.log_datafile_name(device_name)
 
@@ -1791,6 +1792,20 @@ class MainApp(QtCore.QObject, UIWindow):
         savepath = self.savepaths[device_name]
         data = self.newdata[device_name]
         data.to_csv(savepath, mode="a", header=False, index=False)
+        self._note_file_size(device_name)
+
+    def _note_file_size(self, device_name):
+        """Tell the web view how big the run file now is. One stat on the
+        main thread, just after its own append, so the size never runs ahead
+        of what is written; a failure leaves the size unknown and never stops
+        the record."""
+        if device_name != "ADC":
+            return
+        try:
+            size = os.path.getsize(self.savepaths[device_name])
+        except (OSError, KeyError):
+            size = None
+        self.web_status.record_file_size(size)
 
     # MARK: Worker Step
     @QtCore.pyqtSlot(list)

@@ -1,3 +1,14 @@
+## 4.31.0 — 2026-11-18
+
+- **This run shows the data file's size** (queezz, 2026-11-18: "How about
+  showing the file size, not just samples? I need MB, or Kb. In the
+  current run."). A Size row under Samples reads `4.6 KB`, `12.3 MB`, in
+  the units Explorer and `ls -lh` use (1 KB = 1024 bytes). The main thread
+  stats the file just after its own append and hands the number to the
+  status record (`/api/state` `run.bytes`), so the size is what is on
+  disk, never ahead of it; a failed stat, and the moment before a run's
+  first append, read as a dash rather than zero.
+
 ## 4.30.1 — 2026-11-16
 
 - The Pi-health Log lines are ASCII ("Pi health: 56.5 C, power fine, 77 GB

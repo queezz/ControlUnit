@@ -20,6 +20,7 @@ main thread keeps up to date from methods it already runs:
 | Main-thread method | What it records |
 | --- | --- |
 | `create_file` | a new run: the data file's name, the ring emptied |
+| `save_data` (`_note_file_size`) | the data file's size on disk, one stat just after each append; unknown when the stat fails |
 | `_adc_step` | the samples that step delivered, converted and zero-adjusted as the screen shows them |
 | `_publish_kikusui` | the cathode supply's latest snapshot, and — from a fresh one only, at the sidecar row's own timestamp — the `Ic` and `Uc` points the plasma chart draws |
 | `log_message` | one message-log line, tags stripped |
@@ -727,7 +728,11 @@ measured, and a readout with a baseline held says `zeroed` beside its name.
   blanket already drops the slide.
 
   The right rail holds three folded groups, in this order: **Operator and
-  access**, **Ion gauges** and **This run**. Access starts open
+  access**, **Ion gauges** and **This run**. This run states the file's
+  name, when it started, its samples, its size on disk (KB and MB as
+  Explorer counts them, 1 KB = 1024 bytes; a dash while unknown; from
+  4.31.0, queezz: "I need MB, or Kb"), the sampling and the hardware.
+  Access starts open
   when the browser needs a name, the lab word, or the rig's Remote switch.
   Name and word remain outside the gated setters. Readout size sits beside
   the readouts. Each pressure chart retains its own axis switches and pills.

@@ -1118,3 +1118,21 @@ test('folded, the row still carries a hidden card\'s value', () => {
     // The hidden card is still written, so it comes back current.
     assert.equal(cards.Bu.parts.value.innerHTML, MINUS_FOUR_MILLI);
 });
+
+/* The run file's size in the This run card: KB and MB as Explorer and
+   `ls -lh` count them, and a dash while the size is not known. */
+test('the run file size reads in B, KB, MB and GB, and unknown is a dash', () => {
+    const src = fs.readFileSync(
+        path.join(__dirname, '..', 'controlunit', 'web', 'static', 'js', 'live.js'), 'utf8');
+    const found = src.match(/function fmtBytes\(bytes\) \{[\s\S]*?\n    \}/);
+    assert.ok(found, 'live.js defines fmtBytes');
+    const fmtBytes = vm.runInNewContext('(' + found[0] + ')');
+    assert.equal(fmtBytes(null), '—');
+    assert.equal(fmtBytes(undefined), '—');
+    assert.equal(fmtBytes(0), '0 B');
+    assert.equal(fmtBytes(900), '900 B');
+    assert.equal(fmtBytes(1536), '1.5 KB');
+    assert.equal(fmtBytes(512 * 1024), '512 KB');
+    assert.equal(fmtBytes(12.34 * 1048576), '12.3 MB');
+    assert.equal(fmtBytes(3 * 1073741824), '3.00 GB');
+});

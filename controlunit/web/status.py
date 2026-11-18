@@ -194,6 +194,7 @@ class RigStatus:
         self._last_sample_at = None
         self._samples = 0
         self._file = ""
+        self._file_bytes = None
         self._started_at = None
 
         # The ring: parallel deques so a window can be cut by time by walking
@@ -310,6 +311,7 @@ class RigStatus:
         """A new data file has been opened: a new run starts, the ring empties."""
         with self._lock:
             self._file = str(file_name or "")
+            self._file_bytes = None
             self._started_at = self._clock()
             self._samples = 0
             self._times.clear()
@@ -320,6 +322,16 @@ class RigStatus:
             self._latest = {}
             self._last_sample_at = None
             self._behind = 0.0
+
+    def record_file_size(self, size):
+        """The run file's size on disk in bytes, read by the main thread just
+        after it appended to the file; None when it could not be read."""
+        try:
+            size = None if size is None else max(0, int(size))
+        except (TypeError, ValueError):
+            size = None
+        with self._lock:
+            self._file_bytes = size
 
     def record_samples(self, times, values):
         """Append samples the ADC step delivered.
@@ -535,6 +547,7 @@ class RigStatus:
                 "zeros": dict(self._zeros),
                 "last_command": dict(self._last_command) if self._last_command else None,
                 "file": self._file,
+                "file_bytes": self._file_bytes,
                 "started_at": self._started_at,
                 "samples": self._samples,
                 "held_seconds": self._keep_seconds,
@@ -937,6 +950,9 @@ def state_body(status, version, control=None, fence=None, roster=None):
             "started_at": started,
             "elapsed": elapsed,
             "samples": snapshot.get("samples") or 0,
+            # Bytes on disk after the newest append; None before the first
+            # reading, which the page shows as unknown rather than zero.
+            "bytes": snapshot.get("file_bytes"),
             "rate": _rate_phrase(snapshot.get("sampling")),
             "sampling": snapshot.get("sampling"),
             "held_seconds": snapshot.get("held_seconds"),

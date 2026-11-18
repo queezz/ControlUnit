@@ -406,6 +406,17 @@
         return fmtClock(epoch) + ", " + fmtSeconds(elapsed) + " ago";
     }
 
+    /* The run file's size, in the units Windows Explorer and `ls -lh` use
+       (1 KB = 1024 bytes). Unknown is a dash, never 0. */
+    function fmtBytes(bytes) {
+        if (bytes === null || bytes === undefined || !isFinite(bytes)) return "—";
+        var n = Number(bytes);
+        if (n < 1024) return n + " B";
+        if (n < 1024 * 1024) return (n / 1024).toFixed(n < 10 * 1024 ? 1 : 0) + " KB";
+        if (n < 1024 * 1024 * 1024) return (n / 1048576).toFixed(1) + " MB";
+        return (n / 1073741824).toFixed(2) + " GB";
+    }
+
     // -- state ---------------------------------------------------------------
 
     /* The ion gauges the rig has been told are switched off at their
@@ -490,6 +501,7 @@
         text("file", runFacts.file || "—");
         text("started", fmtStarted(runFacts.started_at, runFacts.elapsed));
         text("samples", runFacts.samples !== undefined ? String(runFacts.samples) : "—");
+        text("size", fmtBytes(runFacts.bytes));
         text("rate", runFacts.rate || "—");
         text("hardware", state.dummy ? "dummy" : "real");
 
