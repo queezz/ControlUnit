@@ -179,6 +179,7 @@ class RigStatus:
         gauges=(),
         keep_seconds=KEEP_SECONDS,
         clock=time.time,
+        quiet=None,
     ):
         self._lock = threading.RLock()
         self._clock = clock
@@ -187,6 +188,12 @@ class RigStatus:
         self._sampling = sampling
         self._names = list(names)
         self._units = dict(units or {})
+        # Per channel, how near zero its readings stay with nothing there
+        # (settings `Quiet Within`); the charts read it, nothing else does.
+        self._quiet = {
+            name: float(within) for name, within in dict(quiet or {}).items()
+            if within is not None and float(within) > 0
+        }
         self._gauges = list(gauges)
         self._keep_seconds = float(keep_seconds)
 
@@ -541,6 +548,7 @@ class RigStatus:
                 "dummy": dummy_hardware_loaded(),
                 "names": list(self._names),
                 "units": dict(self._units),
+                "quiet": dict(self._quiet),
                 "values": dict(self._latest),
                 "setpoints": self._copy_setpoints(),
                 "remote": self._remote,
@@ -910,6 +918,7 @@ def state_body(status, version, control=None, fence=None, roster=None):
     """
     snapshot = status.read()
     units = snapshot.get("units") or {}
+    quiet = snapshot.get("quiet") or {}
     values = snapshot.get("values") or {}
     channels = []
     for name in snapshot.get("names") or sorted(values):
@@ -918,6 +927,9 @@ def state_body(status, version, control=None, fence=None, roster=None):
                 "name": name,
                 "value": values.get(name),
                 "unit": units.get(name, ""),
+                # How near zero the channel stays with nothing there, or
+                # None: the Live tab's charts step a quiet curve aside.
+                "quiet_within": quiet.get(name),
             }
         )
     started = snapshot.get("started_at")

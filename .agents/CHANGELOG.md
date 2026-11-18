@@ -1,3 +1,21 @@
+## 4.32.0 — 2026-11-18
+
+- **A quiet Ip steps aside, and the plasma chart folds** (queezz,
+  2026-09-07: the current plot with no plasma is "a noisy waste of space";
+  2026-11-18: "build it. Number, you now know better"). Ip has a floor,
+  settings `Quiet Within: 0.06` (A). While every reading in the window,
+  through a 5-point median, stays within 60 mA of zero, its pill reads
+  `quiet`. If nothing else on the panel is drawn, the plasma chart gives up
+  its drawing area, as it does when its curves are switched off, and in
+  Monitor mode its height goes to the pressure charts. The first reading
+  past the floor brings it back; a filament current keeps it open; its pill
+  shows it anyway. The number is from the quiet record of 11-16: through
+  the median, quiet Ip stays within 42 mA zeroed and 57 mA un-zeroed at
+  10 Hz (31 mA at 1 s, 22 mA at 10 s), and a discharge starts near 0.12 A.
+  The median is there because that record has single Ip readings about
+  55 mA low, roughly every 20 s, which are not current. Display only;
+  settings version 1.9.
+
 ## 4.31.0 — 2026-11-18
 
 - **This run shows the data file's size** (queezz, 2026-11-18: "How about

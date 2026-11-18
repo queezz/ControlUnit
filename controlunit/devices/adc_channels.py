@@ -38,6 +38,14 @@ class AdcChannelProps:
         # The PIHTI Diagram's id for an ionization gauge, whose on and off
         # its mode follows; None for a gauge that is not followed.
         self.diagram_element = kws.get("Diagram Element", None)
+        # How near zero, in the channel's own unit, its readings stay when
+        # nothing is there: the web view's charts step such a curve aside.
+        # None for a channel with no measured floor.
+        try:
+            quiet = float(kws.get("Quiet Within"))
+        except (TypeError, ValueError):
+            quiet = None
+        self.quiet_within = quiet if quiet is not None and quiet > 0 else None
         self.set_conversion_function()
         self.gain = None
 

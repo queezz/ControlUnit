@@ -399,6 +399,24 @@ measured, and a readout with a baseline held says `zeroed` beside its name.
     that channel's readout card above, where every number on this page is
     read.
 
+    **A quiet curve steps aside, and may fold its panel** (4.32.0; queezz,
+    2026-09-07: the current plot with no plasma is "a noisy waste of
+    space"). A channel with a measured floor, settings `Quiet Within` in its
+    own unit and carried to the page as `quiet_within` in `/api/state`'s
+    channel list, reads `quiet` while every reading in the window, seen
+    through a 5-point median, stays within that floor of zero. Only Ip has
+    one: 0.06 A, from the quiet record of 2026-11-16
+    ([the rig doing nothing](../diagnostics/2026-11-18-quiet-rig-noise.md)),
+    where quiet Ip stays within 42 mA zeroed and 57 mA un-zeroed at 10 Hz and
+    a discharge starts near 0.12 A. The median is for that record's read
+    glitch, single readings about 55 mA low. Unlike flat, quiet needs no
+    other curve moving: a panel left with nothing to draw but a quiet curve
+    gives up its drawing area, as one whose curves are switched off does,
+    and takes it back at the first reading past the floor. A filament
+    current on the right-hand axis keeps the panel open. Its pill restores
+    it like a flat one's, and Monitor mode gives a folded panel's height to
+    the others. Nothing recorded changes.
+
     **A panel's height and its backing buffer are two facts, and the code
     reads only the one nothing writes.** `data-height` on each `<canvas>` is
     how tall the panel stands on the page; the `height` attribute beside it

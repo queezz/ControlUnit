@@ -941,29 +941,16 @@ holds what is still undecided or unbuilt.
   A session can do the reading; where a manual is a scan, say which page
   the number came from. Result: the table, and a short note in the vault
   under Hardware saying where each number came from.
-- A noise floor per channel, so the current with no plasma can step out of
-  the way too (queezz, 2026-09-07: the current plot with no plasma is "a
-  noisy waste of space"). 4.5.0 collapses a curve whose excursion is smaller
-  than its own last useful digit, which catches the broken upstream gauge
-  stuck at 1e-5 but not this one: noise around zero has a large excursion
-  relative to its own size, and nothing in the browser can tell it from a
-  real small current. Needs from queezz: below what current, in amperes, Ip
-  is not worth a panel — and the same question for any other channel with a
-  meaningful floor. One number each, and the existing rule then covers both
-  cases.
-  The numbers arrived on 2026-11-18 (docs/diagnostics/
-  2026-11-18-quiet-rig-noise.md, from the quiet 53 minutes of 11-16): one
-  10 Hz reading of Ip has 8.6 mA of noise, so under about 25 mA it cannot
-  be told from zero; a 1 s mean has about 3.5 mA (limit about 11 mA); a
-  7.5 s mean 1.7 mA. The pressures' noise is 0.01–0.1 % of their reading,
-  so only Ip has a floor that matters.
-  Recommendation: 25 mA for Ip, the curve stepping aside while every
-  reading in the window stays inside ±25 mA of the zero.
-  Safe default: no floor, as now.
-  Also open from the same page: whether to build the September notches
-  (3-sample mean and three notches at 7.5 s): since the 11-11 breakout they
-  would take a live reading from 8.6 to about 5 mA, against 22.9 to 9 in
-  September. Worth it for the PID's input, not for the display.
+- Should the live Ip go through the September notches now (3-sample mean
+  and three notches at 7.5 s, docs/diagnostics/2026-09-19 and
+  2026-11-18)? — the owner's call. Since the 11-11 breakout the noise they
+  remove is small: a live reading goes from 8.6 to about 5 mA at 0.1 s
+  delay, against 22.9 to 9 mA in September.
+  Stakes: the PID's input and the readout get 40 % less noise; a filter
+  changes what the loop sees, so it is a versioned build with the raw
+  readings still recorded.
+  Recommendation: for the PID's input only, when the PID is next worked on.
+  Safe default: no filter, as now.
 - Sync the rig's data to the NAS (queezz, 2026-09-07: "we need later to
   build the sync to NAS feature. But not today"). The record is
   `~/work/cudata` on the Pi — one CSV per run, 1324 files today, plus

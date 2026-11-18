@@ -122,6 +122,14 @@ Ip/Vhall is 0.49542, against the conversion's midpoint of 0.4961. The Zero
 Ip button takes this away on the screen, and the file keeps the raw
 values.
 
+**Single readings about 55 mA low.** 86 of 28,177 readings in the window
+(0.3 %) sit more than 50 mA from zero, every one of them below. They are
+single readings, or two together, roughly every twenty seconds (the median
+gap is 22.5 s), and none shows on Vhall. That is a read glitch, not
+current. A 5-point median removes them: through it, quiet Ip at 10 Hz stays
+within 42 mA zeroed and 57 mA un-zeroed. Those numbers set the Live tab's
+floor of 60 mA (4.32.0). The noise figures above include the glitches.
+
 **Nothing is shared through the I²C reads.** Between the channels'
 detrended residuals, every correlation is below 0.1 except two:
 - **Ip and Vhall, 0.78:** above.
@@ -162,8 +170,12 @@ helps, at the cost of delay.
   sampling and slower, the rig already records the mean of each period.
 - **A 7.5 s mean** has 1.7 mA.
 
-Which current is not worth a panel stays queezz's call; these are the
-numbers for it.
+queezz chose to have it built from these numbers ("Number, you now know
+better"). In 4.32.0 the Live tab steps Ip aside, and folds the plasma chart,
+while Ip stays within 60 mA of zero through a 5-point median (settings
+`Quiet Within`). The single 10 Hz figure of 25 mA above is a per-reading
+limit. Over a window of thousands of readings the extremes reach further,
+which is why the chart's floor is wider.
 
 ## Not answered
 

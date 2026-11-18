@@ -740,7 +740,7 @@ function plasmaPanel(saved) {
     const end = source.indexOf('    if (document.readyState === "loading")');
     vm.runInContext(source.slice(0, end) +
         'globalThis.panel = {append, draw, drawAll, setupRails, view, recall, '
-        + 'remember, reflectView};\n}());', context);
+        + 'remember, reflectView, quietWithin, channelUnits};\n}());', context);
     const api = context.panel;
     api.recall();
     /* A steady discharge: 0.79 A with two hundredths of noise on it, and a
@@ -1135,4 +1135,84 @@ test('the run file size reads in B, KB, MB and GB, and unknown is a dash', () =>
     assert.equal(fmtBytes(512 * 1024), '512 KB');
     assert.equal(fmtBytes(12.34 * 1048576), '12.3 MB');
     assert.equal(fmtBytes(3 * 1073741824), '3.00 GB');
+});
+
+/* Ip's quiet floor (settings `Quiet Within`, 0.06 A from the quiet record of
+   2026-11-16): a curve whose every reading in the window, through a 5-point
+   median, stays within it of zero steps aside, and a panel left with nothing
+   else to draw gives up its drawing area. */
+function quietPanel() {
+    const made = plasmaPanel();
+    const folds = [];
+    made.canvas.parentNode.classList = {toggle(name, on) { folds.push([name, on]); }};
+    made.api.quietWithin.Ip = 0.06;
+    made.api.channelUnits.Ip = 'A';
+    made.api.view.window = 20;
+    const noise = [0.012, -0.031, 0.004, -0.018, 0.022, -0.009, 0.015, -0.024, 0.006, -0.013];
+    const points = [];
+    for (let i = 0; i < 40; i++) points.push([100 + i * 0.5, noise[i % noise.length]]);
+    made.api.append({to: 120, channels: {Ip: points}});
+    const folded = () => {
+        const last = folds.filter(f => f[0] === 'chart--collapsed').pop();
+        return last ? last[1] : null;
+    };
+    return Object.assign(made, {folds, folded});
+}
+
+test('a quiet Ip alone on its panel steps aside and the panel folds', () => {
+    const {api, canvas, pills, folded} = quietPanel();
+    const drawn = api.draw(canvas, false, null);
+    assert.equal(drawn.quiet, true);
+    assert.equal(drawn.series[0].state, 'quiet');
+    api.drawAll();
+    assert.equal(folded(), true, 'the drawing area was given up');
+    assert.equal(pills.Ip.dataset.curveState, 'quiet');
+    assert.equal(pills.Ip.attrs['aria-pressed'], 'true', 'still switched on');
+    assert.match(pills.Ip.title, /60 mA/);
+});
+
+test('a single glitch reading does not make a quiet Ip a current', () => {
+    // The 2026-11-16 record: single readings about 55 mA low, now and then.
+    const {api, canvas} = quietPanel();
+    api.append({to: 121, channels: {Ip: [[120.5, -0.11], [121, 0.01]]}});
+    assert.equal(api.draw(canvas, false, null).series[0].state, 'quiet');
+});
+
+test('a discharge brings Ip and its panel back at once', () => {
+    const {api, canvas, folded} = quietPanel();
+    api.drawAll();
+    assert.equal(folded(), true);
+    api.append({to: 122, channels: {Ip: [[120.5, 0.12], [121, 0.15], [121.5, 0.18], [122, 0.2]]}});
+    const drawn = api.draw(canvas, false, null);
+    assert.equal(drawn.series[0].state, 'drawn');
+    assert.ok(!drawn.quiet);
+    api.drawAll();
+    assert.equal(folded(), false);
+});
+
+test('a filament current keeps the panel open while Ip is quiet', () => {
+    const {api, canvas, folded} = quietPanel();
+    api.append({to: 120.4, channels: {Ic: [[110.4, 17.1], [114.4, 17.2], [118.4, 17.1], [120.4, 17.2]]}});
+    const drawn = api.draw(canvas, false, null);
+    assert.ok(!drawn.quiet);
+    assert.equal(drawn.series[0].state, 'quiet');
+    assert.equal(drawn.series[1].state, 'drawn');
+    api.drawAll();
+    assert.equal(folded(), false);
+});
+
+test('pressing a quiet Ip shows it anyway', () => {
+    const {api, canvas, pills} = quietPanel();
+    api.drawAll();
+    pills.Ip.listeners.click();
+    assert.equal(api.view.pinned.Ip, true);
+    assert.equal(api.draw(canvas, false, null).series[0].state, 'drawn');
+});
+
+test('a channel with no floor is never quiet', () => {
+    const {api, canvas} = quietPanel();
+    api.quietWithin.Ip = 0;
+    const drawn = api.draw(canvas, false, null);
+    assert.ok(!drawn.quiet);
+    assert.notEqual(drawn.series[0].state, 'quiet');
 });

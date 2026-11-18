@@ -338,6 +338,7 @@ class MainApp(QtCore.QObject, UIWindow):
             names=self.config["ADC Signal Names"],
             gauges=self.config["Ion Gauges"],
             units=self._web_units(),
+            quiet=self._web_quiet(),
         )
         # Where a browser's instruction waits for this thread. The web thread
         # only ever appends to it; every worker call still happens here.
@@ -840,6 +841,16 @@ class MainApp(QtCore.QObject, UIWindow):
         return {
             name: self._WEB_UNITS.get(props[name].conversion_id, "V")
             for name in props
+        }
+
+    def _web_quiet(self):
+        """Each channel's quiet floor (settings `Quiet Within`), for the
+        web view's charts; channels without one are left out."""
+        props = self.config["Adc Channel Properties"]
+        return {
+            name: props[name].quiet_within
+            for name in props
+            if getattr(props[name], "quiet_within", None)
         }
 
     def _for_web(self, text):

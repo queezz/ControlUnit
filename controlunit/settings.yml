@@ -1,4 +1,4 @@
-Settings Version: 1.8
+Settings Version: 1.9
 # Define your local settings in
 # localsettings = os.path.join(os.path.expanduser('~'),'.controlunit', 'settings.yml')
 # ~/.controlunit/settings.yml
@@ -110,6 +110,14 @@ ADC Channels:
     # 0.49603) and on 2026-09-30; the ideal 0.5 read -0.098 A with no plasma.
     Zero Ratio: 0.4961
     Amperes Per Volt: 5.0
+    # The Live tab's chart steps Ip aside while every reading in its window,
+    # through a 5-point median, stays within this many amperes of zero; the
+    # first reading beyond brings it back. Measured with nothing flowing on
+    # 2026-11-16 (docs/diagnostics/2026-11-18-quiet-rig-noise.md): through
+    # the median, quiet Ip stays within 42 mA zeroed and 57 mA un-zeroed at
+    # 10 Hz, 31 mA at 1 s, 22 mA at 10 s; a discharge starts near 0.12 A.
+    # Display only: nothing recorded changes.
+    Quiet Within: 0.06
     Supply Minimum: 4.0
     Supply Maximum: 6.0
   Vhall:

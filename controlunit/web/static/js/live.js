@@ -427,6 +427,13 @@
        drawn, until the mode is Torr or Pa again. */
     var gaugesOff = {};
 
+    /* How near zero each channel's readings stay with nothing there, in its
+       own unit, from settings `Quiet Within` via /api/state; 0 for a channel
+       with no measured floor. Only Ip has one (queezz, 2026-09-07: the current
+       plot with no plasma is "a noisy waste of space"). */
+    var quietWithin = {};
+    var channelUnits = {};
+
     function readGaugesOff(state) {
         var gauges = (state.setpoints || {}).gauges || {};
         var next = {};
@@ -447,6 +454,9 @@
         var zeros = state.zeros || {};
         var shared = sharedUnit(state.channels);
         state.channels.forEach(function (channel) {
+            var within = Number(channel.quiet_within);
+            quietWithin[channel.name] = within > 0 ? within : 0;
+            channelUnits[channel.name] = channel.unit || "";
             var box = root.querySelector('.readout[data-readout="' + channel.name + '"]');
             if (!box) return;
             /* With smoothing on the readout is the median of the newest N
@@ -954,17 +964,28 @@
            exists so one motionless line cannot flatten the others sharing an
            axis, and a curve with an axis to itself shares none. A filament
            current holding steady is exactly what the reader is looking for. */
+        series.forEach(function (s) {
+            s.quiet = s.chosen && s.points.length > 0 && !view.pinned[s.name] && isQuiet(s, logScale);
+        });
         var moving = series.filter(function (s) {
-            return s.chosen && s.points.length && !s.right && !isFlat(s, logScale);
+            return s.chosen && s.points.length && !s.right && !s.quiet && !isFlat(s, logScale);
         });
         series.forEach(function (s) {
             s.state = !s.chosen ? "off"
                 : !s.points.length ? (s.nonpositive ? "nonpositive" : "absent")
+                : s.quiet ? "quiet"
                 : (!s.right && moving.length && !view.pinned[s.name] && isFlat(s, logScale)) ? "flat"
                 : "drawn";
         });
 
         var lines = series.filter(function (s) { return s.state === "drawn"; });
+        /* Nothing left to draw but a quiet curve: the panel gives up its
+           drawing area, as one whose curves are switched off does, and takes
+           it back at the first reading past the floor. */
+        if (!lines.length && series.some(function (s) { return s.state === "quiet"; })) {
+            return {from: from, to: to, count: count, extra: extra, series: series,
+                    quiet: true, lo: null, hi: null, rlo: null, rhi: null};
+        }
         var leftLines = lines.filter(function (s) { return !s.right; });
         var rightLines = lines.filter(function (s) { return s.right; });
 
@@ -1115,6 +1136,23 @@
     var FLAT_DECADES = 0.05;
     var FLAT_FRACTION = 0.02;
 
+    /* A curve with a measured floor whose every reading in the window, seen
+       through a 5-point median, stays within that floor of zero: noise with
+       nothing behind it. The median is for the read glitch the quiet record
+       of 2026-11-16 showed, single Ip readings about 55 mA low every twenty
+       seconds or so, which are not current (docs/diagnostics/
+       2026-11-18-quiet-rig-noise.md). Unlike flat, quiet needs no other curve
+       moving beside it: a quiet curve alone on its panel lets the panel fold. */
+    var QUIET_MEDIAN = 5;
+
+    function isQuiet(s, logScale) {
+        var within = quietWithin[s.name];
+        if (!(within > 0) || logScale || s.right || s.points.length < 3) return false;
+        return median(s.points, QUIET_MEDIAN).every(function (p) {
+            return p[1] === null || Math.abs(p[1]) <= within;
+        });
+    }
+
     function isFlat(s, logScale) {
         if (s.points.length < 3) return false;
         var span = s.hi - s.lo;
@@ -1130,6 +1168,15 @@
        repeated here — it is in that channel's readout card above, which is
        where every number on this page is read. */
     var LEGEND_ASIDE = {off: "off", absent: "no data", nonpositive: "≤0 on log", flat: "flat", drawn: ""};
+    LEGEND_ASIDE.quiet = "quiet";
+
+    /* A floor in the channel's own words: 0.06 A reads as 60 mA. */
+    function fmtFloor(name) {
+        var within = quietWithin[name] || 0;
+        var unit = channelUnits[name] || "";
+        return within < 1 ? "±" + Math.round(within * 1000) + " m" + unit
+            : "±" + within + " " + unit;
+    }
 
     function paintLegend(canvas, drawn) {
         if (!canvas || !drawn) return;
@@ -1140,7 +1187,9 @@
             if (!button) return;
             button.setAttribute("aria-pressed", s.chosen ? "true" : "false");
             button.dataset.curveState = s.state;
-            button.title = s.state === "flat" ? "Show this curve even when flat" : "Show or hide this curve";
+            button.title = s.state === "flat" ? "Show this curve even when flat"
+                : s.state === "quiet" ? "Within " + fmtFloor(s.name) + " of zero, its noise with nothing flowing: show it anyway"
+                : "Show or hide this curve";
             var aside = button.querySelector('[data-role="pen-aside"]');
             if (aside) aside.textContent = s.state === "drawn" && s.nonpositive ? "≤0 omitted" : (LEGEND_ASIDE[s.state] || "");
         });
@@ -1181,7 +1230,8 @@
                 if (child.classList.contains('chart')) {
                     var canvas = child.querySelector('canvas');
                     // A folded panel draws nothing and asks for no height.
-                    if (canvas && anyChosen(canvas) && child.open !== false) active += 1;
+                    if (canvas && anyChosen(canvas) && child.open !== false
+                        && canvas.dataset.quiet !== "1") active += 1;
                     occupied += (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0) + 2 + margins;
                     Array.prototype.forEach.call(child.children, function (part) {
                         if (part.tagName === 'CANVAS') return;
@@ -1206,6 +1256,9 @@
                 return;
             }
             var drawn = draw(canvas, panel[2], panel[3]);
+            var quiet = !!(drawn && drawn.quiet);
+            if (section) section.classList.toggle("chart--collapsed", quiet);
+            canvas.dataset.quiet = quiet ? "1" : "";
             span(panel[1], drawn);
             paintLegend(canvas, drawn);
         });
@@ -1561,7 +1614,7 @@
                 var name = button.dataset.channel;
                 // A deliberate restoration wins over automatic suppression.
                 // Presets return every channel to its normal automatic policy.
-                if (button.dataset.curveState === "flat") {
+                if (button.dataset.curveState === "flat" || button.dataset.curveState === "quiet") {
                     view.channels[name] = true;
                     view.pinned[name] = true;
                 } else {
