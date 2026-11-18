@@ -70,9 +70,30 @@ chart up.
     Operate. No console errors.
 - **Cleanup.** `lab stop`: the process tree gone, 48937 free.
 
-## Not done
+## Deployed, 15:09
 
-Not deployed. The rig is recording, nobody is at it, and it is on 4.31.0.
-Deploying takes queezz's word.
+queezz: "Deploy". Pushed `b0c22a3..383d2f4`. The Pi has no local
+`settings.yml` (only `kikusui.yml`, `neighbours.yml`, `screen.json`,
+`operators.json`, `fence.txt` and backups), so settings version 1.9 masks
+nothing there.
+
+This morning's script did the deploy, with the expected commit and version
+changed:
+- **Before.** The rig was recording `cu_20261118_125740.csv` (787 samples
+  at 10 s) with no outputs live.
+- **Stop.** SIGTERM. The Log ends "the run was stopped first, outputs to
+  zero", and the launcher wrote status 143.
+- **Pull.** `pull --ff-only` to `383d2f4`, and `compileall` was clean.
+- **Restart.** Through `aktest.sh`. The Log said "Restored from the last
+  run: Pd Torr 1e-6, Pu2 Torr 1e-5, sampling 10 s".
+- **Recording again.** Take over from the Pi, then start. The new run is
+  `cu_20261118_150922.csv`.
+- **Ip in `/api/state`:** `quiet_within` 0.06 and a value of −0.017 A (the
+  un-zeroed −17 mA).
+
+**On the rig's own Live page** (read only, emulated 1440x900, nothing set):
+the Ip pill reads `quiet`, Ic `no data`, and the plasma chart is folded to
+its heading over 30 samples in the 5-minute window, with the pressure charts
+directly under it. Telemetry LOST at start: the Kikusui is off.
 
 agent: claude
