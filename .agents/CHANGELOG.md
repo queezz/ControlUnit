@@ -1,3 +1,25 @@
+## 4.33.0 — 2026-11-18
+
+queezz, with a screenshot of the Live tab with two charts folded:
+"Collapsed views still consume a lot of vertical spaces there...". Asked
+which part, he chose both.
+
+- **A folded chart is a slim line.** A chart's heading is 28 px in both
+  states, so it never jumps, and a folded chart leaves a 6 px gap: it costs
+  37 px instead of about 52.
+- **The open charts take the room.** On a screen 1200 px or wider,
+  Operate and Observe share the window's height among the open charts, as
+  Monitor does, but never below each chart's declared height. With every
+  chart open the page is unchanged; with two folded at 1644x940 the third
+  grows from 200 to 441 px. A phone keeps the declared heights.
+- **The quiet Ip fold is a real fold.** 4.32.0's quiet fold kept the
+  legend under the heading and took 90 px. Now the chart folds itself the
+  way a press on its heading does, reading "Ip quiet · last 15 m ...", and
+  opens again at the first reading past the floor.
+  - That fold is not saved (`data-fold-auto`), and a fold you made is never
+    undone.
+  - Opening it by hand shows Ip anyway, until a preset.
+
 ## 4.32.0 — 2026-11-18
 
 - **A quiet Ip steps aside, and the plasma chart folds** (queezz,

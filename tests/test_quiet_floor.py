@@ -61,3 +61,21 @@ def test_the_main_thread_hands_over_only_the_floors_it_has():
     owner = types.SimpleNamespace(config={"Adc Channel Properties": {
         "Ip": props(**{"Quiet Within": 0.06}), "Bu": props()}})
     assert main.MainApp._web_quiet(owner) == {"Ip": 0.06}
+
+
+STATIC = Path(__file__).resolve().parents[1] / "controlunit" / "web" / "static"
+
+
+def test_the_fold_memory_never_keeps_a_fold_the_page_made():
+    # A quiet chart folds itself (live.js marks it `foldAuto`); remembering
+    # that fold would leave the chart shut after a reload with a discharge on.
+    control = (STATIC / "js" / "control.js").read_text(encoding="utf-8")
+    listener = control[control.index('fold.addEventListener("toggle"'):]
+    guard = listener.index('fold.dataset.foldAuto === (fold.open ? "1" : "0")) return;')
+    assert guard < listener.index("localStorage.setItem")
+
+
+def test_a_folded_chart_is_one_slim_line():
+    css = (STATIC / "css" / "controlunit.css").read_text(encoding="utf-8")
+    assert ".chart-head.fold-head { min-height: 28px; padding: 2px 0; }" in css
+    assert ".chart.fold:not([open]) { margin-bottom: 6px; }" in css

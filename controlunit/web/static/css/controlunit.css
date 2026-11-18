@@ -2059,6 +2059,14 @@ select.quick-select:disabled { cursor: not-allowed; }
    never wraps, so a narrow phone shortens the title or the span rather than
    spending a second row on them. */
 .chart-head.fold-head { flex-wrap: nowrap; align-items: center; }
+/* A chart's heading is a slimmer line than a card's, in both states so it
+   never jumps: a folded chart is that line and a small gap, which is all a
+   fold should cost the column (queezz, 2026-11-18: "Collapsed views still
+   consume a lot of vertical spaces there..."). Its Zero buttons are cut to
+   fit inside it. */
+.chart-head.fold-head { min-height: 28px; padding: 2px 0; }
+.chart-head .chart-zero button { padding: 1px 8px; }
+.chart.fold:not([open]) { margin-bottom: 6px; }
 .chart-head.fold-head .fold-name {
   flex: 0 1 auto;
   min-width: 0;

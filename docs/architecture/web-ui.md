@@ -411,11 +411,25 @@ measured, and a readout with a baseline held says `zeroed` beside its name.
     a discharge starts near 0.12 A. The median is for that record's read
     glitch, single readings about 55 mA low. Unlike flat, quiet needs no
     other curve moving: a panel left with nothing to draw but a quiet curve
-    gives up its drawing area, as one whose curves are switched off does,
-    and takes it back at the first reading past the floor. A filament
-    current on the right-hand axis keeps the panel open. Its pill restores
-    it like a flat one's, and Monitor mode gives a folded panel's height to
-    the others. Nothing recorded changes.
+    folds itself (4.33.0) - the same fold a press on its heading makes, one
+    slim line reading "Ip quiet · last 15 m ..." - and opens again at the
+    first reading past the floor. That fold is the page's: it is marked
+    `data-fold-auto`, the fold memory in `control.js` does not keep it, and a
+    fold the reader made is never undone. Opening it by hand, or pressing
+    the pill when the panel is open, shows the quiet curve anyway until a
+    preset. A filament current on the right-hand axis keeps the panel open.
+    Nothing recorded changes.
+
+    **A folded chart is a slim line, and the open charts take its room**
+    (4.33.0; queezz, 2026-11-18: "Collapsed views still consume a lot of
+    vertical spaces there..."). A chart's heading is a 28 px line in both
+    states, so it never jumps, and a folded chart costs that line and a
+    6 px gap: 37 px against about 52 before. On a screen 1200 px or wider,
+    Operate and Observe share the window's height among the open charts as
+    Monitor does, but never draw one lower than its declared height: with
+    every chart open the page is what it was, and with two folded at
+    1644x940 the third grows from 200 to 441 px. A phone keeps the declared
+    heights.
 
     **A panel's height and its backing buffer are two facts, and the code
     reads only the one nothing writes.** `data-height` on each `<canvas>` is

@@ -424,6 +424,9 @@
             markFold(fold);
             fold.addEventListener("toggle", function () {
                 markFold(fold);
+                // A fold the page made itself (a chart whose only curve is
+                // quiet, live.js) is not the reader's choice and is not kept.
+                if (fold.dataset.foldAuto === (fold.open ? "1" : "0")) return;
                 try { window.localStorage.setItem(FOLD_KEY + fold.dataset.fold, fold.open ? "1" : "0"); }
                 catch (e) { /* nothing to remember with; the page works regardless */ }
             });

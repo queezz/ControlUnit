@@ -1140,11 +1140,16 @@ test('the run file size reads in B, KB, MB and GB, and unknown is a dash', () =>
 /* Ip's quiet floor (settings `Quiet Within`, 0.06 A from the quiet record of
    2026-11-16): a curve whose every reading in the window, through a 5-point
    median, stays within it of zero steps aside, and a panel left with nothing
-   else to draw gives up its drawing area. */
+   else to draw folds itself - a real fold, one slim line - which the page
+   never remembers and opens again at the first reading past the floor. */
 function quietPanel() {
     const made = plasmaPanel();
-    const folds = [];
-    made.canvas.parentNode.classList = {toggle(name, on) { folds.push([name, on]); }};
+    const section = made.canvas.parentNode;
+    Object.assign(section, {
+        tagName: 'DETAILS', open: true, dataset: {fold: 'chart-plasma'}, listeners: {},
+        addEventListener(event, fn) { this.listeners[event] = fn; }
+    });
+    made.api.setupRails();          // the fold's own listener, now it is a fold
     made.api.quietWithin.Ip = 0.06;
     made.api.channelUnits.Ip = 'A';
     made.api.view.window = 20;
@@ -1152,23 +1157,32 @@ function quietPanel() {
     const points = [];
     for (let i = 0; i < 40; i++) points.push([100 + i * 0.5, noise[i % noise.length]]);
     made.api.append({to: 120, channels: {Ip: points}});
-    const folded = () => {
-        const last = folds.filter(f => f[0] === 'chart--collapsed').pop();
-        return last ? last[1] : null;
-    };
-    return Object.assign(made, {folds, folded});
+    // A press on the heading: the browser flips `open`, then fires toggle.
+    const press = () => { section.open = !section.open; section.listeners.toggle(); };
+    return Object.assign(made, {section, press});
 }
 
+const discharge = [[120.5, 0.12], [121, 0.15], [121.5, 0.18], [122, 0.2]];
+
 test('a quiet Ip alone on its panel steps aside and the panel folds', () => {
-    const {api, canvas, pills, folded} = quietPanel();
+    const {api, canvas, pills, section, span} = quietPanel();
     const drawn = api.draw(canvas, false, null);
     assert.equal(drawn.quiet, true);
     assert.equal(drawn.series[0].state, 'quiet');
     api.drawAll();
-    assert.equal(folded(), true, 'the drawing area was given up');
+    assert.equal(section.open, false, 'folded, the same fold a press makes');
+    assert.equal(section.dataset.foldAuto, '0', 'and marked as the page\'s own');
+    assert.match(span.textContent, /^Ip quiet · last 20/);
     assert.equal(pills.Ip.dataset.curveState, 'quiet');
-    assert.equal(pills.Ip.attrs['aria-pressed'], 'true', 'still switched on');
     assert.match(pills.Ip.title, /60 mA/);
+});
+
+test('the page\'s own fold is not taken for a press', () => {
+    const {api, section} = quietPanel();
+    api.drawAll();
+    section.listeners.toggle();     // the toggle event of the page's own fold
+    assert.equal(section.open, false);
+    assert.ok(!api.view.pinned.Ip, 'nothing pinned');
 });
 
 test('a single glitch reading does not make a quiet Ip a current', () => {
@@ -1178,30 +1192,52 @@ test('a single glitch reading does not make a quiet Ip a current', () => {
     assert.equal(api.draw(canvas, false, null).series[0].state, 'quiet');
 });
 
-test('a discharge brings Ip and its panel back at once', () => {
-    const {api, canvas, folded} = quietPanel();
+test('a discharge opens the fold again at once', () => {
+    const {api, canvas, section} = quietPanel();
     api.drawAll();
-    assert.equal(folded(), true);
-    api.append({to: 122, channels: {Ip: [[120.5, 0.12], [121, 0.15], [121.5, 0.18], [122, 0.2]]}});
+    assert.equal(section.open, false);
+    api.append({to: 122, channels: {Ip: discharge}});
     const drawn = api.draw(canvas, false, null);
     assert.equal(drawn.series[0].state, 'drawn');
-    assert.ok(!drawn.quiet);
     api.drawAll();
-    assert.equal(folded(), false);
+    assert.equal(section.open, true);
+    assert.equal(section.dataset.foldAuto, '1');
+});
+
+test('a fold the reader made is never undone by a discharge', () => {
+    const {api, section} = quietPanel();
+    api.append({to: 122, channels: {Ip: discharge}});
+    api.drawAll();
+    assert.equal(section.open, true);
+    section.open = false; section.listeners.toggle();   // the reader folds it
+    api.drawAll();
+    assert.equal(section.open, false, 'still folded: the reader chose it');
 });
 
 test('a filament current keeps the panel open while Ip is quiet', () => {
-    const {api, canvas, folded} = quietPanel();
+    const {api, canvas, section} = quietPanel();
     api.append({to: 120.4, channels: {Ic: [[110.4, 17.1], [114.4, 17.2], [118.4, 17.1], [120.4, 17.2]]}});
     const drawn = api.draw(canvas, false, null);
     assert.ok(!drawn.quiet);
     assert.equal(drawn.series[0].state, 'quiet');
     assert.equal(drawn.series[1].state, 'drawn');
     api.drawAll();
-    assert.equal(folded(), false);
+    assert.equal(section.open, true);
 });
 
-test('pressing a quiet Ip shows it anyway', () => {
+test('opening a quiet fold by hand shows Ip anyway', () => {
+    const {api, canvas, section, press} = quietPanel();
+    api.drawAll();
+    assert.equal(section.open, false);
+    press();
+    assert.equal(section.open, true);
+    assert.equal(api.view.pinned.Ip, true);
+    assert.equal(api.draw(canvas, false, null).series[0].state, 'drawn');
+    api.drawAll();
+    assert.equal(section.open, true, 'and it stays open');
+});
+
+test('pressing a quiet Ip pill shows it anyway', () => {
     const {api, canvas, pills} = quietPanel();
     api.drawAll();
     pills.Ip.listeners.click();
@@ -1210,9 +1246,11 @@ test('pressing a quiet Ip shows it anyway', () => {
 });
 
 test('a channel with no floor is never quiet', () => {
-    const {api, canvas} = quietPanel();
+    const {api, canvas, section} = quietPanel();
     api.quietWithin.Ip = 0;
     const drawn = api.draw(canvas, false, null);
     assert.ok(!drawn.quiet);
     assert.notEqual(drawn.series[0].state, 'quiet');
+    api.drawAll();
+    assert.equal(section.open, true);
 });

@@ -806,11 +806,20 @@
      * 20260907-023785d0). At ratio 1 the same code was stable, which is why
      * the rig's own screen and every browser on this Windows box were fine.
      */
-    var monitorPlotHeight = null;
+    /* The height the open charts share out of the window, or null. Monitor
+       gives the charts the whole window at no less than 140px each. Operate
+       and Observe on a wide screen do the same but never draw a chart lower
+       than its own declared height: a fold gives its room to the charts
+       still open, and with every chart open the page is what it always was
+       (queezz, 2026-11-18: "Collapsed views still consume a lot of vertical
+       spaces there..."). A phone keeps the declared heights. */
+    var plotHeight = null;
+    var FILL_WIDE = "(min-width: 1200px)";
     function logicalHeight(canvas) {
-        if (mode === "monitor" && monitorPlotHeight !== null) return monitorPlotHeight;
         var declared = Number(canvas.dataset.height);
-        return (isFinite(declared) && declared > 0) ? declared : 220;
+        declared = (isFinite(declared) && declared > 0) ? declared : 220;
+        if (plotHeight === null) return declared;
+        return mode === "monitor" ? plotHeight : Math.max(declared, plotHeight);
     }
 
     /* The drawing context and the panel's size in CSS pixels, or null when
@@ -1218,9 +1227,14 @@
         });
     }
 
+    function fills() {
+        if (mode === "monitor") return true;
+        return Boolean(window.matchMedia && window.matchMedia(FILL_WIDE).matches);
+    }
+
     function drawAll() {
-        monitorPlotHeight = null;
-        if (mode === "monitor" && root.querySelector('.page-main')) {
+        plotHeight = null;
+        if (fills() && root.querySelector('.page-main')) {
             var main = root.querySelector('.page-main');
             var occupied = 0, active = 0;
             Array.prototype.forEach.call(main.children, function (child) {
@@ -1230,8 +1244,7 @@
                 if (child.classList.contains('chart')) {
                     var canvas = child.querySelector('canvas');
                     // A folded panel draws nothing and asks for no height.
-                    if (canvas && anyChosen(canvas) && child.open !== false
-                        && canvas.dataset.quiet !== "1") active += 1;
+                    if (canvas && anyChosen(canvas) && child.open !== false) active += 1;
                     occupied += (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0) + 2 + margins;
                     Array.prototype.forEach.call(child.children, function (part) {
                         if (part.tagName === 'CANVAS') return;
@@ -1240,7 +1253,7 @@
                     });
                 } else occupied += child.getBoundingClientRect().height + margins;
             });
-            if (active) monitorPlotHeight = Math.max(140, Math.floor((window.innerHeight - parseFloat(getComputedStyle(document.querySelector(".container")).paddingTop) - 20 - occupied) / active));
+            if (active) plotHeight = Math.max(140, Math.floor((window.innerHeight - parseFloat(getComputedStyle(document.querySelector(".container")).paddingTop) - 20 - occupied) / active));
         }
         [[plasma, "span-plasma", false, PLASMA_SCALES[view.plasmaScale] || null],
          [gauges, "span-ig", view.pressureGroup === "vessel" ? view.upstreamLog : view.igLog, null],
@@ -1256,13 +1269,53 @@
                 return;
             }
             var drawn = draw(canvas, panel[2], panel[3]);
-            var quiet = !!(drawn && drawn.quiet);
-            if (section) section.classList.toggle("chart--collapsed", quiet);
-            canvas.dataset.quiet = quiet ? "1" : "";
+            quietFold(section, drawn);
             span(panel[1], drawn);
             paintLegend(canvas, drawn);
         });
         reflectPreset();
+    }
+
+    /* A panel with nothing to draw but a quiet curve folds itself - the same
+       fold a press on its heading makes, one slim line - and opens again at
+       the first reading past the floor. That fold is the page's, never the
+       reader's: it is not remembered, and a fold the reader made is never
+       undone here. Opening it by hand shows the quiet curve anyway, which is
+       what pressing its pill does. `foldAuto` names the state the page last
+       set, so the fold memory in control.js and the listener below can tell
+       the page's own toggle from a press. */
+    function quietFold(section, drawn) {
+        if (!section || section.tagName !== "DETAILS") return;
+        var quiet = Boolean(drawn && drawn.quiet);
+        if (quiet && section.open) {
+            section.dataset.quietFold = "folded";
+            setFoldByPage(section, false);
+        } else if (!quiet && section.dataset.quietFold === "folded") {
+            section.dataset.quietFold = "";
+            if (!section.open) setFoldByPage(section, true);
+        }
+    }
+
+    function setFoldByPage(section, open) {
+        section.dataset.foldAuto = open ? "1" : "0";
+        section.open = open;
+    }
+
+    function watchQuietFold(canvas) {
+        var section = canvas && canvas.parentNode;
+        if (!section || section.tagName !== "DETAILS" || !section.addEventListener) return;
+        section.addEventListener("toggle", function () {
+            if (section.dataset.foldAuto === (section.open ? "1" : "0")) return;
+            delete section.dataset.foldAuto;
+            if (section.open && section.dataset.quietFold === "folded") {
+                section.dataset.quietFold = "";
+                channelsOf(canvas).forEach(function (name) {
+                    if (quietWithin[name] > 0) view.pinned[name] = true;
+                });
+                remember();
+            }
+            drawAll();
+        });
     }
 
     function span(role, drawn) {
@@ -1274,6 +1327,14 @@
         var tail = fast ? " · fast" : "";
         if (view.smooth) tail = " · median " + view.smooth + tail;
         if (!drawn) return "Click a pill to show a curve";
+        if (drawn.quiet) {
+            var quietNames = drawn.series.filter(function (s) { return s.state === "quiet"; })
+                .map(function (s) { return s.name; }).join(", ");
+            var rest = {};
+            Object.keys(drawn).forEach(function (key) { rest[key] = drawn[key]; });
+            rest.quiet = false;
+            return quietNames + " quiet \u00b7 " + spanLabel(rest);
+        }
         var seconds = Math.max(0, Math.round(drawn.to - drawn.from));
         /* `samples` means ADC samples and only those. The cathode supply is
            read over the LAN on its own clock at its own cadence, so its
@@ -1601,6 +1662,7 @@
     }
 
     function setupRails() {
+        [plasma, gauges, baratrons].forEach(watchQuietFold);
         /* The window cuts what this browser already holds. Nothing is asked
            of the rig: the samples are here, and Full is all of them. */
         var cut = displayTool("window");
