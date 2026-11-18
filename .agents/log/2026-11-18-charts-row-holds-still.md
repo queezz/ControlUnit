@@ -55,6 +55,24 @@ At every step the row was at y 267 with height 31, the grouping buttons at
 x 490/568, and the switches at x 649/804/900 with widths 149/90/81. No
 console errors. `lab stop` left 48937 free.
 
+## Deployed, 19:21
+
+queezz: "Deploy". Pushed `af7977e..8748b5e`, and the deploy used the same
+script as before:
+- **Before.** The rig was recording `cu_20261118_180445.csv` (462 samples
+  at 10 s) with no outputs live.
+- **Stop.** SIGTERM through the graceful stop, status 143.
+- **Pull.** To `8748b5e`, and `compileall` was clean.
+- **Restart.** The gauges and sampling were restored.
+- **Recording again.** The new run is `cu_20261118_192212.csv` at 10 s.
+
+**The rig's own Live page at 1647x920** (read only):
+- v4.34.1;
+- the Charts row at y 267, above the charts;
+- the switches at x 649/804/900, widths 149/90/81, the same as the scratch
+  walk;
+- Plasma current dimmed and `quiet`, Ion gauges and Baratrons lit and open.
+
 ## Still true
 
 When a discharge lights, the quiet plasma chart opens on its own above the
