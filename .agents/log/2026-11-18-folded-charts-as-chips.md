@@ -65,8 +65,22 @@ you know a good enough reference which worked for us."
     lines, no sideways scroll.
   - No console errors. `lab stop` left 48937 free.
 
-## Not done
+## Deployed, 18:04
 
-Not deployed. The rig is on 4.33.0 and recording.
+queezz: "Push and deploy". Pushed `1e22a77..af7977e`, and the deploy used
+the same script as before:
+- **Before.** The rig was recording `cu_20261118_172457.csv` (236 samples
+  at 10 s) with no outputs live.
+- **Stop.** SIGTERM through the graceful stop, status 143.
+- **Pull.** To `af7977e`, and `compileall` was clean.
+- **Restart.** The gauges and 10 s sampling were restored.
+- **Recording again.** Take over from the Pi, then start. The new run is
+  `cu_20261118_180445.csv`. Ip `quiet_within` 0.06, reading −0.013 A.
+
+**The rig's own Live page at 2000x1037** (read only):
+- v4.34.0;
+- the Charts row reads "Charts By gauge By vessel Plasma current quiet";
+- the ion-gauge and Baratron charts are open at 200 px each;
+- the column ends at 886 of 1037 px.
 
 agent: claude
