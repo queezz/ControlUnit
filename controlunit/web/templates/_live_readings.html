@@ -150,26 +150,32 @@
            in the window, or is flat says so beside its own name; its last
            value is in its readout card above, which is where every value on
            this page is read, so the legend does not print a second copy. #}
-        {% for id, title, channels, height, span in panels %}
-        {% if id == "chart-ig" %}
-        {# Not in `.sets`: grouping the plots changes only what this browser
+        {# The Charts row heads the charts, above all of them, so nothing a
+           chart does can move it: folding one, pressing a chip, or a quiet
+           Ip folding the plasma chart by itself (queezz, 2026-11-18, when it
+           stood between the plasma chart and the pressure charts and moved
+           with the first: "No JUMPING UI is my old and strong rule in the
+           fleet!"). It holds how the pressure charts are grouped and one
+           switch per chart, lit while it is shown; a folded chart has left
+           the column ("the collapsed bar still eats space"). live.js builds
+           the switches.
+
+           Not in `.sets`: grouping the plots changes only what this browser
            draws, so the rig's gate must never switch it off. It was there
            from 4.9.0 until queezz, watching a student's run without control
            (2026-11-13): "I should be able to adjust what and how I see
            without taking over". #}
-        {# The Charts row: how the pressure charts are grouped, and a chip for
-           each chart that is folded, which has left the column (queezz,
-           2026-11-18: "the collapsed bar still eats space"). live.js fills
-           the chips; empty, their group is hidden and takes no room. #}
+        {% for id, title, channels, height, span in panels if id == "chart-ig" %}
         <div class="pressure-grouping">
             <span class="muted">Charts</span>
             <span class="grouping-choice" role="group" aria-label="Pressure plot grouping">
             <button type="button" class="choice" data-pressure-group="gauge" aria-pressed="true">By gauge</button>
             <button type="button" class="choice" data-pressure-group="vessel" aria-pressed="false">By vessel</button>
             </span>
-            <span class="chart-chips" data-role="chart-chips" role="group" aria-label="Folded charts" hidden></span>
+            <span class="chart-chips" data-role="chart-chips" role="group" aria-label="Charts shown" hidden></span>
         </div>
-        {% endif %}
+        {% endfor %}
+        {% for id, title, channels, height, span in panels %}
         {# A chart folds on its own head, which already carried everything a
            folded one owes the reader: the panel's title and the span line
            that says how much history is drawn. The Zero buttons stay on that

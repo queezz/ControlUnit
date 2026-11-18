@@ -84,7 +84,7 @@ def test_a_folded_chart_leaves_the_column_for_a_chip():
     row = page[page.index('<div class="pressure-grouping">'):]
     row = row[:row.index("</div>")]
     assert '<span class="muted">Charts</span>' in row
-    assert 'data-role="chart-chips"' in row and "hidden" in row
+    assert 'data-role="chart-chips"' in row and 'aria-label="Charts shown"' in row
     # The grouping switch keeps its own group, so a screen reader still hears
     # what By gauge and By vessel group.
     assert 'aria-label="Pressure plot grouping"' in row
@@ -96,3 +96,30 @@ def test_operate_and_observe_keep_the_declared_chart_size():
     assert 'return (mode === "monitor" && plotHeight !== null) ? plotHeight : declared;' in live
     fit = live[live.index("function fitHeight() {"):]
     assert fit.index('if (mode !== "monitor") return null;') < fit.index("getBoundingClientRect")
+
+
+def test_the_charts_row_heads_every_chart(tmp_path):
+    # It stood between the plasma chart and the pressure charts and moved
+    # with the first whenever it folded (queezz, 2026-11-18: "No JUMPING UI
+    # is my old and strong rule in the fleet!"). Above all of them, nothing
+    # a chart does can move it.
+    from controlunit.web.neighbours import NeighbourBoard
+    from controlunit.web.server import create_app
+
+    status = RigStatus(names=["Ip", "Pu", "Pd", "Bu", "Bd"])
+    app = create_app(status=status, board=NeighbourBoard(home=tmp_path / "nowhere"))
+    page = app.test_client().get("/").get_data(as_text=True)
+    row = page.index('<div class="pressure-grouping">')
+    charts = [page.index('id="%s"' % chart) for chart in ("chart-plasma", "chart-ig", "chart-bar")]
+    assert row < min(charts)
+    assert page.count('<div class="pressure-grouping">') == 1
+
+
+def test_the_chart_switches_are_built_once_and_only_repainted():
+    # Chips that came and went made their neighbours slide; a switch per
+    # chart that only changes its own state moves nothing.
+    live = (STATIC / "js" / "live.js").read_text(encoding="utf-8")
+    paint = live[live.index("function paintChartChips() {"):]
+    paint = paint[:paint.index("\n    }\n")]
+    assert "if (names !== switchNames)" in paint
+    assert 'button.setAttribute("aria-pressed", section.open ? "true" : "false");' in paint

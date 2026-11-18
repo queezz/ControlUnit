@@ -1,3 +1,18 @@
+## 4.34.1 — 2026-11-18
+
+- **The Charts row no longer moves.** queezz, with three screenshots of
+  4.34.0: "control string now jumps below plasma current, but others go
+  below it. No JUMPING UI is my old and strong rule in the fleet!". The
+  row stood between the plasma chart and the pressure charts, so folding
+  the plasma chart moved it, and its chips came and went, so the others
+  slid sideways.
+  - The row now heads the charts, above all three.
+  - Each chart has a fixed switch: lit while the chart is shown, dimmed
+    while it is folded, with `quiet` in a reserved space.
+  - Pressing a switch folds or opens its chart where it stands.
+  - Through every fold, switch press and quiet fold, the row and every
+    switch hold their position and width.
+
 ## 4.34.0 — 2026-11-18
 
 queezz, on 4.33.0 at his big screen: "the collapsed bar still eats space,

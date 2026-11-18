@@ -77,6 +77,15 @@ How this file is kept:
   his screen size (2000x1037) and the laptop's (1366x768) before
   deploying.
 
+- **No control may move when another is pressed: measure it.** queezz:
+  "No JUMPING UI is my old and strong rule in the fleet!" (2026-11-18).
+  4.34.0 put the Charts row under the plasma chart, so it moved whenever
+  that chart folded, and its chips came and went, so their neighbours slid
+  sideways. Before calling a control row done, run the cookbook's
+  stable-address sampling. Read every control's x, y and width through
+  each state the change creates (fold, unfold, the page's own automatic
+  changes), and require them identical.
+
 ## Reaching the rig and the network
 
 - **The Pi is reached from the PowerShell tool.** Windows OpenSSH has the

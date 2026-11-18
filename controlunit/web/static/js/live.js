@@ -1309,14 +1309,19 @@
         section.open = open;
     }
 
-    /* A folded chart leaves the column and waits as a chip in the Charts
-       row, the way a hidden readout waits as a pill (queezz, 2026-11-18:
-       "the collapsed bar still eats space"; he chose chips). The chip names
-       the chart as its heading does today, says `quiet` when the page folded
-       it for a quiet curve, and opens it again where it stood. The row is
-       rebuilt only when the set of folded charts changes, so a chip under
-       the pointer or the keyboard is not replaced on every poll. */
-    var chipsShown = null;
+    /* A folded chart leaves the column; the Charts row holds one switch per
+       chart, always there and always in the same place, lit while the chart
+       is shown and dimmed while it is folded, with `quiet` beside it when
+       the page folded it for a quiet curve (queezz, 2026-11-18: "the
+       collapsed bar still eats space", then, of a row that moved with the
+       charts: "No JUMPING UI is my old and strong rule in the fleet!").
+       Chips that came and went made their neighbours slide; a switch that
+       only changes its own state moves nothing. A press folds or opens the
+       chart where it stands, the same fold its heading makes. The switches
+       are built once per set of names (By gauge and By vessel rename the
+       pressure charts) and otherwise only repainted, so a switch under the
+       pointer or the keyboard is never replaced. */
+    var switchNames = null;
 
     function chartName(section) {
         var head = section.querySelector(".fold-name");
@@ -1330,42 +1335,57 @@
         }).filter(function (section) { return section && section.tagName === "DETAILS"; });
     }
 
+    function chartSwitch(section) {
+        var button = document.createElement("button");
+        button.type = "button";
+        button.className = "pen chart-chip";
+        button.dataset.unfold = section.dataset.fold;
+        var name = document.createElement("span");
+        name.textContent = chartName(section);
+        var aside = document.createElement("span");
+        aside.className = "pen-aside";
+        aside.dataset.role = "chart-aside";
+        button.appendChild(name);
+        button.appendChild(aside);
+        button.addEventListener("click", function () {
+            section.open = !section.open;
+        });
+        return button;
+    }
+
     function paintChartChips() {
         var host = root.querySelector('[data-role="chart-chips"]');
         if (!host) return;
-        var folded = chartSections().filter(function (section) { return !section.open; });
-        var key = folded.map(function (section) {
-            return section.dataset.fold + (section.dataset.quietFold === "folded" ? ":q" : "") + "=" + chartName(section);
-        }).join("|");
-        if (key === chipsShown) return;
-        chipsShown = key;
-        while (host.firstChild) host.removeChild(host.firstChild);
-        folded.forEach(function (section) {
-            var chip = document.createElement("button");
-            chip.type = "button";
-            chip.className = "pen chart-chip";
-            chip.dataset.unfold = section.dataset.fold;
-            chip.setAttribute("aria-pressed", "false");
-            var quiet = section.dataset.quietFold === "folded";
-            chip.title = "Show the " + chartName(section) + " chart again";
-            chip.setAttribute("aria-label", chip.title + (quiet ? "; its curve is quiet" : ""));
-            var name = document.createElement("span");
-            name.textContent = chartName(section);
-            chip.appendChild(name);
-            if (quiet) {
-                var aside = document.createElement("span");
-                aside.className = "pen-aside";
-                aside.textContent = "quiet";
-                chip.appendChild(aside);
-            }
-            chip.addEventListener("click", function () {
-                section.open = true;
-                var head = section.querySelector("summary");
-                if (head && head.focus) head.focus({preventScroll: true});
+        var sections = chartSections();
+        var names = sections.map(chartName).join("|");
+        if (names !== switchNames) {
+            switchNames = names;
+            while (host.firstChild) host.removeChild(host.firstChild);
+            sections.forEach(function (section) { host.appendChild(chartSwitch(section)); });
+        }
+        host.hidden = sections.length === 0;
+        sections.forEach(function (section) {
+            var button = host.querySelector('[data-unfold="' + section.dataset.fold + '"]');
+            if (!button) return;
+            var quiet = section.dataset.quietFold === "folded" && !section.open;
+            var name = chartName(section);
+            button.setAttribute("aria-pressed", section.open ? "true" : "false");
+            button.title = (section.open ? "Fold the " : "Show the ") + name + " chart";
+            button.setAttribute("aria-label", button.title + (quiet ? "; its curve is quiet" : ""));
+            // The word keeps its room whether it shows or not, on the switch of
+            // a chart that has a quiet floor at all, so the switch never
+            // changes width and its neighbours never move.
+            var aside = button.querySelector('[data-role="chart-aside"]');
+            var canvas = section.querySelector("canvas");
+            var floored = canvas && channelsOf(canvas).some(function (name) {
+                return quietWithin[name] > 0;
             });
-            host.appendChild(chip);
+            if (aside) {
+                aside.textContent = "quiet";
+                aside.hidden = !floored;
+                aside.style.visibility = quiet ? "visible" : "hidden";
+            }
         });
-        host.hidden = folded.length === 0;
     }
 
     function watchQuietFold(canvas) {
@@ -1383,10 +1403,11 @@
             }
             drawAll();
             // Folded by a press on its heading, the chart has left the column:
-            // the chip that brings it back takes the focus.
+            // its switch in the Charts row takes the focus, unless the press
+            // was on that switch, which keeps it.
             if (!section.open) {
-                var chip = root.querySelector('[data-role="chart-chips"] [data-unfold="' + section.dataset.fold + '"]');
-                if (chip && chip.focus) chip.focus({preventScroll: true});
+                var button = root.querySelector('[data-role="chart-chips"] [data-unfold="' + section.dataset.fold + '"]');
+                if (button && button.focus && document.activeElement !== button) button.focus({preventScroll: true});
             }
         });
     }

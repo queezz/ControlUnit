@@ -420,16 +420,27 @@ measured, and a readout with a baseline held says `zeroed` beside its name.
     preset. A filament current on the right-hand axis keeps the panel open.
     Nothing recorded changes.
 
-    **A folded chart leaves the column and waits as a chip** (4.34.0;
-    queezz, 2026-11-18: "Collapsed views still consume a lot of vertical
-    spaces there...", then "the collapsed bar still eats space"; he chose
-    chips). The row above the pressure charts is the Charts row: the
-    By gauge / By vessel switch, and one chip per folded chart, named as its
-    heading names it and saying `quiet` when the page folded it for a quiet
-    curve. Pressing a chip opens the chart where it stood and gives its
-    heading the focus. Folding a chart by its heading gives the focus to its
-    chip. The fold is still the `<details>` fold, remembered as before, so a
-    fold costs no row at all. A chart's heading stays the 28 px line of
+    **A folded chart leaves the column; the Charts row holds a switch per
+    chart** (4.34.0, made still in 4.34.1; queezz, 2026-11-18: "the
+    collapsed bar still eats space", then "No JUMPING UI is my old and strong
+    rule in the fleet!").
+    - **Place.** The Charts row heads the charts, above all three, so
+      nothing a chart does can move it.
+    - **Contents.** It holds the By gauge / By vessel switch and one switch
+      per chart, named as its heading names it. A switch is lit while the
+      chart is shown and dimmed while it is folded, with `quiet` beside it
+      when the page folded it for a quiet curve. That word keeps its room
+      whether it shows or not, so the switch never changes width.
+    - **Pressing.** A switch folds or opens the chart where it stands, the
+      same `<details>` fold its heading makes, remembered as before.
+      Folding by the heading gives the focus to the chart's switch.
+    - **History.** 4.34.0 put the row between the plasma chart and the
+      pressure charts, so it moved whenever the plasma chart folded, and
+      its chips came and went, so their neighbours slid sideways. Through
+      every fold, switch press and quiet fold the row now stands at one y
+      and every switch at one x and width (measured at 1647x920).
+
+    A fold costs no row at all. A chart's heading stays the 28 px line of
     4.33.0 in both states.
 
     **Chart heights.** Operate and Observe draw every chart at its declared
