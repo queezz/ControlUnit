@@ -75,7 +75,24 @@ def test_the_fold_memory_never_keeps_a_fold_the_page_made():
     assert guard < listener.index("localStorage.setItem")
 
 
-def test_a_folded_chart_is_one_slim_line():
+def test_a_folded_chart_leaves_the_column_for_a_chip():
+    # queezz, 2026-11-18: "the collapsed bar still eats space"; he chose chips.
     css = (STATIC / "css" / "controlunit.css").read_text(encoding="utf-8")
     assert ".chart-head.fold-head { min-height: 28px; padding: 2px 0; }" in css
-    assert ".chart.fold:not([open]) { margin-bottom: 6px; }" in css
+    assert ".chart.fold:not([open]) { display: none; }" in css
+    page = (STATIC.parent / "templates" / "_live_readings.html").read_text(encoding="utf-8")
+    row = page[page.index('<div class="pressure-grouping">'):]
+    row = row[:row.index("</div>")]
+    assert '<span class="muted">Charts</span>' in row
+    assert 'data-role="chart-chips"' in row and "hidden" in row
+    # The grouping switch keeps its own group, so a screen reader still hears
+    # what By gauge and By vessel group.
+    assert 'aria-label="Pressure plot grouping"' in row
+
+
+def test_operate_and_observe_keep_the_declared_chart_size():
+    # queezz: "The plot view size was correct before your last commits".
+    live = (STATIC / "js" / "live.js").read_text(encoding="utf-8")
+    assert 'return (mode === "monitor" && plotHeight !== null) ? plotHeight : declared;' in live
+    fit = live[live.index("function fitHeight() {"):]
+    assert fit.index('if (mode !== "monitor") return null;') < fit.index("getBoundingClientRect")

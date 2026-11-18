@@ -67,6 +67,16 @@ How this file is kept:
     controller, the second operator is `curl --interface 127.0.0.2`
     against the same port.
 
+- **A complaint about space is not a request for new sizing rules.** On
+  2026-11-18 "collapsed views still consume a lot of vertical space" got
+  charts that grew into the freed room (4.33.0), which ran past the window
+  on queezz's big screen. A fit-to-window then shrank all three charts to
+  147 px. What he wanted was the fold to cost nothing; the sizes were right
+  already ("The plot view size was correct before your last commits").
+  Change the part named, keep what worked as the reference, and measure at
+  his screen size (2000x1037) and the laptop's (1366x768) before
+  deploying.
+
 ## Reaching the rig and the network
 
 - **The Pi is reached from the PowerShell tool.** Windows OpenSSH has the

@@ -2066,7 +2066,12 @@ select.quick-select:disabled { cursor: not-allowed; }
    fit inside it. */
 .chart-head.fold-head { min-height: 28px; padding: 2px 0; }
 .chart-head .chart-zero button { padding: 1px 8px; }
-.chart.fold:not([open]) { margin-bottom: 6px; }
+/* A folded chart is not in the column at all: it waits as a chip in the
+   Charts row (live.js, `paintChartChips`), so a fold costs no row. */
+.chart.fold:not([open]) { display: none; }
+.grouping-choice { display: inline-flex; gap: 6px; }
+.chart-chips { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-left: 6px; }
+.chart-chips[hidden] { display: none; }
 .chart-head.fold-head .fold-name {
   flex: 0 1 auto;
   min-width: 0;

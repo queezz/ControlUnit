@@ -157,10 +157,17 @@
            from 4.9.0 until queezz, watching a student's run without control
            (2026-11-13): "I should be able to adjust what and how I see
            without taking over". #}
-        <div class="pressure-grouping" role="group" aria-label="Pressure plot grouping">
-            <span class="muted">Pressure plots</span>
+        {# The Charts row: how the pressure charts are grouped, and a chip for
+           each chart that is folded, which has left the column (queezz,
+           2026-11-18: "the collapsed bar still eats space"). live.js fills
+           the chips; empty, their group is hidden and takes no room. #}
+        <div class="pressure-grouping">
+            <span class="muted">Charts</span>
+            <span class="grouping-choice" role="group" aria-label="Pressure plot grouping">
             <button type="button" class="choice" data-pressure-group="gauge" aria-pressed="true">By gauge</button>
             <button type="button" class="choice" data-pressure-group="vessel" aria-pressed="false">By vessel</button>
+            </span>
+            <span class="chart-chips" data-role="chart-chips" role="group" aria-label="Folded charts" hidden></span>
         </div>
         {% endif %}
         {# A chart folds on its own head, which already carried everything a

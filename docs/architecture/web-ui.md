@@ -420,16 +420,28 @@ measured, and a readout with a baseline held says `zeroed` beside its name.
     preset. A filament current on the right-hand axis keeps the panel open.
     Nothing recorded changes.
 
-    **A folded chart is a slim line, and the open charts take its room**
-    (4.33.0; queezz, 2026-11-18: "Collapsed views still consume a lot of
-    vertical spaces there..."). A chart's heading is a 28 px line in both
-    states, so it never jumps, and a folded chart costs that line and a
-    6 px gap: 37 px against about 52 before. On a screen 1200 px or wider,
-    Operate and Observe share the window's height among the open charts as
-    Monitor does, but never draw one lower than its declared height: with
-    every chart open the page is what it was, and with two folded at
-    1644x940 the third grows from 200 to 441 px. A phone keeps the declared
-    heights.
+    **A folded chart leaves the column and waits as a chip** (4.34.0;
+    queezz, 2026-11-18: "Collapsed views still consume a lot of vertical
+    spaces there...", then "the collapsed bar still eats space"; he chose
+    chips). The row above the pressure charts is the Charts row: the
+    By gauge / By vessel switch, and one chip per folded chart, named as its
+    heading names it and saying `quiet` when the page folded it for a quiet
+    curve. Pressing a chip opens the chart where it stood and gives its
+    heading the focus. Folding a chart by its heading gives the focus to its
+    chip. The fold is still the `<details>` fold, remembered as before, so a
+    fold costs no row at all. A chart's heading stays the 28 px line of
+    4.33.0 in both states.
+
+    **Chart heights.** Operate and Observe draw every chart at its declared
+    height, the size queezz confirmed ("The plot view size was correct
+    before your last commits"). 4.33.0 grew the open charts into the room
+    that folds left, and on his big screen they ran past the window.
+    Fitting them to the window instead was tried and dropped: it shrank all
+    three charts to 147 px on a 2000x1037 screen and still did not fit a
+    1366x768 laptop. Monitor alone shares the window among the open
+    charts, at no less than 140 px each. Its height is now measured, not
+    summed: the column's laid-out extent less its canvases, which ends it
+    inside the window at both sizes.
 
     **A panel's height and its backing buffer are two facts, and the code
     reads only the one nothing writes.** `data-height` on each `<canvas>` is

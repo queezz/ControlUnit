@@ -1,3 +1,23 @@
+## 4.34.0 — 2026-11-18
+
+queezz, on 4.33.0 at his big screen: "the collapsed bar still eats space,
+but now your plots don't fit on my big screen, so they would flow out of our
+laptop next to the rig..", then "The plot view size was correct before your
+last commits".
+
+- **A folded chart becomes a chip.** It leaves the column and waits in the
+  Charts row (until now "Pressure plots"), beside By gauge / By vessel,
+  named as its heading names it. A chip shows `quiet` when the page folded
+  the chart for a quiet Ip. Pressing the chip opens the chart where it
+  stood. A fold now costs no row.
+- **Chart heights are back to 4.32.0's:** 220 px for plasma and 200 px for
+  the pressure charts, in Operate and Observe. 4.33.0's growth is gone. A
+  fit-to-window was tried and dropped: on a 2000x1037 screen it shrank all
+  three charts to 147 px, and on a 1366x768 laptop they still did not fit.
+- **Monitor measures instead of summing.** It still shares the window
+  among the open charts, but now measures the column, so it ends inside
+  the window: 1014 of 1037 px and 745 of 768 px, with no scroll.
+
 ## 4.33.0 — 2026-11-18
 
 queezz, with a screenshot of the Live tab with two charts folded:

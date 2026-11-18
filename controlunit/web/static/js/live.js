@@ -806,20 +806,21 @@
      * 20260907-023785d0). At ratio 1 the same code was stable, which is why
      * the rig's own screen and every browser on this Windows box were fine.
      */
-    /* The height the open charts share out of the window, or null. Monitor
-       gives the charts the whole window at no less than 140px each. Operate
-       and Observe on a wide screen do the same but never draw a chart lower
-       than its own declared height: a fold gives its room to the charts
-       still open, and with every chart open the page is what it always was
-       (queezz, 2026-11-18: "Collapsed views still consume a lot of vertical
-       spaces there..."). A phone keeps the declared heights. */
+    /* Operate and Observe draw every chart at its declared height, the size
+       that worked (queezz, 2026-11-18: "The plot view size was correct before
+       your last commits"); a fold costs no row instead, its chart waiting as
+       a chip. 4.33.0 grew the open charts into the room folds left, and on
+       his big screen they ran past the window ("they would flow out of our
+       laptop"); fitting them to the window instead shrank all three to 147px
+       on that same screen and still did not fit a 768px laptop. Monitor alone
+       shares the window among the open charts, at no less than 140px each. */
     var plotHeight = null;
-    var FILL_WIDE = "(min-width: 1200px)";
+    var FIT_FLOOR = 140;
+    var FIT_GAP = 12;
     function logicalHeight(canvas) {
         var declared = Number(canvas.dataset.height);
         declared = (isFinite(declared) && declared > 0) ? declared : 220;
-        if (plotHeight === null) return declared;
-        return mode === "monitor" ? plotHeight : Math.max(declared, plotHeight);
+        return (mode === "monitor" && plotHeight !== null) ? plotHeight : declared;
     }
 
     /* The drawing context and the panel's size in CSS pixels, or null when
@@ -1227,34 +1228,40 @@
         });
     }
 
-    function fills() {
-        if (mode === "monitor") return true;
-        return Boolean(window.matchMedia && window.matchMedia(FILL_WIDE).matches);
+    /* Measured, not summed: the column's own extent as laid out now, less
+       the canvases it holds, is everything that is not a chart, so the room
+       left for the charts is exact whatever sits above them. The first try,
+       a sum of parts copied from Monitor, missed margins and ran 15px past
+       the window. */
+    function fitHeight() {
+        if (mode !== "monitor") return null;
+        var main = root.querySelector('.page-main');
+        if (!main) return null;
+        var open = [];
+        var bottom = -Infinity;
+        Array.prototype.forEach.call(main.children, function (child) {
+            var style = getComputedStyle(child);
+            if (style.display === "none" || style.position === "fixed" || style.position === "absolute") return;
+            var rect = child.getBoundingClientRect();
+            if (!rect.height) return;
+            bottom = Math.max(bottom, rect.bottom + (parseFloat(style.marginBottom) || 0));
+            if (child.classList.contains('chart') && child.open !== false) {
+                var canvas = child.querySelector('canvas');
+                if (canvas && anyChosen(canvas)) open.push(canvas);
+            }
+        });
+        if (!open.length || !isFinite(bottom)) return null;
+        var top = main.getBoundingClientRect().top;
+        var charts = open.reduce(function (sum, canvas) {
+            return sum + canvas.getBoundingClientRect().height;
+        }, 0);
+        var rest = bottom - top - charts;
+        var room = window.innerHeight - (top + (window.scrollY || 0)) - FIT_GAP - rest;
+        return Math.max(FIT_FLOOR, Math.floor(room / open.length));
     }
 
     function drawAll() {
-        plotHeight = null;
-        if (fills() && root.querySelector('.page-main')) {
-            var main = root.querySelector('.page-main');
-            var occupied = 0, active = 0;
-            Array.prototype.forEach.call(main.children, function (child) {
-                var style = getComputedStyle(child);
-                if (style.display === "none" || style.position === "fixed" || style.position === "absolute") return;
-                var margins = (parseFloat(style.marginTop) || 0) + (parseFloat(style.marginBottom) || 0);
-                if (child.classList.contains('chart')) {
-                    var canvas = child.querySelector('canvas');
-                    // A folded panel draws nothing and asks for no height.
-                    if (canvas && anyChosen(canvas) && child.open !== false) active += 1;
-                    occupied += (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0) + 2 + margins;
-                    Array.prototype.forEach.call(child.children, function (part) {
-                        if (part.tagName === 'CANVAS') return;
-                        var ps = getComputedStyle(part);
-                        if (ps.display !== 'none') occupied += part.getBoundingClientRect().height + (parseFloat(ps.marginTop) || 0) + (parseFloat(ps.marginBottom) || 0);
-                    });
-                } else occupied += child.getBoundingClientRect().height + margins;
-            });
-            if (active) plotHeight = Math.max(140, Math.floor((window.innerHeight - parseFloat(getComputedStyle(document.querySelector(".container")).paddingTop) - 20 - occupied) / active));
-        }
+        plotHeight = fitHeight();
         [[plasma, "span-plasma", false, PLASMA_SCALES[view.plasmaScale] || null],
          [gauges, "span-ig", view.pressureGroup === "vessel" ? view.upstreamLog : view.igLog, null],
          [baratrons, "span-bar", view.pressureGroup === "vessel" ? view.downstreamLog : view.barLog, null]].forEach(function (panel) {
@@ -1273,6 +1280,7 @@
             span(panel[1], drawn);
             paintLegend(canvas, drawn);
         });
+        paintChartChips();
         reflectPreset();
     }
 
@@ -1301,6 +1309,65 @@
         section.open = open;
     }
 
+    /* A folded chart leaves the column and waits as a chip in the Charts
+       row, the way a hidden readout waits as a pill (queezz, 2026-11-18:
+       "the collapsed bar still eats space"; he chose chips). The chip names
+       the chart as its heading does today, says `quiet` when the page folded
+       it for a quiet curve, and opens it again where it stood. The row is
+       rebuilt only when the set of folded charts changes, so a chip under
+       the pointer or the keyboard is not replaced on every poll. */
+    var chipsShown = null;
+
+    function chartName(section) {
+        var head = section.querySelector(".fold-name");
+        var title = head ? head.textContent : section.getAttribute("aria-label") || "";
+        return title.split(" \u00b7 ")[0].split(",")[0].trim();
+    }
+
+    function chartSections() {
+        return [plasma, gauges, baratrons].map(function (canvas) {
+            return canvas && canvas.parentNode;
+        }).filter(function (section) { return section && section.tagName === "DETAILS"; });
+    }
+
+    function paintChartChips() {
+        var host = root.querySelector('[data-role="chart-chips"]');
+        if (!host) return;
+        var folded = chartSections().filter(function (section) { return !section.open; });
+        var key = folded.map(function (section) {
+            return section.dataset.fold + (section.dataset.quietFold === "folded" ? ":q" : "") + "=" + chartName(section);
+        }).join("|");
+        if (key === chipsShown) return;
+        chipsShown = key;
+        while (host.firstChild) host.removeChild(host.firstChild);
+        folded.forEach(function (section) {
+            var chip = document.createElement("button");
+            chip.type = "button";
+            chip.className = "pen chart-chip";
+            chip.dataset.unfold = section.dataset.fold;
+            chip.setAttribute("aria-pressed", "false");
+            var quiet = section.dataset.quietFold === "folded";
+            chip.title = "Show the " + chartName(section) + " chart again";
+            chip.setAttribute("aria-label", chip.title + (quiet ? "; its curve is quiet" : ""));
+            var name = document.createElement("span");
+            name.textContent = chartName(section);
+            chip.appendChild(name);
+            if (quiet) {
+                var aside = document.createElement("span");
+                aside.className = "pen-aside";
+                aside.textContent = "quiet";
+                chip.appendChild(aside);
+            }
+            chip.addEventListener("click", function () {
+                section.open = true;
+                var head = section.querySelector("summary");
+                if (head && head.focus) head.focus({preventScroll: true});
+            });
+            host.appendChild(chip);
+        });
+        host.hidden = folded.length === 0;
+    }
+
     function watchQuietFold(canvas) {
         var section = canvas && canvas.parentNode;
         if (!section || section.tagName !== "DETAILS" || !section.addEventListener) return;
@@ -1315,6 +1382,12 @@
                 remember();
             }
             drawAll();
+            // Folded by a press on its heading, the chart has left the column:
+            // the chip that brings it back takes the focus.
+            if (!section.open) {
+                var chip = root.querySelector('[data-role="chart-chips"] [data-unfold="' + section.dataset.fold + '"]');
+                if (chip && chip.focus) chip.focus({preventScroll: true});
+            }
         });
     }
 
