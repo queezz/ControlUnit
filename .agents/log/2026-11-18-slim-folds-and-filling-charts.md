@@ -73,9 +73,33 @@ charts that fill the window.
 The page still scrolls 73 px at both heights. That is the right rail (This
 run ends at 1082 px), not the charts; the chart column ends at 921 of 940.
 
-## Not done
+## Deployed, 17:24
 
-Not deployed. The rig is on 4.32.0 and recording. queezz's own tab showed
-v4.30.1 in the screenshot, so it needs a reload to see any of this.
+queezz: "Push and deploy". Pushed `383d2f4..1e22a77`, and the deploy used
+the same script as 4.32.0:
+- **Before.** The rig was recording `cu_20261118_150922.csv` (811 samples
+  at 10 s) with no outputs live.
+- **Stop.** SIGTERM through the graceful stop, status 143.
+- **Pull.** To `1e22a77`, and `compileall` was clean.
+- **Restart.** The Log said "Restored from the last run: Pd Torr 1e-6, Pu2
+  Torr 1e-5, sampling 10 s".
+- **Recording again.** Take over from the Pi, then start. The new run is
+  `cu_20261118_172457.csv` at 10 s. Ip `quiet_within` 0.06, reading
+  −0.013 A.
+
+**The rig's own Live page at 1644x940** (read only):
+- v4.33.0;
+- the plasma chart folded itself to 37 px, reading "Ip quiet · last 20.0 s ·
+  3 samples";
+- the two pressure charts open, sharing the window at 211 px each instead of
+  200.
+
+The chart column there ends at 955 of 940 px. The sharing overshoots by
+15 px with two charts open (with one open, on the scratch instance, it fit).
+That is a small remainder in the height sum, worth a look next time the
+layout is touched.
+
+queezz's own tab showed v4.30.1 in his screenshot, so it needs a reload to
+show any of this.
 
 agent: claude
