@@ -89,8 +89,11 @@ it stops the program only when the outputs are already at zero, because
 a killed process leaves the DACs holding whatever they held. (4.30.0 adds
 that path in code: SIGTERM, SIGHUP and SIGINT stop the run through Stop,
 outputs to zero, before the program ends, and the Log's last line says
-why. It has not yet been seen doing so on the rig; until it has, this
-rule stands as written.) Asked to
+why. On the rig it has ended the program cleanly twice: idle on
+2026-11-16, and recording on 2026-11-18 ("the run was stopped first,
+outputs to zero"). Both times the outputs were already at zero, so it has
+not yet been seen zeroing a live output; until it has, this rule stands as
+written.) Asked to
 set, the same gates as a browser apply: the Remote switch on the rig's
 screen must be on, and the name and the lab's word come from a
 machine-local file, never git.

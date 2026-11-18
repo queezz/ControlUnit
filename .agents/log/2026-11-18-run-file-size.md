@@ -33,10 +33,39 @@ file size, not just samples? I need MB, or Kb. In the current run."
   scroll at 1440x1000 and 1440x700. No console errors.
 - `lab stop`: both processes gone, 48937 free.
 
-## Not done
+## Deployed, 12:57
 
-Not deployed. The rig was in Kawabata's run when the request came (Remote
-on, measuring since 11-16 17:37). The pull waits for an idle rig and
-queezz's word.
+queezz chose "Push, deploy later", then: "You can stop, deploy, and
+restart. No one is working, we have a meeting for the whole lab". Pushed
+`24bb660..b0c22a3`.
+
+At the time the rig was recording with no outputs live. The run was
+`cu_20261116_173717.csv`: 68555 samples at 10 s, with Pd at 1e-6 and Pu2
+at 1e-5 (Torr), and Kawabata held control from `.8`. A script from the
+Pi's `/tmp` (it removed itself and its cookie jar) did the deploy:
+- **Stop.** SIGTERM to the 4.30.1 program. The Log ends "Control released
+  (acquisition stopped)" and "Program closing: SIGTERM, asked to stop by
+  another program …; the run was stopped first, outputs to zero". The
+  launcher wrote "exited with status 143". This is the graceful stop's
+  first run on the rig while recording.
+- **Pull.** `pull --ff-only` to `b0c22a3`, and `compileall` was clean.
+- **Restart.** Started through `~/Desktop/aktest.sh` in lxterminal on
+  `:0`. It answered as 4.31.0 "idle, not recording", and the Log said
+  "Restored from the last run: Pd Torr 1e-6, Pu2 Torr 1e-5, sampling 10 s".
+  No gauge had to be set by hand.
+- **Recording again.** As the roster's Kuzmin Arseniy from the Pi itself:
+  take over, then start acquisition. The new run is
+  `cu_20261118_125740.csv` at 10 s. `/api/state` gave `run.bytes` 1892
+  after two samples, and `ls -l` gave 1892 for the same file.
+- **Kikusui.** Telemetry LOST eleven seconds in: the supply is off, with
+  nobody at the rig.
+
+AGENTS.md's note on the graceful stop now records both times it has been
+seen on the rig. The stop rule stands, because no output has yet been live
+when it ran.
+
+`controlunit.log` still fails a UTF-8 read on one byte. It is 4.30.0's
+degree sign of 2026-11-16 16:40:51 at offset 69418329, and the 2.2 MB
+written after it decode cleanly.
 
 agent: claude
